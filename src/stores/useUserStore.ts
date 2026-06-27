@@ -124,25 +124,7 @@ export const useUserStore = create<UserState & UserActions>()(
     }),
     {
       name: 'canwin-users',
-      storage: {
-        getItem: (name: string) => {
-          try {
-            const v = localStorage.getItem(name)
-            localStorage.setItem('debug-persist-get', JSON.stringify({ name, hasValue: !!v, valuePreview: v ? v.slice(0,80) : null, time: Date.now() }))
-            return v
-          } catch (e) {
-            localStorage.setItem('debug-persist-get', JSON.stringify({ name, error: String(e), time: Date.now() }))
-            return null
-          }
-        },
-        setItem: (name: string, value: any) => {
-          localStorage.setItem(name, typeof value === 'string' ? value : JSON.stringify(value))
-        },
-        removeItem: (name: string) => localStorage.removeItem(name),
-      } as any,
-      onRehydrateStorage: (state) => {
-        localStorage.setItem('debug-persist-rehydrate', JSON.stringify({ currentUser: state?.currentUser?.name, userCount: state?.users?.length, time: Date.now() }))
-      },
+      storage: safeStorage,
     }
   )
 )

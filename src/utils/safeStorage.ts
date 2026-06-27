@@ -1,9 +1,10 @@
+import { createJSONStorage } from 'zustand/middleware'
+
 /**
  * 安全 localStorage 封装 — 所有 Zustand persist store 共用
  * 防止 localStorage 满、损坏、或权限问题导致整个应用崩溃
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const safeStorage: any = {
+const safeLocalStorage = {
   getItem: (name: string) => {
     try {
       const value = localStorage.getItem(name)
@@ -36,3 +37,5 @@ export const safeStorage: any = {
     }
   },
 }
+
+export const safeStorage = createJSONStorage(() => safeLocalStorage)
