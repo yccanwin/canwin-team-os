@@ -79,10 +79,9 @@ export function useSupabaseSync(
       .select('data')
       .eq('team_id', teamId)
       .eq('table_name', tableName)
-      .single()
+      .maybeSingle()
       .then(({ data, error }) => {
         if (error) {
-          if (error.code === 'PGRST116') return // 无数据，正常
           console.warn(`[Supabase] 读取 ${tableName} 失败:`, error.message)
           return
         }

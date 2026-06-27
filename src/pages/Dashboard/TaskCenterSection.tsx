@@ -2,6 +2,7 @@ import { useMemo, useState, memo } from 'react'
 import { Link } from 'react-router-dom'
 import { CheckSquare } from 'lucide-react'
 import StatusBadge from '@/components/StatusBadge'
+import { formatDate } from '@/utils/dateUtils'
 import { useTaskStore } from '@/stores/useTaskStore'
 import { useUserStore } from '@/stores/useUserStore'
 import type { Task } from '@/types'
@@ -121,7 +122,7 @@ const TaskCenterSection = memo(function TaskCenterSection() {
 
               {task.deadline && (
                 <span className="text-xs text-brand-200 whitespace-nowrap">
-                  {task.deadline.slice(5)}
+                  {formatDate(task.deadline).slice(5)}
                 </span>
               )}
             </div>
