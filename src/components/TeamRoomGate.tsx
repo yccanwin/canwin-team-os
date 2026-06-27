@@ -3,9 +3,16 @@ import { useTeamStore } from '@/stores/useTeamStore'
 import { isSupabaseConfigured } from '@/lib/supabase'
 import { Users, Plus, LogIn, AlertCircle } from 'lucide-react'
 
+const TEAM_CODE_PATTERN = /^[A-Z0-9_-]{3,24}$/
+
+function normalizeTeamCode(value: string): string {
+  return value.trim().toUpperCase()
+}
+
 export default function TeamRoomGate() {
   const { teamId, createTeam, joinTeam, teamName, setTeamName } = useTeamStore()
   const [mode, setMode] = useState<'create' | 'join' | null>(null)
+  const [customTeamCode, setCustomTeamCode] = useState('')
   const [joinCode, setJoinCode] = useState('')
   const [joinName, setJoinName] = useState('')
   const [error, setError] = useState('')
@@ -13,16 +20,28 @@ export default function TeamRoomGate() {
   const supabaseReady = isSupabaseConfigured()
 
   const handleCreate = () => {
-    const id = createTeam()
+    const normalizedCode = normalizeTeamCode(customTeamCode)
+    if (normalizedCode && !TEAM_CODE_PATTERN.test(normalizedCode)) {
+      setError('团队码需为 3-24 位字母、数字、- 或 _')
+      return
+    }
+
+    const id = createTeam(normalizedCode || undefined)
     setNewTeamCode(id)
   }
 
   const handleJoin = () => {
-    if (!joinCode.trim()) {
+    const normalizedCode = normalizeTeamCode(joinCode)
+    if (!normalizedCode) {
       setError('请输入团队码')
       return
     }
-    joinTeam(joinCode.trim())
+    if (!TEAM_CODE_PATTERN.test(normalizedCode)) {
+      setError('团队码需为 3-24 位字母、数字、- 或 _')
+      return
+    }
+
+    joinTeam(normalizedCode)
     if (joinName.trim()) setTeamName(joinName.trim())
   }
 
@@ -98,7 +117,7 @@ export default function TeamRoomGate() {
 
         <div className="grid gap-3">
           <button
-            onClick={() => setMode('create')}
+            onClick={() => { setMode('create'); setError('') }}
             disabled={!supabaseReady}
             className="flex items-center justify-center gap-2 py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
@@ -107,7 +126,7 @@ export default function TeamRoomGate() {
           </button>
 
           <button
-            onClick={() => setMode('join')}
+            onClick={() => { setMode('join'); setError('') }}
             disabled={!supabaseReady}
             className="flex items-center justify-center gap-2 py-3 bg-white text-gray-700 border border-gray-200 rounded-xl font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
@@ -130,6 +149,25 @@ export default function TeamRoomGate() {
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                自定义团队码（可选）
+              </label>
+              <input
+                type="text"
+                value={customTeamCode}
+                onChange={(e) => {
+                  setCustomTeamCode(normalizeTeamCode(e.target.value))
+                  setError('')
+                }}
+                placeholder="例如：CANWIN2026"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                留空则自动生成；可用字母、数字、- 或 _
+              </p>
+              {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+            </div>
             <button
               onClick={handleCreate}
               className="w-full py-2.5 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors"
@@ -148,8 +186,8 @@ export default function TeamRoomGate() {
               <input
                 type="text"
                 value={joinCode}
-                onChange={(e) => { setJoinCode(e.target.value); setError('') }}
-                placeholder="输入队长分享的 8 位团队码"
+                onChange={(e) => { setJoinCode(normalizeTeamCode(e.target.value)); setError('') }}
+                placeholder="输入队长分享的团队码"
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
               {error && <p className="text-xs text-red-500 mt-1">{error}</p>}

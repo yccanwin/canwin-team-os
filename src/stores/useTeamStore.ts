@@ -9,7 +9,7 @@ interface TeamState {
 }
 
 interface TeamActions {
-  createTeam: () => string
+  createTeam: (customId?: string) => string
   joinTeam: (id: string) => void
   leaveTeam: () => void
   setTeamName: (name: string) => void
@@ -21,9 +21,9 @@ export const useTeamStore = create<TeamState & TeamActions>()(
       teamId: null,
       teamName: '',
 
-      createTeam: () => {
-        const id = crypto.randomUUID().slice(0, 8)
-        set({ teamId: id, teamName: '' })
+      createTeam: (customId) => {
+        const id = customId?.trim() || crypto.randomUUID().slice(0, 8).toUpperCase()
+        set({ teamId: id })
         return id
       },
 
