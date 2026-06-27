@@ -8,6 +8,8 @@ import { useTaskStore } from '@/stores/useTaskStore'
 import { useVoteStore } from '@/stores/useVoteStore'
 import { useInventoryStore } from '@/stores/useInventoryStore'
 import { useActivityStore } from '@/stores/useActivityStore'
+import { useTeamStore } from '@/stores/useTeamStore'
+import { isSupabaseConfigured } from '@/lib/supabase'
 import { formatDate } from '@/utils/dateUtils'
 import BadgeFormModal from './BadgeFormModal'
 import GoalEditModal from '@/pages/Goals/GoalEditModal'
@@ -1017,8 +1019,102 @@ function MemberManagementTab() {
 // Tab 5: 系统维护
 // ============================================================
 
+// 团队同步信息卡片
+function TeamInfoCard() {
+  const { teamId, teamName, leaveTeam } = useTeamStore()
+  const [copied, setCopied] = useState(false)
+  const [leaveOpen, setLeaveOpen] = useState(false)
+  const supabaseReady = isSupabaseConfigured()
+
+  const handleCopy = async () => {
+    if (!teamId) return
+    await navigator.clipboard.writeText(teamId)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleLeave = () => {
+    leaveTeam()
+    setLeaveOpen(false)
+    window.location.reload()
+  }
+
+  if (!teamId) {
+    return (
+      <div className="bg-white rounded-card shadow-card p-6 mb-4">
+        <h3 className="font-heading text-sm font-semibold text-brand-400 mb-3">团队同步</h3>
+        <p className="text-xs text-brand-300">
+          未加入任何团队。刷新页面后可创建或加入团队。
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <div className="bg-white rounded-card shadow-card p-6 mb-4">
+        <h3 className="font-heading text-sm font-semibold text-brand-400 mb-3">
+          {supabaseReady ? '☁️ 团队同步' : '🔧 本地模式'}
+        </h3>
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between bg-brand-50 rounded-lg px-4 py-3">
+            <div>
+              <span className="text-xs text-brand-300">团队码</span>
+              <p className="text-sm font-mono font-semibold text-brand-400">{teamId}</p>
+            </div>
+            <button
+              onClick={handleCopy}
+              className="px-3 py-1.5 text-xs font-medium text-primary border border-primary/30 rounded-lg hover:bg-primary/5 transition-colors"
+            >
+              {copied ? '已复制' : '复制'}
+            </button>
+          </div>
+
+          {teamName && (
+            <p className="text-xs text-brand-300 bg-brand-50 rounded-lg px-4 py-2">
+              团队名称：{teamName}
+            </p>
+          )}
+
+          {supabaseReady && (
+            <p className="text-xs text-green-600 bg-green-50 rounded-lg px-4 py-2">
+              数据已同步到云端，队友加入此团队后数据自动共享
+            </p>
+          )}
+
+          {!supabaseReady && (
+            <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-4 py-2">
+              未配置 Supabase，数据仅保存在本地浏览器。配置后启用云端同步。
+            </p>
+          )}
+
+          <button
+            onClick={() => setLeaveOpen(true)}
+            className="w-full py-2 text-sm font-medium text-expense border border-expense/30 rounded-lg hover:bg-red-50 transition-colors"
+          >
+            离开此团队
+          </button>
+        </div>
+      </div>
+
+      <ConfirmDialog
+        isOpen={leaveOpen}
+        onConfirm={handleLeave}
+        onCancel={() => setLeaveOpen(false)}
+        title="离开团队"
+        message="离开后需要重新输入团队码才能加入。本地数据不会丢失。确定要离开吗？"
+        confirmLabel="确认离开"
+        cancelLabel="取消"
+        variant="danger"
+      />
+    </>
+  )
+}
+
 // 所有持久化 store 的 localStorage key（用于备份/恢复）
 const BACKUP_STORE_KEYS = [
+  'canwin-team',
   'canwin-users',
   'canwin-tasks',
   'canwin-finance',
@@ -1033,7 +1129,7 @@ const BACKUP_STORE_KEYS = [
   'canwin-photos',
   'canwin-toolbox',
   'canwin-warroom',
-  'calendar-storage',
+  'canwin-calendar',
 ]
 
 const BACKUP_KEY = 'canwin-last-backup'
@@ -1278,6 +1374,9 @@ function SystemMaintenanceTab() {
   return (
     <div>
       <h2 className="font-heading text-base font-semibold text-brand-400 mb-4">系统维护</h2>
+
+      {/* 团队同步信息 */}
+      <TeamInfoCard />
 
       {/* 警告区域 */}
       <div className="flex items-start gap-3 bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
