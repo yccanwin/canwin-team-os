@@ -1,13 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 
-// TODO: 替换为你的 Supabase 项目信息
-// 在 https://app.supabase.com → Project Settings → API 中获取
-const supabaseUrl = '__SUPABASE_URL__'
-const supabaseAnonKey = '__SUPABASE_ANON_KEY__'
-
-if (supabaseUrl.startsWith('__')) {
-  console.warn('[Supabase] 未配置 URL 和 Key，数据仅保存在本地 localStorage')
-}
+// Supabase 项目配置
+const supabaseUrl = 'https://agygfhmkazcbqaqwmljb.supabase.co'
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFneWdmaG1rYXpjYnFhcXdtbGpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1MzcyNzAsImV4cCI6MjA5ODExMzI3MH0.d1KrSXS57kvWzn1J8v0kBmuCAcNWI6g08bFcbmaSPs0'
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   db: { schema: 'public' },
