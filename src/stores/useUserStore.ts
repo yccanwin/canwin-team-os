@@ -135,11 +135,11 @@ export const useUserStore = create<UserState & UserActions>()(
             return null
           }
         },
-        setItem: (name: string, value: string) => {
-          localStorage.setItem(name, value)
+        setItem: (name: string, value: any) => {
+          localStorage.setItem(name, typeof value === 'string' ? value : JSON.stringify(value))
         },
         removeItem: (name: string) => localStorage.removeItem(name),
-      },
+      } as any,
       onRehydrateStorage: (state) => {
         localStorage.setItem('debug-persist-rehydrate', JSON.stringify({ currentUser: state?.currentUser?.name, userCount: state?.users?.length, time: Date.now() }))
       },
