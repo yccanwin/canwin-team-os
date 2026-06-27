@@ -1,0 +1,93 @@
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+import { safeStorage } from '@/utils/safeStorage'
+import type { Vote } from '@/types'
+import { mockVotes } from '@/data/mockData'
+
+interface VoteStats {
+  optionId: string
+  label: string
+  count: number
+  percentage: number
+}
+
+interface VoteState {
+  votes: Vote[]
+}
+
+interface VoteActions {
+  createVote: (vote: Omit<Vote, 'id' | 'votes'>) => void
+  deleteVote: (id: string) => void
+  castVote: (voteId: string, userId: string, optionId: string) => void
+  getVoteStats: (voteId: string) => VoteStats[]
+  closeVote: (id: string) => void
+  clearAllVotes: () => void
+}
+
+export const useVoteStore = create<VoteState & VoteActions>()(
+  persist(
+    (set, get) => ({
+      votes: mockVotes,
+
+      createVote: (vote) =>
+        set((state) => ({
+          votes: [
+            ...state.votes,
+            { ...vote, id: crypto.randomUUID(), votes: [] },
+          ],
+        })),
+
+      deleteVote: (id) =>
+        set((state) => ({
+          votes: state.votes.filter((v) => v.id !== id),
+        })),
+
+      castVote: (voteId, userId, optionId) =>
+        set((state) => ({
+          votes: state.votes.map((v) => {
+            if (v.id !== voteId) return v
+            // 一人一票，已投则忽略（不可改票）
+            const alreadyVoted = v.votes.some((r) => r.userId === userId)
+            if (alreadyVoted) return v
+            return {
+              ...v,
+              votes: [
+                ...v.votes,
+                { userId, optionId, votedAt: new Date().toISOString() },
+              ],
+            }
+          }),
+        })),
+
+      getVoteStats: (voteId) => {
+        const vote = get().votes.find((v) => v.id === voteId)
+        if (!vote) return []
+
+        const totalVotes = vote.votes.length
+        return vote.options.map((opt) => {
+          const count = vote.votes.filter(
+            (r) => r.optionId === opt.id
+          ).length
+          return {
+            optionId: opt.id,
+            label: opt.label,
+            count,
+            percentage: totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0,
+          }
+        })
+      },
+
+      closeVote: (id) =>
+        set((state) => ({
+          votes: state.votes.map((v) =>
+            v.id === id ? { ...v, isActive: false } : v
+          ),
+        })),
+
+      clearAllVotes: () => set({ votes: [] }),
+    }),
+    {
+      name: 'canwin-votes', storage: safeStorage,
+    }
+  )
+)

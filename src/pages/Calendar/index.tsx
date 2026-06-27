@@ -1,0 +1,562 @@
+import { useState, useMemo } from 'react'
+import {
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  CalendarDays,
+  Clock,
+  MapPin,
+  Trash2,
+  Pencil,
+  X,
+  User,
+} from 'lucide-react'
+import { useCalendarStore } from '@/stores/useCalendarStore'
+import { useTaskStore } from '@/stores/useTaskStore'
+import { useUserStore } from '@/stores/useUserStore'
+import type { CalendarEvent } from '@/types/calendar'
+
+// ============================================================
+// 常量
+// ============================================================
+const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
+const EVENT_COLORS = [
+  '#6366F1', // 紫色 primary
+  '#10B981', // 绿色 income
+  '#EF4444', // 红色 expense
+  '#3B82F6', // 蓝色 profit
+  '#F59E0B', // 橙色
+  '#8B5CF6', // 紫罗兰 cash
+]
+const TYPE_LABELS: Record<CalendarEvent['type'], string> = {
+  schedule: '行程',
+  task: '任务',
+  meeting: '会议',
+  other: '其他',
+}
+
+// ============================================================
+// 工具函数
+// ============================================================
+function getDaysInMonth(year: number, month: number) {
+  return new Date(year, month + 1, 0).getDate()
+}
+
+function getFirstDayOfMonth(year: number, month: number) {
+  return new Date(year, month, 1).getDay()
+}
+
+function formatDate(y: number, m: number, d: number) {
+  return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+}
+
+// ============================================================
+// 页面组件
+// ============================================================
+export default function CalendarPage() {
+  const today = new Date()
+  const [year, setYear] = useState(today.getFullYear())
+  const [month, setMonth] = useState(today.getMonth())
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
+  const [showForm, setShowForm] = useState(false)
+
+  // 表单状态
+  const [formTitle, setFormTitle] = useState('')
+  const [formDesc, setFormDesc] = useState('')
+  const [formType, setFormType] = useState<CalendarEvent['type']>('schedule')
+  const [formStartTime, setFormStartTime] = useState('')
+  const [formEndTime, setFormEndTime] = useState('')
+  const [formEndDate, setFormEndDate] = useState('')
+  const [formColor, setFormColor] = useState(EVENT_COLORS[0])
+
+  // Store
+  const events = useCalendarStore((s) => s.events)
+  const tasks = useTaskStore((s) => s.tasks)
+  const addEvent = useCalendarStore((s) => s.addEvent)
+  const updateEvent = useCalendarStore((s) => s.updateEvent)
+  const deleteEvent = useCalendarStore((s) => s.deleteEvent)
+  const currentUser = useUserStore((s) => s.currentUser)
+
+  // 当月数据
+  const daysInMonth = getDaysInMonth(year, month)
+  const firstDay = getFirstDayOfMonth(year, month)
+  const yearMonth = `${year}-${String(month + 1).padStart(2, '0')}`
+
+  // 当月事件按日期分组
+  const eventsByDate = useMemo(() => {
+    const map: Record<string, CalendarEvent[]> = {}
+    events.forEach((e) => {
+      // 跨日事件在每一天都显示
+      if (e.endDate) {
+        const start = new Date(e.startDate)
+        const end = new Date(e.endDate)
+        const curr = new Date(start)
+        while (curr <= end) {
+          const dateKey = formatDate(curr.getFullYear(), curr.getMonth(), curr.getDate())
+          if (!map[dateKey]) map[dateKey] = []
+          map[dateKey].push(e)
+          curr.setDate(curr.getDate() + 1)
+        }
+      } else {
+        if (!map[e.startDate]) map[e.startDate] = []
+        map[e.startDate].push(e)
+      }
+    })
+    // 追加任务截止日
+    tasks.filter((t) => t.deadline).forEach((t) => {
+      const key = t.deadline!
+      if (!map[key]) map[key] = []
+      map[key].push({
+        id: `task-${t.id}`,
+        title: t.title,
+        startDate: t.deadline!,
+        creatorId: t.assigneeId,
+        creatorName: '',
+        type: 'task' as const,
+        color: '#EF4444',
+        createdAt: t.createdAt,
+        description: t.description,
+        _isTaskDeadline: true,
+      } as any)
+    })
+    return map
+  }, [events, tasks])
+
+  // 选中日的事件列表
+  const selectedEvents = selectedDate ? eventsByDate[selectedDate] || [] : []
+
+  // 导航
+  const prevMonth = () => {
+    if (month === 0) {
+      setYear(year - 1)
+      setMonth(11)
+    } else {
+      setMonth(month - 1)
+    }
+  }
+  const nextMonth = () => {
+    if (month === 11) {
+      setYear(year + 1)
+      setMonth(0)
+    } else {
+      setMonth(month + 1)
+    }
+  }
+
+  // 打开新建表单
+  const openNewForm = () => {
+    if (!currentUser) return
+    setEditingEvent(null)
+    const date = selectedDate || formatDate(today.getFullYear(), today.getMonth(), today.getDate())
+    setFormTitle('')
+    setFormDesc('')
+    setFormType('schedule')
+    setFormStartTime('')
+    setFormEndTime('')
+    setFormEndDate('')
+    setFormColor(EVENT_COLORS[0])
+    setSelectedDate(date)
+    setShowForm(true)
+  }
+
+  // 打开编辑表单
+  const openEditForm = (event: CalendarEvent) => {
+    setEditingEvent(event)
+    setFormTitle(event.title)
+    setFormDesc(event.description || '')
+    setFormType(event.type)
+    setFormStartTime(event.startTime || '')
+    setFormEndTime(event.endTime || '')
+    setFormEndDate(event.endDate || '')
+    setFormColor(event.color || EVENT_COLORS[0])
+    setShowForm(true)
+  }
+
+  // 提交表单
+  const handleSubmit = () => {
+    if (!formTitle.trim() || !currentUser) return
+    const baseDate = selectedDate || formatDate(today.getFullYear(), today.getMonth(), today.getDate())
+
+    const payload = {
+      title: formTitle.trim(),
+      description: formDesc.trim() || undefined,
+      startDate: baseDate,
+      endDate: formEndDate || undefined,
+      startTime: formStartTime || undefined,
+      endTime: formEndTime || undefined,
+      creatorId: currentUser.id,
+      creatorName: currentUser.name,
+      color: formColor,
+      type: formType,
+    }
+
+    if (editingEvent) {
+      updateEvent(editingEvent.id, payload)
+    } else {
+      addEvent(payload)
+    }
+
+    setShowForm(false)
+    setEditingEvent(null)
+  }
+
+  // 删除事件
+  const handleDelete = (id: string) => {
+    deleteEvent(id)
+    setShowForm(false)
+    setEditingEvent(null)
+  }
+
+  // 今天按钮
+  const goToday = () => {
+    const now = new Date()
+    setYear(now.getFullYear())
+    setMonth(now.getMonth())
+    setSelectedDate(formatDate(now.getFullYear(), now.getMonth(), now.getDate()))
+  }
+
+  // 渲染日期格
+  const totalCells = firstDay + daysInMonth
+  const rows = Math.ceil(totalCells / 7)
+  const cells: (number | null)[] = []
+  for (let i = 0; i < firstDay; i++) cells.push(null)
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d)
+
+  const todayStr = formatDate(today.getFullYear(), today.getMonth(), today.getDate())
+
+  return (
+    <div className="max-w-6xl mx-auto">
+      {/* 页面标题 */}
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold text-brand-400 font-heading">📅 日历中心</h1>
+        <button
+          onClick={openNewForm}
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark transition-colors"
+          disabled={!currentUser}
+        >
+          <Plus className="w-4 h-4" />
+          新建行程
+        </button>
+      </div>
+
+      {/* 主布局：日历 + 侧边详情 */}
+      <div className="flex flex-col lg:flex-row gap-4">
+        {/* 左侧日历 */}
+        <div className="flex-1 bg-white rounded-xl shadow-card border border-brand-100 overflow-hidden">
+          {/* 月份导航 */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-brand-100">
+            <button
+              onClick={prevMonth}
+              className="p-1.5 rounded-lg hover:bg-brand-50 transition-colors"
+            >
+              <ChevronLeft className="w-5 h-5 text-brand-400" />
+            </button>
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-bold text-brand-400 font-heading">
+                {year}年 {month + 1}月
+              </h2>
+              <button
+                onClick={goToday}
+                className="text-xs px-2.5 py-1 rounded-full border border-brand-100 text-brand-300 hover:bg-brand-50 transition-colors"
+              >
+                今天
+              </button>
+            </div>
+            <button
+              onClick={nextMonth}
+              className="p-1.5 rounded-lg hover:bg-brand-50 transition-colors"
+            >
+              <ChevronRight className="w-5 h-5 text-brand-400" />
+            </button>
+          </div>
+
+          {/* 星期头 */}
+          <div className="grid grid-cols-7 border-b border-brand-100">
+            {WEEKDAYS.map((w, i) => (
+              <div
+                key={w}
+                className={`py-2 text-center text-xs font-medium ${
+                  i === 0 || i === 6 ? 'text-red-400' : 'text-brand-200'
+                }`}
+              >
+                {w}
+              </div>
+            ))}
+          </div>
+
+          {/* 日期网格 */}
+          <div
+            className="grid grid-cols-7"
+            style={{ gridTemplateRows: `repeat(${rows}, minmax(80px, 1fr))` }}
+          >
+            {cells.map((day, idx) => {
+              if (day === null) {
+                return <div key={`empty-${idx}`} className="border-b border-r border-brand-100/50 bg-brand-50/30" />
+              }
+
+              const dateStr = formatDate(year, month, day)
+              const isToday = dateStr === todayStr
+              const isSelected = dateStr === selectedDate
+              const dayEvents = eventsByDate[dateStr] || []
+
+              return (
+                <button
+                  key={dateStr}
+                  onClick={() => setSelectedDate(dateStr)}
+                  className={`
+                    border-b border-r border-brand-100/50 p-1.5 text-left
+                    transition-colors hover:bg-primary/[0.03]
+                    ${isSelected ? 'bg-primary/[0.06] ring-1 ring-inset ring-primary/20' : ''}
+                  `}
+                >
+                  <span
+                    className={`
+                      inline-flex items-center justify-center w-7 h-7 rounded-full text-sm
+                      ${isToday ? 'bg-primary text-white font-bold' : 'text-brand-400'}
+                    `}
+                  >
+                    {day}
+                  </span>
+                  <div className="mt-0.5 space-y-0.5">
+                    {dayEvents.slice(0, 3).map((ev) => (
+                      <div
+                        key={ev.id}
+                        className="truncate rounded px-1.5 py-px text-[10px] text-white leading-tight"
+                        style={{ backgroundColor: ev.color || EVENT_COLORS[0] }}
+                        title={ev.title}
+                      >
+                        {(ev as any)._isTaskDeadline ? '⏰ ' : ''}{ev.startTime ? `${ev.startTime} ` : ''}{ev.title}
+                      </div>
+                    ))}
+                    {dayEvents.length > 3 && (
+                      <span className="text-[10px] text-brand-200 pl-1.5">
+                        +{dayEvents.length - 3} 项
+                      </span>
+                    )}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* 右侧事件详情 */}
+        <div className="w-full lg:w-72 shrink-0">
+          <div className="bg-white rounded-xl shadow-card border border-brand-100 p-4">
+            {selectedDate ? (
+              <>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-bold text-brand-400 font-heading">
+                    <CalendarDays className="w-4 h-4 inline mr-1.5 text-primary" />
+                    {selectedDate}
+                  </h3>
+                  <button
+                    onClick={openNewForm}
+                    className="p-1 rounded-lg hover:bg-brand-50 transition-colors"
+                    title="新建事件"
+                  >
+                    <Plus className="w-4 h-4 text-primary" />
+                  </button>
+                </div>
+
+                {selectedEvents.length === 0 ? (
+                  <p className="text-sm text-brand-200 py-4 text-center">暂无行程安排</p>
+                ) : (
+                  <div className="space-y-2">
+                    {selectedEvents.map((ev) => (
+                      <div
+                        key={ev.id}
+                        className="rounded-lg border border-brand-100 p-3 hover:border-brand-200 transition-colors cursor-pointer"
+                        onClick={() => { if (!(ev as any)._isTaskDeadline) openEditForm(ev) }}
+                        style={{ borderLeftColor: ev.color || EVENT_COLORS[0], borderLeftWidth: 3 }}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-sm font-medium text-brand-400">{ev.title}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-50 text-brand-200 shrink-0">
+                            {TYPE_LABELS[ev.type]}
+                          </span>
+                        </div>
+                        {(ev.startTime || ev.endTime) && (
+                          <div className="flex items-center gap-1 mt-1.5 text-xs text-brand-200">
+                            <Clock className="w-3 h-3" />
+                            {ev.startTime || '--'} ~ {ev.endTime || '--'}
+                          </div>
+                        )}
+                        {ev.endDate && ev.endDate !== ev.startDate && (
+                          <div className="flex items-center gap-1 mt-1 text-xs text-brand-200">
+                            <CalendarDays className="w-3 h-3" />
+                            {ev.startDate} → {ev.endDate}
+                          </div>
+                        )}
+                        <div className="flex items-center gap-1 mt-1.5 text-xs text-brand-200">
+                          <User className="w-3 h-3" />
+                          {ev.creatorName}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-brand-200 py-4 text-center">点击日期查看行程</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 新建/编辑弹窗 */}
+      {showForm && currentUser && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => {
+              setShowForm(false)
+              setEditingEvent(null)
+            }}
+          />
+          <div className="relative bg-white rounded-2xl shadow-2xl px-6 py-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
+            {/* 头部 */}
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="font-heading text-lg font-bold text-brand-400">
+                {editingEvent ? '编辑行程' : '新建行程'}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowForm(false)
+                  setEditingEvent(null)
+                }}
+                className="p-1 rounded-lg hover:bg-brand-50 transition-colors"
+              >
+                <X className="w-5 h-5 text-brand-300" />
+              </button>
+            </div>
+
+            {/* 表单 */}
+            <div className="space-y-4">
+              {/* 标题 */}
+              <div>
+                <label className="block text-sm font-medium text-brand-400 mb-1">标题 *</label>
+                <input
+                  type="text"
+                  value={formTitle}
+                  onChange={(e) => setFormTitle(e.target.value)}
+                  placeholder="如：团队周会、客户拜访"
+                  className="w-full px-3 py-2 border border-brand-100 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                  autoFocus
+                />
+              </div>
+
+              {/* 类型 + 颜色 */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-brand-400 mb-1">类型</label>
+                  <select
+                    value={formType}
+                    onChange={(e) => setFormType(e.target.value as CalendarEvent['type'])}
+                    className="w-full px-3 py-2 border border-brand-100 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                  >
+                    <option value="schedule">行程</option>
+                    <option value="task">任务</option>
+                    <option value="meeting">会议</option>
+                    <option value="other">其他</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-brand-400 mb-1">颜色</label>
+                  <div className="flex items-center gap-1.5 pt-1.5">
+                    {EVENT_COLORS.map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => setFormColor(c)}
+                        className={`w-6 h-6 rounded-full border-2 transition-all ${
+                          formColor === c ? 'border-brand-400 scale-110' : 'border-transparent'
+                        }`}
+                        style={{ backgroundColor: c }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* 描述 */}
+              <div>
+                <label className="block text-sm font-medium text-brand-400 mb-1">描述</label>
+                <textarea
+                  value={formDesc}
+                  onChange={(e) => setFormDesc(e.target.value)}
+                  placeholder="补充说明..."
+                  rows={2}
+                  className="w-full px-3 py-2 border border-brand-100 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none"
+                />
+              </div>
+
+              {/* 时间 */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-brand-400 mb-1">开始时间</label>
+                  <input
+                    type="time"
+                    value={formStartTime}
+                    onChange={(e) => setFormStartTime(e.target.value)}
+                    className="w-full px-3 py-2 border border-brand-100 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-brand-400 mb-1">结束时间</label>
+                  <input
+                    type="time"
+                    value={formEndTime}
+                    onChange={(e) => setFormEndTime(e.target.value)}
+                    className="w-full px-3 py-2 border border-brand-100 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* 结束日期（跨日事件） */}
+              <div>
+                <label className="block text-sm font-medium text-brand-400 mb-1">结束日期（可选，跨日时填写）</label>
+                <input
+                  type="date"
+                  value={formEndDate}
+                  onChange={(e) => setFormEndDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-brand-100 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                />
+              </div>
+            </div>
+
+            {/* 按钮 */}
+            <div className="flex gap-2 mt-6">
+              {editingEvent && (
+                <button
+                  onClick={() => handleDelete(editingEvent.id)}
+                  className="px-4 py-2 text-sm font-medium text-red-500 bg-red-50 rounded-lg hover:bg-red-100 transition-colors flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  删除
+                </button>
+              )}
+              <div className="flex-1" />
+              <button
+                onClick={() => {
+                  setShowForm(false)
+                  setEditingEvent(null)
+                }}
+                className="px-4 py-2 text-sm font-medium text-brand-400 bg-brand-50 rounded-lg hover:bg-brand-100 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={!formTitle.trim()}
+                className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {editingEvent ? '保存' : '创建'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
