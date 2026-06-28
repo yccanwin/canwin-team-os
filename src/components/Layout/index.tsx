@@ -15,7 +15,7 @@ import {
   X,
   BarChart3,
   ChevronDown,
-  Lock,
+  LogOut,
   User,
   CalendarDays,
   Wrench,
@@ -63,15 +63,11 @@ const NAV_GROUPS = [
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [userDropdownOpen, setUserDropdownOpen] = useState(false)
-  const [passwordModal, setPasswordModal] = useState<string | null>(null)
-  const [passwordInput, setPasswordInput] = useState('')
-  const [passwordError, setPasswordError] = useState('')
   const dropdownRef = useRef<HTMLDivElement>(null)
   const location = useLocation()
 
   const currentUser = useUserStore((s) => s.currentUser)
-  const users = useUserStore((s) => s.users)
-  const switchUser = useUserStore((s) => s.switchUser)
+  const logout = useUserStore((s) => s.logout)
 
   // 点击外部关闭下拉
   useEffect(() => {
@@ -104,44 +100,8 @@ export default function Layout() {
     )
   }
 
-  const handleSwitchUser = (userId: string) => {
-    const targetUser = users.find((u) => u.id === userId)
-    if (!targetUser) return
-
-    // 切换到自己，直接关闭
-    if (targetUser.id === currentUser.id) {
-      setUserDropdownOpen(false)
-      return
-    }
-
-    // 目标用户有密码 → 需要输入密码
-    if (targetUser.switchPassword) {
-      setPasswordModal(userId)
-      setPasswordInput('')
-      setPasswordError('')
-      return
-    }
-
-    // 无密码 → 直接切换
-    switchUser(userId)
-    setUserDropdownOpen(false)
-  }
-
-  const handlePasswordSubmit = () => {
-    const targetUser = users.find((u) => u.id === passwordModal)
-    if (targetUser && passwordInput === targetUser.switchPassword) {
-      switchUser(passwordModal!)
-      setPasswordModal(null)
-      setUserDropdownOpen(false)
-      setPasswordInput('')
-      setPasswordError('')
-    } else {
-      setPasswordError('密码错误')
-    }
-  }
-
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden page-surface">
       {/* 移动端遮罩 */}
       {sidebarOpen && (
         <div
@@ -155,15 +115,15 @@ export default function Layout() {
         className={`
           fixed lg:static inset-y-0 left-0 z-30
           flex flex-col
-          w-[200px] bg-[#1E293B] text-white
+          w-[200px] bg-[#172033] text-white shadow-2xl shadow-slate-900/20
           transition-transform duration-300 ease-in-out
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
       >
         {/* Logo */}
-        <div className="px-6 py-5 border-b border-white/10 bg-gradient-to-br from-primary/10 to-primary/5">
+        <div className="px-6 py-5 border-b border-white/10 bg-gradient-to-br from-primary/20 to-emerald-400/10">
           <div className="flex items-center gap-2">
-            <BarChart3 className="w-7 h-7 text-primary" />
+            <BarChart3 className="w-7 h-7 text-primary animate-soft-pulse" />
             <span className="text-lg font-semibold tracking-wide">翻身小队</span>
           </div>
           <p className="text-xs text-gray-400 mt-1 ml-9">赢在未来</p>
@@ -220,9 +180,9 @@ export default function Layout() {
       </aside>
 
       {/* 右侧主区域 */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-brand-50">
+      <div className="flex-1 flex flex-col overflow-hidden bg-transparent">
         {/* 顶栏 */}
-        <header className="flex items-center justify-between h-14 px-4 bg-white border-b border-brand-100 shrink-0">
+        <header className="flex items-center justify-between h-14 px-4 bg-white/80 backdrop-blur border-b border-white/70 shadow-sm shrink-0">
           <button
             onClick={() => setSidebarOpen(true)}
             className="lg:hidden p-2 rounded-lg hover:bg-gray-100"
@@ -255,28 +215,12 @@ export default function Layout() {
               {/* 下拉菜单 */}
               {userDropdownOpen && (
                 <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-lg shadow-lg border border-brand-100 py-1 z-50">
-                  <p className="px-3 py-2 text-xs text-brand-200 font-medium">切换用户</p>
-                  {users.map((user) => (
-                    <button
-                      key={user.id}
-                      onClick={() => handleSwitchUser(user.id)}
-                      className={`
-                        w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors
-                        ${user.id === currentUser.id ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-brand-50 text-brand-400'}
-                      `}
-                    >
-                      <div
-                        className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white"
-                        style={{ backgroundColor: '#6366F1' }}
-                      >
-                        {user.name.charAt(0)}
-                      </div>
-                      <span>{user.name}</span>
-                      {user.role === 'captain' && (
-                        <Lock className="w-3 h-3 text-brand-200 ml-auto" />
-                      )}
-                    </button>
-                  ))}
+                  <div className="px-3 py-3">
+                    <p className="text-sm font-medium text-brand-400">{currentUser.name}</p>
+                    <p className="text-xs text-brand-200">
+                      {currentUser.role === 'captain' ? '队长' : '成员'} · Lv.{currentUser.level}
+                    </p>
+                  </div>
                   <div className="border-t border-gray-100 mt-1 pt-1">
                     <NavLink
                       to="/profile"
@@ -285,6 +229,16 @@ export default function Layout() {
                     >
                       个人主页
                     </NavLink>
+                    <button
+                      onClick={() => {
+                        logout()
+                        setUserDropdownOpen(false)
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-sm text-expense hover:bg-red-50"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      退出登录
+                    </button>
                   </div>
                 </div>
               )}
@@ -293,61 +247,11 @@ export default function Layout() {
         </header>
 
         {/* 内容区域 */}
-        <main className="flex-1 overflow-y-auto p-5">
+        <main className="flex-1 overflow-y-auto p-5 animate-fade-in-up">
           <Outlet />
         </main>
       </div>
 
-      {/* 密码验证弹窗 */}
-      {passwordModal && (() => {
-        const targetUser = users.find((u) => u.id === passwordModal)
-        return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/50"
-            onClick={() => setPasswordModal(null)}
-          />
-          <div className="relative bg-white rounded-2xl shadow-2xl px-6 py-6 max-w-xs w-full">
-            <div className="flex items-center gap-2 mb-4">
-              <Lock className="w-5 h-5 text-indigo-600" />
-              <h3 className="font-heading text-base font-bold text-brand-400">
-                切换到 {targetUser?.name || '成员'} 需要密码
-              </h3>
-            </div>
-            <input
-              type="password"
-              maxLength={4}
-              value={passwordInput}
-              onChange={(e) => {
-                setPasswordInput(e.target.value)
-                setPasswordError('')
-              }}
-              onKeyDown={(e) => e.key === 'Enter' && handlePasswordSubmit()}
-              placeholder="请输入4位密码"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-center text-lg tracking-widest focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-              autoFocus
-            />
-            {passwordError && (
-              <p className="text-xs text-red-500 mt-2 text-center">{passwordError}</p>
-            )}
-            <div className="flex gap-2 mt-4">
-              <button
-                onClick={() => setPasswordModal(null)}
-                className="flex-1 px-4 py-2 text-sm font-medium text-brand-400 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                取消
-              </button>
-              <button
-                onClick={handlePasswordSubmit}
-                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
-              >
-                确认
-              </button>
-            </div>
-          </div>
-        </div>
-        )
-      })()}
     </div>
   )
 }

@@ -1,9 +1,9 @@
 import { Suspense, lazy } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
-import TeamRoomGate from './components/TeamRoomGate'
+import AuthGate from './components/AuthGate'
 import SupabaseSyncProvider from './components/SupabaseSyncProvider'
-import { useTeamStore } from './stores/useTeamStore'
+import { useUserStore } from './stores/useUserStore'
 
 // 懒加载页面
 const Dashboard = lazy(() => import('./pages/Dashboard'))
@@ -22,10 +22,10 @@ const WarRoom = lazy(() => import('./pages/WarRoom'))
 const Settings = lazy(() => import('./pages/Settings'))
 
 function App() {
-  const teamId = useTeamStore((s) => s.teamId)
+  const currentUser = useUserStore((s) => s.currentUser)
 
-  if (!teamId) {
-    return <TeamRoomGate />
+  if (!currentUser) {
+    return <AuthGate />
   }
 
   return (

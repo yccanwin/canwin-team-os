@@ -17,6 +17,11 @@ type StoreApi = {
   subscribe: (listener: (state: Record<string, unknown>) => void) => () => void
 }
 
+type SupabaseSyncOptions = {
+  enabled?: boolean
+  excludeKeys?: string[]
+}
+
 const PENDING_WRITES = new Map<string, ReturnType<typeof setTimeout>>()
 
 function pendingWriteKey(teamId: string, tableName: string): string {
@@ -56,12 +61,24 @@ function debouncedWriteToSupabase(teamId: string, tableName: string, data: unkno
   PENDING_WRITES.set(key, timer)
 }
 
+function removeExcludedKeys(
+  data: Record<string, unknown>,
+  excludeKeys: string[] = []
+): Record<string, unknown> {
+  if (excludeKeys.length === 0) return data
+
+  return Object.fromEntries(
+    Object.entries(data).filter(([key]) => !excludeKeys.includes(key))
+  )
+}
+
 export function useSupabaseSync(
   tableName: string,
   store: StoreApi,
-  options?: { enabled?: boolean }
+  options?: SupabaseSyncOptions
 ): void {
   const enabled = options?.enabled !== false
+  const excludeKeys = options?.excludeKeys ?? []
   const teamId = useTeamStore((s) => s.teamId)
   const isApplyingRemote = useRef(false)
   const loadedKey = useRef<string | null>(null)
@@ -91,7 +108,7 @@ export function useSupabaseSync(
         }
         if (data?.data) {
           const local = store.getState()
-          const remote = data.data as Record<string, unknown>
+          const remote = removeExcludedKeys(data.data as Record<string, unknown>, excludeKeys)
 
           isApplyingRemote.current = true
           try {
@@ -127,7 +144,7 @@ export function useSupabaseSync(
       const { destroy, ...data } = state as Record<string, unknown> & {
         destroy?: unknown
       }
-      debouncedWriteToSupabase(teamId, tableName, data)
+      debouncedWriteToSupabase(teamId, tableName, removeExcludedKeys(data, excludeKeys))
     })
 
     return () => {
@@ -166,7 +183,7 @@ export function useSupabaseSync(
           if (payload.eventType === 'UPDATE' && !payload.old) return
 
           const local = store.getState()
-          const remote = row.data
+          const remote = removeExcludedKeys(row.data, excludeKeys)
           isApplyingRemote.current = true
           try {
             store.setState({ ...local, ...remote })

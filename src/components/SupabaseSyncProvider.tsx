@@ -22,7 +22,10 @@ export default function SupabaseSyncProvider() {
   const enabled = !!teamId && isSupabaseConfigured() && teamId !== 'default'
 
   // 为每个 store 启动双向同步（不能放循环里，React hooks 规则）
-  useSupabaseSync('canwin-users', useUserStore as any, { enabled })
+  useSupabaseSync('canwin-users', useUserStore as any, {
+    enabled,
+    excludeKeys: ['currentUser'],
+  })
   useSupabaseSync('canwin-tasks', useTaskStore as any, { enabled })
   useSupabaseSync('canwin-finance', useFinanceStore as any, { enabled })
   useSupabaseSync('canwin-goals', useGoalStore as any, { enabled })

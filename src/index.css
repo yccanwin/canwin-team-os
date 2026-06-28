@@ -11,7 +11,10 @@
 
 body {
   font-family: var(--font-body);
-  background: oklch(97.5% 0.005 260);
+  background:
+    radial-gradient(circle at 12% 8%, rgba(99, 102, 241, 0.12), transparent 28%),
+    radial-gradient(circle at 86% 18%, rgba(16, 185, 129, 0.10), transparent 24%),
+    oklch(97.5% 0.005 260);
   color: oklch(20% 0.01 260);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -113,4 +116,25 @@ body {
 
 .animate-slide-up {
   animation: slideUp 300ms ease-out;
+}
+
+@keyframes softPulse {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+.animate-soft-pulse {
+  animation: softPulse 3.2s ease-in-out infinite;
+}
+
+.page-surface {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(248, 250, 252, 0.88)),
+    radial-gradient(circle at 80% 0%, rgba(99, 102, 241, 0.10), transparent 24%);
 }

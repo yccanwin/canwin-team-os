@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { safeStorage } from '@/utils/safeStorage'
 import type { User } from '@/types'
-import { mockUsers, currentUser } from '@/data/mockData'
+import { mockUsers } from '@/data/mockData'
 import { getLevel } from '@/utils/xpCalculator'
 
 interface UserState {
@@ -12,6 +12,8 @@ interface UserState {
 
 interface UserActions {
   switchUser: (userId: string) => void
+  setCurrentUser: (user: User) => void
+  logout: () => void
   addXP: (userId: string, amount: number) => void
   addBadge: (userId: string, badgeId: string) => void
   getUserById: (userId: string) => User | undefined
@@ -27,7 +29,7 @@ export const useUserStore = create<UserState & UserActions>()(
   persist(
     (set, get) => ({
       users: mockUsers,
-      currentUser: currentUser,
+      currentUser: null as unknown as User,
 
       switchUser: (userId) => {
         const user = get().users.find((u) => u.id === userId)
@@ -35,6 +37,10 @@ export const useUserStore = create<UserState & UserActions>()(
           set({ currentUser: user })
         }
       },
+
+      setCurrentUser: (user) => set({ currentUser: user }),
+
+      logout: () => set({ currentUser: null as unknown as User }),
 
       addXP: (userId, amount) =>
         set((state) => {
@@ -124,7 +130,15 @@ export const useUserStore = create<UserState & UserActions>()(
     }),
     {
       name: 'canwin-users',
+      version: 2,
       storage: safeStorage,
+      migrate: (persisted) => {
+        const state = persisted as Partial<UserState> | null
+        return {
+          users: state?.users && state.users.length > 0 ? state.users : mockUsers,
+          currentUser: null as unknown as User,
+        }
+      },
     }
   )
 )
