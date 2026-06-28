@@ -1,1 +1,0 @@
-import{y as e}from"./jsx-runtime-CooP8uhH.js";var t=e(`minus`,[[`path`,{d:`M5 12h14`,key:`1ays0h`}]]);export{t};
