@@ -7,10 +7,12 @@ import { useUserStore } from './stores/useUserStore'
 import { useTaskStore } from './stores/useTaskStore'
 import { useFinanceStore } from './stores/useFinanceStore'
 import { useInventoryStore } from './stores/useInventoryStore'
+import { useVoteStore } from './stores/useVoteStore'
 import { loadTeamProfiles } from './services/profile'
 import { loadTasks } from './services/tasks'
 import { loadFinanceRecords } from './services/finance'
 import { loadInventory } from './services/inventory'
+import { loadVotes } from './services/votes'
 
 // 懒加载页面
 const Dashboard = lazy(() => import('./pages/Dashboard'))
@@ -34,6 +36,7 @@ function App() {
   const setTasks = useTaskStore((s) => s.setTasks)
   const setRecords = useFinanceStore((s) => s.setRecords)
   const setInventoryData = useInventoryStore((s) => s.setInventoryData)
+  const setVotes = useVoteStore((s) => s.setVotes)
 
   useEffect(() => {
     if (!currentUser) return
@@ -41,17 +44,19 @@ function App() {
     let cancelled = false
 
     async function loadCloudData() {
-      const [profiles, tasks, records, inventory] = await Promise.all([
+      const [profiles, tasks, records, inventory, votes] = await Promise.all([
         loadTeamProfiles(),
         loadTasks(),
         loadFinanceRecords(),
         loadInventory(),
+        loadVotes(),
       ])
       if (cancelled) return
       setUsers(profiles)
       setTasks(tasks)
       setRecords(records)
       setInventoryData(inventory)
+      setVotes(votes)
     }
 
     void loadCloudData()
@@ -59,7 +64,7 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [currentUser, setInventoryData, setRecords, setTasks, setUsers])
+  }, [currentUser, setInventoryData, setRecords, setTasks, setUsers, setVotes])
 
   if (!currentUser) {
     return <AuthGate />

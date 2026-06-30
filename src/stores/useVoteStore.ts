@@ -3,6 +3,12 @@ import { persist } from 'zustand/middleware'
 import { safeStorage } from '@/utils/safeStorage'
 import type { Vote } from '@/types'
 import { mockVotes } from '@/data/mockData'
+import {
+  castVoteRecord,
+  closeVoteRecord,
+  createVoteRecord,
+  deleteVoteRecord,
+} from '@/services/votes'
 
 interface VoteStats {
   optionId: string
@@ -16,6 +22,7 @@ interface VoteState {
 }
 
 interface VoteActions {
+  setVotes: (votes: Vote[]) => void
   createVote: (vote: Omit<Vote, 'id' | 'votes'>) => void
   deleteVote: (id: string) => void
   castVote: (voteId: string, userId: string, optionId: string) => void
@@ -29,20 +36,32 @@ export const useVoteStore = create<VoteState & VoteActions>()(
     (set, get) => ({
       votes: mockVotes,
 
-      createVote: (vote) =>
-        set((state) => ({
-          votes: [
-            ...state.votes,
-            { ...vote, id: crypto.randomUUID(), votes: [] },
-          ],
-        })),
+      setVotes: (votes) => set({ votes }),
 
-      deleteVote: (id) =>
-        set((state) => ({
-          votes: state.votes.filter((v) => v.id !== id),
-        })),
+      createVote: (vote) => {
+        const optimisticVote = { ...vote, id: crypto.randomUUID(), votes: [] }
+        set((state) => ({ votes: [optimisticVote, ...state.votes] }))
+        void createVoteRecord(vote)
+          .then((savedVote) =>
+            set((state) => ({
+              votes: state.votes.map((v) => (v.id === optimisticVote.id ? savedVote : v)),
+            }))
+          )
+          .catch(() =>
+            set((state) => ({
+              votes: state.votes.filter((v) => v.id !== optimisticVote.id),
+            }))
+          )
+      },
 
-      castVote: (voteId, userId, optionId) =>
+      deleteVote: (id) => {
+        const previous = get().votes
+        set((state) => ({ votes: state.votes.filter((v) => v.id !== id) }))
+        void deleteVoteRecord(id).catch(() => set({ votes: previous }))
+      },
+
+      castVote: (voteId, userId, optionId) => {
+        const previous = get().votes
         set((state) => ({
           votes: state.votes.map((v) => {
             if (v.id !== voteId) return v
@@ -57,7 +76,9 @@ export const useVoteStore = create<VoteState & VoteActions>()(
               ],
             }
           }),
-        })),
+        }))
+        void castVoteRecord(voteId, userId, optionId).catch(() => set({ votes: previous }))
+      },
 
       getVoteStats: (voteId) => {
         const vote = get().votes.find((v) => v.id === voteId)
@@ -77,12 +98,15 @@ export const useVoteStore = create<VoteState & VoteActions>()(
         })
       },
 
-      closeVote: (id) =>
+      closeVote: (id) => {
+        const previous = get().votes
         set((state) => ({
           votes: state.votes.map((v) =>
             v.id === id ? { ...v, isActive: false } : v
           ),
-        })),
+        }))
+        void closeVoteRecord(id).catch(() => set({ votes: previous }))
+      },
 
       clearAllVotes: () => set({ votes: [] }),
     }),
