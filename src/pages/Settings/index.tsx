@@ -4,10 +4,6 @@ import { useUserStore } from '@/stores/useUserStore'
 import { useBadgeStore } from '@/stores/useBadgeStore'
 import { useFinanceStore } from '@/stores/useFinanceStore'
 import { useGoalStore } from '@/stores/useGoalStore'
-import { useTaskStore } from '@/stores/useTaskStore'
-import { useVoteStore } from '@/stores/useVoteStore'
-import { useInventoryStore } from '@/stores/useInventoryStore'
-import { useActivityStore } from '@/stores/useActivityStore'
 import { useTeamStore } from '@/stores/useTeamStore'
 import { isSupabaseConfigured } from '@/lib/supabase'
 import { isCaptainRole, roleLabel } from '@/services/profile'
@@ -1056,265 +1052,7 @@ function TeamInfoCard() {
   )
 }
 
-// 所有持久化 store 的 localStorage key（用于备份/恢复）
-const BACKUP_STORE_KEYS = [
-  'canwin-team',
-  'canwin-users',
-  'canwin-tasks',
-  'canwin-finance',
-  'canwin-goals',
-  'canwin-votes',
-  'canwin-badges',
-  'canwin-inventory',
-  'canwin-activity',
-  'canwin-assets',
-  'canwin-achievements',
-  'canwin-timeline',
-  'canwin-photos',
-  'canwin-toolbox',
-  'canwin-warroom',
-  'canwin-calendar',
-]
-
-const BACKUP_KEY = 'canwin-last-backup'
-
-function readLastBackupTime(): string | null {
-  try {
-    return localStorage.getItem(BACKUP_KEY)
-  } catch { return null }
-}
-
-function writeLastBackupTime() {
-  const now = new Date().toISOString()
-  try { localStorage.setItem(BACKUP_KEY, now) } catch { /* ignore */ }
-}
-
-function createBackup(): string {
-  const stores: Record<string, string | null> = {}
-  for (const key of BACKUP_STORE_KEYS) {
-    try {
-      stores[key] = localStorage.getItem(key)
-    } catch {
-      stores[key] = null
-    }
-  }
-  const backup = {
-    version: 1,
-    app: 'CanWin Team OS',
-    timestamp: new Date().toISOString(),
-    stores,
-  }
-  return JSON.stringify(backup, null, 2)
-}
-
-function downloadBackup(json: string) {
-  const blob = new Blob([json], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  const date = new Date().toISOString().slice(0, 10)
-  a.href = url
-  a.download = `canwin-backup-${date}.json`
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
-}
-
-function restoreBackup(json: string): { success: boolean; restored: number; error?: string; logs?: string[] } {
-  const logs: string[] = []
-  try {
-    const backup = JSON.parse(json)
-    logs.push(`[restoreBackup] 顶层 keys: ${Object.keys(backup).join(', ')}`)
-    // 兼容两种格式：{version, app, timestamp, stores: {...}} 或直接 {canwin-xx: ...}
-    const stores = backup.stores || backup
-    logs.push(`[restoreBackup] stores 类型: ${typeof stores}, 是否数组: ${Array.isArray(stores)}`)
-    if (!stores || typeof stores !== 'object' || Array.isArray(stores)) {
-      return { success: false, restored: 0, error: '备份文件格式不正确', logs }
-    }
-
-    // 先清空所有目标 key，避免旧数据残留
-    for (const key of BACKUP_STORE_KEYS) {
-      try { localStorage.removeItem(key) } catch { /* ignore */ }
-    }
-    logs.push('[restoreBackup] 已清空现有目标 key')
-
-    let restored = 0
-    for (const key of BACKUP_STORE_KEYS) {
-      const exists = key in stores
-      const rawValue = stores[key]
-      if (exists) {
-        logs.push(`[restoreBackup] ${key}: 存在, 类型=${typeof rawValue}, 非空=${rawValue != null}`)
-      }
-      if (exists && rawValue != null) {
-        const value =
-          typeof rawValue === 'string'
-            ? rawValue
-            : JSON.stringify(rawValue)
-        try {
-          localStorage.setItem(key, value)
-          restored++
-          logs.push(`[restoreBackup] ${key}: 已写入 (长度 ${value.length})`)
-        } catch (e) {
-          logs.push(`[restoreBackup] ${key}: 写入失败 ${e}`)
-        }
-      }
-    }
-
-    if (restored === 0) {
-      return { success: false, restored: 0, error: '备份文件中没有可用数据', logs }
-    }
-
-    writeLastBackupTime()
-    logs.push(`[restoreBackup] 成功恢复 ${restored} 个 store`)
-    return { success: true, restored, logs }
-  } catch (err) {
-    logs.push(`[restoreBackup] 异常: ${err}`)
-    return { success: false, restored: 0, error: '备份文件解析失败，请检查文件是否完整', logs }
-  }
-}
-
 function SystemMaintenanceTab() {
-  const clearAllTasks = useTaskStore((s) => s.clearAllTasks)
-  const clearAllRecords = useFinanceStore((s) => s.clearAllRecords)
-  const clearAllGoals = useGoalStore((s) => s.clearAllGoals)
-  const clearAllVotes = useVoteStore((s) => s.clearAllVotes)
-  const clearAllBadges = useBadgeStore((s) => s.clearAllBadges)
-  const clearAllItems = useInventoryStore((s) => s.clearAllItems)
-  const clearAllActivities = useActivityStore((s) => s.clearAllActivities)
-
-  const [confirmOpen, setConfirmOpen] = useState(false)
-  const [successMsg, setSuccessMsg] = useState('')
-  const [backupStatus, setBackupStatus] = useState<'idle' | 'done'>('idle')
-  const [restoreConfirmOpen, setRestoreConfirmOpen] = useState(false)
-  const [restoreFile, setRestoreFile] = useState<File | null>(null)
-  const [restorePassword, setRestorePassword] = useState('')
-  const [restoreError, setRestoreError] = useState('')
-  const [restoreRestoring, setRestoreRestoring] = useState(false)
-  const [restorePreview, setRestorePreview] = useState<string | null>(null)
-  const [lastBackup, setLastBackup] = useState<string | null>(() => readLastBackupTime())
-
-  const handleClearAll = () => {
-    // ⚠️ 以下 7 个模块会被清理
-    clearAllTasks()
-    clearAllRecords()
-    clearAllGoals()
-    clearAllVotes()
-    clearAllBadges()
-    clearAllItems()
-    clearAllActivities()
-    // ❌ 永久保留，不参与清理：
-    //    - useAchievementStore（案例馆）
-    //    - useTimelineStore（编年史）
-    //    - usePhotoStore（相册）
-    setConfirmOpen(false)
-    setSuccessMsg('演示数据已清空')
-    setTimeout(() => setSuccessMsg(''), 3000)
-  }
-
-  const handleBackup = () => {
-    const json = createBackup()
-    downloadBackup(json)
-    writeLastBackupTime()
-    setLastBackup(new Date().toISOString())
-    setBackupStatus('done')
-    setTimeout(() => setBackupStatus('idle'), 3000)
-  }
-
-  const handleRestoreConfirm = () => {
-    if (restorePassword !== '9527') {
-      setRestoreError('密码错误，请重试')
-      setRestorePassword('')
-      return
-    }
-    if (!restoreFile) {
-      setRestoreError('请选择备份文件')
-      return
-    }
-    setRestoreRestoring(true)
-    setRestoreError('')
-
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const result = restoreBackup(e.target?.result as string)
-      // eslint-disable-next-line no-console
-      result.logs?.forEach((log) => console.log(log))
-      if (result.success) {
-        // 稍等一下让 localStorage 写入完成（虽然 setItem 是同步的，但保险起见）
-        setTimeout(() => {
-          window.location.reload()
-        }, 200)
-      } else {
-        setRestoreRestoring(false)
-        setRestoreError(result.error || '恢复失败')
-      }
-    }
-    reader.onerror = () => {
-      setRestoreRestoring(false)
-      setRestoreError('文件读取失败')
-    }
-    reader.readAsText(restoreFile)
-  }
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] || null
-    setRestoreFile(file)
-    setRestoreError('')
-    setRestorePassword('')
-    setRestorePreview(null)
-
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      try {
-        const backup = JSON.parse(ev.target?.result as string)
-        const stores = backup.stores || backup
-        const info: string[] = []
-        if (backup.timestamp) {
-          info.push(`备份时间：${formatBackupTime(backup.timestamp)}`)
-        }
-        if (stores && typeof stores === 'object' && !Array.isArray(stores)) {
-          let count = 0
-          for (const key of BACKUP_STORE_KEYS) {
-            if (key in stores && stores[key] != null) count++
-          }
-          info.push(`包含 ${count} 个数据模块`)
-
-          // 关键模块数量
-          const tryCount = (key: string, path: string) => {
-            try {
-              const raw = stores[key]
-              if (!raw) return null
-              const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
-              const parts = path.split('.')
-              let v = parsed
-              for (const p of parts) v = v?.[p]
-              return Array.isArray(v) ? v.length : null
-            } catch {
-              return null
-            }
-          }
-          const taskCount = tryCount('canwin-tasks', 'state.tasks')
-          const userCount = tryCount('canwin-users', 'state.users')
-          const financeCount = tryCount('canwin-finance', 'state.records')
-          const goalCount = tryCount('canwin-goals', 'state.goals')
-          if (userCount != null) info.push(`成员 ${userCount} 人`)
-          if (taskCount != null) info.push(`任务 ${taskCount} 条`)
-          if (financeCount != null) info.push(`财务记录 ${financeCount} 条`)
-          if (goalCount != null) info.push(`目标 ${goalCount} 个`)
-        }
-        setRestorePreview(info.join(' · '))
-      } catch {
-        setRestorePreview('无法解析该备份文件')
-      }
-    }
-    reader.readAsText(file)
-  }
-
-  const formatBackupTime = (iso: string) => {
-    const d = new Date(iso)
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-  }
-
   return (
     <div>
       <h2 className="font-heading text-base font-semibold text-brand-400 mb-4">系统维护</h2>
@@ -1322,147 +1060,31 @@ function SystemMaintenanceTab() {
       {/* 团队同步信息 */}
       <TeamInfoCard />
 
-      {/* 警告区域 */}
-      <div className="flex items-start gap-3 bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-        <span className="text-yellow-500 text-lg mt-0.5">⚠️</span>
+      <div className="flex items-start gap-3 bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+        <span className="text-green-600 text-lg mt-0.5">✓</span>
         <div>
-          <p className="text-sm font-medium text-yellow-800 mb-1">危险操作区域</p>
-          <p className="text-xs text-yellow-700">
-            以下操作将清空业务数据，请谨慎使用。员工账号数据将保留。
+          <p className="text-sm font-medium text-green-800 mb-1">云端正式表已启用</p>
+          <p className="text-xs text-green-700">
+            任务、财务、库存、目标、投票、日历、文化内容、工具箱和军机处已从 Supabase 正式业务表读取和写入。
           </p>
         </div>
       </div>
 
-      {/* 一键清理按钮 */}
       <div className="bg-white rounded-card shadow-card p-6">
-        <h3 className="font-heading text-sm font-semibold text-brand-400 mb-3">清理演示数据</h3>
+        <h3 className="font-heading text-sm font-semibold text-brand-400 mb-3">本地备份与恢复已停用</h3>
         <p className="text-xs text-brand-300 mb-4">
-          清空：任务、财务记录、目标、投票、勋章颁发记录、库存数据、团队动态。<br />
-          保留：员工账号、<strong className="text-brand-400">案例馆</strong>、<strong className="text-brand-400">编年史</strong>、<strong className="text-brand-400">相册</strong>、工具箱、军机处、日历。
+          旧版 JSON 备份只覆盖浏览器 localStorage，不能代表当前 Supabase 云端数据。为避免误恢复旧缓存覆盖正式业务表，入口已关闭。
         </p>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setConfirmOpen(true)}
-            className="px-5 py-2.5 text-sm font-medium text-expense border-2 border-expense rounded-lg hover:bg-red-50 transition-colors"
-          >
-            🧹 一键清理演示数据
-          </button>
-          {successMsg && (
-            <span className="text-sm text-[#10B981] font-medium">{successMsg}</span>
-          )}
-        </div>
-      </div>
-
-      {/* 数据备份 */}
-      <div className="bg-white rounded-card shadow-card p-6 mt-4">
-        <h3 className="font-heading text-sm font-semibold text-brand-400 mb-3">
-          💾 数据备份
-        </h3>
         <p className="text-xs text-brand-300 mb-4">
-          一键导出所有业务数据（包括案例馆、编年史、相册、工具箱、军机处等全量数据），保存为 JSON 文件。
+          云端数据清理和导出应在 Supabase 后台按表执行，或通过后续专门的管理工具实现。
         </p>
-        {lastBackup && (
-          <p className="text-xs text-brand-200 mb-3">
-            上次备份时间：{formatBackupTime(lastBackup)}
-          </p>
-        )}
-        <button
-          onClick={handleBackup}
-          className="px-5 py-2.5 text-sm font-medium text-primary border-2 border-primary rounded-lg hover:bg-indigo-50 transition-colors"
-        >
-          📥 一键备份
-        </button>
-        {backupStatus === 'done' && (
-          <span className="ml-3 text-sm text-[#10B981] font-medium">备份完成，文件已下载</span>
-        )}
-      </div>
-
-      {/* 数据恢复 */}
-      <div className="bg-white rounded-card shadow-card p-6 mt-4">
-        <h3 className="font-heading text-sm font-semibold text-brand-400 mb-3">
-          🔄 数据恢复
-        </h3>
-        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
-          <span className="text-amber-500 text-sm mt-0.5">⚠️</span>
-          <p className="text-xs text-amber-700">
-            恢复将覆盖当前所有数据，并自动刷新页面。请确保已备份当前数据。
+        <div className="rounded-lg bg-brand-50 px-4 py-3">
+          <p className="text-xs font-medium text-brand-400 mb-1">保留的本地数据</p>
+          <p className="text-xs text-brand-300">
+            当前仅保留登录会话、UI 临时状态和少量未迁移的团队动态缓存。刷新页面后，核心业务数据以云端表为准。
           </p>
         </div>
-        <div className="space-y-3">
-          <div>
-            <label className="block text-sm font-medium text-brand-400 mb-1">选择备份文件</label>
-            <input
-              type="file"
-              accept=".json"
-              onChange={handleFileSelect}
-              className="w-full text-sm text-brand-300 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-brand-50 file:text-brand-400 hover:file:bg-brand-100 file:transition-colors"
-            />
-          </div>
-          {restorePreview && (
-            <p className="text-xs text-brand-300 bg-brand-50 rounded-lg px-3 py-2">
-              备份摘要：{restorePreview}
-            </p>
-          )}
-          {restoreFile && (
-            <div>
-              <label className="block text-sm font-medium text-brand-400 mb-1">请输入密码确认</label>
-              <input
-                type="password"
-                maxLength={4}
-                value={restorePassword}
-                onChange={(e) => {
-                  setRestorePassword(e.target.value)
-                  setRestoreError('')
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleRestoreConfirm()
-                }}
-                placeholder="••••"
-                className="w-24 text-center text-lg tracking-[0.5em] px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
-            </div>
-          )}
-          {restoreError && (
-            <p className="text-sm text-expense">{restoreError}</p>
-          )}
-          <button
-            onClick={() => setRestoreConfirmOpen(true)}
-            disabled={!restoreFile || restorePassword.length !== 4}
-            className="px-5 py-2.5 text-sm font-medium text-amber-700 border-2 border-amber-400 rounded-lg hover:bg-amber-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            🔄 恢复到该备份
-          </button>
-        </div>
       </div>
-
-      {/* 恢复确认弹窗 */}
-      <ConfirmDialog
-        isOpen={restoreConfirmOpen}
-        onConfirm={handleRestoreConfirm}
-        onCancel={() => !restoreRestoring && setRestoreConfirmOpen(false)}
-        title="确认恢复数据"
-        message={
-          restoreRestoring
-            ? '正在恢复数据，请稍候...'
-            : `将用备份文件「${restoreFile?.name || ''}」覆盖所有当前数据，恢复后页面将自动刷新。此操作不可撤销。`
-        }
-        confirmLabel="确认恢复"
-        cancelLabel="取消"
-        variant="danger"
-        loading={restoreRestoring}
-      />
-
-      {/* 清理确认弹窗 */}
-      <ConfirmDialog
-        isOpen={confirmOpen}
-        onConfirm={handleClearAll}
-        onCancel={() => setConfirmOpen(false)}
-        title="确认清理演示数据"
-        message="此操作将清空以下业务数据：任务、财务、目标、投票、勋章、库存、动态。案例馆、编年史、相册、员工账号不受影响。此操作不可撤销。"
-        confirmLabel="确认清空"
-        cancelLabel="取消"
-        variant="danger"
-      />
     </div>
   )
 }

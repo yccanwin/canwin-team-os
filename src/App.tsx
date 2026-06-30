@@ -2,7 +2,6 @@ import { Suspense, lazy, useEffect } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
 import AuthGate from './components/AuthGate'
-import SupabaseSyncProvider from './components/SupabaseSyncProvider'
 import { useUserStore } from './stores/useUserStore'
 import { useTaskStore } from './stores/useTaskStore'
 import { useFinanceStore } from './stores/useFinanceStore'
@@ -140,9 +139,7 @@ function App() {
   }
 
   return (
-    <>
-      <SupabaseSyncProvider />
-      <Routes>
+    <Routes>
       <Route element={<Layout />}>
         <Route path="/" element={<Suspense fallback={null}><Dashboard /></Suspense>} />
         <Route path="/dashboard" element={<Suspense fallback={null}><Dashboard /></Suspense>} />
@@ -161,7 +158,6 @@ function App() {
         <Route path="/settings" element={<Suspense fallback={null}><Settings /></Suspense>} />
       </Route>
     </Routes>
-    </>
   )
 }
 
