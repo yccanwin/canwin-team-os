@@ -2,6 +2,11 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { WarRoomPolicy, WarRoomComment } from '@/types/warroom'
 import { safeStorage } from '@/utils/safeStorage'
+import {
+  createWarRoomPolicy,
+  deleteWarRoomPolicyRecord,
+  updateWarRoomPolicy,
+} from '@/services/warroom'
 
 let commentIdCounter = Date.now()
 let policyIdCounter = Date.now()
@@ -17,6 +22,7 @@ function genCommentId() {
 interface WarRoomState {
   policies: WarRoomPolicy[]
 
+  setPolicies: (policies: WarRoomPolicy[]) => void
   addPolicy: (data: { title: string; content: string; creatorId: string }) => void
   deletePolicy: (id: string) => void
 
@@ -29,6 +35,8 @@ export const useWarRoomStore = create<WarRoomState>()(
     (set, get) => ({
       policies: [],
 
+      setPolicies: (policies) => set({ policies }),
+
       addPolicy: ({ title, content, creatorId }) => {
         const policy: WarRoomPolicy = {
           id: genPolicyId(),
@@ -39,10 +47,23 @@ export const useWarRoomStore = create<WarRoomState>()(
           comments: [],
         }
         set((s) => ({ policies: [policy, ...s.policies] }))
+        void createWarRoomPolicy(policy)
+          .then((savedPolicy) =>
+            set((s) => ({
+              policies: s.policies.map((p) => (p.id === policy.id ? savedPolicy : p)),
+            }))
+          )
+          .catch(() =>
+            set((s) => ({
+              policies: s.policies.filter((p) => p.id !== policy.id),
+            }))
+          )
       },
 
       deletePolicy: (id) => {
+        const previous = get().policies
         set((s) => ({ policies: s.policies.filter((p) => p.id !== id) }))
+        void deleteWarRoomPolicyRecord(id).catch(() => set({ policies: previous }))
       },
 
       addComment: (policyId, userId, content) => {
@@ -53,21 +74,36 @@ export const useWarRoomStore = create<WarRoomState>()(
           content,
           createdAt: new Date().toISOString(),
         }
+        const previous = get().policies
+        let changedPolicy: WarRoomPolicy | undefined
         set((s) => ({
-          policies: s.policies.map((p) =>
-            p.id === policyId ? { ...p, comments: [...p.comments, comment] } : p
-          ),
+          policies: s.policies.map((p) => {
+            if (p.id !== policyId) return p
+            changedPolicy = { ...p, comments: [...p.comments, comment] }
+            return changedPolicy
+          }),
         }))
+        if (changedPolicy) {
+          void updateWarRoomPolicy(changedPolicy).catch(() => set({ policies: previous }))
+        }
       },
 
       deleteComment: (policyId, commentId) => {
+        const previous = get().policies
+        let changedPolicy: WarRoomPolicy | undefined
         set((s) => ({
-          policies: s.policies.map((p) =>
-            p.id === policyId
-              ? { ...p, comments: p.comments.filter((c) => c.id !== commentId) }
-              : p
-          ),
+          policies: s.policies.map((p) => {
+            if (p.id !== policyId) return p
+            changedPolicy = {
+              ...p,
+              comments: p.comments.filter((c) => c.id !== commentId),
+            }
+            return changedPolicy
+          }),
         }))
+        if (changedPolicy) {
+          void updateWarRoomPolicy(changedPolicy).catch(() => set({ policies: previous }))
+        }
       },
     }),
     {

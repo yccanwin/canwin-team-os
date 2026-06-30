@@ -14,6 +14,8 @@ import { useTimelineStore } from './stores/useTimelineStore'
 import { useAchievementStore } from './stores/useAchievementStore'
 import { usePhotoStore } from './stores/usePhotoStore'
 import { useAssetStore } from './stores/useAssetStore'
+import { useToolboxStore } from './stores/useToolboxStore'
+import { useWarRoomStore } from './stores/useWarRoomStore'
 import { loadTeamProfiles } from './services/profile'
 import { loadTasks } from './services/tasks'
 import { loadFinanceRecords } from './services/finance'
@@ -25,6 +27,8 @@ import { loadTimelineEvents } from './services/timeline'
 import { loadAchievements } from './services/achievements'
 import { loadPhotos } from './services/photos'
 import { loadAssets } from './services/assets'
+import { loadTools } from './services/toolbox'
+import { loadWarRoomPolicies } from './services/warroom'
 
 // 懒加载页面
 const Dashboard = lazy(() => import('./pages/Dashboard'))
@@ -55,6 +59,8 @@ function App() {
   const setAchievements = useAchievementStore((s) => s.setAchievements)
   const setPhotos = usePhotoStore((s) => s.setPhotos)
   const setAssets = useAssetStore((s) => s.setAssets)
+  const setTools = useToolboxStore((s) => s.setTools)
+  const setPolicies = useWarRoomStore((s) => s.setPolicies)
 
   useEffect(() => {
     if (!currentUser) return
@@ -74,6 +80,8 @@ function App() {
         achievements,
         photos,
         assets,
+        tools,
+        policies,
       ] = await Promise.all([
         loadTeamProfiles(),
         loadTasks(),
@@ -86,6 +94,8 @@ function App() {
         loadAchievements(),
         loadPhotos(),
         loadAssets(),
+        loadTools(),
+        loadWarRoomPolicies(),
       ])
       if (cancelled) return
       setUsers(profiles)
@@ -99,6 +109,8 @@ function App() {
       setAchievements(achievements)
       setPhotos(photos)
       setAssets(assets)
+      setTools(tools)
+      setPolicies(policies)
     }
 
     void loadCloudData()
@@ -116,7 +128,9 @@ function App() {
     setPhotos,
     setRecords,
     setTasks,
+    setTools,
     setTimelineEvents,
+    setPolicies,
     setUsers,
     setVotes,
   ])
