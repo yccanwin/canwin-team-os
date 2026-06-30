@@ -2,10 +2,16 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { safeStorage } from '@/utils/safeStorage'
 import type { Photo } from '@/types'
+import {
+  createPhotoRecord,
+  deletePhotoRecord,
+  updatePhotoRecord,
+} from '@/services/photos'
 
 interface PhotoState {
   photos: Photo[]
 
+  setPhotos:   (photos: Photo[]) => void
   addPhoto:    (data: Omit<Photo, 'id' | 'uploadedAt' | 'year' | 'month'>) => void
   updatePhoto: (id: string, updates: Partial<Photo>) => void
   deletePhoto: (id: string) => void
@@ -21,10 +27,13 @@ function parseYearMonth(dateStr: string): { year: number; month: number } {
 
 export const usePhotoStore = create<PhotoState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       photos: [],
 
-      addPhoto: (data) =>
+      setPhotos: (photos) => set({ photos }),
+
+      addPhoto: (data) => {
+        let optimisticPhoto: Photo
         set((s) => {
           const { year, month } = parseYearMonth(data.date)
           const newPhoto: Photo = {
@@ -34,14 +43,30 @@ export const usePhotoStore = create<PhotoState>()(
             year,
             month,
           }
+          optimisticPhoto = newPhoto
           return {
             photos: [...s.photos, newPhoto].sort(
               (a, b) => b.date.localeCompare(a.date)
             ),
           }
-        }),
+        })
+        void createPhotoRecord(data)
+          .then((savedPhoto) =>
+            set((state) => ({
+              photos: state.photos
+                .map((p) => (p.id === optimisticPhoto.id ? savedPhoto : p))
+                .sort((a, b) => b.date.localeCompare(a.date)),
+            }))
+          )
+          .catch(() =>
+            set((state) => ({
+              photos: state.photos.filter((p) => p.id !== optimisticPhoto.id),
+            }))
+          )
+      },
 
-      updatePhoto: (id, updates) =>
+      updatePhoto: (id, updates) => {
+        const previous = get().photos
         set((s) => ({
           photos: s.photos.map((p) => {
             if (p.id !== id) return p
@@ -53,12 +78,17 @@ export const usePhotoStore = create<PhotoState>()(
             }
             return merged
           }),
-        })),
+        }))
+        void updatePhotoRecord(id, updates).catch(() => set({ photos: previous }))
+      },
 
-      deletePhoto: (id) =>
+      deletePhoto: (id) => {
+        const previous = get().photos
         set((s) => ({
           photos: s.photos.filter((p) => p.id !== id),
-        })),
+        }))
+        void deletePhotoRecord(id).catch(() => set({ photos: previous }))
+      },
     }),
     {
       name: 'canwin-photos', storage: safeStorage,

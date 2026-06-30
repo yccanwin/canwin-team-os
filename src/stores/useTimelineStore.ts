@@ -2,10 +2,16 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { safeStorage } from '@/utils/safeStorage'
 import type { TimelineEvent } from '@/types'
+import {
+  createTimelineEvent,
+  deleteTimelineEventRecord,
+  updateTimelineEventRecord,
+} from '@/services/timeline'
 
 interface TimelineState {
   events: TimelineEvent[]
 
+  setEvents:     (events: TimelineEvent[]) => void
   addEvent:      (data: Omit<TimelineEvent, 'id' | 'createdAt'>) => void
   updateEvent:   (id: string, updates: Partial<TimelineEvent>) => void
   deleteEvent:   (id: string) => void
@@ -19,6 +25,8 @@ export const useTimelineStore = create<TimelineState>()(
   persist(
     (set, get) => ({
       events: [],
+
+      setEvents: (events) => set({ events }),
 
       addEvent: (data) => {
         const state = get()
@@ -38,21 +46,40 @@ export const useTimelineStore = create<TimelineState>()(
             (a, b) => b.date.localeCompare(a.date)
           ),
         }))
+        void createTimelineEvent(data)
+          .then((savedEvent) =>
+            set((s) => ({
+              events: s.events
+                .map((e) => (e.id === newEvent.id ? savedEvent : e))
+                .sort((a, b) => b.date.localeCompare(a.date)),
+            }))
+          )
+          .catch(() =>
+            set((s) => ({
+              events: s.events.filter((e) => e.id !== newEvent.id),
+            }))
+          )
       },
 
-      updateEvent: (id, updates) =>
+      updateEvent: (id, updates) => {
+        const previous = get().events
         set((s) => ({
           events: s.events.map((e) =>
             e.id === id
               ? { ...e, ...updates, updatedAt: new Date().toISOString() }
               : e
           ).sort((a, b) => b.date.localeCompare(a.date)),
-        })),
+        }))
+        void updateTimelineEventRecord(id, updates).catch(() => set({ events: previous }))
+      },
 
-      deleteEvent: (id) =>
+      deleteEvent: (id) => {
+        const previous = get().events
         set((s) => ({
           events: s.events.filter((e) => e.id !== id),
-        })),
+        }))
+        void deleteTimelineEventRecord(id).catch(() => set({ events: previous }))
+      },
 
       getByCategory: (category) => {
         return get().events.filter((e) => e.category === category).sort(

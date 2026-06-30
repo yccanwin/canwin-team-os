@@ -10,6 +10,10 @@ import { useInventoryStore } from './stores/useInventoryStore'
 import { useVoteStore } from './stores/useVoteStore'
 import { useGoalStore } from './stores/useGoalStore'
 import { useCalendarStore } from './stores/useCalendarStore'
+import { useTimelineStore } from './stores/useTimelineStore'
+import { useAchievementStore } from './stores/useAchievementStore'
+import { usePhotoStore } from './stores/usePhotoStore'
+import { useAssetStore } from './stores/useAssetStore'
 import { loadTeamProfiles } from './services/profile'
 import { loadTasks } from './services/tasks'
 import { loadFinanceRecords } from './services/finance'
@@ -17,6 +21,10 @@ import { loadInventory } from './services/inventory'
 import { loadVotes } from './services/votes'
 import { loadGoals } from './services/goals'
 import { loadCalendarEvents } from './services/calendar'
+import { loadTimelineEvents } from './services/timeline'
+import { loadAchievements } from './services/achievements'
+import { loadPhotos } from './services/photos'
+import { loadAssets } from './services/assets'
 
 // 懒加载页面
 const Dashboard = lazy(() => import('./pages/Dashboard'))
@@ -43,6 +51,10 @@ function App() {
   const setVotes = useVoteStore((s) => s.setVotes)
   const setGoals = useGoalStore((s) => s.setGoals)
   const setEvents = useCalendarStore((s) => s.setEvents)
+  const setTimelineEvents = useTimelineStore((s) => s.setEvents)
+  const setAchievements = useAchievementStore((s) => s.setAchievements)
+  const setPhotos = usePhotoStore((s) => s.setPhotos)
+  const setAssets = useAssetStore((s) => s.setAssets)
 
   useEffect(() => {
     if (!currentUser) return
@@ -50,7 +62,19 @@ function App() {
     let cancelled = false
 
     async function loadCloudData() {
-      const [profiles, tasks, records, inventory, votes, goals, events] = await Promise.all([
+      const [
+        profiles,
+        tasks,
+        records,
+        inventory,
+        votes,
+        goals,
+        events,
+        timelineEvents,
+        achievements,
+        photos,
+        assets,
+      ] = await Promise.all([
         loadTeamProfiles(),
         loadTasks(),
         loadFinanceRecords(),
@@ -58,6 +82,10 @@ function App() {
         loadVotes(),
         loadGoals(),
         loadCalendarEvents(),
+        loadTimelineEvents(),
+        loadAchievements(),
+        loadPhotos(),
+        loadAssets(),
       ])
       if (cancelled) return
       setUsers(profiles)
@@ -67,6 +95,10 @@ function App() {
       setVotes(votes)
       setGoals(goals)
       setEvents(events)
+      setTimelineEvents(timelineEvents)
+      setAchievements(achievements)
+      setPhotos(photos)
+      setAssets(assets)
     }
 
     void loadCloudData()
@@ -74,7 +106,20 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [currentUser, setEvents, setGoals, setInventoryData, setRecords, setTasks, setUsers, setVotes])
+  }, [
+    currentUser,
+    setAchievements,
+    setAssets,
+    setEvents,
+    setGoals,
+    setInventoryData,
+    setPhotos,
+    setRecords,
+    setTasks,
+    setTimelineEvents,
+    setUsers,
+    setVotes,
+  ])
 
   if (!currentUser) {
     return <AuthGate />
