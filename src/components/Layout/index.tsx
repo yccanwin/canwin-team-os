@@ -25,26 +25,41 @@ import { roleLabel, signOut } from '@/services/profile'
 
 const NAV_GROUPS = [
   {
-    label: '核心功能',
+    label: '今日协作',
     items: [
-      { to: '/dashboard', icon: LayoutDashboard, label: '工作台', exact: true },
-      { to: '/profile', icon: User, label: '个人主页' },
+      { to: '/dashboard', icon: LayoutDashboard, label: '首页', exact: true },
+      { to: '/calendar', icon: CalendarDays, label: '日历' },
       { to: '/tasks', icon: CheckSquare, label: '任务' },
-      { to: '/calendar', icon: CalendarDays, label: '日历中心' },
-      { to: '/toolbox', icon: Wrench, label: '工具箱' },
-      { to: '/warroom', icon: Shield, label: '军机处' },
       { to: '/goals', icon: Target, label: '目标' },
-      { to: '/votes', icon: Vote, label: '投票' },
     ],
   },
   {
-    label: '文化展示',
+    label: '经营记录',
     items: [
       { to: '/inventory', icon: Package, label: '仓库' },
+      { to: '/assets', icon: Building2, label: '资产馆' },
+    ],
+  },
+  {
+    label: '团队文化',
+    items: [
       { to: '/timeline', icon: Clock, label: '编年史' },
       { to: '/achievements', icon: Trophy, label: '案例馆' },
       { to: '/photos', icon: Camera, label: '相册' },
-      { to: '/assets', icon: Building2, label: '资产馆' },
+    ],
+  },
+  {
+    label: '共同决策',
+    items: [
+      { to: '/votes', icon: Vote, label: '一起决定' },
+      { to: '/warroom', icon: Shield, label: '军机处' },
+    ],
+  },
+  {
+    label: '资源与成员',
+    items: [
+      { to: '/toolbox', icon: Wrench, label: '工具箱' },
+      { to: '/profile', icon: User, label: '个人主页' },
     ],
   },
   {
@@ -206,7 +221,7 @@ export default function Layout() {
                 <div className="text-left hidden sm:block">
                   <p className="text-sm font-medium text-brand-400">{currentUser.name}</p>
                   <p className="text-xs text-brand-200">
-                    {roleLabel(currentUser.role)} · Lv.{currentUser.level}
+                    {roleLabel(currentUser.role)}
                   </p>
                 </div>
                 <ChevronDown className="w-4 h-4 text-brand-200" />
@@ -218,7 +233,7 @@ export default function Layout() {
                   <div className="px-3 py-3">
                     <p className="text-sm font-medium text-brand-400">{currentUser.name}</p>
                     <p className="text-xs text-brand-200">
-                      {roleLabel(currentUser.role)} · Lv.{currentUser.level}
+                      {roleLabel(currentUser.role)}
                     </p>
                   </div>
                   <div className="border-t border-gray-100 mt-1 pt-1">
@@ -251,7 +266,7 @@ export default function Layout() {
         </header>
 
         {/* 内容区域 */}
-        <main className="flex-1 overflow-y-auto p-5 animate-fade-in-up">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-5 animate-fade-in-up">
           <Outlet />
         </main>
       </div>

@@ -14,6 +14,8 @@ import {
 import { useCalendarStore } from '@/stores/useCalendarStore'
 import { useTaskStore } from '@/stores/useTaskStore'
 import { useUserStore } from '@/stores/useUserStore'
+import { useGoalStore } from '@/stores/useGoalStore'
+import { usePersonalGoalStore } from '@/stores/usePersonalGoalStore'
 import type { CalendarEvent } from '@/types/calendar'
 
 // ============================================================
@@ -33,6 +35,16 @@ const TYPE_LABELS: Record<CalendarEvent['type'], string> = {
   task: '任务',
   meeting: '会议',
   other: '其他',
+}
+
+const REST_DAY_INDEX: Record<string, number> = {
+  周日: 0,
+  周一: 1,
+  周二: 2,
+  周三: 3,
+  周四: 4,
+  周五: 5,
+  周六: 6,
 }
 
 // ============================================================
@@ -73,6 +85,9 @@ export default function CalendarPage() {
   // Store
   const events = useCalendarStore((s) => s.events)
   const tasks = useTaskStore((s) => s.tasks)
+  const goals = useGoalStore((s) => s.goals)
+  const personalGoals = usePersonalGoalStore((s) => s.personalGoals)
+  const users = useUserStore((s) => s.users)
   const addEvent = useCalendarStore((s) => s.addEvent)
   const updateEvent = useCalendarStore((s) => s.updateEvent)
   const deleteEvent = useCalendarStore((s) => s.deleteEvent)
@@ -82,10 +97,26 @@ export default function CalendarPage() {
   const daysInMonth = getDaysInMonth(year, month)
   const firstDay = getFirstDayOfMonth(year, month)
   const yearMonth = `${year}-${String(month + 1).padStart(2, '0')}`
+  const todayStr = formatDate(today.getFullYear(), today.getMonth(), today.getDate())
+  const todayRestUsers = useMemo(() => {
+    const weekday = new Date(todayStr).getDay()
+    return users.filter((user) =>
+      (user.restDays ?? []).some((day) => REST_DAY_INDEX[day] === weekday)
+    )
+  }, [todayStr, users])
+  const todayOnDutyUsers = useMemo(
+    () => users.filter((user) => !todayRestUsers.some((restUser) => restUser.id === user.id)),
+    [todayRestUsers, users]
+  )
 
   // 当月事件按日期分组
   const eventsByDate = useMemo(() => {
     const map: Record<string, CalendarEvent[]> = {}
+    const pushEvent = (dateKey: string, event: CalendarEvent) => {
+      if (!map[dateKey]) map[dateKey] = []
+      map[dateKey].push(event)
+    }
+
     events.forEach((e) => {
       // 跨日事件在每一天都显示
       if (e.endDate) {
@@ -94,25 +125,45 @@ export default function CalendarPage() {
         const curr = new Date(start)
         while (curr <= end) {
           const dateKey = formatDate(curr.getFullYear(), curr.getMonth(), curr.getDate())
-          if (!map[dateKey]) map[dateKey] = []
-          map[dateKey].push(e)
+          pushEvent(dateKey, e)
           curr.setDate(curr.getDate() + 1)
         }
       } else {
-        if (!map[e.startDate]) map[e.startDate] = []
-        map[e.startDate].push(e)
+        pushEvent(e.startDate, e)
       }
     })
+
+    users.forEach((user) => {
+      ;(user.restDays ?? []).forEach((restDay) => {
+        const weekday = REST_DAY_INDEX[restDay]
+        if (weekday === undefined) return
+        for (let day = 1; day <= daysInMonth; day++) {
+          const dateKey = formatDate(year, month, day)
+          if (new Date(dateKey).getDay() !== weekday) continue
+          pushEvent(dateKey, {
+            id: `rest-${user.id}-${dateKey}`,
+            title: `${user.name} 休息`,
+            startDate: dateKey,
+            creatorId: user.id,
+            creatorName: user.name,
+            type: 'other',
+            color: '#F59E0B',
+            createdAt: dateKey,
+            description: '每周固定休息日',
+          })
+        }
+      })
+    })
+
     // 追加任务截止日
     tasks.filter((t) => t.deadline).forEach((t) => {
-      const key = t.deadline!
-      if (!map[key]) map[key] = []
-      map[key].push({
+      const key = t.deadline!.slice(0, 10)
+      pushEvent(key, {
         id: `task-${t.id}`,
         title: t.title,
-        startDate: t.deadline!,
+        startDate: key,
         creatorId: t.assigneeId,
-        creatorName: '',
+        creatorName: users.find((user) => user.id === t.assigneeId)?.name || '未分配',
         type: 'task' as const,
         color: '#EF4444',
         createdAt: t.createdAt,
@@ -120,8 +171,42 @@ export default function CalendarPage() {
         _isTaskDeadline: true,
       } as any)
     })
+
+    goals.filter((goal) => goal.deadline).forEach((goal) => {
+      const key = goal.deadline!
+      pushEvent(key, {
+        id: `team-goal-${goal.id}`,
+        title: `团队目标：${goal.title}`,
+        startDate: key,
+        creatorId: currentUser?.id || '',
+        creatorName: '团队目标',
+        type: 'other',
+        color: '#10B981',
+        createdAt: key,
+        description: '团队目标截止日',
+        _isGoalDeadline: true,
+      } as any)
+    })
+
+    personalGoals.filter((goal) => goal.deadline && goal.visibility === 'team').forEach((goal) => {
+      const owner = users.find((user) => user.id === goal.userId)
+      const key = goal.deadline!
+      pushEvent(key, {
+        id: `personal-goal-${goal.id}`,
+        title: `个人目标：${goal.title}`,
+        startDate: key,
+        creatorId: goal.userId,
+        creatorName: owner?.name || '成员',
+        type: 'other',
+        color: '#3B82F6',
+        createdAt: goal.createdAt,
+        description: '公开个人目标截止日',
+        _isGoalDeadline: true,
+      } as any)
+    })
+
     return map
-  }, [events, tasks])
+  }, [currentUser?.id, daysInMonth, events, goals, month, personalGoals, tasks, users, year])
 
   // 选中日的事件列表
   const selectedEvents = selectedDate ? eventsByDate[selectedDate] || [] : []
@@ -223,13 +308,16 @@ export default function CalendarPage() {
   for (let i = 0; i < firstDay; i++) cells.push(null)
   for (let d = 1; d <= daysInMonth; d++) cells.push(d)
 
-  const todayStr = formatDate(today.getFullYear(), today.getMonth(), today.getDate())
-
   return (
     <div className="max-w-6xl mx-auto">
       {/* 页面标题 */}
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold text-brand-400 font-heading">📅 日历中心</h1>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+        <div>
+          <h1 className="text-2xl font-bold text-brand-400 font-heading">📅 日历中心</h1>
+          <p className="mt-1 text-sm text-brand-300">
+            今日在岗 {todayOnDutyUsers.length} 人 · 休息 {todayRestUsers.length} 人
+          </p>
+        </div>
         <button
           onClick={openNewForm}
           className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark transition-colors"
@@ -238,6 +326,25 @@ export default function CalendarPage() {
           <Plus className="w-4 h-4" />
           新建行程
         </button>
+      </div>
+
+      <div className="mb-4 grid gap-3 lg:grid-cols-3">
+        <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 p-4">
+          <p className="text-xs font-medium text-emerald-700">今日在岗</p>
+          <p className="mt-2 text-sm text-emerald-900">
+            {todayOnDutyUsers.length > 0 ? todayOnDutyUsers.map((user) => user.name).join('、') : '暂无成员资料'}
+          </p>
+        </div>
+        <div className="rounded-xl border border-amber-100 bg-amber-50/80 p-4">
+          <p className="text-xs font-medium text-amber-700">今日休息</p>
+          <p className="mt-2 text-sm text-amber-900">
+            {todayRestUsers.length > 0 ? todayRestUsers.map((user) => user.name).join('、') : '无人休息'}
+          </p>
+        </div>
+        <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-4">
+          <p className="text-xs font-medium text-blue-700">自动联动</p>
+          <p className="mt-2 text-sm text-blue-900">休息日、任务截止日、团队目标和公开个人目标截止日会自动显示。</p>
+        </div>
       </div>
 
       {/* 主布局：日历 + 侧边详情 */}
@@ -326,7 +433,7 @@ export default function CalendarPage() {
                         style={{ backgroundColor: ev.color || EVENT_COLORS[0] }}
                         title={ev.title}
                       >
-                        {(ev as any)._isTaskDeadline ? '⏰ ' : ''}{ev.startTime ? `${ev.startTime} ` : ''}{ev.title}
+                        {(ev as any)._isTaskDeadline ? '⏰ ' : (ev as any)._isGoalDeadline ? '🎯 ' : ''}{ev.startTime ? `${ev.startTime} ` : ''}{ev.title}
                       </div>
                     ))}
                     {dayEvents.length > 3 && (
@@ -368,7 +475,7 @@ export default function CalendarPage() {
                       <div
                         key={ev.id}
                         className="rounded-lg border border-brand-100 p-3 hover:border-brand-200 transition-colors cursor-pointer"
-                        onClick={() => { if (!(ev as any)._isTaskDeadline) openEditForm(ev) }}
+                        onClick={() => { if (!(ev as any)._isTaskDeadline && !(ev as any)._isGoalDeadline && !ev.id.startsWith('rest-')) openEditForm(ev) }}
                         style={{ borderLeftColor: ev.color || EVENT_COLORS[0], borderLeftWidth: 3 }}
                       >
                         <div className="flex items-start justify-between gap-2">

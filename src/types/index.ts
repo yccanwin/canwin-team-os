@@ -61,6 +61,33 @@ export interface Goal {
   estimatedMonths?: number;
   monthlyGrowth?: number;
   icon?: string;
+  deadline?: string;
+}
+
+export interface PersonalGoalUpdate {
+  id: string;
+  content: string;
+  amountDelta?: number;
+  imageUrl?: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface PersonalGoal {
+  id: string;
+  userId: string;
+  title: string;
+  description?: string;
+  goalType?: string;
+  targetAmount?: number;
+  currentAmount: number;
+  deadline?: string;
+  visibility: 'team' | 'private';
+  lockStatus: 'cooldown' | 'locked' | 'review' | 'unlocked';
+  lockedAt?: string;
+  unlockAt?: string;
+  createdAt: string;
+  updates: PersonalGoalUpdate[];
 }
 
 // ---------- 投票 ----------

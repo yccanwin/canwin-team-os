@@ -7,7 +7,6 @@ import { useActivityStore } from '@/stores/useActivityStore'
 import StatusBadge from '@/components/StatusBadge'
 import ProgressBar from '@/components/ProgressBar'
 import { formatDate } from '@/utils/dateUtils'
-import { addXP, XP_REWARDS } from '@/utils/xpCalculator'
 
 /** 计算截止倒计时 */
 function getDeadlineLabel(deadline: string): { text: string; urgent: boolean; expired: boolean } {
@@ -85,10 +84,6 @@ export default function VoteDetail() {
     if (isExpired || myVote) return
     castVote(vote.id, currentUser.id, optionId)
 
-    // ① XP 奖励
-    addXP(currentUser.id, XP_REWARDS.VOTE_PARTICIPATE, '参与投票')
-
-    // ② 团队动态
     const optionLabel = vote.options.find((o) => o.id === optionId)?.label ?? '未知选项'
     useActivityStore.getState().addLog({
       userId: currentUser.id,

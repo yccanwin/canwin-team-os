@@ -6,8 +6,6 @@ import { useUserStore } from '@/stores/useUserStore'
 import StatusBadge from '@/components/StatusBadge'
 import EmptyState from '@/components/EmptyState'
 import CreateVoteModal from './CreateVoteModal'
-import { addXP, XP_REWARDS } from '@/utils/xpCalculator'
-import { checkBadges, unlockBadge } from '@/utils/badgeChecker'
 import { isCaptainRole } from '@/services/profile'
 import type { Vote, VoteRecord } from '@/types'
 

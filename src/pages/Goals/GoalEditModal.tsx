@@ -28,6 +28,7 @@ export default function GoalEditModal({
   const [icon, setIcon] = useState('🎯')
   const [currentAmount, setCurrentAmount] = useState('')
   const [monthlyGrowth, setMonthlyGrowth] = useState('')
+  const [deadline, setDeadline] = useState(goal?.deadline ?? '')
   const [status, setStatus] = useState<Goal['status']>(goal?.status ?? 'enabled')
 
   // 错误
@@ -44,6 +45,7 @@ export default function GoalEditModal({
       setMonthlyGrowth(
         goal.monthlyGrowth ? String(goal.monthlyGrowth) : ''
       )
+      setDeadline(goal.deadline ?? '')
       setStatus(goal.status)
     }
   }, [goal])
@@ -80,6 +82,7 @@ export default function GoalEditModal({
         currentAmount: currentAmount ? Number(currentAmount) : 0,
         priority,
         monthlyGrowth: monthlyGrowth ? Number(monthlyGrowth) : undefined,
+        deadline: deadline || undefined,
         status,
         icon,
       })
@@ -92,6 +95,7 @@ export default function GoalEditModal({
         monthlyGrowth: monthlyGrowth
           ? Number(monthlyGrowth)
           : undefined,
+        deadline: deadline || undefined,
         status,
       }
 
@@ -251,6 +255,19 @@ export default function GoalEditModal({
               {icon || '🎯'}
             </div>
           </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-brand-400 mb-1">
+            截止日期
+          </label>
+          <input
+            type="date"
+            value={deadline}
+            onChange={(e) => setDeadline(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+          />
+          <p className="mt-1 text-xs text-brand-200">填写后会自动出现在日历中。</p>
         </div>
 
         {/* 状态（仅对 enabled/in_progress 阶段可切换） */}

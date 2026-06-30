@@ -4,8 +4,11 @@ import EmptyStateIllustration from '@/components/EmptyStateIllustration'
 import { useGoalStore } from '@/stores/useGoalStore'
 import { useUserStore } from '@/stores/useUserStore'
 import GoalEditModal from './GoalEditModal'
+import PersonalGoalModal from './PersonalGoalModal'
 import { isCaptainRole } from '@/services/profile'
-import { Target, TrendingUp, Rocket, Trophy, X, Plus } from 'lucide-react'
+import { Target, TrendingUp, Rocket, Trophy, X, Plus, UserRound } from 'lucide-react'
+import { usePersonalGoalStore } from '@/stores/usePersonalGoalStore'
+import type { PersonalGoal } from '@/types'
 
 // 阶段图标（Lucide）
 const phaseIcons = [Target, TrendingUp, Rocket, Trophy]
@@ -28,6 +31,7 @@ const statusConfig: Record<
 
 export default function GoalsPage() {
   const goals = useGoalStore((s) => s.goals)
+  const personalGoals = usePersonalGoalStore((s) => s.personalGoals)
   const unlockNextPhase = useGoalStore((s) => s.unlockNextPhase)
   const currentUser = useUserStore((s) => s.currentUser)
 
@@ -35,7 +39,10 @@ export default function GoalsPage() {
 
   // 编辑弹窗状态
   const [editingGoal, setEditingGoal] = useState<typeof goals[0] | null>(null)
+  const [editingPersonalGoal, setEditingPersonalGoal] = useState<PersonalGoal | null>(null)
   const [newGoalOpen, setNewGoalOpen] = useState(false)
+  const [newPersonalGoalOpen, setNewPersonalGoalOpen] = useState(false)
+  const [activeView, setActiveView] = useState<'team' | 'personal'>('team')
 
   // 确认弹窗状态
   const [showUnlockConfirm, setShowUnlockConfirm] = useState(false)
@@ -63,6 +70,30 @@ export default function GoalsPage() {
   return (
     <>
     <div className="px-3 lg:px-6 py-4">
+      <div className="mb-5 inline-flex rounded-xl border border-brand-100 bg-white p-1 shadow-sm">
+        <button
+          onClick={() => setActiveView('team')}
+          className={`rounded-lg px-4 py-2 text-sm font-medium ${activeView === 'team' ? 'bg-primary text-white' : 'text-brand-300 hover:bg-brand-50'}`}
+        >
+          团队目标
+        </button>
+        <button
+          onClick={() => setActiveView('personal')}
+          className={`rounded-lg px-4 py-2 text-sm font-medium ${activeView === 'personal' ? 'bg-primary text-white' : 'text-brand-300 hover:bg-brand-50'}`}
+        >
+          个人目标
+        </button>
+      </div>
+
+      {activeView === 'personal' ? (
+        <PersonalGoalsView
+          goals={personalGoals}
+          currentUserId={currentUser.id}
+          onCreate={() => setNewPersonalGoalOpen(true)}
+          onEdit={setEditingPersonalGoal}
+        />
+      ) : (
+      <>
       {/* 页面标题 */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -309,7 +340,24 @@ export default function GoalsPage() {
           goal={null}
         />
       )}
+      </>
+      )}
     </div>
+
+    {newPersonalGoalOpen && (
+      <PersonalGoalModal
+        isOpen={newPersonalGoalOpen}
+        onClose={() => setNewPersonalGoalOpen(false)}
+      />
+    )}
+
+    {editingPersonalGoal && (
+      <PersonalGoalModal
+        isOpen={!!editingPersonalGoal}
+        onClose={() => setEditingPersonalGoal(null)}
+        goal={editingPersonalGoal}
+      />
+    )}
 
     {/* 全局动画样式 */}
     <style dangerouslySetInnerHTML={{ __html: `
@@ -337,5 +385,105 @@ export default function GoalsPage() {
       }
     `}} />
     </>
+  )
+}
+
+function PersonalGoalsView({
+  goals,
+  currentUserId,
+  onCreate,
+  onEdit,
+}: {
+  goals: PersonalGoal[]
+  currentUserId: string
+  onCreate: () => void
+  onEdit: (goal: PersonalGoal) => void
+}) {
+  const visibleGoals = useMemo(
+    () => goals.filter((goal) => goal.userId === currentUserId || goal.visibility === 'team'),
+    [currentUserId, goals]
+  )
+
+  return (
+    <div>
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="font-heading text-lg font-semibold text-brand-400">个人目标</h1>
+          <p className="mt-1 text-sm text-brand-300">个人承诺、公开见证和阶段复盘，不用于排名考核。</p>
+        </div>
+        <button
+          onClick={onCreate}
+          className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-indigo-600 transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          新建个人目标
+        </button>
+      </div>
+
+      {visibleGoals.length === 0 ? (
+        <EmptyStateIllustration
+          variant="goals"
+          title="写下一个愿意被见证的目标"
+          description="目标会有 24 小时冷静期，之后锁定核心信息，只追加进展和复盘。"
+          action={
+            <button
+              onClick={onCreate}
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white rounded-lg bg-primary"
+            >
+              <Plus className="w-4 h-4" />
+              新建个人目标
+            </button>
+          }
+        />
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {visibleGoals.map((goal) => {
+            const target = goal.targetAmount ?? 0
+            const percent = target > 0 ? Math.min(100, Math.round((goal.currentAmount / target) * 100)) : 0
+            const lockedLabel =
+              goal.lockStatus === 'cooldown' ? '冷静期' :
+              goal.lockStatus === 'locked' ? '已锁定' :
+              goal.lockStatus === 'review' ? '复盘中' : '已解锁'
+
+            return (
+              <button
+                key={goal.id}
+                onClick={() => onEdit(goal)}
+                className="rounded-xl border border-brand-100 bg-white p-5 text-left shadow-card transition hover:border-primary/30"
+              >
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                      <UserRound className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <h3 className="font-heading text-base font-semibold text-brand-400">{goal.title}</h3>
+                      <p className="text-xs text-brand-200">{goal.goalType || '个人目标'} · {goal.visibility === 'team' ? '团队可见' : '仅自己可见'}</p>
+                    </div>
+                  </div>
+                  <span className="rounded-full bg-brand-50 px-2 py-1 text-xs text-brand-300">{lockedLabel}</span>
+                </div>
+                {goal.description && <p className="mb-3 text-sm text-brand-300">{goal.description}</p>}
+                {target > 0 && (
+                  <div className="mb-3">
+                    <div className="mb-1 flex justify-between text-xs text-brand-300">
+                      <span>{goal.currentAmount.toLocaleString()} / {target.toLocaleString()}</span>
+                      <span>{percent}%</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+                      <div className="h-full rounded-full bg-blue-500" style={{ width: `${percent}%` }} />
+                    </div>
+                  </div>
+                )}
+                <div className="flex items-center justify-between text-xs text-brand-200">
+                  <span>{goal.deadline ? `截止 ${goal.deadline}` : '未设置截止日'}</span>
+                  <span>{goal.updates.length} 条进展</span>
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }

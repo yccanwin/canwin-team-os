@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { KPICard } from '@/components/KPICard'
-import { DollarSign, CheckSquare, Target, Wallet, Crown } from 'lucide-react'
+import { DollarSign, CheckSquare, Target, Wallet, HeartPulse } from 'lucide-react'
 import { useTaskStore } from '@/stores/useTaskStore'
 import { useFinanceStore } from '@/stores/useFinanceStore'
 import { useCountUp } from '@/hooks/useCountUp'
@@ -56,8 +56,7 @@ export function KPISection() {
   const revenueTrend: 'up' | 'down' | 'flat' =
     momChange > 0 ? 'up' : momChange < 0 ? 'down' : 'flat'
 
-  // —— 团队等级（暂固定） ——
-  const maxLevel = 3
+  const teamState = inProgressCount > 8 ? '偏忙' : goalRate >= 70 ? '稳定' : '推进中'
 
   // —— 7 日迷你趋势数据 ——
   const last7Days = useMemo(() => {
@@ -149,12 +148,11 @@ export function KPISection() {
         icon={<Wallet className="w-6 h-6 text-amber-500" />}
       />
 
-      {/* 团队等级 */}
       <KPICard
-        title="团队等级"
-        value={`Lv.${maxLevel}`}
+        title="团队状态"
+        value={teamState}
         color="#8B5CF6"
-        icon={<Crown className="w-6 h-6 text-cash" />}
+        icon={<HeartPulse className="w-6 h-6 text-cash" />}
       />
     </div>
   )

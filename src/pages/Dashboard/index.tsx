@@ -2,6 +2,11 @@ import { useMemo } from 'react'
 import { useFinanceStore } from '@/stores/useFinanceStore'
 import { useTaskStore } from '@/stores/useTaskStore'
 import { useGoalStore } from '@/stores/useGoalStore'
+import { useUserStore } from '@/stores/useUserStore'
+import { useInventoryStore } from '@/stores/useInventoryStore'
+import { useTimelineStore } from '@/stores/useTimelineStore'
+import { usePhotoStore } from '@/stores/usePhotoStore'
+import { useWarRoomStore } from '@/stores/useWarRoomStore'
 import { KPISection } from './KPISection'
 import GoalProgressSection from './GoalProgressSection'
 import GoalRoadmapSection from './GoalRoadmapSection'
@@ -16,6 +21,11 @@ export default function Dashboard() {
   const records = useFinanceStore((s) => s.records)
   const tasks = useTaskStore((s) => s.tasks)
   const goals = useGoalStore((s) => s.goals)
+  const users = useUserStore((s) => s.users)
+  const inventoryItems = useInventoryStore((s) => s.items)
+  const timelineEvents = useTimelineStore((s) => s.events)
+  const photos = usePhotoStore((s) => s.photos)
+  const policies = useWarRoomStore((s) => s.policies)
 
   const todayRevenue = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10)
@@ -37,24 +47,104 @@ export default function Dashboard() {
 
   const hour = new Date().getHours()
   const greeting = hour < 12 ? '早上好' : hour < 18 ? '下午好' : '晚上好'
+  const todayWeekday = new Date().getDay()
+  const restDayIndex: Record<string, number> = {
+    周日: 0,
+    周一: 1,
+    周二: 2,
+    周三: 3,
+    周四: 4,
+    周五: 5,
+    周六: 6,
+  }
+  const restUsers = users.filter((user) =>
+    (user.restDays ?? []).some((day) => restDayIndex[day] === todayWeekday)
+  )
+  const todayTasks = tasks
+    .filter((task) => task.status !== 'done')
+    .filter((task) => !task.deadline || task.deadline.slice(0, 10) <= new Date().toISOString().slice(0, 10))
+    .slice(0, 4)
+  const lowStockItems = inventoryItems.filter((item) => item.quantity <= 3).slice(0, 4)
+  const latestMemory = [...timelineEvents]
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 2)
+  const latestPhoto = photos[0]
+  const latestPolicy = policies[0]
 
   return (
     <div className="space-y-5">
-      {/* Hero 欢迎区 */}
-      <div className="bg-gradient-to-br from-primary/10 via-white to-primary/5 rounded-2xl p-6 border border-primary/10">
-        <div className="flex items-center justify-between">
+      <div className="rounded-2xl border border-amber-100 bg-[#fffaf0] p-4 sm:p-6">
+        <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr] lg:items-start">
           <div>
-            <h2 className="text-2xl font-bold text-primary-800 font-heading">
-              👋 {greeting}，队长！
+            <p className="text-sm text-amber-700">{greeting}，今天先看团队状态</p>
+            <h2 className="mt-1 font-heading text-2xl font-semibold text-brand-400 sm:text-3xl">
+              今日团队状态
             </h2>
-            <p className="text-neutral-tertiary mt-1">
-              今日营收 ¥{todayRevenue.toLocaleString()} · 本周目标完成度 {goalCompletionRate}% · {pendingTasks}项待审任务
+            <p className="mt-2 text-sm leading-6 text-brand-300">
+              今日营收 ¥{todayRevenue.toLocaleString()} · 本周目标完成度 {goalCompletionRate}% · {pendingTasks} 项进行中任务
             </p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+            <div className="rounded-xl bg-white/80 px-4 py-3">
+              <p className="text-xs font-medium text-brand-300">今日休息</p>
+              <p className="mt-1 text-sm text-brand-400">{restUsers.length ? restUsers.map((u) => u.name).join('、') : '无人休息'}</p>
+            </div>
+            <div className="rounded-xl bg-white/80 px-4 py-3">
+              <p className="text-xs font-medium text-brand-300">近期公告</p>
+              <p className="mt-1 line-clamp-2 text-sm text-brand-400">{latestPolicy?.title || '暂无新公告'}</p>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* KPI 卡片行 */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <section className="rounded-card bg-white p-5 shadow-card">
+          <h3 className="mb-3 font-heading text-base font-semibold text-brand-400">今天要处理</h3>
+          {todayTasks.length ? (
+            <div className="space-y-2">
+              {todayTasks.map((task) => (
+                <div key={task.id} className="rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-400">
+                  {task.title}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-brand-200">暂无紧急事项</p>
+          )}
+        </section>
+        <section className="rounded-card bg-white p-5 shadow-card">
+          <h3 className="mb-3 font-heading text-base font-semibold text-brand-400">库存提醒</h3>
+          {lowStockItems.length ? (
+            <div className="space-y-2">
+              {lowStockItems.map((item) => (
+                <div key={item.id} className="flex justify-between rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                  <span>{item.name}</span>
+                  <span>{item.quantity}{item.unit}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-brand-200">暂无低库存提醒</p>
+          )}
+        </section>
+        <section className="rounded-card bg-white p-5 shadow-card">
+          <h3 className="mb-3 font-heading text-base font-semibold text-brand-400">最近团队记忆</h3>
+          {latestMemory.length ? (
+            <div className="space-y-2">
+              {latestMemory.map((event) => (
+                <div key={event.id} className="rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-900">
+                  {event.title}
+                </div>
+              ))}
+            </div>
+          ) : latestPhoto ? (
+            <p className="text-sm text-brand-300">{latestPhoto.title || '有新的团队照片'}</p>
+          ) : (
+            <p className="text-sm text-brand-200">等待记录第一条团队时刻</p>
+          )}
+        </section>
+      </div>
+
       <KPISection />
 
       {/* 上半部分：趋势图 + 目标进度 */}

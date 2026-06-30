@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useUserStore } from '@/stores/useUserStore'
 import { Coffee, Heart, AlertTriangle, Pencil, X, Check } from 'lucide-react'
+import { updateProfileRecord } from '@/services/profile'
 
 const WEEKDAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
 
@@ -21,6 +22,13 @@ export default function PersonalInfoCard() {
 
   const handleSave = () => {
     updateUser(currentUser.id, { restDays, mood, taboos })
+    void updateProfileRecord(currentUser.id, { restDays, mood, taboos }).catch(() => {
+      updateUser(currentUser.id, {
+        restDays: currentUser.restDays,
+        mood: currentUser.mood,
+        taboos: currentUser.taboos,
+      })
+    })
     setEditing(false)
   }
 

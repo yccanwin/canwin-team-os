@@ -15,7 +15,7 @@ export interface PendingBadge {
 
 interface BadgeState {
   badges: BadgeConfig[]
-  /** 待展示的勋章队列（BadgeUnlockModal 消费） */
+  /** 待展示的记忆标签队列 */
   pendingBadges: PendingBadge[]
 }
 

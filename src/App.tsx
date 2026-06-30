@@ -8,6 +8,7 @@ import { useFinanceStore } from './stores/useFinanceStore'
 import { useInventoryStore } from './stores/useInventoryStore'
 import { useVoteStore } from './stores/useVoteStore'
 import { useGoalStore } from './stores/useGoalStore'
+import { usePersonalGoalStore } from './stores/usePersonalGoalStore'
 import { useCalendarStore } from './stores/useCalendarStore'
 import { useTimelineStore } from './stores/useTimelineStore'
 import { useAchievementStore } from './stores/useAchievementStore'
@@ -21,6 +22,7 @@ import { loadFinancePublicSummary, loadFinanceRecords } from './services/finance
 import { loadInventory, loadInventoryPublic } from './services/inventory'
 import { loadVotes } from './services/votes'
 import { loadGoals } from './services/goals'
+import { loadPersonalGoals } from './services/personalGoals'
 import { loadCalendarEvents } from './services/calendar'
 import { loadTimelineEvents } from './services/timeline'
 import { loadAchievements } from './services/achievements'
@@ -53,6 +55,7 @@ function App() {
   const setInventoryData = useInventoryStore((s) => s.setInventoryData)
   const setVotes = useVoteStore((s) => s.setVotes)
   const setGoals = useGoalStore((s) => s.setGoals)
+  const setPersonalGoals = usePersonalGoalStore((s) => s.setPersonalGoals)
   const setEvents = useCalendarStore((s) => s.setEvents)
   const setTimelineEvents = useTimelineStore((s) => s.setEvents)
   const setAchievements = useAchievementStore((s) => s.setAchievements)
@@ -74,6 +77,7 @@ function App() {
         inventory,
         votes,
         goals,
+        personalGoals,
         events,
         timelineEvents,
         achievements,
@@ -88,6 +92,7 @@ function App() {
         isWarehouseRole(currentUser.role) ? loadInventory() : loadInventoryPublic(),
         loadVotes(),
         loadGoals(),
+        loadPersonalGoals(),
         loadCalendarEvents(),
         loadTimelineEvents(),
         loadAchievements(),
@@ -103,6 +108,7 @@ function App() {
       setInventoryData(inventory)
       setVotes(votes)
       setGoals(goals)
+      setPersonalGoals(personalGoals)
       setEvents(events)
       setTimelineEvents(timelineEvents)
       setAchievements(achievements)
@@ -123,6 +129,7 @@ function App() {
     setAssets,
     setEvents,
     setGoals,
+    setPersonalGoals,
     setInventoryData,
     setPhotos,
     setRecords,

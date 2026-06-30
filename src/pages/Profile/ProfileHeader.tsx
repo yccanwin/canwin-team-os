@@ -42,11 +42,6 @@ export default function ProfileHeader({ user }: ProfileHeaderProps) {
           <div className="flex items-center gap-3 mb-1">
             <h2 className="font-heading text-2xl font-semibold text-brand-400">{displayUser.name}</h2>
 
-            {/* Lv. 标签 */}
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold text-white bg-indigo-500">
-              Lv.{displayUser.level}
-            </span>
-
             {/* 队长标签 */}
             {isCaptainRole(displayUser.role) && (
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
@@ -63,12 +58,11 @@ export default function ProfileHeader({ user }: ProfileHeaderProps) {
           </div>
         </div>
 
-        {/* 右侧累计 XP */}
         <div className="text-right flex-shrink-0">
-          <div className="text-3xl font-bold text-brand-400">
-            {displayUser.xp.toLocaleString()}
+          <div className="text-sm font-semibold text-brand-400">
+            协作档案
           </div>
-          <p className="text-xs text-brand-200">累计 XP</p>
+          <p className="text-xs text-brand-200">身份、边界与真实记录</p>
         </div>
       </div>
     </div>

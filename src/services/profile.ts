@@ -102,6 +102,28 @@ export async function loadTeamProfiles(): Promise<User[]> {
   return (data ?? []).map((profile) => profileToUser(profile as ProfileRow))
 }
 
+export async function updateProfileRecord(
+  id: string,
+  updates: Pick<Partial<User>, 'name' | 'position' | 'avatar' | 'restDays' | 'mood' | 'taboos'>
+): Promise<User> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({
+      name: updates.name,
+      position: updates.position,
+      avatar_url: updates.avatar,
+      rest_days: updates.restDays,
+      mood: updates.mood,
+      taboos: updates.taboos,
+    })
+    .eq('id', id)
+    .select('id, team_id, name, role, position, avatar_url, join_date, status, rest_days, mood, taboos')
+    .single()
+
+  if (error) throw new Error(error.message)
+  return profileToUser(data as ProfileRow)
+}
+
 export async function signInWithPassword(login: string, password: string): Promise<User> {
   const email = normalizeLoginEmail(login)
   const { data, error } = await supabase.auth.signInWithPassword({ email, password })

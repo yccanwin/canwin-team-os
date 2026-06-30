@@ -64,7 +64,7 @@ export default function BadgeFormModal({
     if (!icon.trim()) newErrors.icon = '图标不能为空'
     if (!description.trim()) newErrors.description = '描述不能为空'
     const xp = Number(xpReward)
-    if (!xpReward || isNaN(xp) || xp < 0) newErrors.xpReward = 'XP奖励无效'
+    if (!xpReward || isNaN(xp) || xp < 0) newErrors.xpReward = '记忆权重无效'
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -200,7 +200,7 @@ export default function BadgeFormModal({
           </div>
           <div>
             <label className="block text-sm font-medium text-brand-400 mb-1">
-              XP 奖励 <span className="text-expense">*</span>
+              记忆权重 <span className="text-expense">*</span>
             </label>
             <input
               type="number"

@@ -6,8 +6,6 @@ import StatusBadge from '@/components/StatusBadge'
 import EmptyState from '@/components/EmptyState'
 import EmptyStateIllustration from '@/components/EmptyStateIllustration'
 import { formatRelative, formatDate } from '@/utils/dateUtils'
-import { addXP, XP_REWARDS } from '@/utils/xpCalculator'
-import { checkBadges, unlockBadge } from '@/utils/badgeChecker'
 import { isCaptainRole } from '@/services/profile'
 import CreateTaskModal from './CreateTaskModal'
 import TaskDetailPanel from './TaskDetailPanel'
@@ -85,19 +83,6 @@ export default function TasksPage() {
     const nextStatus = task.status === 'todo' ? 'in_progress' : 'done'
     updateTaskStatus(task.id, nextStatus as Task['status'])
 
-    // 如果变为 done，触发完成流程
-    if (nextStatus === 'done') {
-      // ① XP 奖励 — 重要任务 30XP，普通任务 10XP
-      const xpAmount = task.isImportant ? XP_REWARDS.TASK_IMPORTANT : XP_REWARDS.TASK_COMPLETE
-      addXP(task.assigneeId, xpAmount, `完成${task.title}`)
-
-      // ② 勋章检查
-      const doneCount = useTaskStore.getState().tasks.filter(
-        (t) => t.assigneeId === task.assigneeId && t.status === 'done'
-      ).length
-      const newBadges = checkBadges(task.assigneeId, 'TASK_COUNT', doneCount)
-      newBadges.forEach((b) => unlockBadge(task.assigneeId, b))
-    }
   }
 
   // --- 处理行点击（打开详情） ---

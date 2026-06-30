@@ -1,6 +1,5 @@
 import { create } from 'zustand'
 import type { ActivityLog } from '@/types'
-import { mockActivityLogs } from '@/data/mockData'
 
 const ACTIVITY_LOG_KEY = 'canwin-activity'
 
@@ -12,11 +11,7 @@ function loadLogs(): ActivityLog[] {
       if (logs.length > 0) return logs
     }
   } catch { /* fallback */ }
-  // 首次：写入 mock 数据到 localStorage
-  try {
-    localStorage.setItem(ACTIVITY_LOG_KEY, JSON.stringify(mockActivityLogs))
-  } catch { /* ignore */ }
-  return mockActivityLogs
+  return []
 }
 
 interface ActivityState {

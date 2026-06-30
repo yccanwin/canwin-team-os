@@ -3,7 +3,6 @@ import { persist } from 'zustand/middleware'
 import { safeStorage } from '@/utils/safeStorage'
 import type { User } from '@/types'
 import { mockUsers } from '@/data/mockData'
-import { getLevel } from '@/utils/xpCalculator'
 
 interface UserState {
   users: User[]
@@ -15,7 +14,6 @@ interface UserActions {
   setCurrentUser: (user: User | null) => void
   setUsers: (users: User[]) => void
   logout: () => void
-  addXP: (userId: string, amount: number) => void
   addBadge: (userId: string, badgeId: string) => void
   getUserById: (userId: string) => User | undefined
 
@@ -23,7 +21,6 @@ interface UserActions {
   addUser: (user: Omit<User, 'id'>) => void
   updateUser: (id: string, updates: Partial<User>) => void
   deleteUser: (id: string) => boolean
-  resetUserXP: (id: string) => void
 }
 
 export const useUserStore = create<UserState & UserActions>()(
@@ -44,24 +41,6 @@ export const useUserStore = create<UserState & UserActions>()(
       setUsers: (users) => set({ users }),
 
       logout: () => set({ currentUser: null as unknown as User }),
-
-      addXP: (userId, amount) =>
-        set((state) => {
-          const updatedUsers = state.users.map((u) =>
-            u.id === userId
-              ? { ...u, xp: u.xp + amount, level: getLevel(u.xp + amount) }
-              : u
-          )
-          const currentUserUpdated =
-            state.currentUser.id === userId
-              ? {
-                  ...state.currentUser,
-                  xp: state.currentUser.xp + amount,
-                  level: getLevel(state.currentUser.xp + amount),
-                }
-              : state.currentUser
-          return { users: updatedUsers, currentUser: currentUserUpdated }
-        }),
 
       addBadge: (userId, badgeId) =>
         set((state) => ({
@@ -119,17 +98,6 @@ export const useUserStore = create<UserState & UserActions>()(
         return true
       },
 
-      resetUserXP: (id) =>
-        set((state) => {
-          const updatedUsers = state.users.map((u) =>
-            u.id === id ? { ...u, xp: 0, level: 1 } : u
-          )
-          const updatedCurrent =
-            state.currentUser.id === id
-              ? { ...state.currentUser, xp: 0, level: 1 }
-              : state.currentUser
-          return { users: updatedUsers, currentUser: updatedCurrent }
-        }),
     }),
     {
       name: 'canwin-users',

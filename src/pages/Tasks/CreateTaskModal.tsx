@@ -202,7 +202,7 @@ export default function CreateTaskModal({ isOpen, onClose }: CreateTaskModalProp
           <div>
             <p className="text-sm font-medium text-brand-400">是否重要任务</p>
             <p className="text-xs text-brand-200 mt-0.5">
-              重要任务完成时奖励 150 XP（普通任务 50 XP）
+              重要任务会在首页和任务列表中优先提醒。
             </p>
           </div>
           <button

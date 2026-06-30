@@ -168,7 +168,7 @@ function BadgeConfigTab() {
                 <th className="text-left px-4 py-3 font-medium text-brand-400">图标</th>
                 <th className="text-left px-4 py-3 font-medium text-brand-400">描述</th>
                 <th className="text-left px-4 py-3 font-medium text-brand-400">触发类型</th>
-                <th className="text-right px-4 py-3 font-medium text-brand-400">XP奖励</th>
+                <th className="text-right px-4 py-3 font-medium text-brand-400">记忆权重</th>
                 <th className="text-left px-4 py-3 font-medium text-brand-400">分类</th>
                 <th className="text-center px-4 py-3 font-medium text-brand-400">操作</th>
               </tr>
@@ -191,7 +191,7 @@ function BadgeConfigTab() {
                     {triggerTypeLabels[badge.triggerType] || badge.triggerType}
                   </td>
                   <td className="px-4 py-2.5 text-right text-brand-400">
-                    +{badge.xpReward} XP
+                    {badge.xpReward}
                   </td>
                   <td className="px-4 py-2.5 text-brand-400">
                     {badge.category === 'basic'
@@ -823,12 +823,10 @@ function MemberManagementTab() {
   const users = useUserStore((s) => s.users)
   const currentUser = useUserStore((s) => s.currentUser)
   const deleteUser = useUserStore((s) => s.deleteUser)
-  const resetUserXP = useUserStore((s) => s.resetUserXP)
 
   const [editingMember, setEditingMember] = useState<(typeof users)[0] | null>(null)
   const [newMemberOpen, setNewMemberOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<(typeof users)[0] | null>(null)
-  const [resetTarget, setResetTarget] = useState<(typeof users)[0] | null>(null)
   const [deleteError, setDeleteError] = useState('')
 
   const handleDelete = () => {
@@ -866,9 +864,7 @@ function MemberManagementTab() {
                 <th className="text-left px-4 py-3 font-medium text-brand-400">岗位</th>
                 <th className="text-left px-4 py-3 font-medium text-brand-400">角色</th>
                 <th className="text-left px-4 py-3 font-medium text-brand-400">入职时间</th>
-                <th className="text-center px-4 py-3 font-medium text-brand-400">等级</th>
-                <th className="text-center px-4 py-3 font-medium text-brand-400">XP</th>
-                <th className="text-center px-4 py-3 font-medium text-brand-400">徽章</th>
+                <th className="text-center px-4 py-3 font-medium text-brand-400">记忆标签</th>
                 <th className="text-center px-4 py-3 font-medium text-brand-400">密码</th>
                 <th className="text-center px-4 py-3 font-medium text-brand-400">操作</th>
               </tr>
@@ -917,12 +913,6 @@ function MemberManagementTab() {
                     {formatDate(user.joinDate)}
                   </td>
                   <td className="px-4 py-2.5 text-center text-brand-400">
-                    Lv.{user.level}
-                  </td>
-                  <td className="px-4 py-2.5 text-center text-brand-400">
-                    {user.xp.toLocaleString()}
-                  </td>
-                  <td className="px-4 py-2.5 text-center text-brand-400">
                     {user.badges?.length || 0}
                   </td>
                   <td className="px-4 py-2.5 text-center">
@@ -949,12 +939,6 @@ function MemberManagementTab() {
                         className="px-2 py-1 text-xs text-expense hover:bg-red-50 rounded transition-colors"
                       >
                         删除
-                      </button>
-                      <button
-                        onClick={() => setResetTarget(user)}
-                        className="px-2 py-1 text-xs text-yellow-600 hover:bg-yellow-50 rounded transition-colors"
-                      >
-                        重置XP
                       </button>
                     </div>
                   </td>
@@ -994,20 +978,6 @@ function MemberManagementTab() {
         variant="danger"
       />
 
-      {/* 重置 XP 确认 */}
-      <ConfirmDialog
-        isOpen={!!resetTarget}
-        onConfirm={() => {
-          if (resetTarget) {
-            resetUserXP(resetTarget.id)
-            setResetTarget(null)
-          }
-        }}
-        onCancel={() => setResetTarget(null)}
-        title="重置 XP"
-        message={`确定要重置「${resetTarget?.name}」的 XP 吗？所有 XP 和等级将被清零。`}
-        variant="warning"
-      />
     </div>
   )
 }

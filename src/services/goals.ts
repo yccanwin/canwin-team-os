@@ -8,11 +8,12 @@ type GoalRow = {
   description: string | null
   target_amount: number | null
   current_amount: number | null
+  deadline: string | null
   status: Goal['status']
 }
 
 const GOAL_SELECT =
-  'id, title, description, target_amount, current_amount, status'
+  'id, title, description, target_amount, current_amount, deadline, status'
 
 type GoalMeta = Pick<Goal, 'priority' | 'estimatedMonths' | 'monthlyGrowth' | 'icon'>
 
@@ -38,6 +39,7 @@ function rowToGoal(row: GoalRow): Goal {
     estimatedMonths: meta.estimatedMonths,
     monthlyGrowth: meta.monthlyGrowth,
     icon: meta.icon,
+    deadline: row.deadline || undefined,
   }
 }
 
@@ -62,6 +64,7 @@ function goalToRow(goal: Omit<Goal, 'id'> | Partial<Goal>, description?: string 
     description: nextMeta ? JSON.stringify(nextMeta) : undefined,
     target_amount: goal.targetAmount,
     current_amount: goal.currentAmount,
+    deadline: goal.deadline,
     status: goal.status,
   }
 }

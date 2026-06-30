@@ -81,19 +81,12 @@ export const useToolboxStore = create<ToolboxState>()(
             const alreadyLiked = t.likedBy.includes(currentUser.id)
 
             if (alreadyLiked) {
-              // 取消点赞：只移除 ID，不扣 XP
               changedTool = {
                 ...t,
                 likedBy: t.likedBy.filter((uid) => uid !== currentUser.id),
               }
               return changedTool
             } else {
-              // 点赞：给分享者 +5 XP（不给自己的工具点赞）
-              if (t.creatorId !== currentUser.id) {
-                const userStore = useUserStore.getState()
-                userStore.addXP(t.creatorId, 5)
-              }
-
               changedTool = {
                 ...t,
                 likedBy: [...t.likedBy, currentUser.id],

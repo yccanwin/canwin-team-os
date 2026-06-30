@@ -1,8 +1,7 @@
 import ProfileHeader from './ProfileHeader'
 import ContributionStats from './ContributionStats'
-import XPGrowthBar from './XPGrowthBar'
-import BadgeGallery from './BadgeGallery'
 import PersonalInfoCard from './PersonalInfoCard'
+import PersonalGoalsCard from './PersonalGoalsCard'
 import ErrorBoundary from '@/components/ErrorBoundary'
 
 export default function ProfilePage() {
@@ -20,19 +19,14 @@ export default function ProfilePage() {
           <PersonalInfoCard />
         </ErrorBoundary>
 
-        {/* 工资分红 + XP 进度 双栏布局 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <ErrorBoundary moduleName="ContributionStats">
             <ContributionStats />
           </ErrorBoundary>
-          <ErrorBoundary moduleName="XPGrowthBar">
-            <XPGrowthBar />
+          <ErrorBoundary moduleName="PersonalGoalsCard">
+            <PersonalGoalsCard />
           </ErrorBoundary>
         </div>
-
-        <ErrorBoundary moduleName="BadgeGallery">
-          <BadgeGallery />
-        </ErrorBoundary>
       </div>
     </div>
   )
