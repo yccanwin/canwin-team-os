@@ -8,6 +8,7 @@ import EmptyStateIllustration from '@/components/EmptyStateIllustration'
 import { formatRelative, formatDate } from '@/utils/dateUtils'
 import { addXP, XP_REWARDS } from '@/utils/xpCalculator'
 import { checkBadges, unlockBadge } from '@/utils/badgeChecker'
+import { isCaptainRole } from '@/services/profile'
 import CreateTaskModal from './CreateTaskModal'
 import TaskDetailPanel from './TaskDetailPanel'
 import type { Task } from '@/types'
@@ -48,7 +49,7 @@ export default function TasksPage() {
   const users = useUserStore((s) => s.users)
   const getUserById = useUserStore((s) => s.getUserById)
 
-  const isCaptain = currentUser.role === 'captain'
+  const isCaptain = isCaptainRole(currentUser.role)
 
   // --- 本地状态 ---
   const [statusFilter, setStatusFilter] = useState<Task['status'] | 'all'>('all')

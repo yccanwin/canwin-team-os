@@ -1,32 +1,49 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { LockKeyhole, LogIn, ShieldCheck, Sparkles } from 'lucide-react'
-import { DEFAULT_LOGIN_PASSWORD, verifyLogin } from '@/lib/authAccounts'
+import { loadCurrentProfile, signInWithPassword } from '@/services/profile'
 import { useUserStore } from '@/stores/useUserStore'
 
 export default function AuthGate() {
-  const users = useUserStore((s) => s.users)
   const setCurrentUser = useUserStore((s) => s.setCurrentUser)
-  const [username, setUsername] = useState('')
+  const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  useEffect(() => {
+    let cancelled = false
+
+    async function restoreSession() {
+      setLoading(true)
+      try {
+        const user = await loadCurrentProfile()
+        if (!cancelled && user) setCurrentUser(user)
+      } catch {
+        if (!cancelled) setCurrentUser(null)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    restoreSession()
+
+    return () => {
+      cancelled = true
+    }
+  }, [setCurrentUser])
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
-    if (!username.trim() || !password) {
-      setError('请输入用户名和密码')
+    if (!login.trim() || !password) {
+      setError('请输入账号和密码')
       return
     }
 
     setLoading(true)
     setError('')
     try {
-      const user = await verifyLogin(username, password, users)
-      if (!user) {
-        setError('用户名或密码错误')
-        return
-      }
+      const user = await signInWithPassword(login, password)
       setCurrentUser(user)
     } catch (e) {
       setError(e instanceof Error ? e.message : '登录失败，请稍后重试')
@@ -71,24 +88,24 @@ export default function AuthGate() {
                 <LockKeyhole className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-xl font-semibold text-brand-400">账号登录</h2>
-                <p className="text-sm text-brand-200">使用团队成员账号进入系统</p>
+                <h2 className="text-xl font-semibold text-brand-400">Supabase Auth 登录</h2>
+                <p className="text-sm text-brand-200">使用管理员创建的团队账号进入系统</p>
               </div>
             </div>
 
             <div className="space-y-4">
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-brand-300">
-                  用户名
+                  邮箱 / admin
                 </label>
                 <input
                   type="text"
-                  value={username}
+                  value={login}
                   onChange={(e) => {
-                    setUsername(e.target.value)
+                    setLogin(e.target.value)
                     setError('')
                   }}
-                  placeholder="例如：张伟"
+                  placeholder="admin 或 admin@canwin.local"
                   className="w-full rounded-xl border border-neutral-border bg-white px-3 py-2.5 text-sm outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
                 />
               </div>
@@ -126,7 +143,7 @@ export default function AuthGate() {
             </button>
 
             <p className="mt-4 text-center text-xs text-brand-200">
-              初始密码：{DEFAULT_LOGIN_PASSWORD}
+              初始账号只保留 admin，密码由 Supabase Auth 中的 admin 用户设置
             </p>
           </form>
         </div>

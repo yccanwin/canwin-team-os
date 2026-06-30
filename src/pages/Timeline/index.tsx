@@ -6,6 +6,7 @@ import { CATEGORY_CONFIG, type TimelineEvent } from '../../types/timeline'
 import TimelineAxis from '../../components/Timeline/TimelineAxis'
 import EventModal from './EventModal'
 import EventDetail from './EventDetail'
+import { isCaptainRole } from '@/services/profile'
 
 const CATEGORY_FILTERS = [
   { key: 'all', label: '全部', color: '#6B7280' },
@@ -19,7 +20,7 @@ const CATEGORY_FILTERS = [
 export default function TimelinePage() {
   const { events, deleteEvent } = useTimelineStore()
   const currentUser = useUserStore((s) => s.currentUser)
-  const isCaptain = currentUser?.role === 'captain'
+  const isCaptain = isCaptainRole(currentUser?.role)
 
   const [activeCategory, setActiveCategory] = useState<string>('all')
   const [keyword, setKeyword] = useState('')

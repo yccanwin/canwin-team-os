@@ -5,6 +5,7 @@ import { usePhotoStore } from '@/stores/usePhotoStore'
 import { useUserStore } from '@/stores/useUserStore'
 import PhotoUploadModal from '@/pages/Photos/PhotoUploadModal'
 import PhotoDetailModal from '@/pages/Photos/PhotoDetailModal'
+import { isCaptainRole } from '@/services/profile'
 import type { Photo } from '@/types'
 
 // ============================================================
@@ -48,9 +49,9 @@ export default function PhotosPage() {
 
   // 权限判断：队长 或 上传者本人
   const canEdit = (photo: Photo) =>
-    currentUser?.role === 'captain' || photo.uploadedBy === currentUser?.id
+    isCaptainRole(currentUser?.role) || photo.uploadedBy === currentUser?.id
   const canDelete = (photo: Photo) =>
-    currentUser?.role === 'captain' || photo.uploadedBy === currentUser?.id
+    isCaptainRole(currentUser?.role) || photo.uploadedBy === currentUser?.id
 
   // ============ 提交处理 ============
   const handleUploadSubmit = async (

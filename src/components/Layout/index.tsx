@@ -12,7 +12,6 @@ import {
   Clock,
   Settings,
   Menu,
-  X,
   BarChart3,
   ChevronDown,
   LogOut,
@@ -22,6 +21,7 @@ import {
   Shield,
 } from 'lucide-react'
 import { useUserStore } from '@/stores/useUserStore'
+import { roleLabel, signOut } from '@/services/profile'
 
 const NAV_GROUPS = [
   {
@@ -206,7 +206,7 @@ export default function Layout() {
                 <div className="text-left hidden sm:block">
                   <p className="text-sm font-medium text-brand-400">{currentUser.name}</p>
                   <p className="text-xs text-brand-200">
-                    {currentUser.role === 'captain' ? '队长' : '成员'} · Lv.{currentUser.level}
+                    {roleLabel(currentUser.role)} · Lv.{currentUser.level}
                   </p>
                 </div>
                 <ChevronDown className="w-4 h-4 text-brand-200" />
@@ -218,7 +218,7 @@ export default function Layout() {
                   <div className="px-3 py-3">
                     <p className="text-sm font-medium text-brand-400">{currentUser.name}</p>
                     <p className="text-xs text-brand-200">
-                      {currentUser.role === 'captain' ? '队长' : '成员'} · Lv.{currentUser.level}
+                      {roleLabel(currentUser.role)} · Lv.{currentUser.level}
                     </p>
                   </div>
                   <div className="border-t border-gray-100 mt-1 pt-1">
@@ -230,8 +230,12 @@ export default function Layout() {
                       个人主页
                     </NavLink>
                     <button
-                      onClick={() => {
-                        logout()
+                      onClick={async () => {
+                        try {
+                          await signOut()
+                        } finally {
+                          logout()
+                        }
                         setUserDropdownOpen(false)
                       }}
                       className="flex w-full items-center gap-2 px-3 py-2 text-sm text-expense hover:bg-red-50"

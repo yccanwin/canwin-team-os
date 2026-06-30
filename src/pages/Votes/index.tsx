@@ -8,6 +8,7 @@ import EmptyState from '@/components/EmptyState'
 import CreateVoteModal from './CreateVoteModal'
 import { addXP, XP_REWARDS } from '@/utils/xpCalculator'
 import { checkBadges, unlockBadge } from '@/utils/badgeChecker'
+import { isCaptainRole } from '@/services/profile'
 import type { Vote, VoteRecord } from '@/types'
 
 /** 计算截止倒计时 */
@@ -38,7 +39,7 @@ export default function VotesPage() {
   const users = useUserStore((s) => s.users)
   const getUserById = useUserStore((s) => s.getUserById)
 
-  const isCaptain = currentUser.role === 'captain'
+  const isCaptain = isCaptainRole(currentUser.role)
   const [showCreateModal, setShowCreateModal] = useState(false)
 
   // 排序：进行中的在前，已结束的在后；按 deadline 最近 -> 最远

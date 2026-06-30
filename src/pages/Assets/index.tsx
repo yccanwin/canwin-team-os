@@ -3,6 +3,7 @@ import { Plus, Building2, Pencil, Trash2, ImageIcon, Calendar, MapPin } from 'lu
 import { useAssetStore } from '@/stores/useAssetStore'
 import { useUserStore } from '@/stores/useUserStore'
 import AssetFormModal from './AssetFormModal'
+import { isCaptainRole } from '@/services/profile'
 import type { Asset, AssetCategory, AssetStatus } from '@/types'
 
 // ============================================================
@@ -40,7 +41,7 @@ export default function AssetsPage() {
   const assets = useAssetStore((s) => s.assets)
   const totalValue = useAssetStore((s) => s.getTotalValue())
   const currentUser = useUserStore((s) => s.currentUser)
-  const isCaptain = currentUser?.role === 'captain'
+  const isCaptain = isCaptainRole(currentUser?.role)
 
   const [activeFilter, setActiveFilter] = useState<AssetCategory | 'all'>('all')
   const [formModal, setFormModal] = useState<Asset | null | 'new'>(null)

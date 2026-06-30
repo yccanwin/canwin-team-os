@@ -8,13 +8,14 @@ import EmptyStateIllustration from '@/components/EmptyStateIllustration'
 import StockInModal from './StockInModal'
 import StockOutModal from './StockOutModal'
 import InventoryLogPanel from './InventoryLogPanel'
+import { isCaptainRole } from '@/services/profile'
 
 export default function InventoryPage() {
   const currentUser = useUserStore((s) => s.currentUser)
   const items = useInventoryStore((s) => s.items)
   const logs = useInventoryStore((s) => s.logs)
 
-  const isCaptain = currentUser.role === 'captain'
+  const isCaptain = isCaptainRole(currentUser.role)
 
   // 弹窗状态
   const [stockInOpen, setStockInOpen] = useState(false)

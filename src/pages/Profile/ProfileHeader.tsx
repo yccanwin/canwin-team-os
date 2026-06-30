@@ -1,6 +1,7 @@
 import { useUserStore } from '@/stores/useUserStore'
 import { formatDate } from '@/utils/dateUtils'
 import { CalendarDays } from 'lucide-react'
+import { isCaptainRole } from '@/services/profile'
 import type { User } from '@/types'
 
 interface ProfileHeaderProps {
@@ -47,7 +48,7 @@ export default function ProfileHeader({ user }: ProfileHeaderProps) {
             </span>
 
             {/* 队长标签 */}
-            {displayUser.role === 'captain' && (
+            {isCaptainRole(displayUser.role) && (
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
                 👑 队长
               </span>

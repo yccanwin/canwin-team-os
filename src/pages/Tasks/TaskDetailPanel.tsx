@@ -5,6 +5,7 @@ import { useUserStore } from '@/stores/useUserStore'
 import StatusBadge from '@/components/StatusBadge'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import { formatRelative, formatDate } from '@/utils/dateUtils'
+import { isCaptainRole } from '@/services/profile'
 import type { Task } from '@/types'
 
 interface TaskDetailPanelProps {
@@ -46,7 +47,7 @@ export default function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps)
   const users = useUserStore((s) => s.users)
   const getUserById = useUserStore((s) => s.getUserById)
 
-  const isCaptain = currentUser.role === 'captain'
+  const isCaptain = isCaptainRole(currentUser.role)
   const isDone = task?.status === 'done'
   const isOwnTask = task?.assigneeId === currentUser.id
   const canEdit = isCaptain && !isDone

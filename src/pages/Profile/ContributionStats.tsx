@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { Wallet, Award, AlertCircle } from 'lucide-react'
 import { useUserStore } from '@/stores/useUserStore'
 import { useFinanceStore } from '@/stores/useFinanceStore'
+import { isCaptainRole } from '@/services/profile'
 import type { FinanceRecord, User } from '@/types'
 
 // ─── 主组件 ─────────────────────────────────────────────────
@@ -26,7 +27,7 @@ export default function ContributionStats() {
     )
   }
 
-  const isCaptain = currentUser.role === 'captain'
+  const isCaptain = isCaptainRole(currentUser.role)
   const [selectedUserId, setSelectedUserId] = useState<string>(currentUser.id)
 
   // 当前月份 YYYY-MM

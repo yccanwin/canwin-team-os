@@ -5,6 +5,7 @@ import { useUserStore } from '@/stores/useUserStore'
 import AchievementDetailModal from './AchievementDetailModal'
 import AchievementFormModal from './AchievementFormModal'
 import EmptyStateIllustration from '@/components/EmptyStateIllustration'
+import { isCaptainRole } from '@/services/profile'
 import type { Achievement } from '@/types'
 
 // 分类筛选配置
@@ -27,7 +28,7 @@ export default function AchievementsPage() {
   const { achievements, addAchievement, updateAchievement, deleteAchievement } =
     useAchievementStore()
   const currentUser = useUserStore((s) => s.currentUser)
-  const isCaptain = currentUser?.role === 'captain'
+  const isCaptain = isCaptainRole(currentUser?.role)
 
   // 筛选 + 搜索
   const [activeCategory, setActiveCategory] = useState<string>('all')

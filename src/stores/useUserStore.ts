@@ -12,7 +12,7 @@ interface UserState {
 
 interface UserActions {
   switchUser: (userId: string) => void
-  setCurrentUser: (user: User) => void
+  setCurrentUser: (user: User | null) => void
   logout: () => void
   addXP: (userId: string, amount: number) => void
   addBadge: (userId: string, badgeId: string) => void
@@ -38,7 +38,7 @@ export const useUserStore = create<UserState & UserActions>()(
         }
       },
 
-      setCurrentUser: (user) => set({ currentUser: user }),
+      setCurrentUser: (user) => set({ currentUser: user as unknown as User }),
 
       logout: () => set({ currentUser: null as unknown as User }),
 

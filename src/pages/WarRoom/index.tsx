@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Shield, Plus, MessageSquare, Trash2, X, Send } from 'lucide-react'
 import { useWarRoomStore } from '@/stores/useWarRoomStore'
 import { useUserStore } from '@/stores/useUserStore'
+import { isCaptainRole } from '@/services/profile'
 
 type ExpandedPolicy = string | null
 
@@ -21,7 +22,7 @@ export default function WarRoomPage() {
   const [expanded, setExpanded] = useState<ExpandedPolicy>(null)
   const [commentTexts, setCommentTexts] = useState<Record<string, string>>({})
 
-  const isCaptain = currentUser?.role === 'captain'
+  const isCaptain = isCaptainRole(currentUser?.role)
 
   const getUserName = (userId: string) => {
     const u = users.find((u) => u.id === userId)

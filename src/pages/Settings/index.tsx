@@ -10,6 +10,7 @@ import { useInventoryStore } from '@/stores/useInventoryStore'
 import { useActivityStore } from '@/stores/useActivityStore'
 import { useTeamStore } from '@/stores/useTeamStore'
 import { isSupabaseConfigured } from '@/lib/supabase'
+import { isCaptainRole, roleLabel } from '@/services/profile'
 import { formatDate } from '@/utils/dateUtils'
 import BadgeFormModal from './BadgeFormModal'
 import GoalEditModal from '@/pages/Goals/GoalEditModal'
@@ -29,7 +30,7 @@ const tabs: { key: TabKey; label: string }[] = [
 
 export default function SettingsPage() {
   const currentUser = useUserStore((s) => s.currentUser)
-  const isCaptain = currentUser.role === 'captain'
+  const isCaptain = isCaptainRole(currentUser.role)
 
   const [activeTab, setActiveTab] = useState<TabKey>('badges')
 
@@ -278,7 +279,7 @@ function FinanceEntryTab() {
   const deleteRecord = useFinanceStore((s) => s.deleteRecord)
   const currentUser = useUserStore((s) => s.currentUser)
   const users = useUserStore((s) => s.users)
-  const isCaptain = currentUser.role === 'captain'
+  const isCaptain = isCaptainRole(currentUser.role)
 
   // 表单
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
@@ -908,12 +909,12 @@ function MemberManagementTab() {
                   <td className="px-4 py-2.5">
                     <span
                       className={`inline-flex px-1.5 py-0.5 rounded text-xs font-medium ${
-                        user.role === 'captain'
+                        isCaptainRole(user.role)
                           ? 'bg-[#EEF2FF] text-primary'
                           : 'bg-gray-100 text-[#6B7280]'
                       }`}
                     >
-                      {user.role === 'captain' ? '队长' : '成员'}
+                      {roleLabel(user.role)}
                     </span>
                   </td>
                   <td className="px-4 py-2.5 text-brand-400">

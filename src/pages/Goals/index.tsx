@@ -4,6 +4,7 @@ import EmptyStateIllustration from '@/components/EmptyStateIllustration'
 import { useGoalStore } from '@/stores/useGoalStore'
 import { useUserStore } from '@/stores/useUserStore'
 import GoalEditModal from './GoalEditModal'
+import { isCaptainRole } from '@/services/profile'
 import { Target, TrendingUp, Rocket, Trophy, X, Plus } from 'lucide-react'
 
 // 阶段图标（Lucide）
@@ -30,7 +31,7 @@ export default function GoalsPage() {
   const unlockNextPhase = useGoalStore((s) => s.unlockNextPhase)
   const currentUser = useUserStore((s) => s.currentUser)
 
-  const isCaptain = currentUser.role === 'captain'
+  const isCaptain = isCaptainRole(currentUser.role)
 
   // 编辑弹窗状态
   const [editingGoal, setEditingGoal] = useState<typeof goals[0] | null>(null)

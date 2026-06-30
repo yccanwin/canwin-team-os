@@ -7,7 +7,7 @@
 export interface User {
   id: string;
   name: string;
-  role: 'captain' | 'member';
+  role: 'admin' | 'captain' | 'finance' | 'warehouse' | 'member';
   avatar?: string;
   position: string;
   joinDate: string;       // ISO 格式

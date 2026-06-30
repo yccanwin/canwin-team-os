@@ -5,6 +5,7 @@ import { useInventoryStore } from '@/stores/useInventoryStore'
 import type { InventoryLog } from '@/types'
 import { formatRelative } from '@/utils/dateUtils'
 import { ClipboardList, ArrowDown, ArrowUp, Trash2 } from 'lucide-react'
+import { isCaptainRole } from '@/services/profile'
 
 /** 删除操作日志的验证密码 */
 const DELETE_PASSWORD = '000000'
@@ -25,7 +26,7 @@ export default function InventoryLogPanel({
   const deleteLog = useInventoryStore((s) => s.deleteLog)
 
   // 仅队长可查看/操作
-  const isCaptain = currentUser.role === 'captain'
+  const isCaptain = isCaptainRole(currentUser.role)
 
   // 删除密码弹窗状态
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null)
