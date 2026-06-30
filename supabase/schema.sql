@@ -1,7 +1,7 @@
 -- ============================================================
 -- CanWin Team OS — Supabase 阶段 1 Schema
 -- 在 Supabase SQL Editor 中执行。执行前先在 Auth 中创建唯一初始账号：
---   email: admin@canwin.local
+--   email: admin@yccanwin.com
 --   password: 由项目所有者设置
 -- ============================================================
 
@@ -23,6 +23,9 @@ create table if not exists teams (
   slug text unique,
   created_at timestamptz not null default now()
 );
+
+alter table teams add column if not exists slug text;
+create unique index if not exists teams_slug_key on teams(slug);
 
 insert into teams (id, name, slug)
 values ('CANWIN_TEAM', '翻身小队', 'canwin-team')
@@ -374,8 +377,8 @@ begin
     new.id,
     'CANWIN_TEAM',
     coalesce(new.raw_user_meta_data->>'name', split_part(new.email, '@', 1), '成员'),
-    case when lower(new.email) = 'admin@canwin.local' then 'admin' else 'member' end,
-    case when lower(new.email) = 'admin@canwin.local' then '系统管理员' else '' end
+    case when lower(new.email) = 'admin@yccanwin.com' then 'admin' else 'member' end,
+    case when lower(new.email) = 'admin@yccanwin.com' then '系统管理员' else '' end
   )
   on conflict (id) do nothing;
   return new;
@@ -509,11 +512,11 @@ create index if not exists idx_inventory_team on inventory_items(team_id);
 create index if not exists idx_assets_team on assets(team_id);
 create index if not exists idx_timeline_team_date on timeline_events(team_id, event_date desc);
 
--- 若 admin@canwin.local 已经在执行本 SQL 前创建，可补齐 profile：
+-- 若 admin@yccanwin.com 已经在执行本 SQL 前创建，可补齐 profile：
 insert into profiles (id, team_id, name, role, position)
 select id, 'CANWIN_TEAM', 'admin', 'admin', '系统管理员'
 from auth.users
-where lower(email) = 'admin@canwin.local'
+where lower(email) = 'admin@yccanwin.com'
 on conflict (id) do update
 set role = 'admin',
     name = excluded.name,

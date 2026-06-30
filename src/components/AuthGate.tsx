@@ -105,7 +105,7 @@ export default function AuthGate() {
                     setLogin(e.target.value)
                     setError('')
                   }}
-                  placeholder="admin 或 admin@canwin.local"
+                  placeholder="admin 或 admin@yccanwin.com"
                   className="w-full rounded-xl border border-neutral-border bg-white px-3 py-2.5 text-sm outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
                 />
               </div>

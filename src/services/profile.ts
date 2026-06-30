@@ -19,7 +19,7 @@ type ProfileRow = {
   taboos?: string | null
 }
 
-const ADMIN_LOGIN_EMAIL = 'admin@canwin.local'
+const ADMIN_LOGIN_EMAIL = 'admin@yccanwin.com'
 
 function normalizeLoginEmail(value: string): string {
   const input = value.trim()
