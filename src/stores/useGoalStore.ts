@@ -3,6 +3,11 @@ import { persist } from 'zustand/middleware'
 import { safeStorage } from '@/utils/safeStorage'
 import type { Goal } from '@/types'
 import { mockGoals } from '@/data/mockData'
+import {
+  createGoalRecord,
+  deleteGoalRecord,
+  updateGoalRecord,
+} from '@/services/goals'
 
 // 团队动态统一通过 useActivityStore 写入
 import { useActivityStore } from '@/stores/useActivityStore'
@@ -25,6 +30,7 @@ interface GoalState {
 }
 
 interface GoalActions {
+  setGoals: (goals: Goal[]) => void
   addGoal: (goal: Omit<Goal, 'id'>) => void
   updateGoal: (id: string, updates: Partial<Goal>) => void
   deleteGoal: (id: string) => void
@@ -51,37 +57,68 @@ export const useGoalStore = create<GoalState & GoalActions>()(
     (set, get) => ({
       goals: mockGoals,
 
-      addGoal: (goal) =>
+      setGoals: (goals) => set({ goals }),
+
+      addGoal: (goal) => {
+        const optimisticGoal = { ...goal, id: crypto.randomUUID() }
         set((state) => ({
           goals: [
             ...state.goals,
-            { ...goal, id: crypto.randomUUID() },
+            optimisticGoal,
           ],
-        })),
+        }))
+        void createGoalRecord(goal)
+          .then((savedGoal) =>
+            set((state) => ({
+              goals: state.goals.map((g) => (g.id === optimisticGoal.id ? savedGoal : g)),
+            }))
+          )
+          .catch(() =>
+            set((state) => ({
+              goals: state.goals.filter((g) => g.id !== optimisticGoal.id),
+            }))
+          )
+      },
 
-      updateGoal: (id, updates) =>
+      updateGoal: (id, updates) => {
+        const previous = get().goals
         set((state) => ({
           goals: state.goals.map((g) =>
             g.id === id ? { ...g, ...updates } : g
           ),
-        })),
+        }))
+        void updateGoalRecord(id, updates).catch(() => set({ goals: previous }))
+      },
 
-      deleteGoal: (id) =>
+      deleteGoal: (id) => {
+        const previous = get().goals
         set((state) => ({
           goals: state.goals.filter((g) => g.id !== id),
-        })),
+        }))
+        void deleteGoalRecord(id).catch(() => set({ goals: previous }))
+      },
 
-      updateGoalProgress: (id, amount) =>
+      updateGoalProgress: (id, amount) => {
+        const previous = get().goals
+        let changedGoal: Goal | undefined
         set((state) => {
           const updated = state.goals.map((g) => {
             if (g.id !== id) return g
             const newCurrent = Math.min(g.currentAmount + amount, g.targetAmount)
             const newStatus: Goal['status'] =
               newCurrent >= g.targetAmount ? 'completed' : 'in_progress'
-            return { ...g, currentAmount: newCurrent, status: newStatus }
+            changedGoal = { ...g, currentAmount: newCurrent, status: newStatus }
+            return changedGoal
           })
           return { goals: updated }
-        }),
+        })
+        if (changedGoal) {
+          void updateGoalRecord(id, {
+            currentAmount: changedGoal.currentAmount,
+            status: changedGoal.status,
+          }).catch(() => set({ goals: previous }))
+        }
+      },
 
       // ============================================================
       // 混合模式C — 自动检测阶段完成
@@ -111,6 +148,11 @@ export const useGoalStore = create<GoalState & GoalActions>()(
           })
 
           set({ goals: updated })
+          updated
+            .filter((goal) => goal.id === inProgress.id || goal.priority === inProgress.priority - 1)
+            .forEach((goal) => {
+              void updateGoalRecord(goal.id, { status: goal.status }).catch(() => set({ goals }))
+            })
 
           // 团队动态
           addActivityLog(
@@ -141,6 +183,7 @@ export const useGoalStore = create<GoalState & GoalActions>()(
             return g
           })
           set({ goals: unlocked })
+          void updateGoalRecord(lockedGoal.id, { status: 'enabled' }).catch(() => set({ goals }))
           return unlocked.find((g) => g.id === lockedGoal.id) || null
         }
 
@@ -150,6 +193,7 @@ export const useGoalStore = create<GoalState & GoalActions>()(
         })
 
         set({ goals: updated })
+        void updateGoalRecord(enabledGoal.id, { status: 'in_progress' }).catch(() => set({ goals }))
 
         // 团队动态
         addActivityLog(
@@ -166,13 +210,18 @@ export const useGoalStore = create<GoalState & GoalActions>()(
       // 调整后自动触发 checkPhaseCompletion
       // ============================================================
       updateGoalAmount: (goalId, newCurrentAmount) => {
+        const previous = get().goals
+        let syncedAmount = newCurrentAmount
         set((state) => ({
           goals: state.goals.map((g) =>
-            g.id === goalId
-              ? { ...g, currentAmount: Math.min(newCurrentAmount, g.targetAmount) }
-              : g
+            {
+              if (g.id !== goalId) return g
+              syncedAmount = Math.min(newCurrentAmount, g.targetAmount)
+              return { ...g, currentAmount: syncedAmount }
+            }
           ),
         }))
+        void updateGoalRecord(goalId, { currentAmount: syncedAmount }).catch(() => set({ goals: previous }))
 
         // 延迟调用 checkPhaseCompletion（确保 state 已更新）
         setTimeout(() => {
@@ -184,6 +233,7 @@ export const useGoalStore = create<GoalState & GoalActions>()(
       // 将 enabled 阶段设为 locked（队长禁用）
       // ============================================================
       disablePhase: (goalId) => {
+        const previous = get().goals
         set((state) => ({
           goals: state.goals.map((g) =>
             g.id === goalId && g.status === 'enabled'
@@ -191,6 +241,7 @@ export const useGoalStore = create<GoalState & GoalActions>()(
               : g
           ),
         }))
+        void updateGoalRecord(goalId, { status: 'locked' }).catch(() => set({ goals: previous }))
       },
 
       getCurrentGoal: () => {

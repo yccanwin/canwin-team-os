@@ -8,11 +8,15 @@ import { useTaskStore } from './stores/useTaskStore'
 import { useFinanceStore } from './stores/useFinanceStore'
 import { useInventoryStore } from './stores/useInventoryStore'
 import { useVoteStore } from './stores/useVoteStore'
+import { useGoalStore } from './stores/useGoalStore'
+import { useCalendarStore } from './stores/useCalendarStore'
 import { loadTeamProfiles } from './services/profile'
 import { loadTasks } from './services/tasks'
 import { loadFinanceRecords } from './services/finance'
 import { loadInventory } from './services/inventory'
 import { loadVotes } from './services/votes'
+import { loadGoals } from './services/goals'
+import { loadCalendarEvents } from './services/calendar'
 
 // 懒加载页面
 const Dashboard = lazy(() => import('./pages/Dashboard'))
@@ -37,6 +41,8 @@ function App() {
   const setRecords = useFinanceStore((s) => s.setRecords)
   const setInventoryData = useInventoryStore((s) => s.setInventoryData)
   const setVotes = useVoteStore((s) => s.setVotes)
+  const setGoals = useGoalStore((s) => s.setGoals)
+  const setEvents = useCalendarStore((s) => s.setEvents)
 
   useEffect(() => {
     if (!currentUser) return
@@ -44,12 +50,14 @@ function App() {
     let cancelled = false
 
     async function loadCloudData() {
-      const [profiles, tasks, records, inventory, votes] = await Promise.all([
+      const [profiles, tasks, records, inventory, votes, goals, events] = await Promise.all([
         loadTeamProfiles(),
         loadTasks(),
         loadFinanceRecords(),
         loadInventory(),
         loadVotes(),
+        loadGoals(),
+        loadCalendarEvents(),
       ])
       if (cancelled) return
       setUsers(profiles)
@@ -57,6 +65,8 @@ function App() {
       setRecords(records)
       setInventoryData(inventory)
       setVotes(votes)
+      setGoals(goals)
+      setEvents(events)
     }
 
     void loadCloudData()
@@ -64,7 +74,7 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [currentUser, setInventoryData, setRecords, setTasks, setUsers, setVotes])
+  }, [currentUser, setEvents, setGoals, setInventoryData, setRecords, setTasks, setUsers, setVotes])
 
   if (!currentUser) {
     return <AuthGate />
