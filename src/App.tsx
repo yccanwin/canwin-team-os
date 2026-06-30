@@ -5,8 +5,10 @@ import AuthGate from './components/AuthGate'
 import SupabaseSyncProvider from './components/SupabaseSyncProvider'
 import { useUserStore } from './stores/useUserStore'
 import { useTaskStore } from './stores/useTaskStore'
+import { useFinanceStore } from './stores/useFinanceStore'
 import { loadTeamProfiles } from './services/profile'
 import { loadTasks } from './services/tasks'
+import { loadFinanceRecords } from './services/finance'
 
 // 懒加载页面
 const Dashboard = lazy(() => import('./pages/Dashboard'))
@@ -28,6 +30,7 @@ function App() {
   const currentUser = useUserStore((s) => s.currentUser)
   const setUsers = useUserStore((s) => s.setUsers)
   const setTasks = useTaskStore((s) => s.setTasks)
+  const setRecords = useFinanceStore((s) => s.setRecords)
 
   useEffect(() => {
     if (!currentUser) return
@@ -35,10 +38,15 @@ function App() {
     let cancelled = false
 
     async function loadCloudData() {
-      const [profiles, tasks] = await Promise.all([loadTeamProfiles(), loadTasks()])
+      const [profiles, tasks, records] = await Promise.all([
+        loadTeamProfiles(),
+        loadTasks(),
+        loadFinanceRecords(),
+      ])
       if (cancelled) return
       setUsers(profiles)
       setTasks(tasks)
+      setRecords(records)
     }
 
     void loadCloudData()
@@ -46,7 +54,7 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [currentUser, setTasks, setUsers])
+  }, [currentUser, setRecords, setTasks, setUsers])
 
   if (!currentUser) {
     return <AuthGate />

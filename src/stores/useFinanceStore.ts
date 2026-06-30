@@ -3,12 +3,18 @@ import { persist } from 'zustand/middleware'
 import { safeStorage } from '@/utils/safeStorage'
 import type { FinanceRecord } from '@/types'
 import { mockFinance } from '@/data/mockData'
+import {
+  createFinanceRecord,
+  deleteFinanceRecord,
+  updateFinanceRecord,
+} from '@/services/finance'
 
 interface FinanceState {
   records: FinanceRecord[]
 }
 
 interface FinanceActions {
+  setRecords: (records: FinanceRecord[]) => void
   addRecord: (record: Omit<FinanceRecord, 'id'>) => void
   updateRecord: (id: string, updates: Partial<FinanceRecord>) => void
   deleteRecord: (id: string) => void
@@ -25,25 +31,41 @@ export const useFinanceStore = create<FinanceState & FinanceActions>()(
     (set, get) => ({
       records: mockFinance,
 
-      addRecord: (record) =>
-        set((state) => ({
-          records: [
-            ...state.records,
-            { ...record, id: crypto.randomUUID() },
-          ],
-        })),
+      setRecords: (records) => set({ records }),
 
-      updateRecord: (id, updates) =>
+      addRecord: (record) => {
+        const optimisticRecord = { ...record, id: crypto.randomUUID() }
+        set((state) => ({ records: [optimisticRecord, ...state.records] }))
+        void createFinanceRecord(record)
+          .then((savedRecord) =>
+            set((state) => ({
+              records: state.records.map((r) =>
+                r.id === optimisticRecord.id ? savedRecord : r
+              ),
+            }))
+          )
+          .catch(() =>
+            set((state) => ({
+              records: state.records.filter((r) => r.id !== optimisticRecord.id),
+            }))
+          )
+      },
+
+      updateRecord: (id, updates) => {
+        const previous = get().records
         set((state) => ({
           records: state.records.map((r) =>
             r.id === id ? { ...r, ...updates } : r
           ),
-        })),
+        }))
+        void updateFinanceRecord(id, updates).catch(() => set({ records: previous }))
+      },
 
-      deleteRecord: (id) =>
-        set((state) => ({
-          records: state.records.filter((r) => r.id !== id),
-        })),
+      deleteRecord: (id) => {
+        const previous = get().records
+        set((state) => ({ records: state.records.filter((r) => r.id !== id) }))
+        void deleteFinanceRecord(id).catch(() => set({ records: previous }))
+      },
 
       getRecordsByMonth: (yearMonth) => {
         return get().records.filter((r) => r.date.startsWith(yearMonth))
