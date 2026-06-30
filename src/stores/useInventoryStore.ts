@@ -4,6 +4,14 @@ import { safeStorage } from '@/utils/safeStorage'
 import type { InventoryItem, InventoryLog } from '@/types'
 import { mockInventory, mockInventoryLogs } from '@/data/mockData'
 import { useFinanceStore } from './useFinanceStore'
+import {
+  createInventoryItem,
+  deleteInventoryItem,
+  deleteInventoryLogWithRevert,
+  recordStockIn,
+  recordStockOut,
+  updateInventoryItem,
+} from '@/services/inventory'
 
 interface InventoryState {
   items: InventoryItem[]
@@ -11,6 +19,8 @@ interface InventoryState {
 }
 
 interface InventoryActions {
+  setInventoryData: (data: { items: InventoryItem[]; logs: InventoryLog[] }) => void
+
   // 入库（含财务联动）— 创建或累加库存 + 支出记录 + 入库日志
   addStock: (
     item: Omit<InventoryItem, 'id' | 'lastUpdated'>,
@@ -50,6 +60,8 @@ export const useInventoryStore = create<InventoryState & InventoryActions>()(
       items: mockInventory,
       logs: mockInventoryLogs,
 
+      setInventoryData: ({ items, logs }) => set({ items, logs }),
+
       // ============================================================
       // 入库 — 两步流程的 Store 层封装
       // 1. 同名同单位商品 → 数量累加，单价更新
@@ -67,6 +79,8 @@ export const useInventoryStore = create<InventoryState & InventoryActions>()(
 
         // ✅ 提前确定 itemId，避免 updater 内靠 get() 修正的不可靠逻辑
         const itemId = existing ? existing.id : crypto.randomUUID()
+        const logId = crypto.randomUUID()
+        const financeId = crypto.randomUUID()
 
         set((state) => {
           const existingInState = state.items.find(
@@ -99,7 +113,7 @@ export const useInventoryStore = create<InventoryState & InventoryActions>()(
 
           // 入库日志 — itemId 已提前确定，无需事后修正
           const logEntry: InventoryLog = {
-            id: crypto.randomUUID(),
+            id: logId,
             itemId,
             itemName: item.name,
             operation: 'in',
@@ -109,10 +123,8 @@ export const useInventoryStore = create<InventoryState & InventoryActions>()(
           }
 
           // 跨 Store：自动生成支出记录（预生成 financeId 便于联动删除）
-          const financeId = crypto.randomUUID()
           useFinanceStore.setState((fs) => ({
             records: [
-              ...fs.records,
               {
                 id: financeId,
                 type: 'expense' as const,
@@ -122,14 +134,39 @@ export const useInventoryStore = create<InventoryState & InventoryActions>()(
                 note: `入库：${item.name} × ${item.quantity}${item.unit}`,
                 createdBy: operatorId,
               },
+              ...fs.records,
             ],
           }))
 
           return {
             items: newItems,
-            logs: [...state.logs, { ...logEntry, financeId }],
+            logs: [{ ...logEntry, financeId }, ...state.logs],
           }
         })
+
+        void recordStockIn(item, costAmount, operatorId, costCategory, costDate)
+          .then(({ item: savedItem, log: savedLog, financeRecord }) => {
+            set((state) => ({
+              items: state.items.map((i) => (i.id === itemId ? savedItem : i)),
+              logs: state.logs.map((l) => (l.id === logId ? savedLog : l)),
+            }))
+            useFinanceStore.setState((fs) => ({
+              records: fs.records.map((record) =>
+                record.id === financeId ? financeRecord : record
+              ),
+            }))
+          })
+          .catch(() => {
+            set((state) => ({
+              items: existing
+                ? state.items.map((i) => (i.id === itemId ? existing : i))
+                : state.items.filter((i) => i.id !== itemId),
+              logs: state.logs.filter((l) => l.id !== logId),
+            }))
+            useFinanceStore.setState((fs) => ({
+              records: fs.records.filter((record) => record.id !== financeId),
+            }))
+          })
 
         // 每次入库后裁剪日志（保留最近 30 条）
         get().cleanupLogs()
@@ -150,6 +187,9 @@ export const useInventoryStore = create<InventoryState & InventoryActions>()(
           )
         }
 
+        const logId = crypto.randomUUID()
+        const financeId = crypto.randomUUID()
+
         set((state) => ({
           items: state.items.map((i) =>
             i.id === itemId
@@ -161,9 +201,8 @@ export const useInventoryStore = create<InventoryState & InventoryActions>()(
               : i
           ),
           logs: [
-            ...state.logs,
             {
-              id: crypto.randomUUID(),
+              id: logId,
               itemId,
               itemName: item.name,
               operation: 'out',
@@ -172,14 +211,13 @@ export const useInventoryStore = create<InventoryState & InventoryActions>()(
               createdAt: new Date().toISOString(),
               financeId,
             },
+            ...state.logs,
           ],
         }))
 
         // 跨 Store：自动生成收入记录（预生成 financeId 便于联动删除）
-        const financeId = crypto.randomUUID()
         useFinanceStore.setState((fs) => ({
           records: [
-            ...fs.records,
             {
               id: financeId,
               type: 'income' as const,
@@ -189,32 +227,67 @@ export const useInventoryStore = create<InventoryState & InventoryActions>()(
               note: `出库：${item.name} × ${quantity}${item.unit}`,
               createdBy: operatorId,
             },
+            ...fs.records,
           ],
         }))
+
+        void recordStockOut(item, quantity, incomeAmount, operatorId, incomeCategory, incomeDate)
+          .then(({ item: savedItem, log: savedLog, financeRecord }) => {
+            set((state) => ({
+              items: state.items.map((i) => (i.id === itemId ? savedItem : i)),
+              logs: state.logs.map((l) => (l.id === logId ? savedLog : l)),
+            }))
+            useFinanceStore.setState((fs) => ({
+              records: fs.records.map((record) =>
+                record.id === financeId ? financeRecord : record
+              ),
+            }))
+          })
+          .catch(() => {
+            set((state) => ({
+              items: state.items.map((i) => (i.id === itemId ? item : i)),
+              logs: state.logs.filter((l) => l.id !== logId),
+            }))
+            useFinanceStore.setState((fs) => ({
+              records: fs.records.filter((record) => record.id !== financeId),
+            }))
+          })
 
         // 每次出库后裁剪日志（保留最近 30 条）
         get().cleanupLogs()
       },
 
-      addItem: (item) =>
-        set((state) => ({
-          items: [
-            ...state.items,
-            { ...item, id: crypto.randomUUID() },
-          ],
-        })),
+      addItem: (item) => {
+        const optimisticItem = { ...item, id: crypto.randomUUID() }
+        set((state) => ({ items: [optimisticItem, ...state.items] }))
+        void createInventoryItem(item)
+          .then((savedItem) =>
+            set((state) => ({
+              items: state.items.map((i) => (i.id === optimisticItem.id ? savedItem : i)),
+            }))
+          )
+          .catch(() =>
+            set((state) => ({
+              items: state.items.filter((i) => i.id !== optimisticItem.id),
+            }))
+          )
+      },
 
-      updateItem: (id, updates) =>
+      updateItem: (id, updates) => {
+        const previous = get().items
         set((state) => ({
           items: state.items.map((i) =>
             i.id === id ? { ...i, ...updates } : i
           ),
-        })),
+        }))
+        void updateInventoryItem(id, updates).catch(() => set({ items: previous }))
+      },
 
-      deleteItem: (id) =>
-        set((state) => ({
-          items: state.items.filter((i) => i.id !== id),
-        })),
+      deleteItem: (id) => {
+        const previous = get().items
+        set((state) => ({ items: state.items.filter((i) => i.id !== id) }))
+        void deleteInventoryItem(id).catch(() => set({ items: previous }))
+      },
 
       getLowStockItems: (threshold) => {
         return get().items.filter((i) => i.quantity <= threshold)
@@ -252,6 +325,9 @@ export const useInventoryStore = create<InventoryState & InventoryActions>()(
           logs: s.logs.filter((l) => l.id !== logId),
         }))
 
+        void deleteInventoryLogWithRevert(log)
+          .catch(() => set({ items: state.items, logs: state.logs }))
+
         return true
       },
 
@@ -259,7 +335,7 @@ export const useInventoryStore = create<InventoryState & InventoryActions>()(
       cleanupLogs: () => {
         const logs = get().logs
         if (logs.length > 30) {
-          set({ logs: logs.slice(logs.length - 30) })
+          set({ logs: logs.slice(0, 30) })
         }
       },
 
