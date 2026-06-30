@@ -15,10 +15,10 @@ import { usePhotoStore } from './stores/usePhotoStore'
 import { useAssetStore } from './stores/useAssetStore'
 import { useToolboxStore } from './stores/useToolboxStore'
 import { useWarRoomStore } from './stores/useWarRoomStore'
-import { loadTeamProfiles } from './services/profile'
+import { isFinanceRole, isWarehouseRole, loadTeamProfiles } from './services/profile'
 import { loadTasks } from './services/tasks'
-import { loadFinanceRecords } from './services/finance'
-import { loadInventory } from './services/inventory'
+import { loadFinancePublicSummary, loadFinanceRecords } from './services/finance'
+import { loadInventory, loadInventoryPublic } from './services/inventory'
 import { loadVotes } from './services/votes'
 import { loadGoals } from './services/goals'
 import { loadCalendarEvents } from './services/calendar'
@@ -84,8 +84,8 @@ function App() {
       ] = await Promise.all([
         loadTeamProfiles(),
         loadTasks(),
-        loadFinanceRecords(),
-        loadInventory(),
+        isFinanceRole(currentUser.role) ? loadFinanceRecords() : loadFinancePublicSummary(),
+        isWarehouseRole(currentUser.role) ? loadInventory() : loadInventoryPublic(),
         loadVotes(),
         loadGoals(),
         loadCalendarEvents(),

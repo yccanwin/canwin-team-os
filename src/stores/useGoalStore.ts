@@ -2,7 +2,6 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { safeStorage } from '@/utils/safeStorage'
 import type { Goal } from '@/types'
-import { mockGoals } from '@/data/mockData'
 import {
   createGoalRecord,
   deleteGoalRecord,
@@ -55,7 +54,7 @@ interface GoalActions {
 export const useGoalStore = create<GoalState & GoalActions>()(
   persist(
     (set, get) => ({
-      goals: mockGoals,
+      goals: [],
 
       setGoals: (goals) => set({ goals }),
 

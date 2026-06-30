@@ -63,6 +63,14 @@ export function isCaptainRole(role?: UserRole): boolean {
   return role === 'admin' || role === 'captain'
 }
 
+export function isFinanceRole(role?: UserRole): boolean {
+  return role === 'admin' || role === 'captain' || role === 'finance'
+}
+
+export function isWarehouseRole(role?: UserRole): boolean {
+  return role === 'admin' || role === 'captain' || role === 'warehouse'
+}
+
 export async function loadCurrentProfile(session?: Session | null): Promise<User | null> {
   const activeSession = session ?? (await supabase.auth.getSession()).data.session
   const authUser = activeSession?.user

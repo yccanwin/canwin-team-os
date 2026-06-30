@@ -71,11 +71,12 @@ export async function loadGoals(): Promise<Goal[]> {
     .from('team_goals')
     .select(GOAL_SELECT)
     .eq('team_id', CANWIN_TEAM_ID)
-    .order('priority', { ascending: false })
     .order('created_at', { ascending: true })
 
   if (error) throw new Error(error.message)
-  return (data ?? []).map((row) => rowToGoal(row as GoalRow))
+  return (data ?? [])
+    .map((row) => rowToGoal(row as GoalRow))
+    .sort((a, b) => b.priority - a.priority)
 }
 
 export async function createGoalRecord(goal: Omit<Goal, 'id'>): Promise<Goal> {

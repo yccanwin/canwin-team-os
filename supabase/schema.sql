@@ -91,11 +91,14 @@ create table if not exists finance_records (
   date date not null,
   note text,
   sensitive_note text,
+  user_id uuid references profiles(id),
   visibility_level text not null default 'restricted' check (visibility_level in ('public', 'restricted', 'admin')),
   created_by uuid references auth.users(id),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table finance_records add column if not exists user_id uuid references profiles(id);
 
 create table if not exists inventory_items (
   id uuid primary key default gen_random_uuid(),
@@ -480,7 +483,8 @@ create policy "captains manage badge awards" on badge_awards for all to authenti
 create policy "admin reads audit logs" on audit_logs for select to authenticated using (public.has_role(team_id, array['admin']));
 create policy "system roles create audit logs" on audit_logs for insert to authenticated with check (actor_id = auth.uid() and public.has_role(team_id, array['admin','captain','finance','warehouse']));
 
-create or replace view finance_public_summary as
+create or replace view finance_public_summary
+with (security_invoker = false) as
 select
   team_id,
   date_trunc('month', date)::date as month,
@@ -491,7 +495,8 @@ select
 from finance_records
 group by team_id, date_trunc('month', date)::date, record_type, category;
 
-create or replace view inventory_public_items as
+create or replace view inventory_public_items
+with (security_invoker = false) as
 select
   id,
   team_id,
@@ -503,6 +508,9 @@ select
   low_stock_threshold,
   updated_at
 from inventory_items;
+
+grant select on finance_public_summary to authenticated;
+grant select on inventory_public_items to authenticated;
 
 create index if not exists idx_profiles_team on profiles(team_id);
 create index if not exists idx_tasks_team_status on tasks(team_id, status);

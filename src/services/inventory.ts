@@ -12,6 +12,11 @@ type InventoryItemRow = {
   updated_at: string
 }
 
+type PublicInventoryItemRow = Omit<InventoryItemRow, 'unit_cost'> & {
+  public_status: string | null
+  low_stock_threshold: number | string | null
+}
+
 type InventoryLogRow = {
   id: string
   item_id: string
@@ -32,12 +37,11 @@ type FinanceRow = {
   category: string
   note: string | null
   created_by: string | null
-  user_id: string | null
 }
 
 const ITEM_SELECT = 'id, name, sku, quantity, unit, unit_cost, updated_at'
 const LOG_SELECT = 'id, item_id, operation, quantity_change, operator_id, finance_record_id, created_at, inventory_items(name)'
-const FINANCE_SELECT = 'id, record_type, amount, date, category, note, created_by, user_id'
+const FINANCE_SELECT = 'id, record_type, amount, date, category, note, created_by'
 
 function rowToItem(row: InventoryItemRow): InventoryItem {
   return {
@@ -47,6 +51,18 @@ function rowToItem(row: InventoryItemRow): InventoryItem {
     quantity: Number(row.quantity),
     unit: row.unit,
     unitPrice: Number(row.unit_cost ?? 0),
+    lastUpdated: row.updated_at,
+  }
+}
+
+function rowToPublicItem(row: PublicInventoryItemRow): InventoryItem {
+  return {
+    id: row.id,
+    name: row.name,
+    sku: row.sku || undefined,
+    quantity: Number(row.quantity),
+    unit: row.unit,
+    unitPrice: 0,
     lastUpdated: row.updated_at,
   }
 }
@@ -77,7 +93,6 @@ function rowToFinance(row: FinanceRow): FinanceRecord {
     category: row.category,
     note: row.note || undefined,
     createdBy: row.created_by || '',
-    userId: row.user_id || undefined,
   }
 }
 
@@ -102,7 +117,6 @@ async function createFinanceRecord(record: Omit<FinanceRecord, 'id'>): Promise<F
       category: record.category,
       note: record.note,
       created_by: record.createdBy,
-      user_id: record.userId,
     })
     .select(FINANCE_SELECT)
     .single()
@@ -132,6 +146,20 @@ export async function loadInventory(): Promise<{ items: InventoryItem[]; logs: I
   return {
     items: (itemsResult.data ?? []).map((row) => rowToItem(row as InventoryItemRow)),
     logs: (logsResult.data ?? []).map((row) => rowToLog(row as InventoryLogRow)),
+  }
+}
+
+export async function loadInventoryPublic(): Promise<{ items: InventoryItem[]; logs: InventoryLog[] }> {
+  const { data, error } = await supabase
+    .from('inventory_public_items')
+    .select('id, name, sku, quantity, unit, public_status, low_stock_threshold, updated_at')
+    .eq('team_id', CANWIN_TEAM_ID)
+    .order('updated_at', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  return {
+    items: (data ?? []).map((row) => rowToPublicItem(row as PublicInventoryItemRow)),
+    logs: [],
   }
 }
 

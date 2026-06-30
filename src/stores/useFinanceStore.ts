@@ -2,7 +2,6 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { safeStorage } from '@/utils/safeStorage'
 import type { FinanceRecord } from '@/types'
-import { mockFinance } from '@/data/mockData'
 import {
   createFinanceRecord,
   deleteFinanceRecord,
@@ -29,7 +28,7 @@ interface FinanceActions {
 export const useFinanceStore = create<FinanceState & FinanceActions>()(
   persist(
     (set, get) => ({
-      records: mockFinance,
+      records: [],
 
       setRecords: (records) => set({ records }),
 

@@ -2,7 +2,6 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { safeStorage } from '@/utils/safeStorage'
 import type { Task } from '@/types'
-import { mockTasks } from '@/data/mockData'
 import { createTask, deleteTaskRecord, updateTaskRecord } from '@/services/tasks'
 
 interface TaskState {
@@ -24,7 +23,7 @@ interface TaskActions {
 export const useTaskStore = create<TaskState & TaskActions>()(
   persist(
     (set, get) => ({
-      tasks: mockTasks,
+      tasks: [],
 
       setTasks: (tasks) => set({ tasks }),
 

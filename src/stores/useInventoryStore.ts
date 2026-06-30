@@ -2,7 +2,6 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { safeStorage } from '@/utils/safeStorage'
 import type { InventoryItem, InventoryLog } from '@/types'
-import { mockInventory, mockInventoryLogs } from '@/data/mockData'
 import { useFinanceStore } from './useFinanceStore'
 import {
   createInventoryItem,
@@ -57,8 +56,8 @@ interface InventoryActions {
 export const useInventoryStore = create<InventoryState & InventoryActions>()(
   persist(
     (set, get) => ({
-      items: mockInventory,
-      logs: mockInventoryLogs,
+      items: [],
+      logs: [],
 
       setInventoryData: ({ items, logs }) => set({ items, logs }),
 

@@ -10,7 +10,13 @@ type FinanceRow = {
   category: string
   note: string | null
   created_by: string | null
-  user_id: string | null
+}
+
+type FinanceSummaryRow = {
+  month: string
+  record_type: FinanceRecord['type']
+  category: string
+  total_amount: number | string
 }
 
 function rowToRecord(row: FinanceRow): FinanceRecord {
@@ -22,7 +28,6 @@ function rowToRecord(row: FinanceRow): FinanceRecord {
     category: row.category,
     note: row.note || undefined,
     createdBy: row.created_by || '',
-    userId: row.user_id || undefined,
   }
 }
 
@@ -33,11 +38,10 @@ function recordToRow(record: Omit<FinanceRecord, 'id'> | Partial<FinanceRecord>)
     date: record.date,
     category: record.category,
     note: record.note,
-    user_id: record.userId,
   }
 }
 
-const FINANCE_SELECT = 'id, record_type, amount, date, category, note, created_by, user_id'
+const FINANCE_SELECT = 'id, record_type, amount, date, category, note, created_by'
 
 export async function loadFinanceRecords(): Promise<FinanceRecord[]> {
   const { data, error } = await supabase
@@ -49,6 +53,28 @@ export async function loadFinanceRecords(): Promise<FinanceRecord[]> {
 
   if (error) throw new Error(error.message)
   return (data ?? []).map((row) => rowToRecord(row as FinanceRow))
+}
+
+export async function loadFinancePublicSummary(): Promise<FinanceRecord[]> {
+  const { data, error } = await supabase
+    .from('finance_public_summary')
+    .select('month, record_type, category, total_amount')
+    .eq('team_id', CANWIN_TEAM_ID)
+    .order('month', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((row) => {
+    const summary = row as FinanceSummaryRow
+    return {
+      id: `summary-${summary.month}-${summary.record_type}-${summary.category}`,
+      type: summary.record_type,
+      amount: Number(summary.total_amount),
+      date: summary.month,
+      category: summary.category,
+      note: '公开汇总',
+      createdBy: '',
+    }
+  })
 }
 
 export async function createFinanceRecord(record: Omit<FinanceRecord, 'id'>): Promise<FinanceRecord> {

@@ -2,7 +2,6 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { safeStorage } from '@/utils/safeStorage'
 import type { Vote } from '@/types'
-import { mockVotes } from '@/data/mockData'
 import {
   castVoteRecord,
   closeVoteRecord,
@@ -34,7 +33,7 @@ interface VoteActions {
 export const useVoteStore = create<VoteState & VoteActions>()(
   persist(
     (set, get) => ({
-      votes: mockVotes,
+      votes: [],
 
       setVotes: (votes) => set({ votes }),
 
