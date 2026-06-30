@@ -1,1 +1,0 @@
-import{y as e}from"./jsx-runtime-B5IX_Z37.js";var t=e(`check`,[[`path`,{d:`M20 6 9 17l-5-5`,key:`1gmf2c`}]]);export{t};
