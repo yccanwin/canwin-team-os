@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import Modal from '@/components/Modal'
 import { useUserStore } from '@/stores/useUserStore'
 import type { User } from '@/types'
+import { createTeamMember, updateTeamMember } from '@/services/adminMembers'
 
 interface MemberFormModalProps {
   isOpen: boolean
@@ -25,7 +26,10 @@ export default function MemberFormModal({
   const [role, setRole] = useState<User['role']>('member')
   const [joinDate, setJoinDate] = useState(new Date().toISOString().split('T')[0])
   const [avatar, setAvatar] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
 
   // 错误
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -38,7 +42,7 @@ export default function MemberFormModal({
       setRole(member.role)
       setJoinDate(member.joinDate.split('T')[0])
       setAvatar(member.avatar || '')
-      setPassword(member.switchPassword || '')
+      setPassword('')
     }
   }, [member])
 
@@ -48,33 +52,43 @@ export default function MemberFormModal({
     if (!name.trim()) newErrors.name = '姓名不能为空'
     if (!position.trim()) newErrors.position = '岗位不能为空'
     if (!joinDate) newErrors.joinDate = '入职时间不能为空'
+    if (!isEdit && !email.trim()) newErrors.email = '邮箱不能为空'
+    if (!isEdit && password.length < 6) newErrors.password = '初始密码至少 6 位'
+    if (isEdit && password && password.length < 6) newErrors.password = '新密码至少 6 位'
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
 
   // 提交
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validate()) return
+    setSubmitting(true)
+    setSubmitError('')
 
     const data = {
       name: name.trim(),
       position: position.trim(),
       role,
-      joinDate: new Date(joinDate).toISOString(),
-      xp: isEdit ? (member?.xp ?? 0) : 0,
-      level: isEdit ? (member?.level ?? 1) : 1,
-      badges: isEdit ? (member?.badges ?? []) : [],
-      avatar: avatar.trim() || undefined,
-      switchPassword: isEdit ? (password.trim() || undefined) : undefined,
+      joinDate,
+      avatarUrl: avatar.trim() || undefined,
+      email: email.trim() || undefined,
+      password: password.trim() || undefined,
     }
 
-    if (isEdit) {
-      updateUser(member.id, data)
-    } else {
-      addUser(data)
+    try {
+      if (isEdit) {
+        const saved = await updateTeamMember({ ...data, id: member.id })
+        updateUser(member.id, saved)
+      } else {
+        const saved = await createTeamMember(data)
+        addUser(saved)
+      }
+      onClose()
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : '成员保存失败')
+    } finally {
+      setSubmitting(false)
     }
-
-    onClose()
   }
 
   return (
@@ -86,6 +100,24 @@ export default function MemberFormModal({
     >
       <div className="space-y-4">
         {/* 姓名 */}
+        {!isEdit && (
+          <div>
+            <label className="block text-sm font-medium text-brand-400 mb-1">
+              登录邮箱 <span className="text-expense">*</span>
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="member@example.com"
+              className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary ${
+                errors.email ? 'border-expense' : 'border-gray-300'
+              }`}
+            />
+            {errors.email && <p className="text-xs text-expense mt-1">{errors.email}</p>}
+          </div>
+        )}
+
         <div>
           <label className="block text-sm font-medium text-brand-400 mb-1">
             姓名 <span className="text-expense">*</span>
@@ -129,30 +161,17 @@ export default function MemberFormModal({
             <label className="block text-sm font-medium text-brand-400 mb-1">
               角色 <span className="text-expense">*</span>
             </label>
-            <div className="flex rounded-lg border border-gray-300 overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setRole('captain')}
-                className={`flex-1 py-2 text-sm font-medium transition-colors ${
-                  role === 'captain'
-                    ? 'bg-primary text-white'
-                    : 'bg-white text-brand-400 hover:bg-brand-50'
-                }`}
-              >
-                队长
-              </button>
-              <button
-                type="button"
-                onClick={() => setRole('member')}
-                className={`flex-1 py-2 text-sm font-medium transition-colors ${
-                  role === 'member'
-                    ? 'bg-primary text-white'
-                    : 'bg-white text-brand-400 hover:bg-brand-50'
-                }`}
-              >
-                成员
-              </button>
-            </div>
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value as User['role'])}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            >
+              <option value="member">成员</option>
+              <option value="captain">队长</option>
+              <option value="finance">财务</option>
+              <option value="warehouse">仓库负责人</option>
+              <option value="admin">管理员</option>
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-brand-400 mb-1">
@@ -205,37 +224,30 @@ export default function MemberFormModal({
           </div>
         </div>
 
-        {/* 切换密码（仅编辑时显示） */}
-        {isEdit && (
-          <div>
-            <label className="block text-sm font-medium text-brand-400 mb-1">
-              切换密码
-            </label>
-            <div className="flex gap-2 items-center">
-              <input
-                type="password"
-                maxLength={4}
-                value={password}
-                onChange={(e) => setPassword(e.target.value.replace(/\D/g, ''))}
-                placeholder="留空则无密码 / 输入4位数字设置密码"
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
-              {password && (
-                <button
-                  type="button"
-                  onClick={() => setPassword('')}
-                  className="px-3 py-2 text-xs text-expense hover:bg-red-50 rounded-lg transition-colors"
-                >
-                  清除密码
-                </button>
-              )}
-            </div>
-            <p className="text-xs text-brand-300 mt-1">
-              {password
-                ? `已设置 ${password.length} 位密码，切换到此成员时将需要密码验证`
-                : '未设置密码，任何人可直接切换到此成员'}
-            </p>
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-brand-400 mb-1">
+            {isEdit ? '重置登录密码' : '初始登录密码'}
+            {!isEdit && <span className="text-expense"> *</span>}
+          </label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder={isEdit ? '留空则不修改密码' : '至少 6 位'}
+            className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary ${
+              errors.password ? 'border-expense' : 'border-gray-300'
+            }`}
+          />
+          {errors.password && <p className="text-xs text-expense mt-1">{errors.password}</p>}
+          <p className="text-xs text-brand-300 mt-1">
+            密码由 Supabase Auth 管理，不再使用本地 4 位切换密码。
+          </p>
+        </div>
+
+        {submitError && (
+          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+            {submitError}
+          </p>
         )}
 
         {/* 操作按钮 */}
@@ -248,9 +260,10 @@ export default function MemberFormModal({
           </button>
           <button
             onClick={handleSubmit}
-            className="flex-1 px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-indigo-600 transition-colors"
+            disabled={submitting}
+            className="flex-1 px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-indigo-600 transition-colors disabled:opacity-60"
           >
-            {isEdit ? '保存修改' : '添加成员'}
+            {submitting ? '保存中...' : isEdit ? '保存修改' : '添加成员'}
           </button>
         </div>
       </div>

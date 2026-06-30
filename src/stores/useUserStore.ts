@@ -18,7 +18,7 @@ interface UserActions {
   getUserById: (userId: string) => User | undefined
 
   // 成员管理 CRUD（Phase 8.4）
-  addUser: (user: Omit<User, 'id'>) => void
+  addUser: (user: User) => void
   updateUser: (id: string, updates: Partial<User>) => void
   deleteUser: (id: string) => boolean
 }
@@ -69,10 +69,7 @@ export const useUserStore = create<UserState & UserActions>()(
 
       addUser: (user) =>
         set((state) => ({
-          users: [
-            ...state.users,
-            { ...user, id: crypto.randomUUID() },
-          ],
+          users: [...state.users.filter((item) => item.id !== user.id), user],
         })),
 
       updateUser: (id, updates) =>

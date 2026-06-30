@@ -7,6 +7,7 @@ import { useGoalStore } from '@/stores/useGoalStore'
 import { useTeamStore } from '@/stores/useTeamStore'
 import { isSupabaseConfigured } from '@/lib/supabase'
 import { isCaptainRole, roleLabel } from '@/services/profile'
+import { disableTeamMember } from '@/services/adminMembers'
 import { formatDate } from '@/utils/dateUtils'
 import BadgeFormModal from './BadgeFormModal'
 import GoalEditModal from '@/pages/Goals/GoalEditModal'
@@ -829,18 +830,24 @@ function MemberManagementTab() {
   const [deleteTarget, setDeleteTarget] = useState<(typeof users)[0] | null>(null)
   const [deleteError, setDeleteError] = useState('')
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteTarget) return
     if (deleteTarget.id === currentUser.id) {
       setDeleteError('不能删除自己')
       return
     }
-    const success = deleteUser(deleteTarget.id)
-    if (!success) {
-      setDeleteError('删除失败，不能删除当前登录用户')
+    try {
+      await disableTeamMember(deleteTarget.id)
+      const success = deleteUser(deleteTarget.id)
+      if (!success) {
+        setDeleteError('删除失败，不能删除当前登录用户')
+        return
+      }
+      setDeleteTarget(null)
+      setDeleteError('')
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : '删除成员失败')
     }
-    setDeleteTarget(null)
-    setDeleteError('')
   }
 
   return (
@@ -865,7 +872,6 @@ function MemberManagementTab() {
                 <th className="text-left px-4 py-3 font-medium text-brand-400">角色</th>
                 <th className="text-left px-4 py-3 font-medium text-brand-400">入职时间</th>
                 <th className="text-center px-4 py-3 font-medium text-brand-400">记忆标签</th>
-                <th className="text-center px-4 py-3 font-medium text-brand-400">密码</th>
                 <th className="text-center px-4 py-3 font-medium text-brand-400">操作</th>
               </tr>
             </thead>
@@ -915,17 +921,6 @@ function MemberManagementTab() {
                   <td className="px-4 py-2.5 text-center text-brand-400">
                     {user.badges?.length || 0}
                   </td>
-                  <td className="px-4 py-2.5 text-center">
-                    {user.switchPassword ? (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-green-50 text-green-700 rounded text-xs font-medium">
-                        🔒 已设
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-gray-100 text-brand-400 rounded text-xs">
-                        🔓 无
-                      </span>
-                    )}
-                  </td>
                   <td className="px-4 py-2.5">
                     <div className="flex items-center justify-center gap-1">
                       <button
@@ -948,6 +943,11 @@ function MemberManagementTab() {
           </table>
         </div>
       </div>
+      {deleteError && (
+        <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+          {deleteError}
+        </p>
+      )}
 
       {/* 新增/编辑弹窗 */}
       {(editingMember || newMemberOpen) && (
