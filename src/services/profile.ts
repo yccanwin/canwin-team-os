@@ -82,6 +82,18 @@ export async function loadCurrentProfile(session?: Session | null): Promise<User
   return profileToUser(data as ProfileRow)
 }
 
+export async function loadTeamProfiles(): Promise<User[]> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, team_id, name, role, position, avatar_url, join_date, status, rest_days, mood, taboos')
+    .eq('team_id', CANWIN_TEAM_ID)
+    .eq('status', 'active')
+    .order('created_at', { ascending: true })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((profile) => profileToUser(profile as ProfileRow))
+}
+
 export async function signInWithPassword(login: string, password: string): Promise<User> {
   const email = normalizeLoginEmail(login)
   const { data, error } = await supabase.auth.signInWithPassword({ email, password })

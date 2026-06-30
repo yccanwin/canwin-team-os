@@ -1,9 +1,12 @@
-import { Suspense, lazy } from 'react'
+import { Suspense, lazy, useEffect } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
 import AuthGate from './components/AuthGate'
 import SupabaseSyncProvider from './components/SupabaseSyncProvider'
 import { useUserStore } from './stores/useUserStore'
+import { useTaskStore } from './stores/useTaskStore'
+import { loadTeamProfiles } from './services/profile'
+import { loadTasks } from './services/tasks'
 
 // 懒加载页面
 const Dashboard = lazy(() => import('./pages/Dashboard'))
@@ -23,6 +26,27 @@ const Settings = lazy(() => import('./pages/Settings'))
 
 function App() {
   const currentUser = useUserStore((s) => s.currentUser)
+  const setUsers = useUserStore((s) => s.setUsers)
+  const setTasks = useTaskStore((s) => s.setTasks)
+
+  useEffect(() => {
+    if (!currentUser) return
+
+    let cancelled = false
+
+    async function loadCloudData() {
+      const [profiles, tasks] = await Promise.all([loadTeamProfiles(), loadTasks()])
+      if (cancelled) return
+      setUsers(profiles)
+      setTasks(tasks)
+    }
+
+    void loadCloudData()
+
+    return () => {
+      cancelled = true
+    }
+  }, [currentUser, setTasks, setUsers])
 
   if (!currentUser) {
     return <AuthGate />
