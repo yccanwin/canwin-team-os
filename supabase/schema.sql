@@ -97,7 +97,7 @@ create table if not exists calendar_events (
   id uuid primary key default gen_random_uuid(),
   team_id text not null references teams(id) default 'CANWIN_TEAM',
   title text not null,
-  event_type text not null default 'other',
+  event_type text not null default 'other' check (event_type in ('rest_day', 'task_deadline', 'personal_goal_deadline', 'team_goal_deadline', 'visit', 'store_check', 'inventory_check', 'team_activity', 'finance_day', 'meeting', 'schedule', 'task', 'other')),
   start_at timestamptz not null,
   end_at timestamptz,
   all_day boolean not null default false,

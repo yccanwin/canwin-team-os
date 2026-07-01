@@ -31,6 +31,15 @@ const EVENT_COLORS = [
   '#8B5CF6', // 紫罗兰 cash
 ]
 const TYPE_LABELS: Record<CalendarEvent['type'], string> = {
+  rest_day: '休息',
+  task_deadline: '任务截止',
+  personal_goal_deadline: '个人目标',
+  team_goal_deadline: '团队目标',
+  visit: '外出拜访',
+  store_check: '巡店',
+  inventory_check: '仓库盘点',
+  team_activity: '团队活动',
+  finance_day: '财务日',
   schedule: '行程',
   task: '任务',
   meeting: '会议',
@@ -146,7 +155,7 @@ export default function CalendarPage() {
             startDate: dateKey,
             creatorId: user.id,
             creatorName: user.name,
-            type: 'other',
+            type: 'rest_day',
             color: '#F59E0B',
             createdAt: dateKey,
             description: '每周固定休息日',
@@ -164,12 +173,11 @@ export default function CalendarPage() {
         startDate: key,
         creatorId: t.assigneeId,
         creatorName: users.find((user) => user.id === t.assigneeId)?.name || '未分配',
-        type: 'task' as const,
+        type: 'task_deadline',
         color: '#EF4444',
         createdAt: t.createdAt,
         description: t.description,
-        _isTaskDeadline: true,
-      } as any)
+      })
     })
 
     goals.filter((goal) => goal.deadline).forEach((goal) => {
@@ -180,12 +188,11 @@ export default function CalendarPage() {
         startDate: key,
         creatorId: currentUser?.id || '',
         creatorName: '团队目标',
-        type: 'other',
+        type: 'team_goal_deadline',
         color: '#10B981',
         createdAt: key,
         description: '团队目标截止日',
-        _isGoalDeadline: true,
-      } as any)
+      })
     })
 
     personalGoals.filter((goal) => goal.deadline && goal.visibility === 'team').forEach((goal) => {
@@ -197,12 +204,11 @@ export default function CalendarPage() {
         startDate: key,
         creatorId: goal.userId,
         creatorName: owner?.name || '成员',
-        type: 'other',
+        type: 'personal_goal_deadline',
         color: '#3B82F6',
         createdAt: goal.createdAt,
         description: '公开个人目标截止日',
-        _isGoalDeadline: true,
-      } as any)
+      })
     })
 
     return map
@@ -433,7 +439,7 @@ export default function CalendarPage() {
                         style={{ backgroundColor: ev.color || EVENT_COLORS[0] }}
                         title={ev.title}
                       >
-                        {(ev as any)._isTaskDeadline ? '⏰ ' : (ev as any)._isGoalDeadline ? '🎯 ' : ''}{ev.startTime ? `${ev.startTime} ` : ''}{ev.title}
+                        {ev.type === 'task_deadline' ? '⏰ ' : ev.type === 'team_goal_deadline' || ev.type === 'personal_goal_deadline' ? '🎯 ' : ''}{ev.startTime ? `${ev.startTime} ` : ''}{ev.title}
                       </div>
                     ))}
                     {dayEvents.length > 3 && (
@@ -475,7 +481,10 @@ export default function CalendarPage() {
                       <div
                         key={ev.id}
                         className="rounded-lg border border-brand-100 p-3 hover:border-brand-200 transition-colors cursor-pointer"
-                        onClick={() => { if (!(ev as any)._isTaskDeadline && !(ev as any)._isGoalDeadline && !ev.id.startsWith('rest-')) openEditForm(ev) }}
+                        onClick={() => {
+                          const isDerived = ev.type === 'task_deadline' || ev.type === 'team_goal_deadline' || ev.type === 'personal_goal_deadline' || ev.type === 'rest_day'
+                          if (!isDerived) openEditForm(ev)
+                        }}
                         style={{ borderLeftColor: ev.color || EVENT_COLORS[0], borderLeftWidth: 3 }}
                       >
                         <div className="flex items-start justify-between gap-2">
@@ -563,9 +572,13 @@ export default function CalendarPage() {
                     onChange={(e) => setFormType(e.target.value as CalendarEvent['type'])}
                     className="w-full px-3 py-2 border border-brand-100 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 outline-none"
                   >
-                    <option value="schedule">行程</option>
-                    <option value="task">任务</option>
+                    <option value="visit">外出拜访</option>
+                    <option value="store_check">巡店</option>
+                    <option value="inventory_check">仓库盘点</option>
+                    <option value="team_activity">团队活动</option>
+                    <option value="finance_day">财务结算日</option>
                     <option value="meeting">会议</option>
+                    <option value="schedule">普通行程</option>
                     <option value="other">其他</option>
                   </select>
                 </div>

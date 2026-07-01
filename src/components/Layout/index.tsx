@@ -16,6 +16,7 @@ import {
   ChevronDown,
   LogOut,
   User,
+  Users,
   CalendarDays,
   Wrench,
   Shield,
@@ -37,6 +38,7 @@ const NAV_GROUPS = [
     label: '经营记录',
     items: [
       { to: '/inventory', icon: Package, label: '仓库' },
+      { to: '/finance', icon: BarChart3, label: '财务' },
       { to: '/assets', icon: Building2, label: '资产馆' },
     ],
   },
@@ -59,6 +61,7 @@ const NAV_GROUPS = [
     label: '资源与成员',
     items: [
       { to: '/toolbox', icon: Wrench, label: '工具箱' },
+      { to: '/members', icon: Users, label: '团队成员' },
       { to: '/profile', icon: User, label: '个人主页' },
     ],
   },

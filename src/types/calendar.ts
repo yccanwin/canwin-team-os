@@ -11,5 +11,18 @@ export interface CalendarEvent {
   creatorName: string
   color?: string           // 事件颜色，预设或自定义
   createdAt: string
-  type: 'schedule' | 'task' | 'meeting' | 'other'
+  type:
+    | 'rest_day'
+    | 'task_deadline'
+    | 'personal_goal_deadline'
+    | 'team_goal_deadline'
+    | 'visit'
+    | 'store_check'
+    | 'inventory_check'
+    | 'team_activity'
+    | 'finance_day'
+    | 'meeting'
+    | 'schedule'
+    | 'task'
+    | 'other'
 }
