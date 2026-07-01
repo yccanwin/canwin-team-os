@@ -92,8 +92,8 @@ export default function PhotoUploadModal({
 
     setCompressing(true)
     try {
-      const base64 = await compressPhoto(file)
-      set({ url: base64 })
+      const dataUrl = await compressPhoto(file)
+      set({ url: dataUrl })
     } catch {
       alert('图片压缩失败，请重新选择')
     } finally {

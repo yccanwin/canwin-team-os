@@ -7,10 +7,10 @@ export interface TimelineEvent {
   title: string                    // ≤50字
   date: string                    // YYYY-MM 或 YYYY-MM-DD
   description?: string            // ≤500字，支持Markdown
-  images: string[]               // base64，最多9张
+  images: string[]               // Supabase Storage URL，最多9张
   attachments: {
     name: string
-    url: string                  // base64
+    url: string                  // Supabase Storage URL
     size: number
     type: string
   }[]

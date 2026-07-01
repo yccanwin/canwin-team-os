@@ -36,7 +36,7 @@ export default function FileUploader({ files, onChange }: FileUploaderProps) {
       }
 
       try {
-        const base64 = await new Promise<string>((resolve, reject) => {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader()
           reader.onload = () => resolve(reader.result as string)
           reader.onerror = () => reject(new Error('读取失败'))
@@ -45,7 +45,7 @@ export default function FileUploader({ files, onChange }: FileUploaderProps) {
 
         newFiles.push({
           name: file.name,
-          url: base64,
+          url: dataUrl,
           size: file.size,
           type: file.type,
         })

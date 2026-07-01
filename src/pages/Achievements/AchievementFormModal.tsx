@@ -94,8 +94,8 @@ export default function AchievementFormModal({ achievement, onClose, onSubmit }:
 
     setUploading(true)
     try {
-      const base64 = await compressPhoto(file)
-      update('images', [...form.images, base64])
+      const dataUrl = await compressPhoto(file)
+      update('images', [...form.images, dataUrl])
     } catch {
       alert('图片压缩失败，请重新选择')
     } finally {
@@ -110,8 +110,8 @@ export default function AchievementFormModal({ achievement, onClose, onSubmit }:
 
     setLogoUploading(true)
     try {
-      const base64 = await compressPhoto(file)
-      update('icon', base64)
+      const dataUrl = await compressPhoto(file)
+      update('icon', dataUrl)
     } catch {
       alert('Logo 压缩失败，请重新选择')
     } finally {

@@ -1,175 +1,299 @@
-import { useState, useMemo } from 'react'
-import { Wallet, Award, AlertCircle } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import {
+  Archive,
+  Boxes,
+  CheckCircle2,
+  ClipboardCheck,
+  HeartHandshake,
+  Lightbulb,
+  Target,
+  Vote,
+} from 'lucide-react'
+import { useAchievementStore } from '@/stores/useAchievementStore'
+import { useAssetStore } from '@/stores/useAssetStore'
+import { useInventoryStore } from '@/stores/useInventoryStore'
+import { usePersonalGoalStore } from '@/stores/usePersonalGoalStore'
+import { usePhotoStore } from '@/stores/usePhotoStore'
+import { useTaskStore } from '@/stores/useTaskStore'
+import { useTimelineStore } from '@/stores/useTimelineStore'
+import { useToolboxStore } from '@/stores/useToolboxStore'
 import { useUserStore } from '@/stores/useUserStore'
-import { useFinanceStore } from '@/stores/useFinanceStore'
+import { useVoteStore } from '@/stores/useVoteStore'
 import { isCaptainRole } from '@/services/profile'
-import type { FinanceRecord, User } from '@/types'
+import type { User } from '@/types'
 
-// ─── 主组件 ─────────────────────────────────────────────────
+type ContributionKind =
+  | 'task'
+  | 'culture'
+  | 'tool'
+  | 'inventory'
+  | 'decision'
+  | 'asset'
+  | 'goal'
+
+type ContributionItem = {
+  id: string
+  kind: ContributionKind
+  label: string
+  title: string
+  createdAt: string
+}
+
+const KIND_META: Record<ContributionKind, { label: string; icon: typeof CheckCircle2; color: string }> = {
+  task: { label: '任务推进者', icon: CheckCircle2, color: 'text-emerald-600 bg-emerald-50' },
+  culture: { label: '文化记录官', icon: HeartHandshake, color: 'text-sky-600 bg-sky-50' },
+  tool: { label: '工具分享者', icon: Lightbulb, color: 'text-amber-600 bg-amber-50' },
+  inventory: { label: '仓库守护者', icon: Boxes, color: 'text-indigo-600 bg-indigo-50' },
+  decision: { label: '决策参与者', icon: Vote, color: 'text-violet-600 bg-violet-50' },
+  asset: { label: '资产维护者', icon: Archive, color: 'text-slate-600 bg-slate-50' },
+  goal: { label: '目标实践者', icon: Target, color: 'text-rose-600 bg-rose-50' },
+}
+
+function userOptions(users: User[], currentUser: User | null): User[] {
+  const activeUsers = users.filter((user) => user.id && user.name)
+  if (activeUsers.length > 0) return activeUsers
+  return currentUser ? [currentUser] : []
+}
 
 export default function ContributionStats() {
-  // ✅ 独立 selector（避免对象解构 selector 产生新引用）
   const currentUser = useUserStore((s) => s.currentUser)
-  const rawUsers = useUserStore((s) => s.users)
-  const rawRecords = useFinanceStore((s) => s.records)
+  const users = useUserStore((s) => s.users)
+  const tasks = useTaskStore((s) => s.tasks)
+  const timelineEvents = useTimelineStore((s) => s.events)
+  const achievements = useAchievementStore((s) => s.achievements)
+  const photos = usePhotoStore((s) => s.photos)
+  const tools = useToolboxStore((s) => s.tools)
+  const logs = useInventoryStore((s) => s.logs)
+  const votes = useVoteStore((s) => s.votes)
+  const assets = useAssetStore((s) => s.assets)
+  const personalGoals = usePersonalGoalStore((s) => s.personalGoals)
 
-  // 🔒 防御式：确保 users / records 一定是数组（store persist 数据可能损坏）
-  const users: User[] = Array.isArray(rawUsers) ? rawUsers : []
-  const records: FinanceRecord[] = Array.isArray(rawRecords) ? rawRecords : []
+  const isCaptain = isCaptainRole(currentUser?.role)
+  const options = useMemo(() => userOptions(users, currentUser), [currentUser, users])
+  const [selectedUserId, setSelectedUserId] = useState(currentUser?.id ?? '')
+  const targetUserId = isCaptain ? selectedUserId || currentUser?.id || '' : currentUser?.id || ''
 
-  // Store 完全损坏
-  if (!currentUser || !currentUser.id) {
+  const contributions = useMemo<ContributionItem[]>(() => {
+    if (!targetUserId) return []
+
+    const completedTasks = tasks
+      .filter((task) => task.assigneeId === targetUserId && task.status === 'done')
+      .map((task) => ({
+        id: `task-${task.id}`,
+        kind: 'task' as const,
+        label: '完成任务',
+        title: task.title,
+        createdAt: task.completedAt || task.createdAt,
+      }))
+
+    const cultureRecords = [
+      ...timelineEvents
+        .filter((event) => event.createdBy === targetUserId || event.participants.includes(targetUserId))
+        .map((event) => ({
+          id: `timeline-${event.id}`,
+          kind: 'culture' as const,
+          label: event.createdBy === targetUserId ? '记录团队记忆' : '参与团队记忆',
+          title: event.title,
+          createdAt: event.createdAt,
+        })),
+      ...achievements
+        .filter((achievement) => achievement.createdBy === targetUserId)
+        .map((achievement) => ({
+          id: `achievement-${achievement.id}`,
+          kind: 'culture' as const,
+          label: '沉淀案例',
+          title: achievement.name,
+          createdAt: achievement.createdAt,
+        })),
+      ...photos
+        .filter((photo) => photo.uploadedBy === targetUserId || photo.participants.includes(targetUserId))
+        .map((photo) => ({
+          id: `photo-${photo.id}`,
+          kind: 'culture' as const,
+          label: photo.uploadedBy === targetUserId ? '上传照片' : '参与照片',
+          title: photo.title || '团队瞬间',
+          createdAt: photo.uploadedAt,
+        })),
+    ]
+
+    const toolRecords = tools
+      .filter((tool) => tool.creatorId === targetUserId)
+      .map((tool) => ({
+        id: `tool-${tool.id}`,
+        kind: 'tool' as const,
+        label: '分享工具',
+        title: tool.title,
+        createdAt: tool.createdAt,
+      }))
+
+    const inventoryRecords = logs
+      .filter((log) => log.operatorId === targetUserId)
+      .map((log) => ({
+        id: `inventory-${log.id}`,
+        kind: 'inventory' as const,
+        label: log.operation === 'in' ? '入库记录' : '出库记录',
+        title: `${log.itemName} x ${log.quantityChange}`,
+        createdAt: log.createdAt,
+      }))
+
+    const decisionRecords = votes.flatMap((vote) =>
+      vote.votes
+        .filter((record) => record.userId === targetUserId)
+        .map((record) => ({
+          id: `vote-${vote.id}-${record.userId}`,
+          kind: 'decision' as const,
+          label: '参与决定',
+          title: vote.title,
+          createdAt: record.votedAt,
+        }))
+    )
+
+    const assetRecords = assets
+      .filter((asset) => asset.createdBy === targetUserId)
+      .map((asset) => ({
+        id: `asset-${asset.id}`,
+        kind: 'asset' as const,
+        label: '记录资产',
+        title: asset.name,
+        createdAt: asset.createdAt,
+      }))
+
+    const goalRecords = personalGoals
+      .filter((goal) => goal.userId === targetUserId)
+      .flatMap((goal) => [
+        {
+          id: `goal-${goal.id}`,
+          kind: 'goal' as const,
+          label: '创建个人目标',
+          title: goal.title,
+          createdAt: goal.createdAt,
+        },
+        ...goal.updates.map((update) => ({
+          id: `goal-update-${update.id}`,
+          kind: 'goal' as const,
+          label: '追加目标进展',
+          title: goal.title,
+          createdAt: update.createdAt,
+        })),
+      ])
+
+    return [
+      ...completedTasks,
+      ...cultureRecords,
+      ...toolRecords,
+      ...inventoryRecords,
+      ...decisionRecords,
+      ...assetRecords,
+      ...goalRecords,
+    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  }, [
+    achievements,
+    assets,
+    logs,
+    personalGoals,
+    photos,
+    targetUserId,
+    tasks,
+    timelineEvents,
+    tools,
+    votes,
+  ])
+
+  const counts = useMemo(() => {
+    return contributions.reduce<Record<ContributionKind, number>>(
+      (acc, item) => {
+        acc[item.kind] += 1
+        return acc
+      },
+      { task: 0, culture: 0, tool: 0, inventory: 0, decision: 0, asset: 0, goal: 0 }
+    )
+  }, [contributions])
+
+  const topKinds = (Object.entries(counts) as [ContributionKind, number][])
+    .filter(([, count]) => count > 0)
+    .sort((a, b) => b[1] - a[1])
+
+  if (!currentUser) {
     return (
-      <div className="bg-white rounded-card shadow-card p-8 text-center">
-        <AlertCircle className="w-8 h-8 text-red-300 mx-auto mb-2" />
+      <section className="rounded-card bg-white p-5 shadow-card">
         <p className="text-sm text-brand-300">用户信息加载失败，请刷新页面重试</p>
-      </div>
+      </section>
     )
   }
 
-  const isCaptain = isCaptainRole(currentUser.role)
-  const [selectedUserId, setSelectedUserId] = useState<string>(currentUser.id)
-
-  // 当前月份 YYYY-MM
-  const yearMonth = (() => {
-    const now = new Date()
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  })()
-
-  // ✅ 纯计算——绝不调用 store 的 set 方法
-  const stats = useMemo(() => {
-    const targetUserId = isCaptain ? selectedUserId : currentUser.id
-
-    const salaryRecords = records.filter(
-      (r) => r.userId === targetUserId && r.category === '工资'
-    )
-    const dividendRecords = records.filter(
-      (r) => r.userId === targetUserId && r.category === '分红'
-    )
-
-    const monthSalary = salaryRecords
-      .filter((r) => r.date?.startsWith(yearMonth))
-      .reduce((sum, r) => sum + (r.amount ?? 0), 0)
-
-    const totalSalary = salaryRecords.reduce(
-      (sum, r) => sum + (r.amount ?? 0),
-      0
-    )
-
-    const monthDividend = dividendRecords
-      .filter((r) => r.date?.startsWith(yearMonth))
-      .reduce((sum, r) => sum + (r.amount ?? 0), 0)
-
-    const totalDividend = dividendRecords.reduce(
-      (sum, r) => sum + (r.amount ?? 0),
-      0
-    )
-
-    return { monthSalary, totalSalary, monthDividend, totalDividend }
-  }, [records, currentUser.id, isCaptain, selectedUserId, yearMonth])
-
-  const hasData =
-    stats.monthSalary > 0 ||
-    stats.totalSalary > 0 ||
-    stats.monthDividend > 0 ||
-    stats.totalDividend > 0
-
-  // 候选项列表（防御）
-  const memberOptions = users.filter((u) => u.id && u.name)
-
   return (
-    <div className="space-y-4">
-      {/* ── 成员切换器（仅队长可见） ── */}
-      {isCaptain && memberOptions.length > 0 && (
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-brand-300 flex-shrink-0">查看成员：</span>
+    <section className="rounded-card bg-white p-5 shadow-card">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h2 className="font-heading text-base font-semibold text-brand-400">真实贡献画像</h2>
+          <p className="mt-1 text-xs text-brand-200">根据正式记录自动生成，不支持手动填写</p>
+        </div>
+        <ClipboardCheck className="h-5 w-5 text-emerald-500" />
+      </div>
+
+      {isCaptain && options.length > 0 && (
+        <label className="mb-4 block text-xs text-brand-300">
+          查看成员
           <select
-            value={selectedUserId}
-            onChange={(e) => setSelectedUserId(e.target.value)}
-            className="text-sm border border-gray-300 rounded-md px-2 py-1 bg-white
-                       focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
+            value={targetUserId}
+            onChange={(event) => setSelectedUserId(event.target.value)}
+            className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-brand-400 outline-none focus:border-primary"
           >
-            {memberOptions.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.name}
+            {options.map((user) => (
+              <option key={user.id} value={user.id}>
+                {user.name}
               </option>
             ))}
           </select>
-        </div>
+        </label>
       )}
 
-      {/* ── 工资分红 4 卡片 ── */}
-      {hasData ? (
-        <div className="grid grid-cols-2 gap-4">
-          <ContributionCard
-            label="本月工资"
-            amount={stats.monthSalary}
-            color="#10B981"
-            icon={<Wallet className="w-5 h-5" />}
-          />
-          <ContributionCard
-            label="累计工资"
-            amount={stats.totalSalary}
-            color="#3B82F6"
-            icon={<Wallet className="w-5 h-5" />}
-          />
-          <ContributionCard
-            label="本月分红"
-            amount={stats.monthDividend}
-            color="#8B5CF6"
-            icon={<Award className="w-5 h-5" />}
-          />
-          <ContributionCard
-            label="累计分红"
-            amount={stats.totalDividend}
-            color="#F59E0B"
-            icon={<Award className="w-5 h-5" />}
-          />
+      {topKinds.length > 0 ? (
+        <div className="grid grid-cols-2 gap-3">
+          {topKinds.slice(0, 6).map(([kind, count]) => {
+            const meta = KIND_META[kind]
+            const Icon = meta.icon
+            return (
+              <div key={kind} className="rounded-xl border border-gray-100 bg-brand-50/40 p-3">
+                <div className={`mb-2 flex h-8 w-8 items-center justify-center rounded-lg ${meta.color}`}>
+                  <Icon className="h-4 w-4" />
+                </div>
+                <p className="text-sm font-medium text-brand-400">{meta.label}</p>
+                <p className="mt-1 text-xs text-brand-200">{count} 条真实记录</p>
+              </div>
+            )
+          })}
         </div>
       ) : (
-        <div className="bg-white rounded-card shadow-card p-6 text-center">
-          <Wallet className="w-8 h-8 text-neutral-tertiary mx-auto mb-2" />
-          <p className="text-sm text-brand-200">
-            {isCaptain
-              ? '该成员暂无工资/分红记录'
-              : '暂无工资/分红记录'}
-          </p>
-          <p className="text-xs text-neutral-tertiary mt-1">
-            队长可在财务模块中为成员添加工资和分红
-          </p>
+        <div className="rounded-xl bg-brand-50 px-4 py-5 text-center">
+          <p className="text-sm text-brand-300">还没有可用于生成画像的正式记录</p>
         </div>
       )}
-    </div>
-  )
-}
 
-// ─── 卡片子组件（纯展示） ──────────────────────────────────
-
-function ContributionCard({
-  label,
-  amount,
-  color,
-  icon,
-}: {
-  label: string
-  amount: number
-  color: string
-  icon: React.ReactNode
-}) {
-  return (
-    <div className="bg-white rounded-card shadow-card p-4 flex items-center gap-3">
-      <div
-        className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-        style={{ backgroundColor: `${color}15`, color }}
-      >
-        {icon}
+      <div className="mt-4 border-t border-gray-100 pt-4">
+        <h3 className="mb-2 text-sm font-semibold text-brand-400">最近参与记录</h3>
+        {contributions.length > 0 ? (
+          <div className="space-y-2">
+            {contributions.slice(0, 5).map((item) => {
+              const meta = KIND_META[item.kind]
+              const Icon = meta.icon
+              return (
+                <div key={item.id} className="flex items-start gap-2 rounded-lg bg-white py-1.5">
+                  <div className={`mt-0.5 flex h-6 w-6 items-center justify-center rounded-full ${meta.color}`}>
+                    <Icon className="h-3.5 w-3.5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm text-brand-400">{item.title}</p>
+                    <p className="text-xs text-brand-200">{item.label}</p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        ) : (
+          <p className="text-sm text-brand-200">暂无参与记录</p>
+        )}
       </div>
-      <div className="min-w-0">
-        <p className="text-xs text-brand-300 mb-0.5">{label}</p>
-        <p className="text-lg font-bold text-brand-400 truncate">
-          ¥{(amount ?? 0).toLocaleString()}
-        </p>
-      </div>
-    </div>
+    </section>
   )
 }

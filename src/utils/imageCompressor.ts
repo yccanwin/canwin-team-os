@@ -1,16 +1,16 @@
 /**
  * CanWin Team OS — 图片压缩工具
  *
- * 使用 Canvas 在前端压缩图片，返回 base64 字符串。
+ * 使用 Canvas 在前端压缩图片，返回 data URL 供本地预览；保存时由 service 层上传到 Supabase Storage。
  * 压缩策略：等比缩放至最大边长 800px，然后逐步降低 JPEG quality 直到满足文件大小限制。
  */
 
 /**
- * 压缩图片文件，返回 base64 字符串
+ * 压缩图片文件，返回 data URL 字符串
  *
  * @param file      原始图片文件
  * @param maxSizeKB 目标最大文件大小（KB），默认 200KB
- * @returns base64 字符串
+ * @returns data URL 字符串
  */
 export function compressImage(
   file: File,
@@ -50,9 +50,9 @@ export function compressImage(
         // 循环降低 quality 直至满足大小限制
         const maxBytes = maxSizeKB * 1024
         const compress = (quality: number): void => {
-          const base64 = canvas.toDataURL('image/jpeg', quality)
-          if (base64.length <= maxBytes || quality <= 0.3) {
-            resolve(base64)
+          const dataUrl = canvas.toDataURL('image/jpeg', quality)
+          if (dataUrl.length <= maxBytes || quality <= 0.3) {
+            resolve(dataUrl)
           } else {
             compress(Math.round((quality - 0.1) * 10) / 10)
           }
@@ -75,23 +75,23 @@ export function compressImage(
 // ============================================================
 
 /**
- * 压缩图片文件（针对相册/成就馆场景），返回 base64 字符串
+ * 压缩图片文件（针对相册/成就馆场景），返回 data URL 字符串
  *
  * 压缩策略：
  *   - 第一轮：最大边长 800px，质量 0.7，目标 ≤300KB
  *   - 如仍超 300KB → 第二轮更激进压缩（目标 150KB）
  *
  * @param file 原始图片文件
- * @returns base64 字符串
+ * @returns data URL 字符串
  */
 export async function compressPhoto(file: File): Promise<string> {
   // 第一轮：最大边长 800px，质量 0.7，目标 ≤300KB
-  let base64 = await compressImage(file, 300)
+  let dataUrl = await compressImage(file, 300)
 
   // 如果仍超过 300KB，第二轮降低
-  if (base64.length > 300 * 1024) {
+  if (dataUrl.length > 300 * 1024) {
     return await compressImage(file, 150) // 更激进压缩
   }
 
-  return base64
+  return dataUrl
 }

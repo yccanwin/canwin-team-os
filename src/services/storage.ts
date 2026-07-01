@@ -48,3 +48,23 @@ export async function resolveMediaUrls(values: string[] | undefined, folder: str
   if (!values) return values
   return Promise.all(values.map((value) => resolveMediaUrl(value, folder).then((url) => url || value)))
 }
+
+export type StorageAttachment = {
+  name: string
+  url: string
+  size: number
+  type: string
+}
+
+export async function resolveStorageAttachments<T extends StorageAttachment>(
+  attachments: T[] | undefined,
+  folder: string
+): Promise<T[] | undefined> {
+  if (!attachments) return attachments
+  return Promise.all(
+    attachments.map(async (attachment) => ({
+      ...attachment,
+      url: (await resolveMediaUrl(attachment.url, folder)) || attachment.url,
+    }))
+  )
+}

@@ -4,7 +4,7 @@
 
 export interface Photo {
   id: string;
-  url: string;            // base64 图片
+  url: string;            // Supabase Storage URL
   title?: string;
   date: string;           // YYYY-MM-DD
   location?: string;
