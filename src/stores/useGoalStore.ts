@@ -8,22 +8,6 @@ import {
   updateGoalRecord,
 } from '@/services/goals'
 
-// 团队动态统一通过 useActivityStore 写入
-import { useActivityStore } from '@/stores/useActivityStore'
-import type { ActivityLog } from '@/types'
-
-/** 向团队动态中添加一条记录 */
-function addActivityLog(userId: string, content: string, type: ActivityLog['type'] = 'announcement') {
-  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-  useActivityStore.getState().addLog({
-    userId,
-    type,
-    content,
-    createdAt: new Date().toISOString(),
-    expiresAt,
-  })
-}
-
 interface GoalState {
   goals: Goal[]
 }
@@ -122,12 +106,6 @@ export const useGoalStore = create<GoalState & GoalActions>()(
       // ============================================================
       // 混合模式C — 自动检测阶段完成
       // 每次 currentAmount 更新后调用
-      // 逻辑：
-      //   if currentAmount ≥ targetAmount && status === 'in_progress':
-      //     → status = 'completed'
-      //     → 团队动态：'🎉 阶段X已达成！'
-      //     → 下一阶段 locked → enabled
-      // ============================================================
       checkPhaseCompletion: () => {
         const goals = get().goals
         const inProgress = goals.find((g) => g.status === 'in_progress')
@@ -152,13 +130,6 @@ export const useGoalStore = create<GoalState & GoalActions>()(
             .forEach((goal) => {
               void updateGoalRecord(goal.id, { status: goal.status }).catch(() => set({ goals }))
             })
-
-          // 团队动态
-          addActivityLog(
-            'u-001',
-            `🎉 ${inProgress.title}已达成！`,
-            'announcement'
-          )
         }
       },
 
@@ -193,14 +164,6 @@ export const useGoalStore = create<GoalState & GoalActions>()(
 
         set({ goals: updated })
         void updateGoalRecord(enabledGoal.id, { status: 'in_progress' }).catch(() => set({ goals }))
-
-        // 团队动态
-        addActivityLog(
-          'u-001',
-          `🚀 ${enabledGoal.title}已启动！`,
-          'announcement'
-        )
-
         return enabledGoal
       },
 

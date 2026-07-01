@@ -2,7 +2,6 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { safeStorage } from '@/utils/safeStorage'
 import type { BadgeConfig } from '@/types'
-import { mockBadges } from '@/data/mockData'
 
 /** 勋章弹窗展示用的轻量类型 */
 export interface PendingBadge {
@@ -34,7 +33,7 @@ interface BadgeActions {
 export const useBadgeStore = create<BadgeState & BadgeActions>()(
   persist(
     (set, get) => ({
-      badges: mockBadges,
+      badges: [],
       pendingBadges: [],
 
       addBadge: (badge) =>
@@ -73,7 +72,10 @@ export const useBadgeStore = create<BadgeState & BadgeActions>()(
       clearAllBadges: () => set({ pendingBadges: [] }),
     }),
     {
-      name: 'canwin-badges', storage: safeStorage,
+      name: 'canwin-badges',
+      version: 2,
+      storage: safeStorage,
+      migrate: () => ({ badges: [], pendingBadges: [] }),
     }
   )
 )

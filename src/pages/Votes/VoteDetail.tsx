@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Clock, Users, CheckCircle2, Lock, ChevronDown, ChevronUp, User } from 'lucide-react'
 import { useVoteStore } from '@/stores/useVoteStore'
 import { useUserStore } from '@/stores/useUserStore'
-import { useActivityStore } from '@/stores/useActivityStore'
 import StatusBadge from '@/components/StatusBadge'
 import ProgressBar from '@/components/ProgressBar'
 import { formatDate } from '@/utils/dateUtils'
@@ -83,15 +82,6 @@ export default function VoteDetail() {
   const handleVote = (optionId: string) => {
     if (isExpired || myVote) return
     castVote(vote.id, currentUser.id, optionId)
-
-    const optionLabel = vote.options.find((o) => o.id === optionId)?.label ?? '未知选项'
-    useActivityStore.getState().addLog({
-      userId: currentUser.id,
-      type: 'announcement',
-      content: `${currentUser.name} 参与了投票「${vote.title}」，投了「${optionLabel}」`,
-      createdAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    })
   }
 
   return (

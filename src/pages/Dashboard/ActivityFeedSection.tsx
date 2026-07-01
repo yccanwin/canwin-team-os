@@ -1,34 +1,88 @@
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { Trophy, CheckCircle2, Megaphone } from 'lucide-react'
-import { useActivityStore } from '@/stores/useActivityStore'
+import { Camera, CheckCircle2, Clock, Trophy } from 'lucide-react'
+import { useAchievementStore } from '@/stores/useAchievementStore'
+import { usePhotoStore } from '@/stores/usePhotoStore'
+import { useTaskStore } from '@/stores/useTaskStore'
+import { useTimelineStore } from '@/stores/useTimelineStore'
 import { useUserStore } from '@/stores/useUserStore'
 import { formatRelative } from '@/utils/dateUtils'
 import EmptyState from '@/components/EmptyState'
-import type { ActivityLog } from '@/types'
 
-const TYPE_ICONS: Record<ActivityLog['type'], typeof Trophy> = {
-  badge_earned: Trophy,
-  task_completed: CheckCircle2,
-  announcement: Megaphone,
+type FeedItem = {
+  id: string
+  userId: string
+  type: 'task' | 'timeline' | 'achievement' | 'photo'
+  content: string
+  createdAt: string
 }
 
-const TYPE_COLORS: Record<ActivityLog['type'], string> = {
-  badge_earned: 'text-yellow-500 bg-yellow-50',
-  task_completed: 'text-green-500 bg-green-50',
-  announcement: 'text-blue-500 bg-blue-50',
+const TYPE_ICONS: Record<FeedItem['type'], typeof Trophy> = {
+  task: CheckCircle2,
+  timeline: Clock,
+  achievement: Trophy,
+  photo: Camera,
+}
+
+const TYPE_COLORS: Record<FeedItem['type'], string> = {
+  task: 'text-green-500 bg-green-50',
+  timeline: 'text-blue-500 bg-blue-50',
+  achievement: 'text-yellow-500 bg-yellow-50',
+  photo: 'text-pink-500 bg-pink-50',
 }
 
 const ActivityFeedSection = memo(function ActivityFeedSection() {
-  const getRecentLogs = useActivityStore((s) => s.getRecentLogs)
+  const tasks = useTaskStore((s) => s.tasks)
+  const events = useTimelineStore((s) => s.events)
+  const achievements = useAchievementStore((s) => s.achievements)
+  const photos = usePhotoStore((s) => s.photos)
   const getUserById = useUserStore((s) => s.getUserById)
-  const recentLogs = getRecentLogs(5)
+
+  const recentLogs = useMemo<FeedItem[]>(() => {
+    const taskItems = tasks
+      .filter((task) => task.status === 'done' && task.completedAt)
+      .map((task) => ({
+        id: `task-${task.id}`,
+        userId: task.assigneeId,
+        type: 'task' as const,
+        content: `完成任务「${task.title}」`,
+        createdAt: task.completedAt as string,
+      }))
+
+    const timelineItems = events.map((event) => ({
+      id: `timeline-${event.id}`,
+      userId: event.createdBy,
+      type: 'timeline' as const,
+      content: `记录了团队记忆「${event.title}」`,
+      createdAt: event.createdAt || event.date,
+    }))
+
+    const achievementItems = achievements.map((achievement) => ({
+      id: `achievement-${achievement.id}`,
+      userId: achievement.createdBy,
+      type: 'achievement' as const,
+      content: `沉淀案例「${achievement.name}」`,
+      createdAt: achievement.createdAt || achievement.achievedDate,
+    }))
+
+    const photoItems = photos.map((photo) => ({
+      id: `photo-${photo.id}`,
+      userId: photo.uploadedBy,
+      type: 'photo' as const,
+      content: `上传团队照片「${photo.title || '团队瞬间'}」`,
+      createdAt: photo.uploadedAt || photo.date,
+    }))
+
+    return [...taskItems, ...timelineItems, ...achievementItems, ...photoItems]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 5)
+  }, [achievements, events, photos, tasks])
 
   if (recentLogs.length === 0) {
     return (
       <section className="bg-white rounded-card shadow-card p-5">
         <h3 className="font-heading text-lg font-semibold text-brand-400 mb-4">团队动态</h3>
-        <EmptyState title="暂无动态" description="团队还没有任何活动记录" />
+        <EmptyState title="暂无动态" description="正式数据表中还没有团队动态" />
       </section>
     )
   }
@@ -40,7 +94,7 @@ const ActivityFeedSection = memo(function ActivityFeedSection() {
       <div className="space-y-0">
         {recentLogs.map((log, idx) => {
           const user = getUserById(log.userId)
-          const Icon = TYPE_ICONS[log.type] || Megaphone
+          const Icon = TYPE_ICONS[log.type] || Clock
           const colorClass = TYPE_COLORS[log.type] || 'text-brand-300 bg-brand-50'
 
           return (
@@ -72,10 +126,10 @@ const ActivityFeedSection = memo(function ActivityFeedSection() {
       </div>
 
       <Link
-        to="/profile"
+        to="/timeline"
         className="block text-center text-xs text-primary hover:underline mt-3 pt-3 border-t border-gray-100"
       >
-        查看更多动态 →
+        查看团队记忆 →
       </Link>
     </section>
   )

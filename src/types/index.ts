@@ -119,17 +119,6 @@ export interface BadgeConfig {
   category: 'basic' | 'business' | 'behavior';
 }
 
-// ---------- 团队动态 ----------
-export interface ActivityLog {
-  id: string;
-  userId: string;
-  type: 'badge_earned' | 'task_completed' | 'announcement';
-  content: string;
-  metadata?: Record<string, any>;
-  createdAt: string;
-  expiresAt: string;      // 30天后过期
-}
-
 // ---------- 库存 ----------
 export interface InventoryItem {
   id: string;
