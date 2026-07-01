@@ -9,11 +9,9 @@ interface UserState {
 }
 
 interface UserActions {
-  switchUser: (userId: string) => void
   setCurrentUser: (user: User | null) => void
   setUsers: (users: User[]) => void
   logout: () => void
-  addBadge: (userId: string, badgeId: string) => void
   getUserById: (userId: string) => User | undefined
 
   // 成员管理 CRUD（Phase 8.4）
@@ -28,35 +26,11 @@ export const useUserStore = create<UserState & UserActions>()(
       users: [],
       currentUser: null as unknown as User,
 
-      switchUser: (userId) => {
-        const user = get().users.find((u) => u.id === userId)
-        if (user) {
-          set({ currentUser: user })
-        }
-      },
-
       setCurrentUser: (user) => set({ currentUser: user as unknown as User }),
 
       setUsers: (users) => set({ users }),
 
       logout: () => set({ currentUser: null as unknown as User }),
-
-      addBadge: (userId, badgeId) =>
-        set((state) => ({
-          users: state.users.map((u) =>
-            u.id === userId && !u.badges.includes(badgeId)
-              ? { ...u, badges: [...u.badges, badgeId] }
-              : u
-          ),
-          currentUser:
-            state.currentUser.id === userId &&
-            !state.currentUser.badges.includes(badgeId)
-              ? {
-                  ...state.currentUser,
-                  badges: [...state.currentUser.badges, badgeId],
-                }
-              : state.currentUser,
-        })),
 
       getUserById: (userId) => {
         return get().users.find((u) => u.id === userId)

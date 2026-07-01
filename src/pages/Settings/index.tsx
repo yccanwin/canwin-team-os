@@ -31,65 +31,9 @@ export default function SettingsPage() {
 
   const [activeTab, setActiveTab] = useState<TabKey>('badges')
 
-  // 密码门状态
-  const [isPasswordVerified, setIsPasswordVerified] = useState(false)
-  const [passwordInput, setPasswordInput] = useState('')
-  const [passwordError, setPasswordError] = useState('')
-
   // 路由守卫
   if (!isCaptain) {
     return <Navigate to="/" replace />
-  }
-
-  // 密码验证
-  const handlePasswordSubmit = () => {
-    if (passwordInput === '9527') {
-      setIsPasswordVerified(true)
-      setPasswordError('')
-    } else {
-      setPasswordError('密码错误，请重试')
-      setPasswordInput('')
-    }
-  }
-
-  // 密码门
-  if (!isPasswordVerified) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="bg-white rounded-card shadow-card p-8 w-full max-w-sm text-center">
-          <div className="text-3xl mb-3">🔒</div>
-          <h1 className="font-heading text-lg font-semibold text-brand-400 mb-2">设置中心</h1>
-          <p className="text-sm text-brand-300 mb-5">请输入 4 位数字密码进入</p>
-          <div className="mb-4">
-            <input
-              type="password"
-              maxLength={4}
-              value={passwordInput}
-              onChange={(e) => {
-                setPasswordInput(e.target.value)
-                setPasswordError('')
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handlePasswordSubmit()
-              }}
-              placeholder="••••"
-              className="w-32 text-center text-2xl tracking-[0.5em] px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              autoFocus
-            />
-          </div>
-          {passwordError && (
-            <p className="text-sm text-expense mb-3">{passwordError}</p>
-          )}
-          <button
-            onClick={handlePasswordSubmit}
-            disabled={passwordInput.length !== 4}
-            className="w-full px-6 py-2.5 bg-primary text-white text-sm font-medium rounded-lg hover:bg-indigo-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            确认
-          </button>
-        </div>
-      </div>
-    )
   }
 
   return (
