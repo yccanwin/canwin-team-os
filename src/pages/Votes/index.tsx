@@ -53,8 +53,8 @@ export default function VotesPage() {
       {/* ========== 头部 ========== */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="">投票系统</h1>
-          <p className="text-sm text-brand-300 mt-1">团队决策，人人参与</p>
+          <h1 className="font-heading text-lg font-semibold text-brand-400">一起决定</h1>
+          <p className="text-sm text-brand-300 mt-1">团队议题公开讨论，重要决定一起参与</p>
         </div>
         {isCaptain && (
           <button
