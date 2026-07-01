@@ -85,7 +85,10 @@ export const useAssetStore = create<AssetState>()(
       },
     }),
     {
-      name: 'canwin-assets', storage: safeStorage,
+      name: 'canwin-assets',
+      version: 2,
+      storage: safeStorage,
+      migrate: () => ({ assets: [] }),
     }
   )
 )

@@ -250,7 +250,10 @@ export const useGoalStore = create<GoalState & GoalActions>()(
       clearAllGoals: () => set({ goals: [] }),
     }),
     {
-      name: 'canwin-goals', storage: safeStorage,
+      name: 'canwin-goals',
+      version: 2,
+      storage: safeStorage,
+      migrate: () => ({ goals: [] }),
     }
   )
 )

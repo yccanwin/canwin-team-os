@@ -2,7 +2,6 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { safeStorage } from '@/utils/safeStorage'
 import type { User } from '@/types'
-import { mockUsers } from '@/data/mockData'
 
 interface UserState {
   users: User[]
@@ -26,7 +25,7 @@ interface UserActions {
 export const useUserStore = create<UserState & UserActions>()(
   persist(
     (set, get) => ({
-      users: mockUsers,
+      users: [],
       currentUser: null as unknown as User,
 
       switchUser: (userId) => {
@@ -98,12 +97,11 @@ export const useUserStore = create<UserState & UserActions>()(
     }),
     {
       name: 'canwin-users',
-      version: 2,
+      version: 3,
       storage: safeStorage,
-      migrate: (persisted) => {
-        const state = persisted as Partial<UserState> | null
+      migrate: () => {
         return {
-          users: state?.users && state.users.length > 0 ? state.users : mockUsers,
+          users: [],
           currentUser: null as unknown as User,
         }
       },

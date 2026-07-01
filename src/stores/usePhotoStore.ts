@@ -91,7 +91,10 @@ export const usePhotoStore = create<PhotoState>()(
       },
     }),
     {
-      name: 'canwin-photos', storage: safeStorage,
+      name: 'canwin-photos',
+      version: 2,
+      storage: safeStorage,
+      migrate: () => ({ photos: [] }),
     }
   )
 )

@@ -109,7 +109,8 @@ export const useWarRoomStore = create<WarRoomState>()(
     {
       name: 'canwin-warroom',
       storage: safeStorage,
-      version: 1,
+      version: 2,
+      migrate: () => ({ policies: [] }),
     }
   )
 )

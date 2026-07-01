@@ -10,7 +10,7 @@ export interface PendingBadge {
   name: string
   icon: string
   description: string
-  xpReward: number
+  memoryWeight: number
 }
 
 interface BadgeState {

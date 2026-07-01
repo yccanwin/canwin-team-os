@@ -11,17 +11,12 @@ export interface User {
   avatar?: string;
   position: string;
   joinDate: string;       // ISO 格式
-  xp: number;
-  level: number;          // 1-10
-  badges: string[];       // 勋章ID列表
+  badges: string[];       // 团队记忆标签 ID 列表
 
   // ---- 个人自定义资料（全员可见） ----
   restDays?: string[];    // 每周休息日，如 ["周一","周三"]
   mood?: string;          // 最近心情
   taboos?: string;        // 个人忌讳
-
-  // ---- 切换密码（队长可设置） ----
-  switchPassword?: string; // 切换到此用户时需要的密码，队长可管理
 }
 
 // ---------- 任务 ----------
@@ -120,7 +115,7 @@ export interface BadgeConfig {
   description: string;
   triggerType: 'task_count' | 'login_streak' | 'metric' | 'custom';
   triggerParams: Record<string, any>;
-  xpReward: number;
+  memoryWeight: number;
   category: 'basic' | 'business' | 'behavior';
 }
 

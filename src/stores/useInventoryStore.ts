@@ -341,7 +341,10 @@ export const useInventoryStore = create<InventoryState & InventoryActions>()(
       clearAllItems: () => set({ items: [], logs: [] }),
     }),
     {
-      name: 'canwin-inventory', storage: safeStorage,
+      name: 'canwin-inventory',
+      version: 2,
+      storage: safeStorage,
+      migrate: () => ({ items: [], logs: [] }),
     }
   )
 )

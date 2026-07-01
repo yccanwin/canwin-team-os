@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import type { ToolItem, ToolCategory } from '@/types/toolbox'
 import { useUserStore } from '@/stores/useUserStore'
 import { createToolRecord, deleteToolRecord, updateToolRecord } from '@/services/toolbox'
+import { safeStorage } from '@/utils/safeStorage'
 
 interface ToolboxState {
   tools: ToolItem[]
@@ -115,7 +116,9 @@ export const useToolboxStore = create<ToolboxState>()(
     }),
     {
       name: 'canwin-toolbox',
-      version: 1,
+      version: 2,
+      storage: safeStorage,
+      migrate: () => ({ tools: [] }),
     }
   )
 )

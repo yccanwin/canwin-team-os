@@ -100,7 +100,10 @@ export const useFinanceStore = create<FinanceState & FinanceActions>()(
       clearAllRecords: () => set({ records: [] }),
     }),
     {
-      name: 'canwin-finance', storage: safeStorage,
+      name: 'canwin-finance',
+      version: 2,
+      storage: safeStorage,
+      migrate: () => ({ records: [] }),
     }
   )
 )

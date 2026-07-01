@@ -38,7 +38,7 @@ export default function BadgeFormModal({
   const [description, setDescription] = useState('')
   const [triggerType, setTriggerType] = useState<BadgeConfig['triggerType']>('task_count')
   const [triggerParams, setTriggerParams] = useState('')
-  const [xpReward, setXpReward] = useState('50')
+  const [memoryWeight, setMemoryWeight] = useState('50')
   const [category, setCategory] = useState<BadgeConfig['category']>('basic')
 
   // 错误
@@ -52,7 +52,7 @@ export default function BadgeFormModal({
       setDescription(badge.description)
       setTriggerType(badge.triggerType)
       setTriggerParams(JSON.stringify(badge.triggerParams, null, 2))
-      setXpReward(String(badge.xpReward))
+      setMemoryWeight(String(badge.memoryWeight))
       setCategory(badge.category)
     }
   }, [badge])
@@ -63,8 +63,8 @@ export default function BadgeFormModal({
     if (!name.trim()) newErrors.name = '名称不能为空'
     if (!icon.trim()) newErrors.icon = '图标不能为空'
     if (!description.trim()) newErrors.description = '描述不能为空'
-    const xp = Number(xpReward)
-    if (!xpReward || isNaN(xp) || xp < 0) newErrors.xpReward = '记忆权重无效'
+    const weight = Number(memoryWeight)
+    if (!memoryWeight || isNaN(weight) || weight < 0) newErrors.memoryWeight = '记忆权重无效'
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -87,7 +87,7 @@ export default function BadgeFormModal({
       description: description.trim(),
       triggerType,
       triggerParams: params,
-      xpReward: Number(xpReward),
+      memoryWeight: Number(memoryWeight),
       category,
     }
 
@@ -204,16 +204,16 @@ export default function BadgeFormModal({
             </label>
             <input
               type="number"
-              value={xpReward}
-              onChange={(e) => setXpReward(e.target.value)}
+              value={memoryWeight}
+              onChange={(e) => setMemoryWeight(e.target.value)}
               placeholder="50"
               min={0}
               className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary ${
-                errors.xpReward ? 'border-expense' : 'border-gray-300'
+                errors.memoryWeight ? 'border-expense' : 'border-gray-300'
               }`}
             />
-            {errors.xpReward && (
-              <p className="text-xs text-expense mt-1">{errors.xpReward}</p>
+            {errors.memoryWeight && (
+              <p className="text-xs text-expense mt-1">{errors.memoryWeight}</p>
             )}
           </div>
         </div>

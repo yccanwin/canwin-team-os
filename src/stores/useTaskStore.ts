@@ -91,7 +91,10 @@ export const useTaskStore = create<TaskState & TaskActions>()(
       clearAllTasks: () => set({ tasks: [] }),
     }),
     {
-      name: 'canwin-tasks', storage: safeStorage,
+      name: 'canwin-tasks',
+      version: 2,
+      storage: safeStorage,
+      migrate: () => ({ tasks: [] }),
     }
   )
 )

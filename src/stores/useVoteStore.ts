@@ -110,7 +110,10 @@ export const useVoteStore = create<VoteState & VoteActions>()(
       clearAllVotes: () => set({ votes: [] }),
     }),
     {
-      name: 'canwin-votes', storage: safeStorage,
+      name: 'canwin-votes',
+      version: 2,
+      storage: safeStorage,
+      migrate: () => ({ votes: [] }),
     }
   )
 )

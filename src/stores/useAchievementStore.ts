@@ -77,7 +77,10 @@ export const useAchievementStore = create<AchievementState>()(
       },
     }),
     {
-      name: 'canwin-achievements', storage: safeStorage,
+      name: 'canwin-achievements',
+      version: 2,
+      storage: safeStorage,
+      migrate: () => ({ achievements: [] }),
     }
   )
 )

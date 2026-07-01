@@ -118,7 +118,9 @@ export const usePersonalGoalStore = create<PersonalGoalState & PersonalGoalActio
     }),
     {
       name: 'canwin-personal-goals',
+      version: 2,
       storage: safeStorage,
+      migrate: () => ({ personalGoals: [] }),
     }
   )
 )

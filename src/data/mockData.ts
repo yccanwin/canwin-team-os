@@ -23,8 +23,6 @@ export const mockUsers: User[] = [
     role: 'captain',
     position: '团队负责人',
     joinDate: '2025-01-15T00:00:00.000Z',
-    xp: 2850,
-    level: 7,
     badges: ['b-basic-01', 'b-biz-01', 'b-behave-01'],
   },
   {
@@ -33,8 +31,6 @@ export const mockUsers: User[] = [
     role: 'member',
     position: '销售主管',
     joinDate: '2025-02-10T00:00:00.000Z',
-    xp: 1620,
-    level: 4,
     badges: ['b-basic-01', 'b-biz-02'],
   },
   {
@@ -43,8 +39,6 @@ export const mockUsers: User[] = [
     role: 'member',
     position: '运营经理',
     joinDate: '2025-02-20T00:00:00.000Z',
-    xp: 1380,
-    level: 3,
     badges: ['b-basic-01'],
   },
   {
@@ -53,8 +47,6 @@ export const mockUsers: User[] = [
     role: 'member',
     position: '采购专员',
     joinDate: '2025-03-01T00:00:00.000Z',
-    xp: 1050,
-    level: 3,
     badges: ['b-basic-01'],
   },
   {
@@ -63,8 +55,6 @@ export const mockUsers: User[] = [
     role: 'member',
     position: '财务专员',
     joinDate: '2025-03-15T00:00:00.000Z',
-    xp: 920,
-    level: 2,
     badges: ['b-basic-01'],
   },
   {
@@ -73,8 +63,6 @@ export const mockUsers: User[] = [
     role: 'member',
     position: '市场专员',
     joinDate: '2025-04-01T00:00:00.000Z',
-    xp: 780,
-    level: 2,
     badges: ['b-basic-01'],
   },
   {
@@ -83,8 +71,6 @@ export const mockUsers: User[] = [
     role: 'member',
     position: '技术专员',
     joinDate: '2025-04-15T00:00:00.000Z',
-    xp: 650,
-    level: 2,
     badges: [],
   },
   {
@@ -93,8 +79,6 @@ export const mockUsers: User[] = [
     role: 'member',
     position: '客服专员',
     joinDate: '2025-05-01T00:00:00.000Z',
-    xp: 420,
-    level: 1,
     badges: [],
   },
 ]
@@ -402,7 +386,7 @@ export const mockBadges: BadgeConfig[] = [
     description: '完成首个任务',
     triggerType: 'task_count',
     triggerParams: { count: 1 },
-    xpReward: 50,
+    memoryWeight: 50,
     category: 'basic',
   },
   {
@@ -412,7 +396,7 @@ export const mockBadges: BadgeConfig[] = [
     description: '累计完成 10 个任务',
     triggerType: 'task_count',
     triggerParams: { count: 10 },
-    xpReward: 150,
+    memoryWeight: 150,
     category: 'basic',
   },
   {
@@ -422,7 +406,7 @@ export const mockBadges: BadgeConfig[] = [
     description: '连续登录 7 天',
     triggerType: 'login_streak',
     triggerParams: { days: 7 },
-    xpReward: 100,
+    memoryWeight: 100,
     category: 'basic',
   },
   {
@@ -432,7 +416,7 @@ export const mockBadges: BadgeConfig[] = [
     description: '单月销售额突破 5 万',
     triggerType: 'metric',
     triggerParams: { metric: 'monthly_sales', threshold: 50000 },
-    xpReward: 300,
+    memoryWeight: 300,
     category: 'business',
   },
   {
@@ -442,7 +426,7 @@ export const mockBadges: BadgeConfig[] = [
     description: '单月采购成本降低 10%',
     triggerType: 'metric',
     triggerParams: { metric: 'cost_reduction', threshold: 10 },
-    xpReward: 250,
+    memoryWeight: 250,
     category: 'business',
   },
   {
@@ -452,7 +436,7 @@ export const mockBadges: BadgeConfig[] = [
     description: '协助其他成员完成 5 个任务',
     triggerType: 'metric',
     triggerParams: { metric: 'collaboration', threshold: 5 },
-    xpReward: 200,
+    memoryWeight: 200,
     category: 'behavior',
   },
 ]

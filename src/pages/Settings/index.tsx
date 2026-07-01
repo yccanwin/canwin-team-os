@@ -192,7 +192,7 @@ function BadgeConfigTab() {
                     {triggerTypeLabels[badge.triggerType] || badge.triggerType}
                   </td>
                   <td className="px-4 py-2.5 text-right text-brand-400">
-                    {badge.xpReward}
+                    {badge.memoryWeight}
                   </td>
                   <td className="px-4 py-2.5 text-brand-400">
                     {badge.category === 'basic'

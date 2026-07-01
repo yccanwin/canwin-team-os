@@ -88,7 +88,9 @@ export const useCalendarStore = create<CalendarState & CalendarActions>()(
     }),
     {
       name: 'calendar-storage',
+      version: 2,
       storage: safeStorage,
+      migrate: () => ({ events: [] }),
     }
   )
 )

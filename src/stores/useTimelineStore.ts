@@ -97,7 +97,10 @@ export const useTimelineStore = create<TimelineState>()(
       },
     }),
     {
-      name: 'canwin-timeline', storage: safeStorage,
+      name: 'canwin-timeline',
+      version: 2,
+      storage: safeStorage,
+      migrate: () => ({ events: [] }),
     }
   )
 )

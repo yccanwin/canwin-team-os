@@ -32,8 +32,6 @@ function profileToUser(profile: ProfileRow): User {
     position: profile.position || '',
     avatar: profile.avatar_url || undefined,
     joinDate: profile.join_date || new Date().toISOString(),
-    xp: 0,
-    level: 1,
     badges: [],
     restDays: profile.rest_days ?? undefined,
     mood: profile.mood ?? undefined,
