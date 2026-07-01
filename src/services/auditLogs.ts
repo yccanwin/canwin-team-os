@@ -1,7 +1,7 @@
 import { CANWIN_TEAM_ID } from '@/config/team'
 import { supabase } from '@/lib/supabase'
 
-type AuditAction = 'create' | 'update' | 'delete' | 'status_change' | 'stock_in' | 'stock_out' | 'revert'
+type AuditAction = 'create' | 'update' | 'delete' | 'status_change' | 'stock_in' | 'stock_out' | 'revert' | 'unlock'
 
 type AuditPayload = {
   action: AuditAction

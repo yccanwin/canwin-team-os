@@ -513,21 +513,83 @@ create policy "owners or captains delete tools" on tools for delete to authentic
 create policy "team members read team goals" on team_goals for select to authenticated using (public.is_team_member(team_id));
 create policy "captains manage team goals" on team_goals for all to authenticated using (public.has_role(team_id, array['admin','captain'])) with check (public.has_role(team_id, array['admin','captain']));
 
+drop policy if exists "members read visible personal goals" on personal_goals;
+drop policy if exists "users create own personal goals" on personal_goals;
+drop policy if exists "users update own unlocked personal goals" on personal_goals;
+drop policy if exists "admin can manage personal goals" on personal_goals;
 create policy "members read visible personal goals" on personal_goals for select to authenticated using (public.is_team_member(team_id) and (visibility = 'team' or user_id = auth.uid()));
 create policy "users create own personal goals" on personal_goals for insert to authenticated with check (public.is_team_member(team_id) and user_id = auth.uid());
-create policy "users update own unlocked personal goals" on personal_goals for update to authenticated using (user_id = auth.uid() and lock_status in ('cooldown','unlocked')) with check (user_id = auth.uid());
+create policy "users update own unlocked personal goals" on personal_goals for update to authenticated
+  using (
+    user_id = auth.uid()
+    and (
+      lock_status = 'unlocked'
+      or (lock_status = 'cooldown' and created_at > now() - interval '24 hours')
+    )
+  )
+  with check (
+    user_id = auth.uid()
+    and lock_status in ('cooldown', 'unlocked')
+  );
 create policy "admin can manage personal goals" on personal_goals for all to authenticated using (public.has_role(team_id, array['admin'])) with check (public.has_role(team_id, array['admin']));
 
-create policy "team members read goal updates" on goal_updates for select to authenticated using (auth.role() = 'authenticated');
-create policy "team members create goal updates" on goal_updates for insert to authenticated with check (created_by = auth.uid());
+drop policy if exists "team members read goal updates" on goal_updates;
+drop policy if exists "team members create goal updates" on goal_updates;
+create policy "team members read goal updates" on goal_updates for select to authenticated using (
+  (
+    goal_type = 'personal'
+    and exists (
+      select 1
+      from personal_goals pg
+      where pg.id = goal_id
+        and public.is_team_member(pg.team_id)
+        and (pg.visibility = 'team' or pg.user_id = auth.uid())
+    )
+  )
+  or (
+    goal_type = 'team'
+    and exists (
+      select 1
+      from team_goals tg
+      where tg.id = goal_id
+        and public.is_team_member(tg.team_id)
+    )
+  )
+);
+create policy "team members create goal updates" on goal_updates for insert to authenticated with check (
+  created_by = auth.uid()
+  and (
+    (
+      goal_type = 'personal'
+      and exists (
+        select 1
+        from personal_goals pg
+        where pg.id = goal_id
+          and pg.user_id = auth.uid()
+      )
+    )
+    or (
+      goal_type = 'team'
+      and exists (
+        select 1
+        from team_goals tg
+        where tg.id = goal_id
+          and public.has_role(tg.team_id, array['admin','captain'])
+      )
+    )
+  )
+);
 
 create policy "team members read badges" on badges for select to authenticated using (public.is_team_member(team_id));
 create policy "captains manage badges" on badges for all to authenticated using (public.has_role(team_id, array['admin','captain'])) with check (public.has_role(team_id, array['admin','captain']));
 create policy "team members read badge awards" on badge_awards for select to authenticated using (public.is_team_member(team_id));
 create policy "captains manage badge awards" on badge_awards for all to authenticated using (public.has_role(team_id, array['admin','captain'])) with check (public.has_role(team_id, array['admin','captain']));
 
+drop policy if exists "admin reads audit logs" on audit_logs;
+drop policy if exists "system roles create audit logs" on audit_logs;
+drop policy if exists "team members create audit logs" on audit_logs;
 create policy "admin reads audit logs" on audit_logs for select to authenticated using (public.has_role(team_id, array['admin']));
-create policy "system roles create audit logs" on audit_logs for insert to authenticated with check (actor_id = auth.uid() and public.has_role(team_id, array['admin','captain','finance','warehouse']));
+create policy "team members create audit logs" on audit_logs for insert to authenticated with check (actor_id = auth.uid() and public.is_team_member(team_id));
 
 create or replace view finance_public_summary
 with (security_invoker = false) as

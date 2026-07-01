@@ -5,6 +5,7 @@ import type { PersonalGoal, PersonalGoalUpdate } from '@/types'
 import {
   addPersonalGoalUpdateRecord,
   createPersonalGoalRecord,
+  unlockPersonalGoalRecord,
   updatePersonalGoalRecord,
 } from '@/services/personalGoals'
 
@@ -16,6 +17,7 @@ interface PersonalGoalActions {
   setPersonalGoals: (goals: PersonalGoal[]) => void
   addPersonalGoal: (goal: Omit<PersonalGoal, 'id' | 'createdAt' | 'updates' | 'currentAmount'>) => void
   updatePersonalGoal: (id: string, updates: Partial<PersonalGoal>) => void
+  unlockPersonalGoal: (id: string) => void
   addGoalUpdate: (goalId: string, update: Pick<PersonalGoalUpdate, 'content' | 'amountDelta' | 'imageUrl'>) => void
   getVisibleGoalsForUser: (userId: string, viewerId: string) => PersonalGoal[]
   getOwnGoals: (userId: string) => PersonalGoal[]
@@ -67,6 +69,26 @@ export const usePersonalGoalStore = create<PersonalGoalState & PersonalGoalActio
           ),
         }))
         void updatePersonalGoalRecord(id, updates).catch(() => set({ personalGoals: previous }))
+      },
+
+      unlockPersonalGoal: (id) => {
+        const previous = get().personalGoals
+        set((state) => ({
+          personalGoals: state.personalGoals.map((goal) =>
+            goal.id === id
+              ? { ...goal, lockStatus: 'unlocked', lockedAt: undefined, unlockAt: new Date().toISOString() }
+              : goal
+          ),
+        }))
+        void unlockPersonalGoalRecord(id)
+          .then((savedGoal) =>
+            set((state) => ({
+              personalGoals: state.personalGoals.map((goal) =>
+                goal.id === id ? { ...savedGoal, updates: goal.updates } : goal
+              ),
+            }))
+          )
+          .catch(() => set({ personalGoals: previous }))
       },
 
       addGoalUpdate: (goalId, update) => {

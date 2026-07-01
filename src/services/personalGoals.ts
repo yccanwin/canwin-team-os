@@ -1,5 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { CANWIN_TEAM_ID } from '@/config/team'
+import { writeAuditLog } from '@/services/auditLogs'
+import { resolveMediaUrl } from '@/services/storage'
 import type { PersonalGoal, PersonalGoalUpdate } from '@/types'
 
 type PersonalGoalRow = {
@@ -32,6 +34,23 @@ const PERSONAL_GOAL_SELECT =
 
 const GOAL_UPDATE_SELECT =
   'id, goal_id, content, amount_delta, image_url, created_by, created_at'
+
+function goalRowForAudit(row: PersonalGoalRow): Record<string, unknown> {
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    title: row.title,
+    description: row.description,
+    goal_type: row.goal_type,
+    target_amount: row.target_amount,
+    deadline: row.deadline,
+    visibility: row.visibility,
+    lock_status: row.lock_status,
+    locked_at: row.locked_at,
+    unlock_at: row.unlock_at,
+    created_at: row.created_at,
+  }
+}
 
 function isPastCooldown(row: Pick<PersonalGoalRow, 'created_at' | 'lock_status'>) {
   if (row.lock_status !== 'cooldown') return false
@@ -134,10 +153,26 @@ export async function createPersonalGoalRecord(
     .single()
 
   if (error) throw new Error(error.message)
-  return rowToGoal(data as PersonalGoalRow, [])
+  const savedRow = data as PersonalGoalRow
+  await writeAuditLog({
+    action: 'create',
+    targetType: 'personal_goals',
+    targetId: savedRow.id,
+    afterData: goalRowForAudit(savedRow),
+  })
+
+  return rowToGoal(savedRow, [])
 }
 
 export async function updatePersonalGoalRecord(id: string, updates: Partial<PersonalGoal>): Promise<PersonalGoal> {
+  const { data: before, error: beforeError } = await supabase
+    .from('personal_goals')
+    .select(PERSONAL_GOAL_SELECT)
+    .eq('id', id)
+    .single()
+
+  if (beforeError) throw new Error(beforeError.message)
+
   const { data, error } = await supabase
     .from('personal_goals')
     .update(goalToRow(updates))
@@ -146,7 +181,50 @@ export async function updatePersonalGoalRecord(id: string, updates: Partial<Pers
     .single()
 
   if (error) throw new Error(error.message)
-  return rowToGoal(data as PersonalGoalRow, [])
+  const savedRow = data as PersonalGoalRow
+  await writeAuditLog({
+    action: 'update',
+    targetType: 'personal_goals',
+    targetId: id,
+    beforeData: goalRowForAudit(before as PersonalGoalRow),
+    afterData: goalRowForAudit(savedRow),
+  })
+
+  return rowToGoal(savedRow, [])
+}
+
+export async function unlockPersonalGoalRecord(id: string): Promise<PersonalGoal> {
+  const { data: before, error: beforeError } = await supabase
+    .from('personal_goals')
+    .select(PERSONAL_GOAL_SELECT)
+    .eq('id', id)
+    .single()
+
+  if (beforeError) throw new Error(beforeError.message)
+
+  const unlockedAt = new Date().toISOString()
+  const { data, error } = await supabase
+    .from('personal_goals')
+    .update({
+      lock_status: 'unlocked',
+      locked_at: null,
+      unlock_at: unlockedAt,
+    })
+    .eq('id', id)
+    .select(PERSONAL_GOAL_SELECT)
+    .single()
+
+  if (error) throw new Error(error.message)
+  const savedRow = data as PersonalGoalRow
+  await writeAuditLog({
+    action: 'unlock',
+    targetType: 'personal_goals',
+    targetId: id,
+    beforeData: goalRowForAudit(before as PersonalGoalRow),
+    afterData: goalRowForAudit(savedRow),
+  })
+
+  return rowToGoal(savedRow, [])
 }
 
 export async function addPersonalGoalUpdateRecord(
@@ -155,6 +233,9 @@ export async function addPersonalGoalUpdateRecord(
 ): Promise<PersonalGoalUpdate> {
   const { data: userData, error: userError } = await supabase.auth.getUser()
   if (userError) throw new Error(userError.message)
+  if (!userData.user) throw new Error('未登录，无法写入目标进展')
+
+  const imageUrl = await resolveMediaUrl(update.imageUrl, 'personal-goals/updates')
 
   const { data, error } = await supabase
     .from('goal_updates')
@@ -163,12 +244,28 @@ export async function addPersonalGoalUpdateRecord(
       goal_id: goalId,
       content: update.content,
       amount_delta: update.amountDelta,
-      image_url: update.imageUrl,
+      image_url: imageUrl,
       created_by: userData.user.id,
     })
     .select(GOAL_UPDATE_SELECT)
     .single()
 
   if (error) throw new Error(error.message)
-  return rowToUpdate(data as GoalUpdateRow)
+  const savedRow = data as GoalUpdateRow
+  await writeAuditLog({
+    action: 'create',
+    targetType: 'goal_updates',
+    targetId: savedRow.id,
+    afterData: {
+      id: savedRow.id,
+      goal_id: savedRow.goal_id,
+      goal_type: 'personal',
+      amount_delta: savedRow.amount_delta,
+      image_url: savedRow.image_url,
+      created_by: savedRow.created_by,
+      created_at: savedRow.created_at,
+    },
+  })
+
+  return rowToUpdate(savedRow)
 }

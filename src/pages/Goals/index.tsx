@@ -5,8 +5,8 @@ import { useGoalStore } from '@/stores/useGoalStore'
 import { useUserStore } from '@/stores/useUserStore'
 import GoalEditModal from './GoalEditModal'
 import PersonalGoalModal from './PersonalGoalModal'
-import { isCaptainRole } from '@/services/profile'
-import { Target, TrendingUp, Rocket, Trophy, X, Plus, UserRound } from 'lucide-react'
+import { isAdminRole, isCaptainRole } from '@/services/profile'
+import { Target, TrendingUp, Rocket, Trophy, X, Plus, UserRound, Unlock } from 'lucide-react'
 import { usePersonalGoalStore } from '@/stores/usePersonalGoalStore'
 import type { PersonalGoal } from '@/types'
 
@@ -32,9 +32,11 @@ const statusConfig: Record<
 export default function GoalsPage() {
   const goals = useGoalStore((s) => s.goals)
   const personalGoals = usePersonalGoalStore((s) => s.personalGoals)
+  const unlockPersonalGoal = usePersonalGoalStore((s) => s.unlockPersonalGoal)
   const unlockNextPhase = useGoalStore((s) => s.unlockNextPhase)
   const currentUser = useUserStore((s) => s.currentUser)
 
+  const isAdmin = isAdminRole(currentUser.role)
   const isCaptain = isCaptainRole(currentUser.role)
 
   // 编辑弹窗状态
@@ -89,8 +91,10 @@ export default function GoalsPage() {
         <PersonalGoalsView
           goals={personalGoals}
           currentUserId={currentUser.id}
+          isAdmin={isAdmin}
           onCreate={() => setNewPersonalGoalOpen(true)}
           onEdit={setEditingPersonalGoal}
+          onUnlock={unlockPersonalGoal}
         />
       ) : (
       <>
@@ -391,13 +395,17 @@ export default function GoalsPage() {
 function PersonalGoalsView({
   goals,
   currentUserId,
+  isAdmin,
   onCreate,
   onEdit,
+  onUnlock,
 }: {
   goals: PersonalGoal[]
   currentUserId: string
+  isAdmin: boolean
   onCreate: () => void
   onEdit: (goal: PersonalGoal) => void
+  onUnlock: (goalId: string) => void
 }) {
   const visibleGoals = useMemo(
     () => goals.filter((goal) => goal.userId === currentUserId || goal.visibility === 'team'),
@@ -444,6 +452,7 @@ function PersonalGoalsView({
               goal.lockStatus === 'cooldown' ? '冷静期' :
               goal.lockStatus === 'locked' ? '已锁定' :
               goal.lockStatus === 'review' ? '复盘中' : '已解锁'
+            const canAdminUnlock = isAdmin && (goal.lockStatus === 'locked' || goal.lockStatus === 'review')
 
             return (
               <button
@@ -461,7 +470,30 @@ function PersonalGoalsView({
                       <p className="text-xs text-brand-200">{goal.goalType || '个人目标'} · {goal.visibility === 'team' ? '团队可见' : '仅自己可见'}</p>
                     </div>
                   </div>
-                  <span className="rounded-full bg-brand-50 px-2 py-1 text-xs text-brand-300">{lockedLabel}</span>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {canAdminUnlock && (
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          onUnlock(goal.id)
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key !== 'Enter' && event.key !== ' ') return
+                          event.preventDefault()
+                          event.stopPropagation()
+                          onUnlock(goal.id)
+                        }}
+                        className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 hover:bg-amber-100"
+                        title="管理员特殊解锁"
+                      >
+                        <Unlock className="h-3 w-3" />
+                        特殊解锁
+                      </span>
+                    )}
+                    <span className="rounded-full bg-brand-50 px-2 py-1 text-xs text-brand-300">{lockedLabel}</span>
+                  </div>
                 </div>
                 {goal.description && <p className="mb-3 text-sm text-brand-300">{goal.description}</p>}
                 {target > 0 && (
