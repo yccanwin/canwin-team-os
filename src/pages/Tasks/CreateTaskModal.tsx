@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import Modal from '@/components/Modal'
 import { useTaskStore } from '@/stores/useTaskStore'
 import { useUserStore } from '@/stores/useUserStore'
@@ -16,6 +16,23 @@ const typeOptions: { value: Task['type']; label: string }[] = [
   { value: 'other', label: '其他' },
 ]
 
+const restDayIndex: Record<string, number> = {
+  周日: 0,
+  周一: 1,
+  周二: 2,
+  周三: 3,
+  周四: 4,
+  周五: 5,
+  周六: 6,
+}
+
+function getRestDayWarning(deadline: string, assigneeRestDays?: string[]) {
+  if (!deadline || !assigneeRestDays?.length) return ''
+  const weekday = new Date(`${deadline}T00:00:00`).getDay()
+  const matchedRestDay = assigneeRestDays.find((day) => restDayIndex[day] === weekday)
+  return matchedRestDay ? `提醒：负责人当天是固定休息日（${matchedRestDay}），请确认是否需要调整截止日或负责人。` : ''
+}
+
 export default function CreateTaskModal({ isOpen, onClose }: CreateTaskModalProps) {
   const addTask = useTaskStore((s) => s.addTask)
   const users = useUserStore((s) => s.users)
@@ -29,6 +46,19 @@ export default function CreateTaskModal({ isOpen, onClose }: CreateTaskModalProp
   const [description, setDescription] = useState('')
   const [isImportant, setIsImportant] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const selectedAssignee = useMemo(() => {
+    const assignee = users.find((user) => user.id === assigneeId)
+    if (currentUser.id !== assigneeId) return assignee
+    return {
+      ...assignee,
+      ...currentUser,
+      restDays: assignee?.restDays ?? currentUser.restDays,
+    }
+  }, [assigneeId, currentUser, users])
+  const restDayWarning = useMemo(
+    () => getRestDayWarning(deadline, selectedAssignee?.restDays),
+    [deadline, selectedAssignee?.restDays]
+  )
 
   // --- 重置表单 ---
   const resetForm = () => {
@@ -183,6 +213,11 @@ export default function CreateTaskModal({ isOpen, onClose }: CreateTaskModalProp
             }`}
           />
           {errors.deadline && <p className="mt-1 text-xs text-red-500">{errors.deadline}</p>}
+          {!errors.deadline && restDayWarning && (
+            <p className="mt-1 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
+              {restDayWarning}
+            </p>
+          )}
         </div>
 
         {/* 描述 */}
