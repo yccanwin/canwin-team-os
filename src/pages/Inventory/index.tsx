@@ -8,22 +8,21 @@ import EmptyStateIllustration from '@/components/EmptyStateIllustration'
 import StockInModal from './StockInModal'
 import StockOutModal from './StockOutModal'
 import InventoryLogPanel from './InventoryLogPanel'
-import { isCaptainRole } from '@/services/profile'
+import { isWarehouseRole } from '@/services/profile'
 
 export default function InventoryPage() {
   const currentUser = useUserStore((s) => s.currentUser)
   const items = useInventoryStore((s) => s.items)
   const logs = useInventoryStore((s) => s.logs)
 
-  const isCaptain = isCaptainRole(currentUser.role)
+  const canManageInventory = isWarehouseRole(currentUser.role)
 
   // 弹窗状态
   const [stockInOpen, setStockInOpen] = useState(false)
   const [stockOutItem, setStockOutItem] = useState<string | null>(null) // itemId
   const [logPanelOpen, setLogPanelOpen] = useState(false)
 
-  // 路由守卫：仅队长可访问
-  if (!isCaptain) {
+  if (!canManageInventory) {
     return (
       <div className="p-6">
         <div className="mb-6">
@@ -47,7 +46,6 @@ export default function InventoryPage() {
     )
   }
 
-  // 队长视图
   return (
     <div className="p-6">
       {/* 页面标题 + 操作按钮 */}

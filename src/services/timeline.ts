@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { CANWIN_TEAM_ID } from '@/config/team'
 import type { TimelineEvent } from '@/types'
+import { resolveMediaUrls } from '@/services/storage'
 
 type TimelineRow = {
   id: string
@@ -84,7 +85,10 @@ export async function createTimelineEvent(event: Omit<TimelineEvent, 'id' | 'cre
   const { data, error } = await supabase
     .from('timeline_events')
     .insert({
-      ...timelineEventToRow(event),
+      ...timelineEventToRow({
+        ...event,
+        images: (await resolveMediaUrls(event.images, 'timeline')) || event.images,
+      }),
       team_id: CANWIN_TEAM_ID,
       created_by: userData.user.id,
     })
@@ -107,7 +111,13 @@ export async function updateTimelineEventRecord(
   if (existingError) throw new Error(existingError.message)
 
   const previous = parseMeta(existing.description)
-  const row = timelineEventToRow({ ...previous, ...updates })
+  const storedUpdates = {
+    ...updates,
+    ...(updates.images !== undefined
+      ? { images: (await resolveMediaUrls(updates.images, 'timeline')) || updates.images }
+      : {}),
+  }
+  const row = timelineEventToRow({ ...previous, ...storedUpdates })
   const { data, error } = await supabase
     .from('timeline_events')
     .update(row)

@@ -1,6 +1,8 @@
 import { supabase } from '@/lib/supabase'
 import { CANWIN_TEAM_ID } from '@/config/team'
 import type { Asset } from '@/types'
+import { writeAuditLog } from '@/services/auditLogs'
+import { resolveMediaUrls } from '@/services/storage'
 
 type AssetRow = {
   id: string
@@ -92,7 +94,10 @@ export async function createAssetRecord(asset: Omit<Asset, 'id' | 'createdAt'>):
   const { data, error } = await supabase
     .from('assets')
     .insert({
-      ...assetToRow(asset),
+      ...assetToRow({
+        ...asset,
+        images: (await resolveMediaUrls(asset.images, 'assets')) || asset.images,
+      }),
       team_id: CANWIN_TEAM_ID,
       created_by: userData.user.id,
     })
@@ -100,30 +105,62 @@ export async function createAssetRecord(asset: Omit<Asset, 'id' | 'createdAt'>):
     .single()
 
   if (error) throw new Error(error.message)
+  await writeAuditLog({
+    action: 'create',
+    targetType: 'assets',
+    targetId: data.id,
+    afterData: data as Record<string, unknown>,
+  })
   return rowToAsset(data as AssetRow)
 }
 
 export async function updateAssetRecord(id: string, updates: Partial<Asset>): Promise<Asset> {
   const { data: existing, error: existingError } = await supabase
     .from('assets')
-    .select('description')
+    .select('*')
     .eq('id', id)
     .single()
   if (existingError) throw new Error(existingError.message)
 
   const previous = parseMeta(existing.description)
+  const storedUpdates = {
+    ...updates,
+    ...(updates.images !== undefined
+      ? { images: (await resolveMediaUrls(updates.images, 'assets')) || updates.images }
+      : {}),
+  }
   const { data, error } = await supabase
     .from('assets')
-    .update(assetToRow({ ...previous, ...updates }))
+    .update(assetToRow({ ...previous, ...storedUpdates }))
     .eq('id', id)
     .select(ASSET_SELECT)
     .single()
 
   if (error) throw new Error(error.message)
+  await writeAuditLog({
+    action: 'update',
+    targetType: 'assets',
+    targetId: id,
+    beforeData: existing as Record<string, unknown>,
+    afterData: data as Record<string, unknown>,
+  })
   return rowToAsset(data as AssetRow)
 }
 
 export async function deleteAssetRecord(id: string): Promise<void> {
+  const { data: before, error: beforeError } = await supabase
+    .from('assets')
+    .select('*')
+    .eq('id', id)
+    .single()
+  if (beforeError) throw new Error(beforeError.message)
+
   const { error } = await supabase.from('assets').delete().eq('id', id)
   if (error) throw new Error(error.message)
+  await writeAuditLog({
+    action: 'delete',
+    targetType: 'assets',
+    targetId: id,
+    beforeData: before as Record<string, unknown>,
+  })
 }

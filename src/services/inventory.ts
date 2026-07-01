@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { CANWIN_TEAM_ID } from '@/config/team'
 import type { FinanceRecord, InventoryItem, InventoryLog } from '@/types'
+import { writeAuditLog } from '@/services/auditLogs'
 
 type InventoryItemRow = {
   id: string
@@ -178,10 +179,23 @@ export async function createInventoryItem(item: Omit<InventoryItem, 'id'>): Prom
     .single()
 
   if (error) throw new Error(error.message)
+  await writeAuditLog({
+    action: 'create',
+    targetType: 'inventory_items',
+    targetId: data.id,
+    afterData: data as Record<string, unknown>,
+  })
   return rowToItem(data as InventoryItemRow)
 }
 
 export async function updateInventoryItem(id: string, updates: Partial<InventoryItem>): Promise<InventoryItem> {
+  const { data: before, error: beforeError } = await supabase
+    .from('inventory_items')
+    .select('*')
+    .eq('id', id)
+    .single()
+  if (beforeError) throw new Error(beforeError.message)
+
   const { data, error } = await supabase
     .from('inventory_items')
     .update(itemToRow(updates))
@@ -190,12 +204,32 @@ export async function updateInventoryItem(id: string, updates: Partial<Inventory
     .single()
 
   if (error) throw new Error(error.message)
+  await writeAuditLog({
+    action: 'update',
+    targetType: 'inventory_items',
+    targetId: id,
+    beforeData: before as Record<string, unknown>,
+    afterData: data as Record<string, unknown>,
+  })
   return rowToItem(data as InventoryItemRow)
 }
 
 export async function deleteInventoryItem(id: string): Promise<void> {
+  const { data: before, error: beforeError } = await supabase
+    .from('inventory_items')
+    .select('*')
+    .eq('id', id)
+    .single()
+  if (beforeError) throw new Error(beforeError.message)
+
   const { error } = await supabase.from('inventory_items').delete().eq('id', id)
   if (error) throw new Error(error.message)
+  await writeAuditLog({
+    action: 'delete',
+    targetType: 'inventory_items',
+    targetId: id,
+    beforeData: before as Record<string, unknown>,
+  })
 }
 
 async function createInventoryLog(log: Omit<InventoryLog, 'id' | 'createdAt'>): Promise<InventoryLog> {
@@ -259,6 +293,17 @@ export async function recordStockIn(
     financeId: financeRecord.id,
   })
 
+  await writeAuditLog({
+    action: 'stock_in',
+    targetType: 'inventory_logs',
+    targetId: log.id,
+    afterData: {
+      item: savedItem,
+      log,
+      financeRecord,
+    },
+  })
+
   return { item: savedItem, log, financeRecord }
 }
 
@@ -293,6 +338,18 @@ export async function recordStockOut(
     financeId: financeRecord.id,
   })
 
+  await writeAuditLog({
+    action: 'stock_out',
+    targetType: 'inventory_logs',
+    targetId: log.id,
+    beforeData: { item },
+    afterData: {
+      item: savedItem,
+      log,
+      financeRecord,
+    },
+  })
+
   return { item: savedItem, log, financeRecord }
 }
 
@@ -325,4 +382,10 @@ export async function deleteInventoryLogWithRevert(log: InventoryLog): Promise<v
 
   const { error } = await supabase.from('inventory_logs').delete().eq('id', log.id)
   if (error) throw new Error(error.message)
+  await writeAuditLog({
+    action: 'revert',
+    targetType: 'inventory_logs',
+    targetId: log.id,
+    beforeData: log as unknown as Record<string, unknown>,
+  })
 }

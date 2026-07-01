@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { CANWIN_TEAM_ID } from '@/config/team'
 import type { Task } from '@/types'
+import { writeAuditLog } from '@/services/auditLogs'
 
 type TaskRow = {
   id: string
@@ -69,10 +70,23 @@ export async function createTask(task: Omit<Task, 'id'>): Promise<Task> {
     .single()
 
   if (error) throw new Error(error.message)
+  await writeAuditLog({
+    action: 'create',
+    targetType: 'tasks',
+    targetId: data.id,
+    afterData: data as Record<string, unknown>,
+  })
   return rowToTask(data as TaskRow)
 }
 
 export async function updateTaskRecord(id: string, updates: Partial<Task>): Promise<Task> {
+  const { data: before, error: beforeError } = await supabase
+    .from('tasks')
+    .select('*')
+    .eq('id', id)
+    .single()
+  if (beforeError) throw new Error(beforeError.message)
+
   const { data, error } = await supabase
     .from('tasks')
     .update(taskToRow(updates))
@@ -81,10 +95,30 @@ export async function updateTaskRecord(id: string, updates: Partial<Task>): Prom
     .single()
 
   if (error) throw new Error(error.message)
+  await writeAuditLog({
+    action: updates.status !== undefined ? 'status_change' : 'update',
+    targetType: 'tasks',
+    targetId: id,
+    beforeData: before as Record<string, unknown>,
+    afterData: data as Record<string, unknown>,
+  })
   return rowToTask(data as TaskRow)
 }
 
 export async function deleteTaskRecord(id: string): Promise<void> {
+  const { data: before, error: beforeError } = await supabase
+    .from('tasks')
+    .select('*')
+    .eq('id', id)
+    .single()
+  if (beforeError) throw new Error(beforeError.message)
+
   const { error } = await supabase.from('tasks').delete().eq('id', id)
   if (error) throw new Error(error.message)
+  await writeAuditLog({
+    action: 'delete',
+    targetType: 'tasks',
+    targetId: id,
+    beforeData: before as Record<string, unknown>,
+  })
 }

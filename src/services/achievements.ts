@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { CANWIN_TEAM_ID } from '@/config/team'
 import type { Achievement } from '@/types'
+import { resolveMediaUrl, resolveMediaUrls } from '@/services/storage'
 
 type AchievementRow = {
   id: string
@@ -87,7 +88,11 @@ export async function createAchievementRecord(
   const { data, error } = await supabase
     .from('achievements')
     .insert({
-      ...achievementToRow(achievement),
+      ...achievementToRow({
+        ...achievement,
+        icon: (await resolveMediaUrl(achievement.icon, 'achievements/icons')) || achievement.icon,
+        images: (await resolveMediaUrls(achievement.images, 'achievements/images')) || achievement.images,
+      }),
       team_id: CANWIN_TEAM_ID,
       created_by: userData.user.id,
     })
@@ -110,9 +115,18 @@ export async function updateAchievementRecord(
   if (existingError) throw new Error(existingError.message)
 
   const previous = parseMeta(existing.description)
+  const storedUpdates = {
+    ...updates,
+    ...(updates.icon !== undefined
+      ? { icon: (await resolveMediaUrl(updates.icon, 'achievements/icons')) || updates.icon }
+      : {}),
+    ...(updates.images !== undefined
+      ? { images: (await resolveMediaUrls(updates.images, 'achievements/images')) || updates.images }
+      : {}),
+  }
   const { data, error } = await supabase
     .from('achievements')
-    .update(achievementToRow({ ...previous, ...updates }))
+    .update(achievementToRow({ ...previous, ...storedUpdates }))
     .eq('id', id)
     .select(ACHIEVEMENT_SELECT)
     .single()

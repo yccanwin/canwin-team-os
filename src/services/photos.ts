@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { CANWIN_TEAM_ID } from '@/config/team'
 import type { Photo } from '@/types'
+import { resolveMediaUrl } from '@/services/storage'
 
 type PhotoRow = {
   id: string
@@ -92,7 +93,10 @@ export async function createPhotoRecord(
   const { data, error } = await supabase
     .from('photos')
     .insert({
-      ...photoToRow(photo),
+      ...photoToRow({
+        ...photo,
+        url: (await resolveMediaUrl(photo.url, 'photos')) || photo.url,
+      }),
       team_id: CANWIN_TEAM_ID,
       uploaded_by: userData.user.id,
     })
@@ -112,9 +116,15 @@ export async function updatePhotoRecord(id: string, updates: Partial<Photo>): Pr
   if (existingError) throw new Error(existingError.message)
 
   const previous = parseMeta(existing.description)
+  const storedUpdates = {
+    ...updates,
+    ...(updates.url !== undefined
+      ? { url: (await resolveMediaUrl(updates.url, 'photos')) || updates.url }
+      : {}),
+  }
   const { data, error } = await supabase
     .from('photos')
-    .update(photoToRow({ ...previous, ...updates }))
+    .update(photoToRow({ ...previous, ...storedUpdates }))
     .eq('id', id)
     .select(PHOTO_SELECT)
     .single()

@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { CANWIN_TEAM_ID } from '@/config/team'
 import type { Goal } from '@/types'
+import { writeAuditLog } from '@/services/auditLogs'
 
 type GoalRow = {
   id: string
@@ -97,24 +98,31 @@ export async function createGoalRecord(goal: Omit<Goal, 'id'>): Promise<Goal> {
     .single()
 
   if (error) throw new Error(error.message)
+  await writeAuditLog({
+    action: 'create',
+    targetType: 'team_goals',
+    targetId: data.id,
+    afterData: data as Record<string, unknown>,
+  })
   return rowToGoal(data as GoalRow)
 }
 
 export async function updateGoalRecord(id: string, updates: Partial<Goal>): Promise<Goal> {
-  let description: string | null = null
+  const { data: before, error: beforeError } = await supabase
+    .from('team_goals')
+    .select('*')
+    .eq('id', id)
+    .single()
+  if (beforeError) throw new Error(beforeError.message)
+
+  let description: string | null = before.description
   if (
     updates.priority !== undefined ||
     updates.estimatedMonths !== undefined ||
     updates.monthlyGrowth !== undefined ||
     updates.icon !== undefined
   ) {
-    const { data, error } = await supabase
-      .from('team_goals')
-      .select('description')
-      .eq('id', id)
-      .single()
-    if (error) throw new Error(error.message)
-    description = data.description
+    description = before.description
   }
 
   const { data, error } = await supabase
@@ -125,10 +133,30 @@ export async function updateGoalRecord(id: string, updates: Partial<Goal>): Prom
     .single()
 
   if (error) throw new Error(error.message)
+  await writeAuditLog({
+    action: updates.status !== undefined ? 'status_change' : 'update',
+    targetType: 'team_goals',
+    targetId: id,
+    beforeData: before as Record<string, unknown>,
+    afterData: data as Record<string, unknown>,
+  })
   return rowToGoal(data as GoalRow)
 }
 
 export async function deleteGoalRecord(id: string): Promise<void> {
+  const { data: before, error: beforeError } = await supabase
+    .from('team_goals')
+    .select('*')
+    .eq('id', id)
+    .single()
+  if (beforeError) throw new Error(beforeError.message)
+
   const { error } = await supabase.from('team_goals').delete().eq('id', id)
   if (error) throw new Error(error.message)
+  await writeAuditLog({
+    action: 'delete',
+    targetType: 'team_goals',
+    targetId: id,
+    beforeData: before as Record<string, unknown>,
+  })
 }

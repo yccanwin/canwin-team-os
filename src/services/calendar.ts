@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { CANWIN_TEAM_ID } from '@/config/team'
 import type { CalendarEvent } from '@/types/calendar'
+import { writeAuditLog } from '@/services/auditLogs'
 
 type CalendarRow = {
   id: string
@@ -119,6 +120,12 @@ export async function createCalendarEvent(event: Omit<CalendarEvent, 'id' | 'cre
     .single()
 
   if (error) throw new Error(error.message)
+  await writeAuditLog({
+    action: 'create',
+    targetType: 'calendar_events',
+    targetId: data.id,
+    afterData: data as Record<string, unknown>,
+  })
   return rowToCalendarEvent(data as CalendarRow)
 }
 
@@ -126,15 +133,16 @@ export async function updateCalendarEventRecord(
   id: string,
   updates: Partial<CalendarEvent>
 ): Promise<CalendarEvent> {
-  let relatedType: string | null = null
+  const { data: before, error: beforeError } = await supabase
+    .from('calendar_events')
+    .select('*')
+    .eq('id', id)
+    .single()
+  if (beforeError) throw new Error(beforeError.message)
+
+  let relatedType: string | null = before.related_type
   if (updates.description !== undefined || updates.color !== undefined) {
-    const { data, error } = await supabase
-      .from('calendar_events')
-      .select('related_type')
-      .eq('id', id)
-      .single()
-    if (error) throw new Error(error.message)
-    relatedType = data.related_type
+    relatedType = before.related_type
   }
 
   const { data, error } = await supabase
@@ -145,10 +153,30 @@ export async function updateCalendarEventRecord(
     .single()
 
   if (error) throw new Error(error.message)
+  await writeAuditLog({
+    action: 'update',
+    targetType: 'calendar_events',
+    targetId: id,
+    beforeData: before as Record<string, unknown>,
+    afterData: data as Record<string, unknown>,
+  })
   return rowToCalendarEvent(data as CalendarRow)
 }
 
 export async function deleteCalendarEventRecord(id: string): Promise<void> {
+  const { data: before, error: beforeError } = await supabase
+    .from('calendar_events')
+    .select('*')
+    .eq('id', id)
+    .single()
+  if (beforeError) throw new Error(beforeError.message)
+
   const { error } = await supabase.from('calendar_events').delete().eq('id', id)
   if (error) throw new Error(error.message)
+  await writeAuditLog({
+    action: 'delete',
+    targetType: 'calendar_events',
+    targetId: id,
+    beforeData: before as Record<string, unknown>,
+  })
 }

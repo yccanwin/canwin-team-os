@@ -7,6 +7,26 @@
 
 create extension if not exists pgcrypto;
 
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'canwin-media',
+  'canwin-media',
+  true,
+  5242880,
+  array['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+)
+on conflict (id) do update
+set public = excluded.public,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "authenticated uploads canwin media" on storage.objects;
+drop policy if exists "authenticated updates canwin media" on storage.objects;
+drop policy if exists "authenticated deletes canwin media" on storage.objects;
+create policy "authenticated uploads canwin media" on storage.objects for insert to authenticated with check (bucket_id = 'canwin-media');
+create policy "authenticated updates canwin media" on storage.objects for update to authenticated using (bucket_id = 'canwin-media') with check (bucket_id = 'canwin-media');
+create policy "authenticated deletes canwin media" on storage.objects for delete to authenticated using (bucket_id = 'canwin-media');
+
 -- 旧整包同步表：只作为迁移期备份，不再作为长期主数据。
 create table if not exists team_data (
   id uuid default gen_random_uuid() primary key,
@@ -427,8 +447,26 @@ create policy "captains manage tasks" on tasks for all to authenticated using (p
 create policy "team members read calendar events" on calendar_events for select to authenticated using (public.is_team_member(team_id) and visibility <> 'admin');
 create policy "captains manage calendar events" on calendar_events for all to authenticated using (public.has_role(team_id, array['admin','captain'])) with check (public.has_role(team_id, array['admin','captain']));
 
+drop policy if exists "warehouse reads own inventory finance records" on finance_records;
+drop policy if exists "warehouse creates inventory finance records" on finance_records;
+drop policy if exists "warehouse deletes own inventory finance records" on finance_records;
 create policy "finance roles read finance records" on finance_records for select to authenticated using (public.has_role(team_id, array['admin','captain','finance']));
+create policy "warehouse reads own inventory finance records" on finance_records for select to authenticated using (
+  public.has_role(team_id, array['warehouse'])
+  and created_by = auth.uid()
+  and (note like '入库：%' or note like '出库：%')
+);
 create policy "finance roles manage finance records" on finance_records for all to authenticated using (public.has_role(team_id, array['admin','captain','finance'])) with check (public.has_role(team_id, array['admin','captain','finance']));
+create policy "warehouse creates inventory finance records" on finance_records for insert to authenticated with check (
+  public.has_role(team_id, array['warehouse'])
+  and created_by = auth.uid()
+  and (note like '入库：%' or note like '出库：%')
+);
+create policy "warehouse deletes own inventory finance records" on finance_records for delete to authenticated using (
+  public.has_role(team_id, array['warehouse'])
+  and created_by = auth.uid()
+  and (note like '入库：%' or note like '出库：%')
+);
 
 create policy "inventory roles read inventory items" on inventory_items for select to authenticated using (public.has_role(team_id, array['admin','captain','warehouse']));
 create policy "inventory roles manage inventory items" on inventory_items for all to authenticated using (public.has_role(team_id, array['admin','captain','warehouse'])) with check (public.has_role(team_id, array['admin','captain','warehouse']));

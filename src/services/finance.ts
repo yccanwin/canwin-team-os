@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { CANWIN_TEAM_ID } from '@/config/team'
 import type { FinanceRecord } from '@/types'
+import { writeAuditLog } from '@/services/auditLogs'
 
 type FinanceRow = {
   id: string
@@ -89,10 +90,23 @@ export async function createFinanceRecord(record: Omit<FinanceRecord, 'id'>): Pr
     .single()
 
   if (error) throw new Error(error.message)
+  await writeAuditLog({
+    action: 'create',
+    targetType: 'finance_records',
+    targetId: data.id,
+    afterData: data as Record<string, unknown>,
+  })
   return rowToRecord(data as FinanceRow)
 }
 
 export async function updateFinanceRecord(id: string, updates: Partial<FinanceRecord>): Promise<FinanceRecord> {
+  const { data: before, error: beforeError } = await supabase
+    .from('finance_records')
+    .select('*')
+    .eq('id', id)
+    .single()
+  if (beforeError) throw new Error(beforeError.message)
+
   const { data, error } = await supabase
     .from('finance_records')
     .update(recordToRow(updates))
@@ -101,10 +115,30 @@ export async function updateFinanceRecord(id: string, updates: Partial<FinanceRe
     .single()
 
   if (error) throw new Error(error.message)
+  await writeAuditLog({
+    action: 'update',
+    targetType: 'finance_records',
+    targetId: id,
+    beforeData: before as Record<string, unknown>,
+    afterData: data as Record<string, unknown>,
+  })
   return rowToRecord(data as FinanceRow)
 }
 
 export async function deleteFinanceRecord(id: string): Promise<void> {
+  const { data: before, error: beforeError } = await supabase
+    .from('finance_records')
+    .select('*')
+    .eq('id', id)
+    .single()
+  if (beforeError) throw new Error(beforeError.message)
+
   const { error } = await supabase.from('finance_records').delete().eq('id', id)
   if (error) throw new Error(error.message)
+  await writeAuditLog({
+    action: 'delete',
+    targetType: 'finance_records',
+    targetId: id,
+    beforeData: before as Record<string, unknown>,
+  })
 }
