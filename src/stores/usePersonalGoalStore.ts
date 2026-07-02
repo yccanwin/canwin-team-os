@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { safeStorage } from '@/utils/safeStorage'
 import type { PersonalGoal, PersonalGoalUpdate } from '@/types'
+import { withDerivedPersonalGoalStatus } from '@/utils/personalGoalStatus'
 import {
   addPersonalGoalUpdateRecord,
   createPersonalGoalRecord,
@@ -23,18 +24,12 @@ interface PersonalGoalActions {
   getOwnGoals: (userId: string) => PersonalGoal[]
 }
 
-function withDerivedLock(goal: PersonalGoal): PersonalGoal {
-  if (goal.lockStatus !== 'cooldown') return goal
-  const pastCooldown = Date.now() - new Date(goal.createdAt).getTime() >= 24 * 60 * 60 * 1000
-  return pastCooldown ? { ...goal, lockStatus: 'locked' } : goal
-}
-
 export const usePersonalGoalStore = create<PersonalGoalState & PersonalGoalActions>()(
   persist(
     (set, get) => ({
       personalGoals: [],
 
-      setPersonalGoals: (personalGoals) => set({ personalGoals: personalGoals.map(withDerivedLock) }),
+      setPersonalGoals: (personalGoals) => set({ personalGoals: personalGoals.map(withDerivedPersonalGoalStatus) }),
 
       addPersonalGoal: (goal) => {
         const optimisticGoal: PersonalGoal = {
@@ -65,7 +60,7 @@ export const usePersonalGoalStore = create<PersonalGoalState & PersonalGoalActio
         const previous = get().personalGoals
         set((state) => ({
           personalGoals: state.personalGoals.map((goal) =>
-            goal.id === id ? withDerivedLock({ ...goal, ...updates }) : goal
+            goal.id === id ? withDerivedPersonalGoalStatus({ ...goal, ...updates }) : goal
           ),
         }))
         void updatePersonalGoalRecord(id, updates).catch(() => set({ personalGoals: previous }))
@@ -130,12 +125,12 @@ export const usePersonalGoalStore = create<PersonalGoalState & PersonalGoalActio
 
       getVisibleGoalsForUser: (userId, viewerId) =>
         get().personalGoals
-          .map(withDerivedLock)
+          .map(withDerivedPersonalGoalStatus)
           .filter((goal) => goal.userId === userId && (goal.visibility === 'team' || goal.userId === viewerId)),
 
       getOwnGoals: (userId) =>
         get().personalGoals
-          .map(withDerivedLock)
+          .map(withDerivedPersonalGoalStatus)
           .filter((goal) => goal.userId === userId),
     }),
     {

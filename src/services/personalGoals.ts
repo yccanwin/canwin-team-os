@@ -3,6 +3,7 @@ import { CANWIN_TEAM_ID } from '@/config/team'
 import { writeAuditLog } from '@/services/auditLogs'
 import { resolveMediaUrl } from '@/services/storage'
 import type { PersonalGoal, PersonalGoalUpdate } from '@/types'
+import { derivePersonalGoalStatus } from '@/utils/personalGoalStatus'
 
 type PersonalGoalRow = {
   id: string
@@ -52,11 +53,6 @@ function goalRowForAudit(row: PersonalGoalRow): Record<string, unknown> {
   }
 }
 
-function isPastCooldown(row: Pick<PersonalGoalRow, 'created_at' | 'lock_status'>) {
-  if (row.lock_status !== 'cooldown') return false
-  return Date.now() - new Date(row.created_at).getTime() >= 24 * 60 * 60 * 1000
-}
-
 function rowToUpdate(row: GoalUpdateRow): PersonalGoalUpdate {
   return {
     id: row.id,
@@ -69,7 +65,11 @@ function rowToUpdate(row: GoalUpdateRow): PersonalGoalUpdate {
 }
 
 function rowToGoal(row: PersonalGoalRow, updates: PersonalGoalUpdate[]): PersonalGoal {
-  const lockStatus = isPastCooldown(row) ? 'locked' : row.lock_status
+  const lockStatus = derivePersonalGoalStatus({
+    createdAt: row.created_at,
+    deadline: row.deadline || undefined,
+    lockStatus: row.lock_status,
+  })
   const currentAmount = updates.reduce((sum, update) => sum + (update.amountDelta ?? 0), 0)
 
   return {
