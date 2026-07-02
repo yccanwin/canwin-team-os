@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useUserStore } from '@/stores/useUserStore'
-import { Coffee, Heart, AlertTriangle, Pencil, X, Check } from 'lucide-react'
+import { Coffee, Heart, AlertTriangle, Pencil, X, Check, MessageCircle, NotebookText } from 'lucide-react'
 import { updateProfileRecord } from '@/services/profile'
 
 const WEEKDAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
@@ -11,8 +11,10 @@ export default function PersonalInfoCard() {
 
   const [editing, setEditing] = useState(false)
   const [restDays, setRestDays] = useState<string[]>(currentUser.restDays ?? [])
+  const [communicationPreference, setCommunicationPreference] = useState(currentUser.communicationPreference ?? '')
   const [mood, setMood] = useState(currentUser.mood ?? '')
   const [taboos, setTaboos] = useState(currentUser.taboos ?? '')
+  const [notes, setNotes] = useState(currentUser.notes ?? '')
 
   const toggleRestDay = (day: string) => {
     setRestDays((prev) =>
@@ -21,12 +23,14 @@ export default function PersonalInfoCard() {
   }
 
   const handleSave = () => {
-    updateUser(currentUser.id, { restDays, mood, taboos })
-    void updateProfileRecord(currentUser.id, { restDays, mood, taboos }).catch(() => {
+    updateUser(currentUser.id, { restDays, communicationPreference, mood, taboos, notes })
+    void updateProfileRecord(currentUser.id, { restDays, communicationPreference, mood, taboos, notes }).catch(() => {
       updateUser(currentUser.id, {
         restDays: currentUser.restDays,
+        communicationPreference: currentUser.communicationPreference,
         mood: currentUser.mood,
         taboos: currentUser.taboos,
+        notes: currentUser.notes,
       })
     })
     setEditing(false)
@@ -34,13 +38,20 @@ export default function PersonalInfoCard() {
 
   const handleCancel = () => {
     setRestDays(currentUser.restDays ?? [])
+    setCommunicationPreference(currentUser.communicationPreference ?? '')
     setMood(currentUser.mood ?? '')
     setTaboos(currentUser.taboos ?? '')
+    setNotes(currentUser.notes ?? '')
     setEditing(false)
   }
 
   // 没有编辑过任何信息时，显示空状态
-  const hasContent = (currentUser.restDays?.length ?? 0) > 0 || currentUser.mood || currentUser.taboos
+  const hasContent =
+    (currentUser.restDays?.length ?? 0) > 0 ||
+    currentUser.communicationPreference ||
+    currentUser.mood ||
+    currentUser.taboos ||
+    currentUser.notes
 
   return (
     <div className="bg-white rounded-card shadow-card p-6">
@@ -122,6 +133,30 @@ export default function PersonalInfoCard() {
         )}
       </div>
 
+      {/* ====== 沟通偏好 ====== */}
+      <div className="mb-4">
+        <div className="flex items-center gap-2 mb-2">
+          <MessageCircle className="w-4 h-4 text-sky-500" />
+          <span className="text-sm font-medium text-brand-400">沟通偏好</span>
+        </div>
+        {editing ? (
+          <input
+            type="text"
+            value={communicationPreference}
+            onChange={(e) => setCommunicationPreference(e.target.value)}
+            placeholder="比如：微信文字优先 / 急事电话 / 下午集中回复..."
+            maxLength={120}
+            className="w-full px-3 py-2 text-sm border border-brand-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 placeholder:text-brand-200/60"
+          />
+        ) : currentUser.communicationPreference ? (
+          <p className="text-sm text-brand-300 bg-sky-50/60 rounded-lg px-3 py-2">
+            {currentUser.communicationPreference}
+          </p>
+        ) : (
+          <p className="text-xs text-brand-200">未设置</p>
+        )}
+      </div>
+
       {/* ====== 最近心情 ====== */}
       <div className="mb-4">
         <div className="flex items-center gap-2 mb-2">
@@ -147,10 +182,10 @@ export default function PersonalInfoCard() {
       </div>
 
       {/* ====== 个人忌讳 ====== */}
-      <div>
+      <div className="mb-4">
         <div className="flex items-center gap-2 mb-2">
           <AlertTriangle className="w-4 h-4 text-orange-500" />
-          <span className="text-sm font-medium text-brand-400">个人忌讳</span>
+          <span className="text-sm font-medium text-brand-400">忌讳 / 注意事项</span>
         </div>
         {editing ? (
           <textarea
@@ -164,6 +199,30 @@ export default function PersonalInfoCard() {
         ) : currentUser.taboos ? (
           <p className="text-sm text-brand-300 whitespace-pre-wrap bg-orange-50/50 rounded-lg px-3 py-2">
             {currentUser.taboos}
+          </p>
+        ) : (
+          <p className="text-xs text-brand-200">未设置</p>
+        )}
+      </div>
+
+      {/* ====== 协作备注 ====== */}
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <NotebookText className="w-4 h-4 text-emerald-500" />
+          <span className="text-sm font-medium text-brand-400">协作备注</span>
+        </div>
+        {editing ? (
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="比如：当前重点项目、适合协作的时间段、需要团队配合的地方..."
+            maxLength={240}
+            rows={3}
+            className="w-full px-3 py-2 text-sm border border-brand-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 placeholder:text-brand-200/60 resize-none"
+          />
+        ) : currentUser.notes ? (
+          <p className="text-sm text-brand-300 whitespace-pre-wrap bg-emerald-50/50 rounded-lg px-3 py-2">
+            {currentUser.notes}
           </p>
         ) : (
           <p className="text-xs text-brand-200">未设置</p>

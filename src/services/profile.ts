@@ -15,9 +15,14 @@ type ProfileRow = {
   join_date: string | null
   status: string | null
   rest_days?: string[] | null
+  communication_preference?: string | null
   mood?: string | null
   taboos?: string | null
+  notes?: string | null
 }
+
+const PROFILE_SELECT =
+  'id, team_id, name, role, position, avatar_url, join_date, status, rest_days, communication_preference, mood, taboos, notes'
 
 const ADMIN_LOGIN_EMAIL = 'admin@yccanwin.com'
 
@@ -37,8 +42,10 @@ function profileToUser(profile: ProfileRow): User {
     joinDate: profile.join_date || new Date().toISOString(),
     badges: [],
     restDays: profile.rest_days ?? undefined,
+    communicationPreference: profile.communication_preference ?? undefined,
     mood: profile.mood ?? undefined,
     taboos: profile.taboos ?? undefined,
+    notes: profile.notes ?? undefined,
   }
 }
 
@@ -76,7 +83,7 @@ export async function loadCurrentProfile(session?: Session | null): Promise<User
 
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, team_id, name, role, position, avatar_url, join_date, status, rest_days, mood, taboos')
+    .select(PROFILE_SELECT)
     .eq('id', authUser.id)
     .eq('team_id', CANWIN_TEAM_ID)
     .maybeSingle()
@@ -91,7 +98,7 @@ export async function loadCurrentProfile(session?: Session | null): Promise<User
 export async function loadTeamProfiles(): Promise<User[]> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, team_id, name, role, position, avatar_url, join_date, status, rest_days, mood, taboos')
+    .select(PROFILE_SELECT)
     .eq('team_id', CANWIN_TEAM_ID)
     .eq('status', 'active')
     .order('created_at', { ascending: true })
@@ -102,7 +109,7 @@ export async function loadTeamProfiles(): Promise<User[]> {
 
 export async function updateProfileRecord(
   id: string,
-  updates: Pick<Partial<User>, 'name' | 'position' | 'avatar' | 'restDays' | 'mood' | 'taboos'>
+  updates: Pick<Partial<User>, 'name' | 'position' | 'avatar' | 'restDays' | 'communicationPreference' | 'mood' | 'taboos' | 'notes'>
 ): Promise<User> {
   const { data, error } = await supabase
     .from('profiles')
@@ -111,11 +118,13 @@ export async function updateProfileRecord(
       position: updates.position,
       avatar_url: updates.avatar,
       rest_days: updates.restDays,
+      communication_preference: updates.communicationPreference,
       mood: updates.mood,
       taboos: updates.taboos,
+      notes: updates.notes,
     })
     .eq('id', id)
-    .select('id, team_id, name, role, position, avatar_url, join_date, status, rest_days, mood, taboos')
+    .select(PROFILE_SELECT)
     .single()
 
   if (error) throw new Error(error.message)

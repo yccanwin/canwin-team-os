@@ -9,8 +9,10 @@ type ProfileRow = {
   avatar_url: string | null
   join_date: string | null
   rest_days?: string[] | null
+  communication_preference?: string | null
   mood?: string | null
   taboos?: string | null
+  notes?: string | null
 }
 
 export type MemberPayload = {
@@ -34,8 +36,10 @@ function profileToUser(profile: ProfileRow): User {
     joinDate: profile.join_date || new Date().toISOString(),
     badges: [],
     restDays: profile.rest_days ?? undefined,
+    communicationPreference: profile.communication_preference ?? undefined,
     mood: profile.mood ?? undefined,
     taboos: profile.taboos ?? undefined,
+    notes: profile.notes ?? undefined,
   }
 }
 

@@ -25,8 +25,10 @@ export default function MembersPage() {
             </div>
             <div className="space-y-2 text-sm">
               <InfoRow label="休息日" value={user.restDays?.length ? user.restDays.join('、') : '未设置'} />
+              <InfoRow label="沟通偏好" value={user.communicationPreference || '未填写'} />
               <InfoRow label="最近状态" value={user.mood || '未填写'} />
               <InfoRow label="注意事项" value={user.taboos || '未填写'} />
+              <InfoRow label="协作备注" value={user.notes || '未填写'} />
             </div>
           </section>
         ))}
@@ -38,7 +40,7 @@ export default function MembersPage() {
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex gap-3">
-      <span className="w-16 shrink-0 text-brand-200">{label}</span>
+      <span className="w-20 shrink-0 text-brand-200">{label}</span>
       <span className="text-brand-400">{value}</span>
     </div>
   )

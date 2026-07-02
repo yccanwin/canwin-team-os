@@ -15,8 +15,10 @@ export interface User {
 
   // ---- 个人自定义资料（全员可见） ----
   restDays?: string[];    // 每周休息日，如 ["周一","周三"]
+  communicationPreference?: string; // 沟通偏好
   mood?: string;          // 最近心情
   taboos?: string;        // 个人忌讳
+  notes?: string;         // 协作备注
 }
 
 // ---------- 任务 ----------
