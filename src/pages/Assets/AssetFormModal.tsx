@@ -65,7 +65,7 @@ export default function AssetFormModal({ asset, onClose, onSubmit }: Props) {
         name: asset.name,
         category: asset.category,
         purchaseDate: asset.purchaseDate,
-        amount: asset.amount,
+        amount: asset.amount ?? 0,
         currentStatus: asset.currentStatus,
         description: asset.description || '',
         images: asset.images || [],

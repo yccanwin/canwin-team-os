@@ -22,6 +22,8 @@ type AssetMeta = Pick<Asset, 'description' | 'images' | 'location'>
 
 const ASSET_SELECT =
   'id, name, category, description, purchase_date, amount, status, image_url, created_by, created_at, updated_at'
+const ASSET_PUBLIC_SELECT =
+  'id, name, category, description, purchase_date, status, image_url, created_by, created_at, updated_at'
 
 function parseMeta(description: string | null): Partial<AssetMeta> {
   if (!description) return {}
@@ -42,7 +44,7 @@ function rowToAsset(row: AssetRow): Asset {
     name: row.name,
     category: row.category ?? 'other',
     purchaseDate: row.purchase_date || '',
-    amount: Number(row.amount ?? 0),
+    amount: row.amount == null ? undefined : Number(row.amount),
     currentStatus: row.status,
     description: meta.description,
     images,
@@ -85,6 +87,17 @@ export async function loadAssets(): Promise<Asset[]> {
 
   if (error) throw new Error(error.message)
   return (data ?? []).map((row) => rowToAsset(row as AssetRow))
+}
+
+export async function loadPublicAssets(): Promise<Asset[]> {
+  const { data, error } = await supabase
+    .from('assets_public')
+    .select(ASSET_PUBLIC_SELECT)
+    .eq('team_id', CANWIN_TEAM_ID)
+    .order('purchase_date', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((row) => rowToAsset({ ...(row as AssetRow), amount: null }))
 }
 
 export async function createAssetRecord(asset: Omit<Asset, 'id' | 'createdAt'>): Promise<Asset> {

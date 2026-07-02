@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react'
-import { Plus, Building2, Pencil, Trash2, ImageIcon, Calendar, MapPin } from 'lucide-react'
+import { Plus, Building2, Pencil, Trash2, MapPin } from 'lucide-react'
 import { useAssetStore } from '@/stores/useAssetStore'
 import { useUserStore } from '@/stores/useUserStore'
 import AssetFormModal from './AssetFormModal'
-import { isCaptainRole } from '@/services/profile'
+import { isCaptainRole, isFinanceRole, isWarehouseRole } from '@/services/profile'
 import type { Asset, AssetCategory, AssetStatus } from '@/types'
 
 // ============================================================
@@ -42,6 +42,8 @@ export default function AssetsPage() {
   const totalValue = useAssetStore((s) => s.getTotalValue())
   const currentUser = useUserStore((s) => s.currentUser)
   const isCaptain = isCaptainRole(currentUser?.role)
+  const canViewAmount =
+    isCaptain || isFinanceRole(currentUser?.role) || isWarehouseRole(currentUser?.role)
 
   const [activeFilter, setActiveFilter] = useState<AssetCategory | 'all'>('all')
   const [formModal, setFormModal] = useState<Asset | null | 'new'>(null)
@@ -91,21 +93,29 @@ export default function AssetsPage() {
         )}
       </div>
 
-      {/* 资产总值卡片 */}
+      {/* 资产概览卡片 */}
       <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-6 border border-amber-100 mb-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-amber-600 font-medium">资产总值</p>
-            <p className="text-3xl font-bold text-brand-400 mt-1">
-              ¥{totalValue.toLocaleString()}
+            <p className="text-sm text-amber-600 font-medium">
+              {canViewAmount ? '资产总值' : '资产概览'}
             </p>
+            {canViewAmount ? (
+              <p className="text-3xl font-bold text-brand-400 mt-1">
+                ¥{totalValue.toLocaleString()}
+              </p>
+            ) : (
+              <p className="text-3xl font-bold text-brand-400 mt-1">
+                {assets.length} 项
+              </p>
+            )}
             <p className="text-xs text-amber-500 mt-1">
               {assets.filter((a) => a.currentStatus === 'in_use').length} 项使用中
               {' · '}
               {assets.filter((a) => a.currentStatus === 'disposed').length} 项已处置
             </p>
           </div>
-          <div className="text-5xl">💰</div>
+          <div className="text-5xl">{canViewAmount ? '💰' : '📦'}</div>
         </div>
       </div>
 
@@ -189,9 +199,11 @@ export default function AssetsPage() {
 
                 {/* 第二行：金额 + 状态 */}
                 <div className="flex items-center gap-3 mb-2">
-                  <span className="text-base font-semibold text-brand-400">
-                    ¥{asset.amount.toLocaleString()}
-                  </span>
+                  {canViewAmount && asset.amount !== undefined && (
+                    <span className="text-base font-semibold text-brand-400">
+                      ¥{asset.amount.toLocaleString()}
+                    </span>
+                  )}
                   <span
                     className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${status.className}`}
                   >

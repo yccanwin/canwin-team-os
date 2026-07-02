@@ -16,7 +16,7 @@ import { usePhotoStore } from './stores/usePhotoStore'
 import { useAssetStore } from './stores/useAssetStore'
 import { useToolboxStore } from './stores/useToolboxStore'
 import { useWarRoomStore } from './stores/useWarRoomStore'
-import { isFinanceRole, isWarehouseRole, loadTeamProfiles } from './services/profile'
+import { isCaptainRole, isFinanceRole, isWarehouseRole, loadTeamProfiles } from './services/profile'
 import { loadTasks } from './services/tasks'
 import { loadFinancePublicSummary, loadFinanceRecords } from './services/finance'
 import { loadInventory, loadInventoryPublic } from './services/inventory'
@@ -27,7 +27,7 @@ import { loadCalendarEvents } from './services/calendar'
 import { loadTimelineEvents } from './services/timeline'
 import { loadAchievements } from './services/achievements'
 import { loadPhotos } from './services/photos'
-import { loadAssets } from './services/assets'
+import { loadAssets, loadPublicAssets } from './services/assets'
 import { loadTools } from './services/toolbox'
 import { loadWarRoomPolicies } from './services/warroom'
 
@@ -99,7 +99,9 @@ function App() {
         loadTimelineEvents(),
         loadAchievements(),
         loadPhotos(),
-        loadAssets(),
+        isCaptainRole(currentUser.role) || isFinanceRole(currentUser.role) || isWarehouseRole(currentUser.role)
+          ? loadAssets()
+          : loadPublicAssets(),
         loadTools(),
         loadWarRoomPolicies(),
       ])

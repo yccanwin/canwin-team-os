@@ -81,7 +81,7 @@ export const useAssetStore = create<AssetState>()(
         const { assets } = get()
         return assets
           .filter((a) => a.currentStatus !== 'disposed')
-          .reduce((sum, a) => sum + a.amount, 0)
+          .reduce((sum, a) => sum + (a.amount ?? 0), 0)
       },
     }),
     {

@@ -10,7 +10,7 @@ export interface Asset {
   name: string;
   category: AssetCategory;
   purchaseDate: string;   // YYYY-MM-DD
-  amount: number;         // 购入金额（元）
+  amount?: number;        // 购入金额（元），普通成员公开视图不返回
   currentStatus: AssetStatus;
   description?: string;
   images: string[];       // Supabase Storage URL 数组，最多3张

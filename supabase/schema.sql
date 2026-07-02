@@ -481,7 +481,10 @@ create policy "inventory roles manage inventory items" on inventory_items for al
 create policy "inventory roles read inventory logs" on inventory_logs for select to authenticated using (public.has_role(team_id, array['admin','captain','warehouse']));
 create policy "inventory roles manage inventory logs" on inventory_logs for all to authenticated using (public.has_role(team_id, array['admin','captain','warehouse'])) with check (public.has_role(team_id, array['admin','captain','warehouse']));
 
-create policy "team members read assets" on assets for select to authenticated using (public.is_team_member(team_id));
+drop policy if exists "team members read assets" on assets;
+drop policy if exists "asset roles read assets" on assets;
+drop policy if exists "captains manage assets" on assets;
+create policy "asset roles read assets" on assets for select to authenticated using (public.has_role(team_id, array['admin','captain','finance','warehouse']));
 create policy "captains manage assets" on assets for all to authenticated using (public.has_role(team_id, array['admin','captain'])) with check (public.has_role(team_id, array['admin','captain']));
 
 create policy "team members read timeline" on timeline_events for select to authenticated using (public.is_team_member(team_id) and visibility <> 'admin');
@@ -617,8 +620,25 @@ select
   updated_at
 from inventory_items;
 
+create or replace view assets_public
+with (security_invoker = false) as
+select
+  id,
+  team_id,
+  name,
+  category,
+  description,
+  purchase_date,
+  status,
+  image_url,
+  created_by,
+  created_at,
+  updated_at
+from assets;
+
 grant select on finance_public_summary to authenticated;
 grant select on inventory_public_items to authenticated;
+grant select on assets_public to authenticated;
 
 create index if not exists idx_profiles_team on profiles(team_id);
 create index if not exists idx_tasks_team_status on tasks(team_id, status);
