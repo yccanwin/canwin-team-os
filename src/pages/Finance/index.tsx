@@ -146,7 +146,39 @@ export default function FinancePage() {
 
       <section className="mt-5 rounded-card bg-white p-5 shadow-card">
         <h2 className="mb-4 font-heading text-base font-semibold text-brand-400">{canManageFinance ? '最近明细' : '公开汇总'}</h2>
-        <div className="overflow-x-auto">
+        <div className="space-y-3 sm:hidden">
+          {recentRecords.length ? (
+            recentRecords.map((record) => (
+              <div key={record.id} className="rounded-xl border border-brand-100 bg-brand-50/60 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs text-brand-300">{record.date}</p>
+                    <p className="mt-1 truncate text-sm font-medium text-brand-400">{record.category}</p>
+                    <p className="mt-1 text-xs text-brand-300">{record.note || (canManageFinance ? '无备注' : '公开汇总')}</p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className={`text-base font-semibold ${record.type === 'income' ? 'text-emerald-600' : 'text-red-500'}`}>
+                      {record.type === 'income' ? '+' : '-'}¥{record.amount.toLocaleString()}
+                    </p>
+                    <p className="mt-1 text-xs text-brand-300">{record.type === 'income' ? '收入' : '支出'}</p>
+                  </div>
+                </div>
+                {canManageFinance && (
+                  <button
+                    onClick={() => setDeleteTarget(record)}
+                    className="mt-3 inline-flex items-center gap-1 rounded-md bg-red-50 px-2 py-1 text-xs text-expense"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    删除
+                  </button>
+                )}
+              </div>
+            ))
+          ) : (
+            <p className="text-sm text-brand-200">暂无财务记录</p>
+          )}
+        </div>
+        <div className="hidden overflow-x-auto sm:block">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-brand-100 text-left text-xs text-brand-300">

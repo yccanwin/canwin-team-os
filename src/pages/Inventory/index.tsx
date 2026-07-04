@@ -242,7 +242,48 @@ function InventoryTable({
         </div>
       )}
 
-      <div className="bg-white rounded-card shadow-card overflow-hidden">
+      <div className="space-y-3 sm:hidden">
+        {sorted.map((item) => {
+          const itemValue = item.quantity * item.unitPrice
+          return (
+            <div key={item.id} className="rounded-xl border border-brand-100 bg-white p-4 shadow-card">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-base font-semibold text-brand-400">{item.name}</p>
+                  <p className="mt-1 text-xs text-brand-300">SKU：{item.sku || '-'}</p>
+                  <p className="mt-1 text-xs text-brand-200">更新：{formatRelative(item.lastUpdated)}</p>
+                </div>
+                <div className="shrink-0 rounded-lg bg-brand-50 px-3 py-2 text-right">
+                  <p className="text-lg font-semibold text-brand-400">{item.quantity}</p>
+                  <p className="text-xs text-brand-300">{item.unit}</p>
+                </div>
+              </div>
+
+              {isCaptain && (
+                <div className="mt-3 flex items-center justify-between border-t border-brand-100 pt-3">
+                  <div className="text-xs text-brand-300">
+                    单价 ¥{item.unitPrice.toLocaleString()} · 总值 ¥{itemValue.toLocaleString()}
+                  </div>
+                  <button
+                    onClick={() => onStockOut?.(item.id)}
+                    className="inline-flex items-center gap-1 rounded-md bg-red-50 px-2.5 py-1 text-xs font-medium text-expense"
+                    title="出库"
+                  >
+                    <Minus className="h-3 w-3" />
+                    出库
+                  </button>
+                </div>
+              )}
+            </div>
+          )
+        })}
+        <div className="rounded-xl bg-brand-50 px-4 py-3 text-sm font-medium text-brand-400">
+          共 {totalItems} 种商品
+          {isCaptain && <span> · 库存总值合计 ¥{totalValue.toLocaleString()}</span>}
+        </div>
+      </div>
+
+      <div className="hidden bg-white rounded-card shadow-card overflow-hidden sm:block">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
