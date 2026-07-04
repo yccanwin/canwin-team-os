@@ -191,7 +191,97 @@ export default function TasksPage() {
           />
         )
       ) : (
-        <div className="bg-white rounded-card shadow-card overflow-hidden">
+        <>
+        <div className="space-y-3 sm:hidden">
+          {filteredTasks.map((task) => {
+            const assignee = getUserById(task.assigneeId)
+            const isDone = task.status === 'done'
+
+            return (
+              <article
+                key={task.id}
+                onClick={() => handleRowClick(task.id)}
+                className="rounded-card border border-brand-100 bg-white p-4 shadow-card"
+              >
+                <div className="flex items-start gap-3">
+                  <button
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      handleStatusToggle(task)
+                    }}
+                    disabled={isDone}
+                    className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
+                      isDone
+                        ? 'border-green-200 bg-green-50'
+                        : task.status === 'in_progress'
+                          ? 'border-blue-200 bg-blue-50'
+                          : 'border-brand-100 bg-white'
+                    }`}
+                    title={
+                      isDone
+                        ? '已完成'
+                        : task.status === 'todo'
+                          ? '点击标记为进行中'
+                          : '点击标记为已完成'
+                    }
+                  >
+                    {isDone && <Check className="h-4 w-4 text-green-500" />}
+                    {task.status === 'in_progress' && <span className="h-2.5 w-2.5 rounded-sm bg-blue-400" />}
+                  </button>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                      <h2 className={`line-clamp-2 text-base font-semibold ${isDone ? 'text-brand-200 line-through' : 'text-brand-400'}`}>
+                        {task.title}
+                      </h2>
+                      {task.isImportant && (
+                        <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+                          重要
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="mb-3 flex flex-wrap items-center gap-2">
+                      <StatusBadge label={statusLabel[task.status]} variant={statusVariant[task.status]} />
+                      <span
+                        className="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium"
+                        style={{
+                          backgroundColor: typeConfig[task.type].bg,
+                          color: typeConfig[task.type].color,
+                        }}
+                      >
+                        {typeConfig[task.type].label}
+                      </span>
+                    </div>
+
+                    <div className="grid gap-2 text-xs text-brand-300">
+                      <div className="flex items-center justify-between gap-3">
+                        <span>负责人</span>
+                        <span className="font-medium text-brand-400">{assignee?.name ?? '未分配'}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span>创建</span>
+                        <span>{formatRelative(task.createdAt)}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span>完成</span>
+                        <span>{task.completedAt ? formatRelative(task.completedAt) : '未完成'}</span>
+                      </div>
+                      {task.deadline && (
+                        <div className="flex items-center justify-between gap-3">
+                          <span>截止</span>
+                          <span>{formatDate(task.deadline)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </article>
+            )
+          })}
+        </div>
+
+        <div className="hidden bg-white rounded-card shadow-card overflow-hidden sm:block">
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-100">
@@ -317,6 +407,7 @@ export default function TasksPage() {
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       {/* ========== 新建任务弹窗 ========== */}

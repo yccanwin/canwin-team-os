@@ -664,7 +664,81 @@ function MemberManagementTab() {
         </button>
       </div>
 
-      <div className="bg-white rounded-card shadow-card overflow-hidden">
+      <div className="space-y-3 sm:hidden">
+        {users.map((user) => (
+          <article
+            key={user.id}
+            className="rounded-card border border-brand-100 bg-white p-4 shadow-card"
+          >
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                {user.avatar ? (
+                  <img
+                    src={user.avatar}
+                    alt={user.name}
+                    className="h-10 w-10 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">
+                    {user.name.charAt(0)}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <h3 className="truncate font-heading text-base font-semibold text-brand-400">
+                    {user.name}
+                  </h3>
+                  <p className="mt-0.5 text-xs text-brand-300">{user.position || '未设置岗位'}</p>
+                </div>
+              </div>
+              <span
+                className={`shrink-0 rounded-full px-2 py-1 text-xs font-medium ${
+                  isCaptainRole(user.role)
+                    ? 'bg-[#EEF2FF] text-primary'
+                    : 'bg-gray-100 text-[#6B7280]'
+                }`}
+              >
+                {roleLabel(user.role)}
+              </span>
+            </div>
+
+            <div className="space-y-2 rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-300">
+              <div className="flex justify-between gap-3">
+                <span>入职时间</span>
+                <span className="text-brand-400">{formatDate(user.joinDate)}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span>休息日</span>
+                <span className="text-right text-brand-400">
+                  {user.restDays?.length ? user.restDays.join('、') : '未设置'}
+                </span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span>沟通偏好</span>
+                <span className="text-right text-brand-400">
+                  {user.communicationPreference || '未设置'}
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                onClick={() => setEditingMember(user)}
+                className="rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-medium text-primary"
+              >
+                编辑
+              </button>
+              <button
+                onClick={() => setDeleteTarget(user)}
+                className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-expense"
+              >
+                删除
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <div className="hidden bg-white rounded-card shadow-card overflow-hidden sm:block">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
