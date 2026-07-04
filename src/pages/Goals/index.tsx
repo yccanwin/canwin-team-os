@@ -25,8 +25,8 @@ const statusConfig: Record<
     text: '#FFFFFF',
     border: '2px solid #6366F1',
   },
-  completed: { label: '已完成 ✓', bg: '#D1FAE5', text: '#065F46' },
-  locked: { label: '未解锁 🔒', bg: '#F1F5F9', text: '#94A3B8' },
+  completed: { label: '已完成', bg: '#D1FAE5', text: '#065F46' },
+  locked: { label: '未解锁', bg: '#F1F5F9', text: '#94A3B8' },
 }
 
 export default function GoalsPage() {
@@ -72,16 +72,16 @@ export default function GoalsPage() {
   return (
     <>
     <div className="px-3 lg:px-6 py-4">
-      <div className="mb-5 inline-flex rounded-xl border border-brand-100 bg-white p-1 shadow-sm">
+      <div className="mb-5 inline-flex w-full rounded-xl border border-brand-100 bg-white p-1 shadow-sm sm:w-auto">
         <button
           onClick={() => setActiveView('team')}
-          className={`rounded-lg px-4 py-2 text-sm font-medium ${activeView === 'team' ? 'bg-primary text-white' : 'text-brand-300 hover:bg-brand-50'}`}
+          className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium sm:flex-none ${activeView === 'team' ? 'bg-primary text-white' : 'text-brand-300 hover:bg-brand-50'}`}
         >
           团队目标
         </button>
         <button
           onClick={() => setActiveView('personal')}
-          className={`rounded-lg px-4 py-2 text-sm font-medium ${activeView === 'personal' ? 'bg-primary text-white' : 'text-brand-300 hover:bg-brand-50'}`}
+          className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium sm:flex-none ${activeView === 'personal' ? 'bg-primary text-white' : 'text-brand-300 hover:bg-brand-50'}`}
         >
           个人目标
         </button>
@@ -99,30 +99,32 @@ export default function GoalsPage() {
       ) : (
       <>
       {/* 页面标题 */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-heading text-lg font-semibold text-brand-400">目标路线图</h1>
           <p className="mt-1 text-sm text-brand-300">团队阶段目标与进度追踪</p>
         </div>
-        {isCaptain && hasEnabled && (
-          <button
-            onClick={() => {
-              const next = sortedGoals.find((g) => g.status === 'enabled') || sortedGoals.find((g) => g.status === 'locked')
-              setNextPhaseTitle(next?.title || '下一阶段')
-              setShowUnlockConfirm(true)
-            }}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-indigo-600 transition-colors"
-          >
-            启用下一阶段
-          </button>
-        )}
         {isCaptain && (
-          <button
-            onClick={() => setNewGoalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-indigo-600 transition-colors"
-          >
-            新增目标
-          </button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            {hasEnabled && (
+              <button
+                onClick={() => {
+                  const next = sortedGoals.find((g) => g.status === 'enabled') || sortedGoals.find((g) => g.status === 'locked')
+                  setNextPhaseTitle(next?.title || '下一阶段')
+                  setShowUnlockConfirm(true)
+                }}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-indigo-600 transition-colors"
+              >
+                启用下一阶段
+              </button>
+            )}
+            <button
+              onClick={() => setNewGoalOpen(true)}
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-white text-primary text-sm font-medium rounded-lg border border-indigo-100 hover:bg-indigo-50 transition-colors"
+            >
+              新增目标
+            </button>
+          </div>
         )}
       </div>
 
@@ -202,7 +204,7 @@ export default function GoalsPage() {
                   {/* 右侧内容 */}
                   <div className="flex-1 min-w-0">
                     {/* 标题行 + 状态标签 */}
-                    <div className="flex items-center gap-3 mb-2">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
                       <h3 className="font-heading text-base font-semibold text-brand-400">
                         {goal.title}
                       </h3>
@@ -220,7 +222,7 @@ export default function GoalsPage() {
                       {isCaptain && (
                         <button
                           onClick={() => setEditingGoal(goal)}
-                          className="ml-auto text-xs text-brand-200 hover:text-primary transition-colors"
+                          className="ml-auto rounded-lg bg-brand-50 px-2 py-1 text-xs text-brand-300 hover:text-primary transition-colors"
                           title="编辑"
                         >
                           编辑

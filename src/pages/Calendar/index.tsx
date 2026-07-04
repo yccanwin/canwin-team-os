@@ -216,6 +216,20 @@ export default function CalendarPage() {
 
   // 选中日的事件列表
   const selectedEvents = selectedDate ? eventsByDate[selectedDate] || [] : []
+  const mobileFocusDate = selectedDate || todayStr
+  const mobileFocusEvents = eventsByDate[mobileFocusDate] || []
+  const upcomingEvents = useMemo(() => {
+    const result: Array<CalendarEvent & { dateKey: string }> = []
+    for (let offset = 0; offset < 7; offset++) {
+      const date = new Date(todayStr)
+      date.setDate(date.getDate() + offset)
+      const dateKey = formatDate(date.getFullYear(), date.getMonth(), date.getDate())
+      ;(eventsByDate[dateKey] || []).forEach((event) => {
+        result.push({ ...event, dateKey })
+      })
+    }
+    return result.slice(0, 6)
+  }, [eventsByDate, todayStr])
 
   // 导航
   const prevMonth = () => {
@@ -319,7 +333,7 @@ export default function CalendarPage() {
       {/* 页面标题 */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
         <div>
-          <h1 className="text-2xl font-bold text-brand-400 font-heading">📅 日历中心</h1>
+          <h1 className="text-2xl font-bold text-brand-400 font-heading">日历中心</h1>
           <p className="mt-1 text-sm text-brand-300">
             今日在岗 {todayOnDutyUsers.length} 人 · 休息 {todayRestUsers.length} 人
           </p>
@@ -351,6 +365,71 @@ export default function CalendarPage() {
           <p className="text-xs font-medium text-blue-700">自动联动</p>
           <p className="mt-2 text-sm text-blue-900">休息日、任务截止日、团队目标和公开个人目标截止日会自动显示。</p>
         </div>
+      </div>
+
+      <div className="mb-4 space-y-3 sm:hidden">
+        <section className="rounded-xl border border-brand-100 bg-white p-4 shadow-card">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="font-heading text-base font-semibold text-brand-400">
+                {mobileFocusDate === todayStr ? '今天要知道' : mobileFocusDate}
+              </h2>
+              <p className="mt-0.5 text-xs text-brand-200">
+                在岗 {todayOnDutyUsers.length} 人 · 休息 {todayRestUsers.length} 人
+              </p>
+            </div>
+            <button
+              onClick={openNewForm}
+              className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white"
+              disabled={!currentUser}
+            >
+              新建
+            </button>
+          </div>
+          {mobileFocusEvents.length ? (
+            <div className="space-y-2">
+              {mobileFocusEvents.slice(0, 4).map((event) => (
+                <button
+                  key={event.id}
+                  onClick={() => {
+                    const isDerived = event.type === 'task_deadline' || event.type === 'team_goal_deadline' || event.type === 'personal_goal_deadline' || event.type === 'rest_day'
+                    if (!isDerived) openEditForm(event)
+                  }}
+                  className="w-full rounded-lg bg-brand-50 px-3 py-2 text-left"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="line-clamp-1 text-sm font-medium text-brand-400">{event.title}</span>
+                    <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-[10px] text-brand-300">
+                      {TYPE_LABELS[event.type]}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-brand-200">{event.creatorName}</p>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-lg bg-brand-50 px-3 py-3 text-sm text-brand-200">今天暂无安排</p>
+          )}
+        </section>
+
+        <section className="rounded-xl border border-blue-100 bg-blue-50/70 p-4">
+          <h2 className="font-heading text-sm font-semibold text-blue-900">未来 7 天</h2>
+          {upcomingEvents.length ? (
+            <div className="mt-3 space-y-2">
+              {upcomingEvents.map((event) => (
+                <div key={`${event.dateKey}-${event.id}`} className="flex items-start justify-between gap-3 rounded-lg bg-white/70 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="line-clamp-1 text-sm font-medium text-blue-950">{event.title}</p>
+                    <p className="mt-0.5 text-xs text-blue-700">{event.dateKey} · {TYPE_LABELS[event.type]}</p>
+                  </div>
+                  <span className="shrink-0 text-xs text-blue-700">{event.creatorName}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-blue-800">未来 7 天暂无自动联动事项</p>
+          )}
+        </section>
       </div>
 
       {/* 主布局：日历 + 侧边详情 */}
@@ -401,7 +480,7 @@ export default function CalendarPage() {
           {/* 日期网格 */}
           <div
             className="grid grid-cols-7"
-            style={{ gridTemplateRows: `repeat(${rows}, minmax(80px, 1fr))` }}
+            style={{ gridTemplateRows: `repeat(${rows}, minmax(64px, 1fr))` }}
           >
             {cells.map((day, idx) => {
               if (day === null) {
@@ -439,7 +518,7 @@ export default function CalendarPage() {
                         style={{ backgroundColor: ev.color || EVENT_COLORS[0] }}
                         title={ev.title}
                       >
-                        {ev.type === 'task_deadline' ? '⏰ ' : ev.type === 'team_goal_deadline' || ev.type === 'personal_goal_deadline' ? '🎯 ' : ''}{ev.startTime ? `${ev.startTime} ` : ''}{ev.title}
+                        {ev.startTime ? `${ev.startTime} ` : ''}{ev.title}
                       </div>
                     ))}
                     {dayEvents.length > 3 && (
