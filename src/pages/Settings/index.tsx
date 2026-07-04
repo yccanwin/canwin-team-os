@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useUserStore } from '@/stores/useUserStore'
-import { useBadgeStore } from '@/stores/useBadgeStore'
 import { useFinanceStore } from '@/stores/useFinanceStore'
 import { useGoalStore } from '@/stores/useGoalStore'
 import { useTeamStore } from '@/stores/useTeamStore'
@@ -9,19 +8,17 @@ import { isSupabaseConfigured } from '@/lib/supabase'
 import { isCaptainRole, roleLabel } from '@/services/profile'
 import { disableTeamMember } from '@/services/adminMembers'
 import { formatDate } from '@/utils/dateUtils'
-import BadgeFormModal from './BadgeFormModal'
 import GoalEditModal from '@/pages/Goals/GoalEditModal'
 import MemberFormModal from './MemberFormModal'
 import ConfirmDialog from '@/components/ConfirmDialog'
-import type { BadgeConfig, FinanceRecord, Goal } from '@/types'
+import type { FinanceRecord } from '@/types'
 
-type TabKey = 'badges' | 'finance' | 'goals' | 'members' | 'system'
+type TabKey = 'members' | 'finance' | 'goals' | 'system'
 
 const tabs: { key: TabKey; label: string }[] = [
-  { key: 'badges', label: '勋章配置' },
+  { key: 'members', label: '团队成员' },
   { key: 'finance', label: '财务录入' },
   { key: 'goals', label: '目标管理' },
-  { key: 'members', label: '团队成员' },
   { key: 'system', label: '系统维护' },
 ]
 
@@ -29,7 +26,7 @@ export default function SettingsPage() {
   const currentUser = useUserStore((s) => s.currentUser)
   const isCaptain = isCaptainRole(currentUser.role)
 
-  const [activeTab, setActiveTab] = useState<TabKey>('badges')
+  const [activeTab, setActiveTab] = useState<TabKey>('members')
 
   // 路由守卫
   if (!isCaptain) {
@@ -41,7 +38,7 @@ export default function SettingsPage() {
       <h1 className="font-heading text-lg font-semibold text-brand-400 mb-6">设置中心</h1>
 
       {/* Tab 导航 */}
-      <div className="flex border-b border-brand-100 mb-6">
+      <div className="flex flex-wrap gap-1 border-b border-brand-100 mb-6">
         {tabs.map((tab) => (
           <button
             key={tab.key}
@@ -62,7 +59,6 @@ export default function SettingsPage() {
 
       {/* Tab 内容 */}
       <div>
-        {activeTab === 'badges' && <BadgeConfigTab />}
         {activeTab === 'finance' && <FinanceEntryTab />}
         {activeTab === 'goals' && <GoalManagementTab />}
         {activeTab === 'members' && <MemberManagementTab />}
@@ -73,145 +69,7 @@ export default function SettingsPage() {
 }
 
 // ============================================================
-// Tab 1: 勋章配置
-// ============================================================
-
-function BadgeConfigTab() {
-  const badges = useBadgeStore((s) => s.badges)
-  const deleteBadge = useBadgeStore((s) => s.deleteBadge)
-
-  const [editingBadge, setEditingBadge] = useState<BadgeConfig | null>(null)
-  const [newBadgeOpen, setNewBadgeOpen] = useState(false)
-  const [deleteTarget, setDeleteTarget] = useState<BadgeConfig | null>(null)
-
-  const triggerTypeLabels: Record<string, string> = {
-    task_count: '完成任务数',
-    login_streak: '连续登录',
-    metric: '业务指标',
-    custom: '自定义',
-  }
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="font-heading text-base font-semibold text-brand-400">勋章配置</h2>
-        <button
-          onClick={() => setNewBadgeOpen(true)}
-          className="px-3 py-1.5 bg-primary text-white text-sm font-medium rounded-lg hover:bg-indigo-600 transition-colors"
-        >
-          新增勋章
-        </button>
-      </div>
-
-      {/* 勋章列表 */}
-      <div className="bg-white rounded-card shadow-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-brand-100 bg-brand-50">
-                <th className="text-left px-4 py-3 font-medium text-brand-400">名称</th>
-                <th className="text-left px-4 py-3 font-medium text-brand-400">图标</th>
-                <th className="text-left px-4 py-3 font-medium text-brand-400">描述</th>
-                <th className="text-left px-4 py-3 font-medium text-brand-400">触发类型</th>
-                <th className="text-right px-4 py-3 font-medium text-brand-400">记忆权重</th>
-                <th className="text-left px-4 py-3 font-medium text-brand-400">分类</th>
-                <th className="text-center px-4 py-3 font-medium text-brand-400">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {badges.map((badge) => (
-                <tr
-                  key={badge.id}
-                  className="border-b border-gray-100 hover:bg-brand-50"
-                  style={{ height: '48px' }}
-                >
-                  <td className="px-4 py-2.5 font-medium text-brand-400">
-                    {badge.name}
-                  </td>
-                  <td className="px-4 py-2.5 text-lg">{badge.icon}</td>
-                  <td className="px-4 py-2.5 text-brand-400 max-w-[200px] truncate">
-                    {badge.description}
-                  </td>
-                  <td className="px-4 py-2.5 text-brand-400">
-                    {triggerTypeLabels[badge.triggerType] || badge.triggerType}
-                  </td>
-                  <td className="px-4 py-2.5 text-right text-brand-400">
-                    {badge.memoryWeight}
-                  </td>
-                  <td className="px-4 py-2.5 text-brand-400">
-                    {badge.category === 'basic'
-                      ? '基础'
-                      : badge.category === 'business'
-                        ? '业务'
-                        : '行为'}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <div className="flex items-center justify-center gap-1">
-                      <button
-                        onClick={() => setEditingBadge(badge)}
-                        className="px-2 py-1 text-xs text-primary hover:bg-indigo-50 rounded transition-colors"
-                      >
-                        编辑
-                      </button>
-                      <button
-                        onClick={() => setDeleteTarget(badge)}
-                        className="px-2 py-1 text-xs text-expense hover:bg-red-50 rounded transition-colors"
-                      >
-                        删除
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {badges.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-brand-200">
-                    暂无勋章配置
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* 新增弹窗 */}
-      {newBadgeOpen && (
-        <BadgeFormModal
-          isOpen={newBadgeOpen}
-          onClose={() => setNewBadgeOpen(false)}
-        />
-      )}
-
-      {/* 编辑弹窗 */}
-      {editingBadge && (
-        <BadgeFormModal
-          isOpen={!!editingBadge}
-          onClose={() => setEditingBadge(null)}
-          badge={editingBadge}
-        />
-      )}
-
-      {/* 删除确认 */}
-      <ConfirmDialog
-        isOpen={!!deleteTarget}
-        onConfirm={() => {
-          if (deleteTarget) {
-            deleteBadge(deleteTarget.id)
-            setDeleteTarget(null)
-          }
-        }}
-        onCancel={() => setDeleteTarget(null)}
-        title="删除勋章"
-        message={`确定要删除勋章「${deleteTarget?.name}」吗？此操作不可撤销。`}
-        variant="danger"
-      />
-    </div>
-  )
-}
-
-// ============================================================
-// Tab 2: 财务录入
+// Tab 1: 财务录入
 // ============================================================
 
 function FinanceEntryTab() {
@@ -608,7 +466,7 @@ function FinanceEntryTab() {
 }
 
 // ============================================================
-// Tab 3: 目标管理
+// Tab 2: 目标管理
 // ============================================================
 
 function GoalManagementTab() {
@@ -761,7 +619,7 @@ function GoalManagementTab() {
 }
 
 // ============================================================
-// Tab 4: 团队成员管理
+// Tab 3: 团队成员管理
 // ============================================================
 
 function MemberManagementTab() {
@@ -815,7 +673,7 @@ function MemberManagementTab() {
                 <th className="text-left px-4 py-3 font-medium text-brand-400">岗位</th>
                 <th className="text-left px-4 py-3 font-medium text-brand-400">角色</th>
                 <th className="text-left px-4 py-3 font-medium text-brand-400">入职时间</th>
-                <th className="text-center px-4 py-3 font-medium text-brand-400">记忆标签</th>
+                <th className="text-left px-4 py-3 font-medium text-brand-400">协作资料</th>
                 <th className="text-center px-4 py-3 font-medium text-brand-400">操作</th>
               </tr>
             </thead>
@@ -862,8 +720,13 @@ function MemberManagementTab() {
                   <td className="px-4 py-2.5 text-brand-400">
                     {formatDate(user.joinDate)}
                   </td>
-                  <td className="px-4 py-2.5 text-center text-brand-400">
-                    {user.badges?.length || 0}
+                  <td className="px-4 py-2.5 text-brand-400">
+                    <div className="space-y-1 text-xs">
+                      <p>{user.restDays?.length ? `休息日：${user.restDays.join('、')}` : '休息日未设置'}</p>
+                      <p className="text-brand-200">
+                        {user.communicationPreference ? '已填写沟通偏好' : '沟通偏好未设置'}
+                      </p>
+                    </div>
                   </td>
                   <td className="px-4 py-2.5">
                     <div className="flex items-center justify-center gap-1">
@@ -927,7 +790,7 @@ function MemberManagementTab() {
 }
 
 // ============================================================
-// Tab 5: 系统维护
+// Tab 4: 系统维护
 // ============================================================
 
 // 团队同步信息卡片

@@ -7,7 +7,7 @@ import ErrorBoundary from '@/components/ErrorBoundary'
 export default function ProfilePage() {
   return (
     <div className="px-3 lg:px-6 py-4 max-w-4xl mx-auto">
-      <h1 className="">个人主页</h1>
+      <h1 className="mb-4 font-heading text-xl font-semibold text-brand-400">个人协作档案</h1>
 
       <div className="space-y-4">
         <ErrorBoundary moduleName="ProfileHeader">

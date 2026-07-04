@@ -28,7 +28,7 @@ export default function ProfileHeader({ user }: ProfileHeaderProps) {
 
   return (
     <div className="bg-white rounded-card shadow-card p-6">
-      <div className="flex items-center gap-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
         {/* 头像 - 哈希颜色 */}
         <div
           className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold text-white flex-shrink-0"
@@ -38,14 +38,14 @@ export default function ProfileHeader({ user }: ProfileHeaderProps) {
         </div>
 
         {/* 信息 */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3 mb-1">
+        <div className="min-w-0 flex-1">
+          <div className="mb-1 flex flex-wrap items-center gap-2">
             <h2 className="font-heading text-2xl font-semibold text-brand-400">{displayUser.name}</h2>
 
             {/* 队长标签 */}
             {isCaptainRole(displayUser.role) && (
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
-                👑 队长
+                队长
               </span>
             )}
           </div>
@@ -58,7 +58,7 @@ export default function ProfileHeader({ user }: ProfileHeaderProps) {
           </div>
         </div>
 
-        <div className="text-right flex-shrink-0">
+        <div className="text-left sm:text-right sm:flex-shrink-0">
           <div className="text-sm font-semibold text-brand-400">
             协作档案
           </div>

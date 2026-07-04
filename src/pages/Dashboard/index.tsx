@@ -15,7 +15,7 @@ import QuickVoteSection from './QuickVoteSection'
 import TrendChartSection from './TrendChartSection'
 import ActivityFeedSection from './ActivityFeedSection'
 import TaskCenterSection from './TaskCenterSection'
-import BadgeWallSection from './BadgeWallSection'
+import CollaborationSnapshotSection from './CollaborationSnapshotSection'
 
 export default function Dashboard() {
   const records = useFinanceStore((s) => s.records)
@@ -169,10 +169,10 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* 底部：活动动态 + 勋章墙 */}
+      {/* 底部：活动动态 + 协作快照 */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
         <ActivityFeedSection />
-        <BadgeWallSection />
+        <CollaborationSnapshotSection />
       </div>
     </div>
   )

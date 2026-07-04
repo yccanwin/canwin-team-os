@@ -91,7 +91,7 @@ export default function PersonalInfoCard() {
       {/* 无内容空状态 */}
       {!hasContent && !editing && (
         <div className="text-center py-6 text-brand-200 text-sm">
-          还没有填写个人资料，点击「编辑」让团队更了解你 😊
+          还没有填写协作资料，点击「编辑」让团队更了解你的工作边界
         </div>
       )}
 
