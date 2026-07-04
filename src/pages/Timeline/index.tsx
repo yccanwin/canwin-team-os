@@ -51,12 +51,12 @@ export default function TimelinePage() {
   const hasAnyEvents = events.length > 0
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="max-w-4xl mx-auto px-3 py-4 lg:px-4 lg:py-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
         <div>
-          <h1 className="">编年史</h1>
-          <p className="text-sm text-brand-300 mt-1">记录团队的每一个重要时刻</p>
+          <h1 className="font-heading text-xl font-semibold text-brand-400">编年史</h1>
+          <p className="text-sm text-brand-300 mt-1">把团队走过的路留下来，方便复盘和传承</p>
         </div>
         {isCaptain && (
           <button
@@ -64,7 +64,7 @@ export default function TimelinePage() {
               setEditingEvent(null)
               setShowEditModal(true)
             }}
-            className="flex items-center gap-1.5 px-4 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 transition-colors shadow-sm"
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 sm:w-auto"
           >
             <Plus className="w-4 h-4" />
             添加事件

@@ -76,17 +76,17 @@ export default function AchievementsPage() {
   return (
     <div className="px-3 lg:px-6 py-4">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
         <div>
-          <h1 className="">案例馆</h1>
+          <h1 className="font-heading text-xl font-semibold text-brand-400">案例馆</h1>
           <p className="text-sm text-brand-300 mt-1">
-            记录团队的标杆案例
+            沉淀做成过的事，给下次行动留下参考
           </p>
         </div>
         {isCaptain && (
           <button
             onClick={() => setFormAch('new')}
-            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 sm:w-auto"
           >
             <Plus className="w-4 h-4" />
             添加案例
@@ -95,7 +95,7 @@ export default function AchievementsPage() {
       </div>
 
       {/* Filter + Search Bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-6">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-6">
         {/* Category Tabs */}
         <div className="flex gap-1.5 flex-wrap">
           {CATEGORY_TABS.map((tab) => (
@@ -114,7 +114,7 @@ export default function AchievementsPage() {
         </div>
 
         {/* Search */}
-        <div className="relative flex-1 max-w-xs">
+        <div className="relative flex-1 sm:max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-200" />
           <input
             type="text"
@@ -167,8 +167,8 @@ export default function AchievementsPage() {
                   />
                 </div>
               ) : (
-                <div className="w-16 h-16 mx-auto mb-3 rounded-xl bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center text-neutral-tertiary text-2xl">
-                  🏢
+                <div className="w-16 h-16 mx-auto mb-3 rounded-xl bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center text-neutral-tertiary text-xs font-medium">
+                  案例
                 </div>
               )}
 

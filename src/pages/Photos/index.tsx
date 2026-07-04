@@ -83,17 +83,17 @@ export default function PhotosPage() {
   return (
     <div className="px-3 lg:px-6 py-4">
       {/* ============ 标题栏 ============ */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
         <div>
-          <h1 className="">相册</h1>
-          <p className="text-sm text-brand-300 mt-1">记录团队生活的精彩瞬间</p>
+          <h1 className="font-heading text-xl font-semibold text-brand-400">相册</h1>
+          <p className="text-sm text-brand-300 mt-1">保存团队现场、活动和日常瞬间</p>
         </div>
         <button
           onClick={() => {
             setEditingPhoto(null)
             setShowUpload(true)
           }}
-          className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
+          className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 sm:w-auto"
         >
           <Camera className="w-4 h-4" />
           上传照片
@@ -139,7 +139,7 @@ export default function PhotosPage() {
                   </h3>
 
                   {/* 照片网格 */}
-                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
                     {monthPhotos.map((photo) => (
                       <div
                         key={photo.id}

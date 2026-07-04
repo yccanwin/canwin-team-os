@@ -350,7 +350,57 @@ function FinanceEntryTab() {
             ))}
           </select>
         </div>
-        <div className="bg-white rounded-card shadow-card overflow-hidden">
+        <div className="space-y-3 sm:hidden">
+          {recentRecords.map((record) => {
+            const operator = useUserStore
+              .getState()
+              .users.find((u) => u.id === record.createdBy)
+            return (
+              <article key={record.id} className="rounded-card border border-brand-100 bg-white p-4 shadow-card">
+                <div className="mb-2 flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs text-brand-200">{record.date}</p>
+                    <h4 className="mt-1 font-heading text-base font-semibold text-brand-400">
+                      {record.category}
+                    </h4>
+                  </div>
+                  <span
+                    className={`rounded-full px-2 py-1 text-xs font-medium ${
+                      record.type === 'income'
+                        ? 'bg-[#D1FAE5] text-[#065F46]'
+                        : 'bg-[#FEE2E2] text-[#991B1B]'
+                    }`}
+                  >
+                    {record.type === 'income' ? '收入' : '支出'}
+                  </span>
+                </div>
+                <div className="flex items-end justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-lg font-semibold text-brand-400">¥{record.amount.toLocaleString()}</p>
+                    <p className="mt-1 truncate text-xs text-brand-300">
+                      {record.note || '无备注'} · {operator?.name || record.createdBy}
+                    </p>
+                  </div>
+                  {isCaptain && (
+                    <button
+                      onClick={() => setDeleteTarget(record)}
+                      className="shrink-0 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-expense"
+                    >
+                      删除
+                    </button>
+                  )}
+                </div>
+              </article>
+            )
+          })}
+          {recentRecords.length === 0 && (
+            <p className="rounded-card bg-white px-4 py-8 text-center text-sm text-brand-200 shadow-card">
+              暂无财务记录
+            </p>
+          )}
+        </div>
+
+        <div className="hidden bg-white rounded-card shadow-card overflow-hidden sm:block">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -501,7 +551,74 @@ function GoalManagementTab() {
         </button>
       </div>
 
-      <div className="bg-white rounded-card shadow-card overflow-hidden">
+      <div className="space-y-3 sm:hidden">
+        {sortedGoals.map((goal) => (
+          <article key={goal.id} className="rounded-card border border-brand-100 bg-white p-4 shadow-card">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="line-clamp-2 font-heading text-base font-semibold text-brand-400">
+                  {goal.title}
+                </h3>
+                <p className="mt-1 text-xs text-brand-200">
+                  ¥{goal.currentAmount.toLocaleString()} / ¥{goal.targetAmount.toLocaleString()}
+                </p>
+              </div>
+              <span
+                className={`shrink-0 rounded-full px-2 py-1 text-xs font-medium ${
+                  goal.status === 'in_progress'
+                    ? 'bg-[#EEF2FF] text-primary'
+                    : goal.status === 'completed'
+                      ? 'bg-[#D1FAE5] text-[#065F46]'
+                      : goal.status === 'enabled'
+                        ? 'bg-[#DBEAFE] text-[#1E40AF]'
+                        : 'bg-gray-100 text-brand-300'
+                }`}
+              >
+                {statusLabels[goal.status]}
+              </span>
+            </div>
+            <div className="mb-3 h-2 overflow-hidden rounded-full bg-gray-100">
+              <div
+                className="h-full rounded-full bg-primary"
+                style={{
+                  width: `${goal.targetAmount > 0 ? Math.min(100, Math.round((goal.currentAmount / goal.targetAmount) * 100)) : 0}%`,
+                }}
+              />
+            </div>
+            <div className="flex flex-wrap justify-end gap-2">
+              <button
+                onClick={() => setEditingGoal(goal)}
+                className="rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-medium text-primary"
+              >
+                编辑
+              </button>
+              {goal.status === 'enabled' && (
+                <>
+                  <button
+                    onClick={() => unlockNextPhase()}
+                    className="rounded-lg bg-green-50 px-3 py-1.5 text-xs font-medium text-[#10B981]"
+                  >
+                    启用
+                  </button>
+                  <button
+                    onClick={() => disablePhase(goal.id)}
+                    className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-expense"
+                  >
+                    禁用
+                  </button>
+                </>
+              )}
+            </div>
+          </article>
+        ))}
+        {sortedGoals.length === 0 && (
+          <p className="rounded-card bg-white px-4 py-8 text-center text-sm text-brand-200 shadow-card">
+            暂无目标
+          </p>
+        )}
+      </div>
+
+      <div className="hidden bg-white rounded-card shadow-card overflow-hidden sm:block">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
