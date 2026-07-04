@@ -1,145 +1,213 @@
 # CanWin Team OS
 
-> 8 人小团队业务可视化系统 · 纯前端 SPA
+> 小团队经营透明化 + 团队文化记忆库 + 日常协作工具。
 
-## 🚀 快速启动
+CanWin Team OS 是翻身小队内部使用的团队 OS，不是对外 SaaS，也不是绩效考核后台。当前版本以 Supabase Auth、正式业务表、RLS 权限和 GitHub Pages 部署为主线，前端 Zustand 只承担本地 UI 状态和短期缓存。
 
-```bash
-# 1. 安装依赖
-npm install
+线上地址：
 
-# 2. 启动开发服务器（局域网可访问）
-bash start.sh
+- https://yccanwin.github.io/canwin-team-os/
 
-# 或直接
-npm run dev
-```
-
-- **本地访问**：http://localhost:5173
-- **局域网访问**：启动后终端会显示局域网 IP 地址
-
-## 🧱 技术栈
-
-| 类别 | 技术 |
-|------|------|
-| 框架 | React 18 + TypeScript |
-| 构建 | Vite 8 |
-| 样式 | Tailwind CSS 3 |
-| 状态管理 | Zustand 5（localStorage 持久化） |
-| 路由 | React Router 6 |
-| 图表 | Chart.js 4 + react-chartjs-2 |
-| 图标 | Lucide React |
-
-## 📊 核心功能
-
-### 仪表盘
-- KPI 卡片（收入/支出/利润/现金余额）
-- 目标进度追踪
-- 团队生存状态
-- 趋势分析图
-- 快速投票入口
-- 勋章墙
-- 团队动态
-
-### 任务管理
-- 任务 CRUD + 状态流转（待办 → 进行中 → 已完成）
-- 类型筛选（销售/运营/采购/其他）
-- 关键字搜索
-- XP 奖励（普通 +10 / 重要 +30）
-- 完成自动触发勋章检查
-
-### 个人主页
-- 贡献统计面板
-- XP 增长柱状图
-- 勋章展示墙
-
-### 目标管理
-- 4 阶段营收目标路线图
-- 进度条 + ETA 预估
-- 阶段解锁/禁用
-
-### 投票系统
-- 发起/参与投票
-- 截止倒计时
-- 投票统计 + 自动到期关闭
-
-### 仓库管理
-- 库存表格（名称/SKU/数量/单价/总值）
-- 入/出库操作
-- 操作日志（保留最近 30 条）
-- 自动同步财务记录
-
-### 设置中心（仅队长）
-- 勋章配置（新增/编辑/删除）
-- 财务录入（收入/支出）
-- 目标管理
-- 团队成员管理
-
-### 游戏化系统
-- **XP/等级**：10 级非线性升级体系
-- **勋章**：6 种勋章，支持 4 种触发类型
-  - `task_count`：累计完成任务数
-  - `login_streak`：连续登录天数
-  - `metric`：业务指标（销售额/成本/协作）
-  - `custom`：自定义条件
-- **连续登录**：登录补发 + 断签重置
-- **3D 庆祝弹窗**：勋章解锁动画
-
-## 🏛️ 系统架构
-
-```
-src/
-├── App.tsx                 # 路由入口 + 登录补发逻辑
-├── components/
-│   ├── Layout/             # 侧边栏 + 顶部栏 + 用户切换
-│   ├── KPICard/            # KPI 卡片
-│   ├── StatusBadge/        # 状态徽标
-│   ├── ProgressBar/        # 进度条
-│   ├── Modal/              # 通用弹窗
-│   ├── EmptyState/         # 空状态占位
-│   ├── ConfirmDialog/      # 确认对话框
-│   └── BadgeUnlockModal/   # 勋章庆祝弹窗
-├── pages/
-│   ├── Dashboard/          # 仪表盘（9 个 Section）
-│   ├── Tasks/              # 任务中心
-│   ├── Profile/            # 个人主页
-│   ├── Goals/              # 目标管理
-│   ├── Votes/              # 投票系统
-│   ├── Inventory/          # 仓库管理
-│   └── Settings/           # 设置中心
-├── stores/                 # 7 个 Zustand Store
-├── utils/                  # xpCalculator / badgeChecker / dateUtils
-├── data/                   # mockData
-└── types/                  # TypeScript 类型定义
-```
-
-## 🔐 权限模型
-
-| 角色 | Dashboard | 任务 | 仓库 | 投票 | 设置 |
-|------|-----------|------|------|------|------|
-| 队长 | ✅ 全部 | ✅ CRUD | ✅ 出入库 | ✅ 发起 | ✅ 全部 |
-| 成员 | ✅ 只读 | ✅ 只操作 | ✅ 只读 | ✅ 投票 | ❌ 重定向 |
-
-## 📝 数据持久化
-
-所有数据存储在 `localStorage`，key 前缀 `canwin-`：
-
-- `canwin-users` — 用户数据
-- `canwin-tasks` — 任务列表
-- `canwin-finance` — 财务记录
-- `canwin-goals` — 目标数据
-- `canwin-votes` — 投票数据
-- `canwin-badges` — 勋章配置
-- `canwin-inventory` — 库存与日志
-- `canwin-activity` — 团队动态
-- `canwin-login` — 登录连续天数
-
-## 🔧 构建部署
+## 快速启动
 
 ```bash
+# 安装依赖
+pnpm install
+
+# 启动开发服务器
+pnpm dev
+
 # 生产构建
-npm run build
+pnpm build
 
 # 预览构建产物
-npm run preview
+pnpm preview
 ```
+
+本地默认入口：
+
+- `http://localhost:5173/canwin-team-os/`
+- 路由使用 `HashRouter`，例如 `/#/inventory`
+
+## 技术栈
+
+| 类别 | 技术 |
+| --- | --- |
+| 框架 | React + TypeScript |
+| 构建 | Vite |
+| 样式 | Tailwind CSS |
+| 状态管理 | Zustand |
+| 后端 | Supabase Auth / Postgres / Storage |
+| 权限 | Supabase RLS + 前端角色边界 |
+| 图表 | Chart.js + react-chartjs-2 |
+| 图标 | Lucide React |
+
+## 当前定位
+
+产品核心：
+
+- 今日团队状态：休息、任务、库存提醒、经营大盘、近期动态。
+- 经营记录：仓库、财务、资产馆。
+- 团队文化：编年史、案例馆、相册。
+- 共同决策：一起决定、军机处。
+- 资源与成员：工具箱、团队成员、个人主页。
+
+设计原则：
+
+- 经营大盘透明，敏感明细受控。
+- 团队共识公开，个人隐私克制。
+- 记录真实行为，不做积分排行和绩效 PK。
+- 桌面端适合管理和复盘，移动端适合快速查看和快速记录。
+
+## 核心功能
+
+### 登录与成员
+
+- 使用 Supabase Auth 登录。
+- 初始只保留 `admin`，其他成员由管理员添加。
+- 角色包括 `admin`、`captain`、`finance`、`warehouse`、`member`。
+- 成员资料来自 `profiles`，包含休息日、沟通偏好、最近状态、注意事项和协作备注。
+
+### 首页
+
+- 今日团队状态。
+- 今日休息、近期公告、今天要处理。
+- 库存提醒、财务大盘、团队目标、近期团队记忆。
+- 团队健康度和成长阶段，用状态描述替代游戏化成长表达。
+
+### 日历
+
+- 展示休息日、任务截止、团队目标截止、公开个人目标截止。
+- 支持日历事件记录。
+- 创建任务时会提示分配到成员休息日的风险。
+
+### 任务
+
+- 任务创建、状态流转、详情维护。
+- 支持负责人、截止日期、重要标记和任务类型。
+- 移动端使用卡片流，便于快速查看和处理。
+
+### 目标
+
+- 团队目标和个人目标分离。
+- 个人目标支持公开或私密。
+- 个人目标有冷静期、锁定、复盘和管理员解锁审计。
+
+### 仓库
+
+- 入库、出库、库存数量和低库存提醒。
+- 授权角色可查看成本和操作日志。
+- 普通成员只看公开库存状态，不暴露成本。
+- 移动端提供库存卡片和操作日志卡片。
+
+### 财务
+
+- 授权角色可录入、查看和删除明细。
+- 普通成员查看公开汇总，不暴露敏感明细。
+- 财务操作写入正式表，并保留审计路径。
+
+### 资产馆
+
+- 记录团队买下的资产、用途、状态、归属和图片。
+- 普通成员可看资产概览。
+- 授权角色可看金额等敏感字段。
+
+### 团队文化
+
+- 编年史：团队重要事件和时间线。
+- 案例馆：沉淀做成过的事。
+- 相册：记录团队现场，图片走 Supabase Storage。
+
+### 一起决定与军机处
+
+- 投票用于团队共同决策。
+- 军机处用于团队共识、公告和制度变更记录。
+
+### 个人主页
+
+- 基本身份和协作说明。
+- 每周休息日、最近状态、忌讳 / 注意事项。
+- 系统基于真实记录生成贡献画像。
+- 展示公开个人目标和复盘痕迹。
+
+## 数据与权限
+
+正式业务数据使用 Supabase 表，包括：
+
+- `teams`
+- `profiles`
+- `tasks`
+- `calendar_events`
+- `finance_records`
+- `inventory_items`
+- `inventory_logs`
+- `assets`
+- `timeline_events`
+- `achievements`
+- `photos`
+- `votes`
+- `vote_options`
+- `vote_records`
+- `announcements`
+- `tools`
+- `team_goals`
+- `personal_goals`
+- `goal_updates`
+- `audit_logs`
+
+`team_data` 只保留为迁移期只读备份，不再作为长期主数据入口。
+
+普通成员可见：
+
+- 经营大盘汇总。
+- 库存数量和公开状态。
+- 团队资产概览。
+- 公开目标、公开动态、团队文化内容。
+
+普通成员不可见：
+
+- 单个物品采购成本。
+- 单笔财务明细。
+- 供应商、敏感备注、工资 / 分红等内部细节。
+
+## 目录结构
+
+```text
+src/
+├── App.tsx
+├── components/
+├── config/
+├── lib/
+├── pages/
+├── services/
+├── stores/
+├── types/
+└── utils/
+
+supabase/
+├── schema.sql
+└── functions/
+```
+
+## Supabase
+
+数据库结构和 RLS 策略在：
+
+- `supabase/schema.sql`
+
+管理员成员管理 Edge Function 在：
+
+- `supabase/functions/admin-members/index.ts`
+
+配置说明：
+
+- `docs/Supabase-Edge-Function-部署说明.md`
+- `docs/CanWin-Team-OS-整改方案-v1.md`
+
+## 构建部署
+
+```bash
+pnpm build
+```
+
+当前生产部署走 GitHub Pages，构建产物发布到 `gh-pages` 分支。部署后需要确认线上 HTML 指向最新 `assets/index-*.js`。
