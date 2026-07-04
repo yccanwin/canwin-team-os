@@ -103,9 +103,9 @@ export function KPISection() {
   // ================================================================
   return (
     <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-      {/* 本月营收 */}
+      {/* 本月收入 */}
       <KPICard
-        title="本月营收"
+        title="本月收入"
         value={`¥${animatedIncome.toLocaleString()}`}
         trend={revenueTrend}
         trendLabel={`环比 ${momChange >= 0 ? '+' : ''}${momChange}%`}
@@ -114,26 +114,26 @@ export function KPISection() {
         icon={<DollarSign className="w-6 h-6 text-income" />}
       />
 
-      {/* 进行中任务 */}
+      {/* 进行中协作 */}
       <KPICard
-        title="进行中任务"
+        title="进行中协作"
         value={animatedInProgress}
         color="#3B82F6"
         icon={<CheckSquare className="w-6 h-6 text-profit" />}
       />
 
-      {/* 目标达成率 */}
+      {/* 任务完成 */}
       <KPICard
-        title="目标达成率"
+        title="任务完成"
         value={animatedGoalRate}
         suffix="%"
         color="#6366F1"
         icon={<Target className="w-6 h-6 text-primary" />}
       />
 
-      {/* 总资产 = 实时现金 */}
+      {/* 现金余额 */}
       <KPICard
-        title="总资产"
+        title="现金余额"
         value={`¥${animatedAssets.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
         trend={(() => {
           if (last7DaysNet.length < 2) return undefined
@@ -149,7 +149,7 @@ export function KPISection() {
       />
 
       <KPICard
-        title="团队状态"
+        title="协作节奏"
         value={teamState}
         color="#8B5CF6"
         icon={<HeartPulse className="w-6 h-6 text-cash" />}

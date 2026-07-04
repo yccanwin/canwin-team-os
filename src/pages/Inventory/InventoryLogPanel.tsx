@@ -5,10 +5,7 @@ import { useInventoryStore } from '@/stores/useInventoryStore'
 import type { InventoryLog } from '@/types'
 import { formatRelative } from '@/utils/dateUtils'
 import { ClipboardList, ArrowDown, ArrowUp, Trash2 } from 'lucide-react'
-import { isCaptainRole } from '@/services/profile'
-
-/** 删除操作日志的验证密码 */
-const DELETE_PASSWORD = '000000'
+import { isWarehouseRole } from '@/services/profile'
 
 interface InventoryLogPanelProps {
   isOpen: boolean
@@ -25,13 +22,11 @@ export default function InventoryLogPanel({
   const currentUser = useUserStore((s) => s.currentUser)
   const deleteLog = useInventoryStore((s) => s.deleteLog)
 
-  // 仅队长可查看/操作
-  const isCaptain = isCaptainRole(currentUser.role)
+  // 仅授权库存角色可查看/操作，云端 RLS 会再次校验
+  const canManageInventory = isWarehouseRole(currentUser.role)
 
-  // 删除密码弹窗状态
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null)
-  const [password, setPassword] = useState('')
-  const [passwordError, setPasswordError] = useState('')
+  const [deleteError, setDeleteError] = useState('')
 
   // 获取操作人姓名
   const getOperatorName = (operatorId: string): string => {
@@ -52,29 +47,30 @@ export default function InventoryLogPanel({
   // 打开删除确认
   const handleDeleteClick = (log: InventoryLog) => {
     setDeleteTarget({ id: log.id, name: log.itemName })
-    setPassword('')
-    setPasswordError('')
+    setDeleteError('')
   }
 
   // 确认删除
   const handleConfirmDelete = () => {
-    if (password !== DELETE_PASSWORD) {
-      setPasswordError('密码错误')
+    if (!canManageInventory) {
+      setDeleteError('当前账号没有库存日志维护权限')
       return
     }
     if (deleteTarget) {
-      deleteLog(deleteTarget.id)
+      const success = deleteLog(deleteTarget.id)
+      if (!success) {
+        setDeleteError('未找到这条操作记录，请刷新后重试')
+        return
+      }
     }
     setDeleteTarget(null)
-    setPassword('')
-    setPasswordError('')
+    setDeleteError('')
   }
 
   // 取消删除
   const handleCancelDelete = () => {
     setDeleteTarget(null)
-    setPassword('')
-    setPasswordError('')
+    setDeleteError('')
   }
 
   return (
@@ -84,9 +80,9 @@ export default function InventoryLogPanel({
       title="库存操作日志"
       size="lg"
     >
-      {!isCaptain ? (
+      {!canManageInventory ? (
         <div className="flex flex-col items-center py-8">
-          <p className="text-brand-300">仅队长可查看操作日志</p>
+          <p className="text-brand-300">仅队长和仓库负责人可查看操作日志</p>
         </div>
       ) : displayedLogs.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8">
@@ -161,7 +157,7 @@ export default function InventoryLogPanel({
                     <button
                       onClick={() => handleDeleteClick(log)}
                       className="inline-flex items-center justify-center w-7 h-7 rounded-md text-brand-200 hover:text-expense hover:bg-red-50 transition-colors"
-                      title="删除此条记录（需验证密码）"
+                      title="删除此条记录"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -172,7 +168,7 @@ export default function InventoryLogPanel({
           </table>
         </div>
       )}
-      {/* 删除确认弹窗（密码验证） */}
+      {/* 删除确认弹窗 */}
       {deleteTarget && (
         <Modal
           isOpen={!!deleteTarget}
@@ -186,28 +182,14 @@ export default function InventoryLogPanel({
                 将删除「<strong>{deleteTarget.name}</strong>」的操作记录，同时<strong>撤回库存变动</strong>并<strong>清除关联财务记录</strong>。此操作不可撤销。
               </p>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-brand-400 mb-1">
-                请输入删除密码
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value)
-                  setPasswordError('')
-                }}
-                onKeyDown={(e) => e.key === 'Enter' && handleConfirmDelete()}
-                placeholder="输入删除密码"
-                autoFocus
-                className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary ${
-                  passwordError ? 'border-expense' : 'border-gray-300'
-                }`}
-              />
-              {passwordError && (
-                <p className="text-xs text-expense mt-1">{passwordError}</p>
-              )}
-            </div>
+            <p className="rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-300">
+              此操作使用当前 Supabase 登录身份执行，云端权限和审计日志会记录这次撤回。
+            </p>
+            {deleteError && (
+              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+                {deleteError}
+              </p>
+            )}
             <div className="flex gap-3 pt-1">
               <button
                 onClick={handleCancelDelete}
