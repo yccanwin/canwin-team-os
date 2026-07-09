@@ -2,19 +2,25 @@ import { useState } from 'react'
 import { useUserStore } from '@/stores/useUserStore'
 import { Coffee, Heart, AlertTriangle, Pencil, X, Check, MessageCircle, NotebookText } from 'lucide-react'
 import { updateProfileRecord } from '@/services/profile'
+import type { User } from '@/types'
 
 const WEEKDAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
 
-export default function PersonalInfoCard() {
+type PersonalInfoCardProps = {
+  user: User
+  canEdit: boolean
+}
+
+export default function PersonalInfoCard({ user, canEdit }: PersonalInfoCardProps) {
   const currentUser = useUserStore((s) => s.currentUser)
   const updateUser = useUserStore((s) => s.updateUser)
 
   const [editing, setEditing] = useState(false)
-  const [restDays, setRestDays] = useState<string[]>(currentUser.restDays ?? [])
-  const [communicationPreference, setCommunicationPreference] = useState(currentUser.communicationPreference ?? '')
-  const [mood, setMood] = useState(currentUser.mood ?? '')
-  const [taboos, setTaboos] = useState(currentUser.taboos ?? '')
-  const [notes, setNotes] = useState(currentUser.notes ?? '')
+  const [restDays, setRestDays] = useState<string[]>(user.restDays ?? [])
+  const [communicationPreference, setCommunicationPreference] = useState(user.communicationPreference ?? '')
+  const [mood, setMood] = useState(user.mood ?? '')
+  const [taboos, setTaboos] = useState(user.taboos ?? '')
+  const [notes, setNotes] = useState(user.notes ?? '')
 
   const toggleRestDay = (day: string) => {
     setRestDays((prev) =>
@@ -23,35 +29,36 @@ export default function PersonalInfoCard() {
   }
 
   const handleSave = () => {
-    updateUser(currentUser.id, { restDays, communicationPreference, mood, taboos, notes })
-    void updateProfileRecord(currentUser.id, { restDays, communicationPreference, mood, taboos, notes }).catch(() => {
-      updateUser(currentUser.id, {
-        restDays: currentUser.restDays,
-        communicationPreference: currentUser.communicationPreference,
-        mood: currentUser.mood,
-        taboos: currentUser.taboos,
-        notes: currentUser.notes,
+    if (!currentUser || !canEdit) return
+    updateUser(user.id, { restDays, communicationPreference, mood, taboos, notes })
+    void updateProfileRecord(user.id, { restDays, communicationPreference, mood, taboos, notes }).catch(() => {
+      updateUser(user.id, {
+        restDays: user.restDays,
+        communicationPreference: user.communicationPreference,
+        mood: user.mood,
+        taboos: user.taboos,
+        notes: user.notes,
       })
     })
     setEditing(false)
   }
 
   const handleCancel = () => {
-    setRestDays(currentUser.restDays ?? [])
-    setCommunicationPreference(currentUser.communicationPreference ?? '')
-    setMood(currentUser.mood ?? '')
-    setTaboos(currentUser.taboos ?? '')
-    setNotes(currentUser.notes ?? '')
+    setRestDays(user.restDays ?? [])
+    setCommunicationPreference(user.communicationPreference ?? '')
+    setMood(user.mood ?? '')
+    setTaboos(user.taboos ?? '')
+    setNotes(user.notes ?? '')
     setEditing(false)
   }
 
   // 没有编辑过任何信息时，显示空状态
   const hasContent =
-    (currentUser.restDays?.length ?? 0) > 0 ||
-    currentUser.communicationPreference ||
-    currentUser.mood ||
-    currentUser.taboos ||
-    currentUser.notes
+    (user.restDays?.length ?? 0) > 0 ||
+    user.communicationPreference ||
+    user.mood ||
+    user.taboos ||
+    user.notes
 
   return (
     <div className="bg-white rounded-card shadow-card p-6">
@@ -60,7 +67,7 @@ export default function PersonalInfoCard() {
         <h3 className="font-heading text-lg font-semibold text-brand-400">
           个人资料卡
         </h3>
-        {!editing ? (
+        {!editing && canEdit ? (
           <button
             onClick={() => setEditing(true)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-brand-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
@@ -68,7 +75,7 @@ export default function PersonalInfoCard() {
             <Pencil className="w-3.5 h-3.5" />
             编辑
           </button>
-        ) : (
+        ) : editing ? (
           <div className="flex items-center gap-2">
             <button
               onClick={handleCancel}
@@ -85,7 +92,7 @@ export default function PersonalInfoCard() {
               保存
             </button>
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* 无内容空状态 */}
@@ -117,9 +124,9 @@ export default function PersonalInfoCard() {
               </button>
             ))}
           </div>
-        ) : currentUser.restDays && currentUser.restDays.length > 0 ? (
+        ) : user.restDays && user.restDays.length > 0 ? (
           <div className="flex flex-wrap gap-1.5">
-            {currentUser.restDays.map((day) => (
+            {user.restDays.map((day) => (
               <span
                 key={day}
                 className="px-2.5 py-1 bg-amber-50 text-amber-700 rounded-md text-xs font-medium"
@@ -148,9 +155,9 @@ export default function PersonalInfoCard() {
             maxLength={120}
             className="w-full px-3 py-2 text-sm border border-brand-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 placeholder:text-brand-200/60"
           />
-        ) : currentUser.communicationPreference ? (
+        ) : user.communicationPreference ? (
           <p className="text-sm text-brand-300 bg-sky-50/60 rounded-lg px-3 py-2">
-            {currentUser.communicationPreference}
+            {user.communicationPreference}
           </p>
         ) : (
           <p className="text-xs text-brand-200">未设置</p>
@@ -172,9 +179,9 @@ export default function PersonalInfoCard() {
             maxLength={100}
             className="w-full px-3 py-2 text-sm border border-brand-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 placeholder:text-brand-200/60"
           />
-        ) : currentUser.mood ? (
+        ) : user.mood ? (
           <p className="text-sm text-brand-300 bg-rose-50/50 rounded-lg px-3 py-2">
-            {currentUser.mood}
+            {user.mood}
           </p>
         ) : (
           <p className="text-xs text-brand-200">未设置</p>
@@ -196,9 +203,9 @@ export default function PersonalInfoCard() {
             rows={3}
             className="w-full px-3 py-2 text-sm border border-brand-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 placeholder:text-brand-200/60 resize-none"
           />
-        ) : currentUser.taboos ? (
+        ) : user.taboos ? (
           <p className="text-sm text-brand-300 whitespace-pre-wrap bg-orange-50/50 rounded-lg px-3 py-2">
-            {currentUser.taboos}
+            {user.taboos}
           </p>
         ) : (
           <p className="text-xs text-brand-200">未设置</p>
@@ -220,9 +227,9 @@ export default function PersonalInfoCard() {
             rows={3}
             className="w-full px-3 py-2 text-sm border border-brand-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 placeholder:text-brand-200/60 resize-none"
           />
-        ) : currentUser.notes ? (
+        ) : user.notes ? (
           <p className="text-sm text-brand-300 whitespace-pre-wrap bg-emerald-50/50 rounded-lg px-3 py-2">
-            {currentUser.notes}
+            {user.notes}
           </p>
         ) : (
           <p className="text-xs text-brand-200">未设置</p>

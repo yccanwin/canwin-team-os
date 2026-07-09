@@ -73,14 +73,14 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-5">
-      <div className="rounded-2xl border border-amber-100 bg-[#fffaf0] p-4 sm:p-6">
+      <div className="dashboard-command-panel rounded-2xl border border-amber-100 bg-[#fffaf0] p-4 sm:p-6">
         <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr] lg:items-start">
           <div>
-            <p className="text-sm text-amber-700">{greeting}，今天先看团队状态</p>
+            <p className="command-eyebrow text-sm text-amber-700">{greeting}，今天先看团队状态</p>
             <h2 className="mt-1 font-heading text-2xl font-semibold text-brand-400 sm:text-3xl">
               今日团队状态
             </h2>
-            <p className="mt-2 text-sm leading-6 text-brand-300">
+            <p className="command-summary mt-2 text-sm leading-6 text-brand-300">
               今日营收 ¥{todayRevenue.toLocaleString()} · 本周目标完成度 {goalCompletionRate}% · {pendingTasks} 项进行中任务
             </p>
           </div>

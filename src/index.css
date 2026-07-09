@@ -138,3 +138,548 @@ body {
     linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(248, 250, 252, 0.88)),
     radial-gradient(circle at 80% 0%, rgba(99, 102, 241, 0.10), transparent 24%);
 }
+
+@keyframes loginGridDrift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-44px, -44px, 0);
+  }
+}
+
+@keyframes loginScan {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  12%, 72% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+
+@keyframes loginCodeFall {
+  from {
+    transform: translate3d(0, -48%, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes loginBeam {
+  0%, 100% {
+    transform: translate3d(-12%, 0, 0) rotate(-14deg);
+    opacity: 0.28;
+  }
+  50% {
+    transform: translate3d(12%, -6%, 0) rotate(-14deg);
+    opacity: 0.62;
+  }
+}
+
+@keyframes cyberButtonSweep {
+  from {
+    transform: translateX(-140%) skewX(-18deg);
+  }
+  to {
+    transform: translateX(140%) skewX(-18deg);
+  }
+}
+
+@keyframes cyberButtonPulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px rgba(103, 232, 249, 0.45),
+      0 0 26px rgba(34, 211, 238, 0.28);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(165, 243, 252, 0.75),
+      0 0 38px rgba(34, 211, 238, 0.5);
+  }
+}
+
+.login-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(135deg, rgba(34, 211, 238, 0.16), transparent 32%),
+    linear-gradient(315deg, rgba(16, 185, 129, 0.12), transparent 34%),
+    linear-gradient(180deg, rgba(7, 11, 22, 0.12), #070b16 76%);
+}
+
+.login-grid {
+  background-image:
+    linear-gradient(rgba(125, 211, 252, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(125, 211, 252, 0.12) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: linear-gradient(to bottom, transparent, black 18%, black 72%, transparent);
+  pointer-events: none;
+  animation: loginGridDrift 16s linear infinite;
+}
+
+.login-code-rain {
+  opacity: 0.42;
+  pointer-events: none;
+  mask-image: linear-gradient(to bottom, transparent, black 12%, black 78%, transparent);
+}
+
+.login-code-column {
+  position: absolute;
+  top: 0;
+  display: flex;
+  width: 160px;
+  flex-direction: column;
+  gap: 18px;
+  color: rgba(103, 232, 249, 0.62);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  line-height: 1.65;
+  text-shadow: 0 0 14px rgba(34, 211, 238, 0.45);
+  animation: loginCodeFall 14s linear infinite;
+}
+
+.login-code-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.login-code-group span:nth-child(2n) {
+  color: rgba(16, 185, 129, 0.52);
+}
+
+.login-code-group span:nth-child(3n) {
+  color: rgba(226, 232, 240, 0.34);
+}
+
+.login-scan {
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(34, 211, 238, 0.08),
+    transparent
+  );
+  pointer-events: none;
+  animation: loginScan 5.4s ease-in-out infinite;
+}
+
+.login-beam {
+  height: 36vh;
+  width: 70vw;
+  background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.18), transparent);
+  filter: blur(18px);
+  pointer-events: none;
+}
+
+.login-beam-a {
+  left: -10vw;
+  top: 14vh;
+  animation: loginBeam 9s ease-in-out infinite;
+}
+
+.login-beam-b {
+  right: -22vw;
+  bottom: 10vh;
+  animation: loginBeam 11s ease-in-out infinite reverse;
+}
+
+.cyber-login-button {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(103, 232, 249, 0.72);
+  background:
+    linear-gradient(90deg, rgba(8, 47, 73, 0.9), rgba(34, 211, 238, 0.9), rgba(20, 184, 166, 0.88));
+  color: #03111f;
+  isolation: isolate;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    filter 160ms ease;
+  animation: cyberButtonPulse 2.8s ease-in-out infinite;
+}
+
+.cyber-login-button::before {
+  content: '';
+  position: absolute;
+  inset: -30% 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.72), transparent);
+  opacity: 0.55;
+  transform: translateX(-140%) skewX(-18deg);
+}
+
+.cyber-login-button::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  pointer-events: none;
+}
+
+.cyber-login-button:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.cyber-login-button:hover::before,
+.cyber-login-button.is-loading::before {
+  animation: cyberButtonSweep 1.15s linear infinite;
+}
+
+.cyber-login-button:disabled {
+  cursor: wait;
+}
+
+.cyber-login-button > svg,
+.cyber-login-button > span {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes desktopGridDrift {
+  from {
+    background-position: 0 0, 0 0, 0 0;
+  }
+  to {
+    background-position: 34px 34px, -48px 48px, 0 0;
+  }
+}
+
+@keyframes desktopScanLine {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  20%, 65% {
+    opacity: 0.55;
+  }
+  100% {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+
+@keyframes desktopPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes desktopGlowPulse {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.35);
+  }
+}
+
+@keyframes desktopButtonSweep {
+  from {
+    transform: translateX(-140%) skewX(-18deg);
+  }
+  to {
+    transform: translateX(140%) skewX(-18deg);
+  }
+}
+
+@media (min-width: 1024px) {
+  .desktop-tech-mode {
+    position: relative;
+    isolation: isolate;
+    background:
+      linear-gradient(rgba(14, 165, 233, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(14, 165, 233, 0.035) 1px, transparent 1px),
+      radial-gradient(circle at 82% 8%, rgba(34, 211, 238, 0.14), transparent 30%),
+      radial-gradient(circle at 18% 92%, rgba(16, 185, 129, 0.10), transparent 28%),
+      linear-gradient(180deg, rgba(248, 250, 252, 0.94), rgba(241, 245, 249, 0.98));
+    background-size: 34px 34px, 34px 34px, auto, auto, auto;
+    animation: desktopGridDrift 26s linear infinite;
+  }
+
+  .desktop-tech-mode::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      rgba(34, 211, 238, 0.08),
+      transparent
+    );
+    animation: desktopScanLine 8s ease-in-out infinite;
+  }
+
+  .desktop-tech-mode::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      linear-gradient(120deg, transparent 0 34%, rgba(255, 255, 255, 0.4) 46%, transparent 58%),
+      radial-gradient(circle at 72% 18%, rgba(99, 102, 241, 0.08), transparent 22%);
+    opacity: 0.8;
+  }
+
+  .desktop-tech-mode .app-sidebar {
+    position: relative;
+    overflow: hidden;
+    border-right: 1px solid rgba(125, 211, 252, 0.16);
+    background:
+      linear-gradient(180deg, rgba(12, 21, 38, 0.98), rgba(15, 23, 42, 0.96)),
+      radial-gradient(circle at 40% 0%, rgba(34, 211, 238, 0.24), transparent 36%);
+    box-shadow: 18px 0 44px rgba(15, 23, 42, 0.18);
+  }
+
+  .desktop-tech-mode .app-sidebar::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 2px;
+    background: linear-gradient(180deg, transparent, rgba(34, 211, 238, 0.8), rgba(16, 185, 129, 0.55), transparent);
+    box-shadow: 0 0 20px rgba(34, 211, 238, 0.48);
+  }
+
+  .desktop-tech-mode .app-nav-item {
+    position: relative;
+    overflow: hidden;
+    will-change: transform;
+    transition:
+      transform 180ms ease,
+      background-color 180ms ease,
+      color 180ms ease,
+      box-shadow 180ms ease;
+  }
+
+  .desktop-tech-mode .app-nav-item::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.12), transparent);
+    opacity: 0;
+    transform: translateX(-45%);
+    transition:
+      opacity 180ms ease,
+      transform 220ms ease;
+  }
+
+  .desktop-tech-mode .app-nav-item:hover {
+    transform: translateX(4px);
+    box-shadow: inset 0 0 0 1px rgba(125, 211, 252, 0.10);
+  }
+
+  .desktop-tech-mode .app-nav-item:hover::after,
+  .desktop-tech-mode .app-nav-item.is-active::after {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  .desktop-tech-mode .app-nav-item.is-active {
+    box-shadow:
+      inset 0 0 0 1px rgba(99, 102, 241, 0.24),
+      0 0 22px rgba(99, 102, 241, 0.16);
+  }
+
+  .desktop-tech-mode .app-nav-item svg {
+    position: relative;
+    z-index: 1;
+    transition:
+      color 180ms ease,
+      filter 180ms ease,
+      transform 180ms ease;
+  }
+
+  .desktop-tech-mode .app-nav-item:hover svg,
+  .desktop-tech-mode .app-nav-item.is-active svg {
+    filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.58));
+    transform: scale(1.04);
+  }
+
+  .desktop-tech-mode .app-nav-item span {
+    position: relative;
+    z-index: 1;
+  }
+
+  .desktop-tech-mode .app-topbar {
+    border-bottom-color: rgba(125, 211, 252, 0.22);
+    background:
+      linear-gradient(90deg, rgba(255, 255, 255, 0.76), rgba(248, 250, 252, 0.88)),
+      linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.08), transparent);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.8),
+      0 12px 34px rgba(15, 23, 42, 0.06);
+  }
+
+  .desktop-tech-mode .app-user-button {
+    border: 1px solid rgba(125, 211, 252, 0.16);
+    background: rgba(255, 255, 255, 0.54);
+  }
+
+  .desktop-tech-mode .app-user-button:hover {
+    background: rgba(236, 254, 255, 0.74);
+    box-shadow: 0 0 24px rgba(34, 211, 238, 0.14);
+  }
+
+  .desktop-tech-mode .app-main {
+    animation: desktopPanelIn 420ms ease-out both;
+  }
+
+  .desktop-tech-mode .app-main section,
+  .desktop-tech-mode .app-main .rounded-card.bg-white,
+  .desktop-tech-mode .app-main .bg-white.rounded-card,
+  .desktop-tech-mode .app-main .bg-white.rounded-xl,
+  .desktop-tech-mode .app-main .bg-white.rounded-2xl {
+    position: relative;
+    border-color: rgba(125, 211, 252, 0.18);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.82) inset,
+      0 14px 34px rgba(15, 23, 42, 0.055);
+    transition:
+      transform 190ms ease,
+      border-color 190ms ease,
+      box-shadow 190ms ease,
+      background-color 190ms ease;
+  }
+
+  .desktop-tech-mode .app-main section:hover,
+  .desktop-tech-mode .app-main .rounded-card.bg-white:hover,
+  .desktop-tech-mode .app-main .bg-white.rounded-card:hover,
+  .desktop-tech-mode .app-main .bg-white.rounded-xl:hover,
+  .desktop-tech-mode .app-main .bg-white.rounded-2xl:hover {
+    transform: translateY(-2px);
+    border-color: rgba(34, 211, 238, 0.34);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.92) inset,
+      0 20px 44px rgba(15, 23, 42, 0.08),
+      0 0 0 1px rgba(34, 211, 238, 0.05);
+  }
+
+  .desktop-tech-mode .app-main tr,
+  .desktop-tech-mode .app-main [class*='hover:bg-brand-50'],
+  .desktop-tech-mode .app-main [class*='hover:shadow'] {
+    transition:
+      transform 160ms ease,
+      background-color 160ms ease,
+      box-shadow 160ms ease,
+      border-color 160ms ease;
+  }
+
+  .desktop-tech-mode .app-main tr:hover {
+    background: rgba(236, 254, 255, 0.58);
+  }
+
+  .desktop-tech-mode .app-main button:not([class*='text-red']):not([class*='bg-red']):not([class*='expense']),
+  .desktop-tech-mode .app-main a[class*='bg-primary'],
+  .desktop-tech-mode .app-main a[class*='bg-indigo'],
+  .desktop-tech-mode .app-main a[class*='bg-violet'] {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .desktop-tech-mode .app-main button:not([class*='text-red']):not([class*='bg-red']):not([class*='expense'])::before,
+  .desktop-tech-mode .app-main a[class*='bg-primary']::before,
+  .desktop-tech-mode .app-main a[class*='bg-indigo']::before,
+  .desktop-tech-mode .app-main a[class*='bg-violet']::before {
+    content: '';
+    position: absolute;
+    inset: -40% 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.38), transparent);
+    opacity: 0;
+    transform: translateX(-140%) skewX(-18deg);
+    pointer-events: none;
+  }
+
+  .desktop-tech-mode .app-main button:not([class*='text-red']):not([class*='bg-red']):not([class*='expense']):hover::before,
+  .desktop-tech-mode .app-main a[class*='bg-primary']:hover::before,
+  .desktop-tech-mode .app-main a[class*='bg-indigo']:hover::before,
+  .desktop-tech-mode .app-main a[class*='bg-violet']:hover::before {
+    opacity: 1;
+    animation: desktopButtonSweep 900ms ease-out;
+  }
+
+  .desktop-tech-mode .dashboard-command-panel {
+    position: relative;
+    overflow: hidden;
+    border-color: rgba(34, 211, 238, 0.28);
+    background:
+      linear-gradient(135deg, rgba(255, 255, 255, 0.86), rgba(236, 254, 255, 0.72)),
+      radial-gradient(circle at 88% 18%, rgba(34, 211, 238, 0.18), transparent 28%),
+      linear-gradient(rgba(14, 165, 233, 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(14, 165, 233, 0.06) 1px, transparent 1px);
+    background-size: auto, auto, 28px 28px, 28px 28px;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.9) inset,
+      0 20px 60px rgba(14, 165, 233, 0.10);
+  }
+
+  .desktop-tech-mode .dashboard-command-panel::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.74), rgba(16, 185, 129, 0.5), transparent);
+  }
+
+  .desktop-tech-mode .dashboard-command-panel::after {
+    content: '';
+    position: absolute;
+    right: 24px;
+    top: 24px;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: #22c55e;
+    box-shadow: 0 0 18px rgba(34, 197, 94, 0.7);
+    animation: desktopGlowPulse 2.4s ease-in-out infinite;
+  }
+
+  .desktop-tech-mode .dashboard-command-panel > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .desktop-tech-mode .command-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #0e7490;
+    letter-spacing: 0.02em;
+  }
+
+  .desktop-tech-mode .command-eyebrow::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: #22c55e;
+    box-shadow: 0 0 12px rgba(34, 197, 94, 0.72);
+  }
+
+  .desktop-tech-mode .command-summary {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    border: 1px solid rgba(125, 211, 252, 0.24);
+    background: rgba(255, 255, 255, 0.56);
+    padding: 6px 10px;
+    border-radius: 999px;
+    color: #334155;
+  }
+}

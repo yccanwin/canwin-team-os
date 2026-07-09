@@ -19,12 +19,14 @@ type ProfileRow = {
   mood?: string | null
   taboos?: string | null
   notes?: string | null
+  learning_notes?: string | null
 }
 
 const PROFILE_SELECT =
   'id, team_id, name, role, position, avatar_url, join_date, status, rest_days, communication_preference, mood, taboos, notes'
 
 const ADMIN_LOGIN_EMAIL = 'admin@yccanwin.com'
+const SUPABASE_AUTH_STORAGE_KEY = 'sb-agygfhmkazcbqaqwmljb-auth-token'
 
 function normalizeLoginEmail(value: string): string {
   const input = value.trim()
@@ -46,7 +48,30 @@ function profileToUser(profile: ProfileRow): User {
     mood: profile.mood ?? undefined,
     taboos: profile.taboos ?? undefined,
     notes: profile.notes ?? undefined,
+    learningNotes: profile.learning_notes ?? undefined,
   }
+}
+
+async function loadProfileLearningNotes(ids: string[]): Promise<Record<string, string | undefined>> {
+  const uniqueIds = Array.from(new Set(ids.filter(Boolean)))
+  if (uniqueIds.length === 0) return {}
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, learning_notes')
+    .in('id', uniqueIds)
+
+  if (error) {
+    console.warn('learning_notes column is not available yet:', error.message)
+    return {}
+  }
+
+  return Object.fromEntries(
+    (data ?? []).map((profile) => [
+      profile.id as string,
+      (profile.learning_notes as string | null) ?? undefined,
+    ])
+  )
 }
 
 export function roleLabel(role: UserRole): string {
@@ -92,7 +117,9 @@ export async function loadCurrentProfile(session?: Session | null): Promise<User
   if (!data) throw new Error('当前账号缺少 profiles 资料，请先执行 Supabase schema 并初始化 admin profile。')
   if (data.status && data.status !== 'active') throw new Error('当前账号已停用，请联系管理员。')
 
-  return profileToUser(data as ProfileRow)
+  const user = profileToUser(data as ProfileRow)
+  const learningNotes = await loadProfileLearningNotes([user.id])
+  return { ...user, learningNotes: learningNotes[user.id] }
 }
 
 export async function loadTeamProfiles(): Promise<User[]> {
@@ -104,31 +131,58 @@ export async function loadTeamProfiles(): Promise<User[]> {
     .order('created_at', { ascending: true })
 
   if (error) throw new Error(error.message)
-  return (data ?? []).map((profile) => profileToUser(profile as ProfileRow))
+  const users = (data ?? []).map((profile) => profileToUser(profile as ProfileRow))
+  const learningNotes = await loadProfileLearningNotes(users.map((user) => user.id))
+  return users.map((user) => ({ ...user, learningNotes: learningNotes[user.id] }))
 }
 
 export async function updateProfileRecord(
   id: string,
-  updates: Pick<Partial<User>, 'name' | 'position' | 'avatar' | 'restDays' | 'communicationPreference' | 'mood' | 'taboos' | 'notes'>
+  updates: Pick<Partial<User>, 'name' | 'position' | 'avatar' | 'restDays' | 'communicationPreference' | 'mood' | 'taboos' | 'notes' | 'learningNotes'>
 ): Promise<User> {
-  const { data, error } = await supabase
-    .from('profiles')
-    .update({
-      name: updates.name,
-      position: updates.position,
-      avatar_url: updates.avatar,
-      rest_days: updates.restDays,
-      communication_preference: updates.communicationPreference,
-      mood: updates.mood,
-      taboos: updates.taboos,
-      notes: updates.notes,
-    })
-    .eq('id', id)
-    .select(PROFILE_SELECT)
-    .single()
+  const baseUpdates: Record<string, unknown> = {}
+  if ('name' in updates) baseUpdates.name = updates.name
+  if ('position' in updates) baseUpdates.position = updates.position
+  if ('avatar' in updates) baseUpdates.avatar_url = updates.avatar
+  if ('restDays' in updates) baseUpdates.rest_days = updates.restDays
+  if ('communicationPreference' in updates) baseUpdates.communication_preference = updates.communicationPreference
+  if ('mood' in updates) baseUpdates.mood = updates.mood
+  if ('taboos' in updates) baseUpdates.taboos = updates.taboos
+  if ('notes' in updates) baseUpdates.notes = updates.notes
 
-  if (error) throw new Error(error.message)
-  return profileToUser(data as ProfileRow)
+  let user: User
+  if (Object.keys(baseUpdates).length > 0) {
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(baseUpdates)
+      .eq('id', id)
+      .select(PROFILE_SELECT)
+      .single()
+
+    if (error) throw new Error(error.message)
+    user = profileToUser(data as ProfileRow)
+  } else {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select(PROFILE_SELECT)
+      .eq('id', id)
+      .single()
+
+    if (error) throw new Error(error.message)
+    user = profileToUser(data as ProfileRow)
+  }
+
+  if ('learningNotes' in updates) {
+    const { error: learningError } = await supabase
+      .from('profiles')
+      .update({ learning_notes: updates.learningNotes })
+      .eq('id', id)
+
+    if (learningError) throw new Error(learningError.message)
+    return { ...user, learningNotes: updates.learningNotes }
+  }
+
+  return user
 }
 
 export async function signInWithPassword(login: string, password: string): Promise<User> {
@@ -142,6 +196,12 @@ export async function signInWithPassword(login: string, password: string): Promi
 }
 
 export async function signOut(): Promise<void> {
-  const { error } = await supabase.auth.signOut()
+  if (typeof window !== 'undefined') {
+    window.localStorage.removeItem(SUPABASE_AUTH_STORAGE_KEY)
+    window.localStorage.removeItem(`${SUPABASE_AUTH_STORAGE_KEY}-code-verifier`)
+    window.localStorage.removeItem(`${SUPABASE_AUTH_STORAGE_KEY}-user`)
+  }
+
+  const { error } = await supabase.auth.signOut({ scope: 'local' })
   if (error) throw new Error(error.message)
 }

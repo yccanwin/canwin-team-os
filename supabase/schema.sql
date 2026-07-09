@@ -73,9 +73,12 @@ create table if not exists profiles (
   mood text,
   taboos text,
   notes text,
+  learning_notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table profiles add column if not exists learning_notes text;
 
 create table if not exists tasks (
   id uuid primary key default gen_random_uuid(),

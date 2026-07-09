@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, ChevronLeft, ChevronRight, Calendar, User, Clock, Edit3, Trash2, ArrowRight, Link } from 'lucide-react'
+import { X, ChevronLeft, ChevronRight, Calendar, User, Clock, Edit3, Trash2, ArrowRight, Link, Download } from 'lucide-react'
 import type { Achievement } from '@/types'
 import { useUserStore } from '@/stores/useUserStore'
 
@@ -48,6 +48,7 @@ export default function AchievementDetailModal({
   const navigate = useNavigate()
   const users = useUserStore((s) => s.users)
   const [previewIndex, setPreviewIndex] = useState<number | null>(null)
+  const [iconPreviewOpen, setIconPreviewOpen] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const creator = users.find((u) => u.id === achievement.createdBy)
@@ -88,11 +89,19 @@ export default function AchievementDetailModal({
           <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100">
             <div className="flex items-center gap-4 flex-1 min-w-0">
               {achievement.icon ? (
-                <img
-                  src={achievement.icon}
-                  alt={achievement.name}
-                  className="w-16 h-16 object-contain rounded-xl border border-gray-100 flex-shrink-0"
-                />
+                <button
+                  type="button"
+                  onClick={() => setIconPreviewOpen(true)}
+                  className="group relative w-16 h-16 rounded-xl border border-gray-100 bg-white flex-shrink-0 overflow-hidden hover:ring-2 hover:ring-indigo-400 transition-all"
+                  title="点击放大"
+                >
+                  <img
+                    src={achievement.icon}
+                    alt={achievement.name}
+                    className="w-full h-full object-contain"
+                  />
+                  <span className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                </button>
               ) : (
                 <span className="text-5xl flex-shrink-0 text-neutral-tertiary">🏢</span>
               )}
@@ -250,6 +259,41 @@ export default function AchievementDetailModal({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Logo / 二维码预览 */}
+      {iconPreviewOpen && achievement.icon && (
+        <div
+          className="fixed inset-0 bg-black/90 z-[70] flex items-center justify-center p-4"
+          onClick={() => setIconPreviewOpen(false)}
+        >
+          <button
+            onClick={() => setIconPreviewOpen(false)}
+            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors z-10"
+            aria-label="关闭预览"
+          >
+            <X className="w-6 h-6 text-white" />
+          </button>
+
+          <a
+            href={achievement.icon}
+            download={`${achievement.name}-qrcode`}
+            target="_blank"
+            rel="noreferrer"
+            className="absolute bottom-6 left-1/2 -translate-x-1/2 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-brand-400 shadow-lg hover:bg-gray-100 transition-colors z-10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Download className="w-4 h-4" />
+            下载原图
+          </a>
+
+          <img
+            src={achievement.icon}
+            alt={`${achievement.name} Logo`}
+            className="max-w-[86vw] max-h-[78vh] object-contain select-none rounded-xl bg-white p-4"
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
 

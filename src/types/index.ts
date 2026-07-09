@@ -19,6 +19,7 @@ export interface User {
   mood?: string;          // 最近心情
   taboos?: string;        // 个人忌讳
   notes?: string;         // 协作备注
+  learningNotes?: string; // 本人补充的学习记录
 }
 
 // ---------- 任务 ----------

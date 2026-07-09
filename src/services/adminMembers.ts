@@ -13,6 +13,7 @@ type ProfileRow = {
   mood?: string | null
   taboos?: string | null
   notes?: string | null
+  learning_notes?: string | null
 }
 
 export type MemberPayload = {
@@ -40,6 +41,7 @@ function profileToUser(profile: ProfileRow): User {
     mood: profile.mood ?? undefined,
     taboos: profile.taboos ?? undefined,
     notes: profile.notes ?? undefined,
+    learningNotes: profile.learning_notes ?? undefined,
   }
 }
 

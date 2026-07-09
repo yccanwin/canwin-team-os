@@ -119,7 +119,7 @@ export default function Layout() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden page-surface">
+    <div className="desktop-tech-mode flex h-screen overflow-hidden page-surface">
       {/* 移动端遮罩 */}
       {sidebarOpen && (
         <div
@@ -133,7 +133,7 @@ export default function Layout() {
         className={`
           fixed lg:static inset-y-0 left-0 z-30
           flex flex-col
-          w-[200px] bg-[#172033] text-white shadow-2xl shadow-slate-900/20
+          app-sidebar w-[200px] bg-[#172033] text-white shadow-2xl shadow-slate-900/20
           transition-transform duration-300 ease-in-out
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
@@ -169,11 +169,11 @@ export default function Layout() {
                       to={item.to}
                       onClick={() => setSidebarOpen(false)}
                       className={`
-                        flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm
+                        app-nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm
                         transition-colors duration-150
                         ${
                           isActive
-                            ? 'bg-primary/20 text-white font-medium border-l-[3px] border-primary ml-[-12px] pl-[9px] rounded-l-none'
+                            ? 'is-active bg-primary/20 text-white font-medium border-l-[3px] border-primary ml-[-12px] pl-[9px] rounded-l-none'
                             : 'text-neutral-tertiary hover:bg-white/10 hover:text-white'
                         }
                       `}
@@ -198,9 +198,9 @@ export default function Layout() {
       </aside>
 
       {/* 右侧主区域 */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-transparent">
+      <div className="flex-1 flex flex-col overflow-visible bg-transparent">
         {/* 顶栏 */}
-        <header className="flex items-center justify-between h-14 px-4 bg-white/80 backdrop-blur border-b border-white/70 shadow-sm shrink-0">
+        <header className="app-topbar relative z-40 flex items-center justify-between h-14 px-4 overflow-visible bg-white/80 backdrop-blur border-b border-white/70 shadow-sm shrink-0">
           <button
             onClick={() => setSidebarOpen(true)}
             className="lg:hidden p-2 rounded-lg hover:bg-gray-100"
@@ -213,7 +213,7 @@ export default function Layout() {
             <div className="relative">
               <button
                 onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                className="app-user-button flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
               >
                 <div
                   className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white"
@@ -248,13 +248,11 @@ export default function Layout() {
                       个人主页
                     </NavLink>
                     <button
-                      onClick={async () => {
-                        try {
-                          await signOut()
-                        } finally {
-                          logout()
-                        }
+                      type="button"
+                      onClick={() => {
                         setUserDropdownOpen(false)
+                        logout()
+                        void signOut().catch(() => undefined)
                       }}
                       className="flex w-full items-center gap-2 px-3 py-2 text-sm text-expense hover:bg-red-50"
                     >
@@ -269,7 +267,7 @@ export default function Layout() {
         </header>
 
         {/* 内容区域 */}
-        <main className="flex-1 overflow-y-auto p-3 sm:p-5 animate-fade-in-up">
+        <main className="app-main flex-1 overflow-y-auto p-3 sm:p-5 animate-fade-in-up">
           <Outlet />
         </main>
       </div>

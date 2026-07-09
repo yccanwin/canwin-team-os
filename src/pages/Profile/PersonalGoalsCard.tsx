@@ -1,17 +1,20 @@
 import { useMemo } from 'react'
 import { Target, LockKeyhole, MessageSquareText } from 'lucide-react'
 import { usePersonalGoalStore } from '@/stores/usePersonalGoalStore'
-import { useUserStore } from '@/stores/useUserStore'
+import type { User } from '@/types'
 
-export default function PersonalGoalsCard() {
-  const currentUser = useUserStore((s) => s.currentUser)
+type PersonalGoalsCardProps = {
+  user: User
+}
+
+export default function PersonalGoalsCard({ user }: PersonalGoalsCardProps) {
   const allGoals = usePersonalGoalStore((s) => s.personalGoals)
   const goals = useMemo(
     () =>
       allGoals.filter(
-        (goal) => goal.userId === currentUser.id && (goal.visibility === 'team' || goal.userId === currentUser.id)
+        (goal) => goal.userId === user.id && goal.visibility === 'team'
       ),
-    [allGoals, currentUser.id]
+    [allGoals, user.id]
   )
 
   return (
