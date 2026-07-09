@@ -33,10 +33,10 @@ type ProfileStoryBoardProps = {
 }
 
 const SECTION_META = [
-  { key: 'learned', title: '学会了什么', empty: '还没有可归纳的学习线索。', icon: BookOpenCheck },
-  { key: 'accomplished', title: '做成了什么', empty: '还没有完成记录。', icon: CheckCircle2 },
-  { key: 'leftBehind', title: '留下了什么', empty: '还没有留下团队资产或记忆。', icon: Archive },
-  { key: 'experienced', title: '和我们一起经历过什么', empty: '还没有共同经历记录。', icon: Users },
+  { key: 'learned', title: '成长与技能沉淀', empty: '还没有可归纳的学习线索。', icon: BookOpenCheck },
+  { key: 'accomplished', title: '关键交付成果', empty: '还没有完成记录。', icon: CheckCircle2 },
+  { key: 'leftBehind', title: '知识与资产沉淀', empty: '还没有留下团队资产或记忆。', icon: Archive },
+  { key: 'experienced', title: '共同经历记录', empty: '还没有共同经历记录。', icon: Users },
 ] as const
 
 function yearsInTeam(joinDate: string) {
@@ -97,6 +97,10 @@ export default function ProfileStoryBoard({ user, canEdit }: ProfileStoryBoardPr
   const userSkills = useSkillStore((s) => s.userSkills)
 
   const [editingLearning, setEditingLearning] = useState(false)
+  const [editingIdentity, setEditingIdentity] = useState(false)
+  const [name, setName] = useState(user.name)
+  const [position, setPosition] = useState(user.position)
+  const [joinDate, setJoinDate] = useState(user.joinDate.split('T')[0])
   const [learningNotes, setLearningNotes] = useState(user.learningNotes ?? '')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
@@ -149,6 +153,30 @@ export default function ProfileStoryBoard({ user, canEdit }: ProfileStoryBoardPr
     }
   }
 
+  const handleSaveIdentity = async () => {
+    const previous = {
+      name: user.name,
+      position: user.position,
+      joinDate: user.joinDate,
+    }
+    setSaving(true)
+    setSaveError('')
+    updateUser(user.id, { name, position, joinDate })
+    try {
+      await updateProfileRecord(user.id, { name, position, joinDate })
+      setEditingIdentity(false)
+    } catch (error) {
+      updateUser(user.id, previous)
+      setName(previous.name)
+      setPosition(previous.position)
+      setJoinDate(previous.joinDate.split('T')[0])
+      setSaveError('基础档案保存失败，请确认当前账号有管理员权限。')
+      console.error(error)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <section className="space-y-4">
       <div className="overflow-hidden rounded-card border border-cyan-100 bg-white shadow-card">
@@ -160,10 +188,64 @@ export default function ProfileStoryBoard({ user, canEdit }: ProfileStoryBoardPr
                 <Fingerprint className="h-3.5 w-3.5" />
                 成员人物档案
               </div>
-              <h2 className="font-heading text-2xl font-semibold text-brand-400">这个人是谁</h2>
-              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-brand-300">
-                {user.name}，{user.position || '岗位待补充'}。{user.notes || user.communicationPreference || '团队正在继续补齐这个人的协作习惯、擅长方向和工作边界。'}
-              </p>
+              <div className="flex flex-wrap items-center gap-3">
+                <h2 className="font-heading text-2xl font-semibold text-brand-400">成员身份与协作画像</h2>
+                {canEdit && !editingIdentity && (
+                  <button
+                    onClick={() => setEditingIdentity(true)}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-white/80 px-3 py-1.5 text-xs font-medium text-brand-300 transition hover:bg-cyan-50 hover:text-cyan-700"
+                  >
+                    <PenLine className="h-3.5 w-3.5" />
+                    编辑基础档案
+                  </button>
+                )}
+              </div>
+              {editingIdentity ? (
+                <div className="mt-4 grid max-w-2xl gap-3 sm:grid-cols-3">
+                  <input
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    placeholder="成员姓名"
+                    className="rounded-lg border border-cyan-100 bg-white px-3 py-2 text-sm text-brand-400 outline-none focus:border-cyan-300"
+                  />
+                  <input
+                    value={position}
+                    onChange={(event) => setPosition(event.target.value)}
+                    placeholder="岗位/职责"
+                    className="rounded-lg border border-cyan-100 bg-white px-3 py-2 text-sm text-brand-400 outline-none focus:border-cyan-300"
+                  />
+                  <input
+                    type="date"
+                    value={joinDate}
+                    onChange={(event) => setJoinDate(event.target.value)}
+                    className="rounded-lg border border-cyan-100 bg-white px-3 py-2 text-sm text-brand-400 outline-none focus:border-cyan-300"
+                  />
+                  <div className="flex gap-2 sm:col-span-3">
+                    <button
+                      onClick={() => {
+                        setName(user.name)
+                        setPosition(user.position)
+                        setJoinDate(user.joinDate.split('T')[0])
+                        setEditingIdentity(false)
+                      }}
+                      className="rounded-lg bg-white px-3 py-2 text-xs font-medium text-brand-300"
+                    >
+                      取消
+                    </button>
+                    <button
+                      onClick={handleSaveIdentity}
+                      disabled={saving || !name.trim()}
+                      className="rounded-lg bg-cyan-600 px-3 py-2 text-xs font-medium text-white disabled:opacity-50"
+                    >
+                      {saving ? '保存中...' : '保存基础档案'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-brand-300">
+                  {user.name}，{user.position || '岗位/职责待补充'}。{user.notes || user.communicationPreference || '当前档案正在补充协作习惯、专业方向与团队配合边界。'}
+                </p>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Metric label="在队时间" value={yearsInTeam(user.joinDate)} />
@@ -178,7 +260,7 @@ export default function ProfileStoryBoard({ user, canEdit }: ProfileStoryBoardPr
           <div className="border-b border-cyan-100 p-5 lg:border-b-0 lg:border-r">
             <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-brand-400">
               <CalendarClock className="h-4 w-4 text-cyan-600" />
-              什么时候来的
+              加入时间与团队资历
             </div>
             <p className="text-sm text-brand-300">{formatDate(user.joinDate)} 加入，已经一起走过 {yearsInTeam(user.joinDate)}。</p>
           </div>
@@ -199,9 +281,9 @@ export default function ProfileStoryBoard({ user, canEdit }: ProfileStoryBoardPr
           <div>
             <div className="mb-1 flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-cyan-600" />
-              <h3 className="font-heading text-lg font-semibold text-brand-400">本人补充的学习记录</h3>
+              <h3 className="font-heading text-lg font-semibold text-brand-400">成长记录补充</h3>
             </div>
-            <p className="text-xs text-brand-200">自动归纳之外，保留这个人自己说清楚的成长。</p>
+            <p className="text-xs text-brand-200">在系统自动归纳之外，补充成员的能力成长、学习阶段与专业方向。</p>
           </div>
           {canEdit && !editingLearning && (
             <button

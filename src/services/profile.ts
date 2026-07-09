@@ -138,12 +138,13 @@ export async function loadTeamProfiles(): Promise<User[]> {
 
 export async function updateProfileRecord(
   id: string,
-  updates: Pick<Partial<User>, 'name' | 'position' | 'avatar' | 'restDays' | 'communicationPreference' | 'mood' | 'taboos' | 'notes' | 'learningNotes'>
+  updates: Pick<Partial<User>, 'name' | 'position' | 'avatar' | 'joinDate' | 'restDays' | 'communicationPreference' | 'mood' | 'taboos' | 'notes' | 'learningNotes'>
 ): Promise<User> {
   const baseUpdates: Record<string, unknown> = {}
   if ('name' in updates) baseUpdates.name = updates.name
   if ('position' in updates) baseUpdates.position = updates.position
   if ('avatar' in updates) baseUpdates.avatar_url = updates.avatar
+  if ('joinDate' in updates) baseUpdates.join_date = updates.joinDate
   if ('restDays' in updates) baseUpdates.rest_days = updates.restDays
   if ('communicationPreference' in updates) baseUpdates.communication_preference = updates.communicationPreference
   if ('mood' in updates) baseUpdates.mood = updates.mood

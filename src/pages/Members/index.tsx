@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { roleLabel } from '@/services/profile'
 import { useUserStore } from '@/stores/useUserStore'
 
@@ -30,6 +31,12 @@ export default function MembersPage() {
               <InfoRow label="注意事项" value={user.taboos || '未填写'} />
               <InfoRow label="协作备注" value={user.notes || '未填写'} />
             </div>
+            <Link
+              to={`/profile?id=${user.id}`}
+              className="mt-4 inline-flex w-full items-center justify-center rounded-lg border border-cyan-100 bg-cyan-50 px-3 py-2 text-sm font-medium text-cyan-700 transition hover:bg-cyan-100"
+            >
+              查看成员档案
+            </Link>
           </section>
         ))}
       </div>

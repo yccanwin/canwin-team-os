@@ -6,6 +6,7 @@ import PersonalGoalsCard from './PersonalGoalsCard'
 import ProfileStoryBoard from './ProfileStoryBoard'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import { useUserStore } from '@/stores/useUserStore'
+import { isCaptainRole } from '@/services/profile'
 
 export default function ProfilePage() {
   const [searchParams] = useSearchParams()
@@ -29,7 +30,7 @@ export default function ProfilePage() {
     )
   }
 
-  const canEdit = currentUser?.id === displayUser.id
+  const canEdit = currentUser?.id === displayUser.id || isCaptainRole(currentUser?.role)
 
   return (
     <div className="mx-auto max-w-6xl px-3 py-4 lg:px-6">
