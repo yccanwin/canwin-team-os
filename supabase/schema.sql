@@ -270,6 +270,30 @@ create table if not exists tools (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists skills (
+  id uuid primary key default gen_random_uuid(),
+  team_id text not null references teams(id) default 'CANWIN_TEAM',
+  name text not null,
+  category text not null default 'other',
+  level text not null default 'basic',
+  description text,
+  learning_url text,
+  prerequisite_ids jsonb not null default '[]'::jsonb,
+  created_by uuid references auth.users(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists user_skills (
+  id uuid primary key default gen_random_uuid(),
+  team_id text not null references teams(id) default 'CANWIN_TEAM',
+  user_id uuid not null references profiles(id) on delete cascade,
+  skill_id uuid not null references skills(id) on delete cascade,
+  note text,
+  lit_at timestamptz not null default now(),
+  unique (user_id, skill_id)
+);
+
 create table if not exists team_goals (
   id uuid primary key default gen_random_uuid(),
   team_id text not null references teams(id) default 'CANWIN_TEAM',
@@ -432,7 +456,8 @@ begin
     'team_data','teams','profiles','tasks','calendar_events','finance_records',
     'inventory_items','inventory_logs','assets','timeline_events','achievements',
     'photos','votes','vote_options','vote_records','announcements','tools',
-    'team_goals','personal_goals','goal_updates','badges','badge_awards','audit_logs'
+    'team_goals','personal_goals','goal_updates','badges','badge_awards','audit_logs',
+    'skills','user_skills'
   ]
   loop
     execute format('alter table public.%I enable row level security', table_name);
@@ -515,6 +540,19 @@ create policy "team members read tools" on tools for select to authenticated usi
 create policy "team members add tools" on tools for insert to authenticated with check (public.is_team_member(team_id) and created_by = auth.uid());
 create policy "owners or captains manage tools" on tools for update to authenticated using (created_by = auth.uid() or public.has_role(team_id, array['admin','captain'])) with check (created_by = auth.uid() or public.has_role(team_id, array['admin','captain']));
 create policy "owners or captains delete tools" on tools for delete to authenticated using (created_by = auth.uid() or public.has_role(team_id, array['admin','captain']));
+
+drop policy if exists "team members read skills" on skills;
+drop policy if exists "captains manage skills" on skills;
+drop policy if exists "team members read user skills" on user_skills;
+drop policy if exists "users light own skills" on user_skills;
+drop policy if exists "users update own skills" on user_skills;
+drop policy if exists "users delete own skills" on user_skills;
+create policy "team members read skills" on skills for select to authenticated using (public.is_team_member(team_id));
+create policy "captains manage skills" on skills for all to authenticated using (public.has_role(team_id, array['admin','captain'])) with check (public.has_role(team_id, array['admin','captain']));
+create policy "team members read user skills" on user_skills for select to authenticated using (public.is_team_member(team_id));
+create policy "users light own skills" on user_skills for insert to authenticated with check (public.is_team_member(team_id) and user_id = auth.uid());
+create policy "users update own skills" on user_skills for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy "users delete own skills" on user_skills for delete to authenticated using (user_id = auth.uid());
 
 create policy "team members read team goals" on team_goals for select to authenticated using (public.is_team_member(team_id));
 create policy "captains manage team goals" on team_goals for all to authenticated using (public.has_role(team_id, array['admin','captain'])) with check (public.has_role(team_id, array['admin','captain']));

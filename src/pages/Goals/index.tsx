@@ -29,7 +29,12 @@ const statusConfig: Record<
   locked: { label: '未解锁', bg: '#F1F5F9', text: '#94A3B8' },
 }
 
-export default function GoalsPage() {
+type GoalsPageProps = {
+  initialView?: 'team' | 'personal'
+  embedded?: boolean
+}
+
+export default function GoalsPage({ initialView = 'team', embedded = false }: GoalsPageProps) {
   const goals = useGoalStore((s) => s.goals)
   const personalGoals = usePersonalGoalStore((s) => s.personalGoals)
   const unlockPersonalGoal = usePersonalGoalStore((s) => s.unlockPersonalGoal)
@@ -44,7 +49,7 @@ export default function GoalsPage() {
   const [editingPersonalGoal, setEditingPersonalGoal] = useState<PersonalGoal | null>(null)
   const [newGoalOpen, setNewGoalOpen] = useState(false)
   const [newPersonalGoalOpen, setNewPersonalGoalOpen] = useState(false)
-  const [activeView, setActiveView] = useState<'team' | 'personal'>('team')
+  const [activeView, setActiveView] = useState<'team' | 'personal'>(initialView)
 
   // 确认弹窗状态
   const [showUnlockConfirm, setShowUnlockConfirm] = useState(false)
@@ -72,7 +77,7 @@ export default function GoalsPage() {
   return (
     <>
     <div className="px-3 lg:px-6 py-4">
-      <div className="mb-5 inline-flex w-full rounded-xl border border-brand-100 bg-white p-1 shadow-sm sm:w-auto">
+      {!embedded && <div className="mb-5 inline-flex w-full rounded-xl border border-brand-100 bg-white p-1 shadow-sm sm:w-auto">
         <button
           onClick={() => setActiveView('team')}
           className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium sm:flex-none ${activeView === 'team' ? 'bg-primary text-white' : 'text-brand-300 hover:bg-brand-50'}`}
@@ -85,7 +90,7 @@ export default function GoalsPage() {
         >
           个人目标
         </button>
-      </div>
+      </div>}
 
       {activeView === 'personal' ? (
         <PersonalGoalsView

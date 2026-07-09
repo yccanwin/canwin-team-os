@@ -21,6 +21,7 @@ import { useTimelineStore } from '@/stores/useTimelineStore'
 import { useToolboxStore } from '@/stores/useToolboxStore'
 import { useUserStore } from '@/stores/useUserStore'
 import { useVoteStore } from '@/stores/useVoteStore'
+import { useSkillStore } from '@/stores/useSkillStore'
 import { updateProfileRecord } from '@/services/profile'
 import { formatDate } from '@/utils/dateUtils'
 import { buildProfileStory, type StoryRecord } from './profileStory'
@@ -92,6 +93,8 @@ export default function ProfileStoryBoard({ user, canEdit }: ProfileStoryBoardPr
   const votes = useVoteStore((s) => s.votes)
   const assets = useAssetStore((s) => s.assets)
   const personalGoals = usePersonalGoalStore((s) => s.personalGoals)
+  const skills = useSkillStore((s) => s.skills)
+  const userSkills = useSkillStore((s) => s.userSkills)
 
   const [editingLearning, setEditingLearning] = useState(false)
   const [learningNotes, setLearningNotes] = useState(user.learningNotes ?? '')
@@ -113,6 +116,19 @@ export default function ProfileStoryBoard({ user, canEdit }: ProfileStoryBoardPr
         personalGoals,
       }),
     [achievements, assets, logs, personalGoals, photos, tasks, timelineEvents, tools, user, votes]
+  )
+
+  const litSkills = useMemo(
+    () =>
+      userSkills
+        .filter((item) => item.userId === user.id)
+        .map((item) => ({
+          record: item,
+          skill: skills.find((skill) => skill.id === item.skillId),
+        }))
+        .filter((item) => item.skill)
+        .sort((a, b) => new Date(b.record.litAt).getTime() - new Date(a.record.litAt).getTime()),
+    [skills, user.id, userSkills]
   )
 
   const handleSaveLearning = async () => {
@@ -235,6 +251,22 @@ export default function ProfileStoryBoard({ user, canEdit }: ProfileStoryBoardPr
             {canEdit ? '还没有补充学习记录，可以点击编辑写下自己真正学会的东西。' : '这个成员还没有补充学习记录。'}
           </p>
         )}
+
+        <div className="mt-4 border-t border-brand-100 pt-4">
+          <h4 className="mb-3 text-sm font-semibold text-brand-400">技能树点亮</h4>
+          {litSkills.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {litSkills.map(({ record, skill }) => (
+                <span key={record.id} className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  {skill?.name}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-xl bg-brand-50 px-4 py-4 text-sm text-brand-200">还没有点亮技能。</p>
+          )}
+        </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">

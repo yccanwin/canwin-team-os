@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Clock, Users, CheckCircle2, Lock, ChevronDown, ChevronUp, User } from 'lucide-react'
 import { useVoteStore } from '@/stores/useVoteStore'
 import { useUserStore } from '@/stores/useUserStore'
+import { useWarRoomStore } from '@/stores/useWarRoomStore'
 import StatusBadge from '@/components/StatusBadge'
 import ProgressBar from '@/components/ProgressBar'
 import { formatDate } from '@/utils/dateUtils'
@@ -39,6 +40,7 @@ export default function VoteDetail() {
   const getVoteStats = useVoteStore((s) => s.getVoteStats)
   const currentUser = useUserStore((s) => s.currentUser)
   const users = useUserStore((s) => s.users)
+  const policies = useWarRoomStore((s) => s.policies)
 
   const vote = votes.find((v) => v.id === voteId)
 
@@ -49,7 +51,7 @@ export default function VoteDetail() {
     if (vote && vote.isActive && new Date(vote.deadline) < new Date()) {
       useVoteStore.getState().closeVote(vote.id)
     }
-  }, [vote?.id, vote?.isActive, vote?.deadline])
+  }, [vote])
 
   if (!vote) {
     return (
@@ -75,6 +77,7 @@ export default function VoteDetail() {
   const totalVotes = vote.votes.length
   const totalUsers = users.length
   const myVote = vote.votes.find((r) => r.userId === currentUser.id)
+  const sourcePolicy = policies.find((policy) => policy.linkedVoteId === vote.id)
 
   // 最高票选项
   const maxVotes = Math.max(...stats.map((s) => s.count), 0)
@@ -122,12 +125,25 @@ export default function VoteDetail() {
             {totalVotes}/{totalUsers} 人已投票
           </span>
         </div>
+        {sourcePolicy && (
+          <button
+            onClick={() => navigate('/warroom')}
+            className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-left text-sm text-amber-800 hover:bg-amber-100"
+          >
+            来源军机处议题：{sourcePolicy.title}
+          </button>
+        )}
 
         {/* 投票锁定横幅 */}
         {isExpired && (
           <div className="mt-4 flex items-center justify-center gap-2 py-2.5 bg-gray-100 rounded-lg text-sm text-brand-400">
             <Lock className="w-4 h-4" />
             投票已结束
+          </div>
+        )}
+        {isExpired && stats.length > 0 && (
+          <div className="mt-3 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+            最终结果：{stats.slice().sort((a, b) => b.count - a.count)[0].label} · 参与率 {totalUsers ? Math.round((totalVotes / totalUsers) * 100) : 0}%
           </div>
         )}
       </div>

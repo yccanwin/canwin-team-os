@@ -12,6 +12,12 @@ type AnnouncementRow = {
 
 type PolicyContent = {
   content?: string
+  category?: WarRoomPolicy['category']
+  status?: WarRoomPolicy['status']
+  priority?: WarRoomPolicy['priority']
+  decisionSummary?: string
+  linkedVoteId?: string
+  linkedTaskIds?: string[]
   comments?: WarRoomComment[]
 }
 
@@ -32,15 +38,39 @@ function rowToPolicy(row: AnnouncementRow): WarRoomPolicy {
     id: row.id,
     title: row.title,
     content: parsed.content || '',
+    category: parsed.category || 'strategy',
+    status: parsed.status || 'discussing',
+    priority: parsed.priority || 'medium',
+    decisionSummary: parsed.decisionSummary,
+    linkedVoteId: parsed.linkedVoteId,
+    linkedTaskIds: parsed.linkedTaskIds ?? [],
     creatorId: row.created_by || '',
     createdAt: row.created_at,
     comments: parsed.comments ?? [],
   }
 }
 
-function policyToContent(policy: Pick<WarRoomPolicy, 'content' | 'comments'>) {
+function policyToContent(
+  policy: Pick<
+    WarRoomPolicy,
+    | 'content'
+    | 'category'
+    | 'status'
+    | 'priority'
+    | 'decisionSummary'
+    | 'linkedVoteId'
+    | 'linkedTaskIds'
+    | 'comments'
+  >
+) {
   return JSON.stringify({
     content: policy.content,
+    category: policy.category,
+    status: policy.status,
+    priority: policy.priority,
+    decisionSummary: policy.decisionSummary,
+    linkedVoteId: policy.linkedVoteId,
+    linkedTaskIds: policy.linkedTaskIds,
     comments: policy.comments,
   })
 }

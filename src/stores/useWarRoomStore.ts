@@ -19,11 +19,29 @@ function genCommentId() {
   return `comment-${++commentIdCounter}-${Math.random().toString(36).slice(2, 6)}`
 }
 
+function normalizePolicy(policy: WarRoomPolicy): WarRoomPolicy {
+  return {
+    ...policy,
+    category: policy.category ?? 'strategy',
+    status: policy.status ?? 'discussing',
+    priority: policy.priority ?? 'medium',
+    linkedTaskIds: policy.linkedTaskIds ?? [],
+    comments: policy.comments ?? [],
+  }
+}
+
 interface WarRoomState {
   policies: WarRoomPolicy[]
 
   setPolicies: (policies: WarRoomPolicy[]) => void
-  addPolicy: (data: { title: string; content: string; creatorId: string }) => void
+  addPolicy: (data: {
+    title: string
+    content: string
+    category: WarRoomPolicy['category']
+    priority: WarRoomPolicy['priority']
+    creatorId: string
+  }) => void
+  updatePolicy: (id: string, updates: Partial<WarRoomPolicy>) => void
   deletePolicy: (id: string) => void
 
   addComment: (policyId: string, userId: string, content: string) => void
@@ -35,13 +53,17 @@ export const useWarRoomStore = create<WarRoomState>()(
     (set, get) => ({
       policies: [],
 
-      setPolicies: (policies) => set({ policies }),
+      setPolicies: (policies) => set({ policies: policies.map(normalizePolicy) }),
 
-      addPolicy: ({ title, content, creatorId }) => {
+      addPolicy: ({ title, content, category, priority, creatorId }) => {
         const policy: WarRoomPolicy = {
           id: genPolicyId(),
           title,
           content,
+          category,
+          priority,
+          status: 'discussing',
+          linkedTaskIds: [],
           creatorId,
           createdAt: new Date().toISOString(),
           comments: [],
@@ -58,6 +80,21 @@ export const useWarRoomStore = create<WarRoomState>()(
               policies: s.policies.filter((p) => p.id !== policy.id),
             }))
           )
+      },
+
+      updatePolicy: (id, updates) => {
+        const previous = get().policies
+        let changedPolicy: WarRoomPolicy | undefined
+        set((s) => ({
+          policies: s.policies.map((p) => {
+            if (p.id !== id) return p
+            changedPolicy = { ...p, ...updates }
+            return changedPolicy
+          }),
+        }))
+        if (changedPolicy) {
+          void updateWarRoomPolicy(changedPolicy).catch(() => set({ policies: previous }))
+        }
       },
 
       deletePolicy: (id) => {
@@ -109,7 +146,7 @@ export const useWarRoomStore = create<WarRoomState>()(
     {
       name: 'canwin-warroom',
       storage: safeStorage,
-      version: 2,
+      version: 3,
       migrate: () => ({ policies: [] }),
     }
   )

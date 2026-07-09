@@ -1,13 +1,13 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Clock, Users, Vote as VoteIcon, CheckCircle2 } from 'lucide-react'
+import { Plus, Clock, Users, CheckCircle2 } from 'lucide-react'
 import { useVoteStore } from '@/stores/useVoteStore'
 import { useUserStore } from '@/stores/useUserStore'
+import { useWarRoomStore } from '@/stores/useWarRoomStore'
 import StatusBadge from '@/components/StatusBadge'
 import EmptyState from '@/components/EmptyState'
 import CreateVoteModal from './CreateVoteModal'
 import { isCaptainRole } from '@/services/profile'
-import type { Vote, VoteRecord } from '@/types'
 
 /** 计算截止倒计时 */
 function getDeadlineLabel(deadline: string): { text: string; urgent: boolean } {
@@ -36,6 +36,7 @@ export default function VotesPage() {
   const currentUser = useUserStore((s) => s.currentUser)
   const users = useUserStore((s) => s.users)
   const getUserById = useUserStore((s) => s.getUserById)
+  const policies = useWarRoomStore((s) => s.policies)
 
   const isCaptain = isCaptainRole(currentUser.role)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -96,6 +97,13 @@ export default function VotesPage() {
             const totalUsers = users.length
             const votedCount = vote.votes.length
             const hasVoted = vote.votes.some((r) => r.userId === currentUser.id)
+            const sourcePolicy = policies.find((policy) => policy.linkedVoteId === vote.id)
+            const result = vote.options
+              .map((option) => ({
+                label: option.label,
+                count: vote.votes.filter((record) => record.optionId === option.id).length,
+              }))
+              .sort((a, b) => b.count - a.count)[0]
 
             return (
               <div
@@ -142,6 +150,16 @@ export default function VotesPage() {
                         </span>
                       )}
                     </div>
+                    {sourcePolicy && (
+                      <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                        来源议题：{sourcePolicy.title}
+                      </p>
+                    )}
+                    {!vote.isActive && result && (
+                      <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                        最终结果：{result.label}（{result.count} 票，参与率 {totalUsers ? Math.round((votedCount / totalUsers) * 100) : 0}%）
+                      </p>
+                    )}
                   </div>
 
                   {/* 右侧箭头 */}

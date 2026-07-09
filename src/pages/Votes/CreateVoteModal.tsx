@@ -3,7 +3,6 @@ import { Plus, Minus } from 'lucide-react'
 import Modal from '@/components/Modal'
 import { useVoteStore } from '@/stores/useVoteStore'
 import { useUserStore } from '@/stores/useUserStore'
-import type { Vote } from '@/types'
 
 interface CreateVoteModalProps {
   isOpen: boolean
@@ -96,7 +95,7 @@ export default function CreateVoteModal({ isOpen, onClose }: CreateVoteModalProp
     // 创建投票
     createVote({
       title: title.trim(),
-      options: validOptions.map((label, i) => ({
+      options: validOptions.map((label) => ({
         id: crypto.randomUUID(),
         label,
       })),
@@ -104,7 +103,7 @@ export default function CreateVoteModal({ isOpen, onClose }: CreateVoteModalProp
       createdBy: currentUser.id,
       isActive: true,
       description: description.trim() || undefined,
-    } as any)
+    })
 
     handleClose()
   }

@@ -16,6 +16,7 @@ import { usePhotoStore } from './stores/usePhotoStore'
 import { useAssetStore } from './stores/useAssetStore'
 import { useToolboxStore } from './stores/useToolboxStore'
 import { useWarRoomStore } from './stores/useWarRoomStore'
+import { useSkillStore } from './stores/useSkillStore'
 import { isCaptainRole, isFinanceRole, isWarehouseRole, loadTeamProfiles } from './services/profile'
 import { loadTasks } from './services/tasks'
 import { loadFinancePublicSummary, loadFinanceRecords } from './services/finance'
@@ -30,12 +31,15 @@ import { loadPhotos } from './services/photos'
 import { loadAssets, loadPublicAssets } from './services/assets'
 import { loadTools } from './services/toolbox'
 import { loadWarRoomPolicies } from './services/warroom'
+import { loadSkills, loadUserSkills } from './services/skills'
 
 // 懒加载页面
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Tasks = lazy(() => import('./pages/Tasks'))
 const Goals = lazy(() => import('./pages/Goals'))
+const Work = lazy(() => import('./pages/Work'))
 const Votes = lazy(() => import('./pages/Votes'))
+const VoteDetail = lazy(() => import('./pages/Votes/VoteDetail'))
 const Inventory = lazy(() => import('./pages/Inventory'))
 const Finance = lazy(() => import('./pages/Finance'))
 const Timeline = lazy(() => import('./pages/Timeline'))
@@ -47,6 +51,7 @@ const Members = lazy(() => import('./pages/Members'))
 const Calendar = lazy(() => import('./pages/Calendar'))
 const Toolbox = lazy(() => import('./pages/Toolbox'))
 const WarRoom = lazy(() => import('./pages/WarRoom'))
+const Skills = lazy(() => import('./pages/Skills'))
 const Settings = lazy(() => import('./pages/Settings'))
 
 function App() {
@@ -65,6 +70,7 @@ function App() {
   const setAssets = useAssetStore((s) => s.setAssets)
   const setTools = useToolboxStore((s) => s.setTools)
   const setPolicies = useWarRoomStore((s) => s.setPolicies)
+  const setSkillData = useSkillStore((s) => s.setSkillData)
 
   useEffect(() => {
     if (!currentUser) return
@@ -87,6 +93,8 @@ function App() {
         assets,
         tools,
         policies,
+        skills,
+        userSkills,
       ] = await Promise.all([
         loadTeamProfiles(),
         loadTasks(),
@@ -104,6 +112,8 @@ function App() {
           : loadPublicAssets(),
         loadTools(),
         loadWarRoomPolicies(),
+        loadSkills(),
+        loadUserSkills(),
       ])
       if (cancelled) return
       setUsers(profiles)
@@ -120,6 +130,7 @@ function App() {
       setAssets(assets)
       setTools(tools)
       setPolicies(policies)
+      setSkillData({ skills, userSkills })
     }
 
     void loadCloudData()
@@ -141,6 +152,7 @@ function App() {
     setTools,
     setTimelineEvents,
     setPolicies,
+    setSkillData,
     setUsers,
     setVotes,
   ])
@@ -154,9 +166,11 @@ function App() {
       <Route element={<Layout />}>
         <Route path="/" element={<Suspense fallback={null}><Dashboard /></Suspense>} />
         <Route path="/dashboard" element={<Suspense fallback={null}><Dashboard /></Suspense>} />
+        <Route path="/work" element={<Suspense fallback={null}><Work /></Suspense>} />
         <Route path="/tasks" element={<Suspense fallback={null}><Tasks /></Suspense>} />
         <Route path="/goals" element={<Suspense fallback={null}><Goals /></Suspense>} />
         <Route path="/votes" element={<Suspense fallback={null}><Votes /></Suspense>} />
+        <Route path="/votes/:voteId" element={<Suspense fallback={null}><VoteDetail /></Suspense>} />
         <Route path="/inventory" element={<Suspense fallback={null}><Inventory /></Suspense>} />
         <Route path="/finance" element={<Suspense fallback={null}><Finance /></Suspense>} />
         <Route path="/timeline" element={<Suspense fallback={null}><Timeline /></Suspense>} />
@@ -165,6 +179,7 @@ function App() {
         <Route path="/assets" element={<Suspense fallback={null}><Assets /></Suspense>} />
         <Route path="/calendar" element={<Suspense fallback={null}><Calendar /></Suspense>} />
         <Route path="/toolbox" element={<Suspense fallback={null}><Toolbox /></Suspense>} />
+        <Route path="/skills" element={<Suspense fallback={null}><Skills /></Suspense>} />
         <Route path="/warroom" element={<Suspense fallback={null}><WarRoom /></Suspense>} />
         <Route path="/members" element={<Suspense fallback={null}><Members /></Suspense>} />
         <Route path="/profile" element={<Suspense fallback={null}><Profile /></Suspense>} />

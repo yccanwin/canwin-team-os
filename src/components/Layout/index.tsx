@@ -3,7 +3,6 @@ import { Outlet, NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard,
   CheckSquare,
-  Target,
   Vote,
   Package,
   Trophy,
@@ -20,6 +19,7 @@ import {
   CalendarDays,
   Wrench,
   Shield,
+  Network,
 } from 'lucide-react'
 import { useUserStore } from '@/stores/useUserStore'
 import { roleLabel, signOut } from '@/services/profile'
@@ -30,8 +30,7 @@ const NAV_GROUPS = [
     items: [
       { to: '/dashboard', icon: LayoutDashboard, label: '首页', exact: true },
       { to: '/calendar', icon: CalendarDays, label: '日历' },
-      { to: '/tasks', icon: CheckSquare, label: '任务' },
-      { to: '/goals', icon: Target, label: '目标' },
+      { to: '/work', icon: CheckSquare, label: '推进中心' },
     ],
   },
   {
@@ -61,6 +60,7 @@ const NAV_GROUPS = [
     label: '资源与成员',
     items: [
       { to: '/toolbox', icon: Wrench, label: '工具箱' },
+      { to: '/skills', icon: Network, label: '技能树' },
       { to: '/members', icon: Users, label: '团队成员' },
       { to: '/profile', icon: User, label: '个人主页' },
     ],

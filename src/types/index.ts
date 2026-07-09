@@ -103,11 +103,36 @@ export interface VoteRecord {
 export interface Vote {
   id: string;
   title: string;
+  description?: string;
   options: VoteOption[];
   deadline: string;
   createdBy: string;
   votes: VoteRecord[];
   isActive: boolean;
+}
+
+// ---------- 技能树 ----------
+export type SkillCategory = 'sales' | 'delivery' | 'operation' | 'product' | 'management' | 'other';
+export type SkillLevel = 'basic' | 'intermediate' | 'advanced';
+
+export interface Skill {
+  id: string;
+  name: string;
+  category: SkillCategory;
+  level: SkillLevel;
+  description?: string;
+  learningUrl?: string;
+  prerequisiteIds: string[];
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface UserSkill {
+  id: string;
+  userId: string;
+  skillId: string;
+  note?: string;
+  litAt: string;
 }
 
 // ---------- 勋章配置 ----------
