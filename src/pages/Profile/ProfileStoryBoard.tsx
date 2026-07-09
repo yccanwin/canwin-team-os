@@ -146,7 +146,7 @@ export default function ProfileStoryBoard({ user, canEdit }: ProfileStoryBoardPr
     } catch (error) {
       updateUser(user.id, { learningNotes: previous })
       setLearningNotes(previous ?? '')
-      setSaveError('保存失败，请确认 Supabase profiles 表已新增 learning_notes 字段。')
+      setSaveError('保存失败，请检查当前账号权限或网络连接。系统已支持无 learning_notes 字段时的兼容保存。')
       console.error(error)
     } finally {
       setSaving(false)

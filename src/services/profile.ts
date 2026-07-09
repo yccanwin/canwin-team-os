@@ -25,6 +25,12 @@ type ProfileRow = {
 const PROFILE_SELECT =
   'id, team_id, name, role, position, avatar_url, join_date, status, rest_days, communication_preference, mood, taboos, notes'
 
+type PackedProfileNotes = {
+  __canwinProfileNotes: true
+  notes?: string
+  learningNotes?: string
+}
+
 const ADMIN_LOGIN_EMAIL = 'admin@yccanwin.com'
 const SUPABASE_AUTH_STORAGE_KEY = 'sb-agygfhmkazcbqaqwmljb-auth-token'
 
@@ -34,7 +40,32 @@ function normalizeLoginEmail(value: string): string {
   return input
 }
 
+function unpackProfileNotes(value: string | null | undefined): { notes?: string; learningNotes?: string } {
+  if (!value) return {}
+  try {
+    const parsed = JSON.parse(value) as Partial<PackedProfileNotes>
+    if (parsed?.__canwinProfileNotes) {
+      return {
+        notes: parsed.notes || undefined,
+        learningNotes: parsed.learningNotes || undefined,
+      }
+    }
+  } catch {
+    // Plain text notes from older profiles.
+  }
+  return { notes: value }
+}
+
+function packProfileNotes(notes?: string, learningNotes?: string): string {
+  return JSON.stringify({
+    __canwinProfileNotes: true,
+    notes: notes || '',
+    learningNotes: learningNotes || '',
+  } satisfies PackedProfileNotes)
+}
+
 function profileToUser(profile: ProfileRow): User {
+  const unpackedNotes = unpackProfileNotes(profile.notes)
   return {
     id: profile.id,
     name: profile.name || '未命名成员',
@@ -47,8 +78,8 @@ function profileToUser(profile: ProfileRow): User {
     communicationPreference: profile.communication_preference ?? undefined,
     mood: profile.mood ?? undefined,
     taboos: profile.taboos ?? undefined,
-    notes: profile.notes ?? undefined,
-    learningNotes: profile.learning_notes ?? undefined,
+    notes: unpackedNotes.notes,
+    learningNotes: profile.learning_notes ?? unpackedNotes.learningNotes,
   }
 }
 
@@ -153,6 +184,21 @@ export async function updateProfileRecord(
 
   let user: User
   if (Object.keys(baseUpdates).length > 0) {
+    if ('notes' in updates && !('learningNotes' in updates)) {
+      const existingLearningNotes = await loadProfileLearningNotes([id])
+      if (existingLearningNotes[id] === undefined) {
+        const { data: existing } = await supabase
+          .from('profiles')
+          .select('notes')
+          .eq('id', id)
+          .single()
+        const unpacked = unpackProfileNotes((existing as { notes?: string | null } | null)?.notes)
+        if (unpacked.learningNotes) {
+          baseUpdates.notes = packProfileNotes(updates.notes, unpacked.learningNotes)
+        }
+      }
+    }
+
     const { data, error } = await supabase
       .from('profiles')
       .update(baseUpdates)
@@ -179,7 +225,17 @@ export async function updateProfileRecord(
       .update({ learning_notes: updates.learningNotes })
       .eq('id', id)
 
-    if (learningError) throw new Error(learningError.message)
+    if (learningError) {
+      const { data, error: fallbackError } = await supabase
+        .from('profiles')
+        .update({ notes: packProfileNotes(user.notes, updates.learningNotes) })
+        .eq('id', id)
+        .select(PROFILE_SELECT)
+        .single()
+
+      if (fallbackError) throw new Error(fallbackError.message || learningError.message)
+      return profileToUser(data as ProfileRow)
+    }
     return { ...user, learningNotes: updates.learningNotes }
   }
 

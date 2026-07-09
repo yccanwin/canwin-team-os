@@ -11,9 +11,9 @@ interface SkillState {
 
 interface SkillActions {
   setSkillData: (data: { skills: Skill[]; userSkills: UserSkill[] }) => void
-  addSkill: (skill: Omit<Skill, 'id' | 'createdAt'>) => void
-  lightSkill: (skillId: string, userId: string, note?: string) => void
-  unlightSkill: (skillId: string, userId: string) => void
+  addSkill: (skill: Omit<Skill, 'id' | 'createdAt'>) => Promise<void>
+  lightSkill: (skillId: string, userId: string, note?: string) => Promise<void>
+  unlightSkill: (skillId: string, userId: string) => Promise<void>
 }
 
 export const useSkillStore = create<SkillState & SkillActions>()(
@@ -24,25 +24,25 @@ export const useSkillStore = create<SkillState & SkillActions>()(
 
       setSkillData: ({ skills, userSkills }) => set({ skills, userSkills }),
 
-      addSkill: (skill) => {
+      addSkill: async (skill) => {
         const optimistic: Skill = {
           ...skill,
           id: crypto.randomUUID(),
           createdAt: new Date().toISOString(),
         }
         set((state) => ({ skills: [...state.skills, optimistic] }))
-        void createSkillRecord(skill)
-          .then((saved) =>
-            set((state) => ({
-              skills: state.skills.map((item) => (item.id === optimistic.id ? saved : item)),
-            }))
-          )
-          .catch(() =>
-            set((state) => ({ skills: state.skills.filter((item) => item.id !== optimistic.id) }))
-          )
+        try {
+          const saved = await createSkillRecord(skill)
+          set((state) => ({
+            skills: state.skills.map((item) => (item.id === optimistic.id ? saved : item)),
+          }))
+        } catch (error) {
+          set((state) => ({ skills: state.skills.filter((item) => item.id !== optimistic.id) }))
+          throw error
+        }
       },
 
-      lightSkill: (skillId, userId, note) => {
+      lightSkill: async (skillId, userId, note) => {
         if (get().userSkills.some((item) => item.skillId === skillId && item.userId === userId)) return
         const optimistic: UserSkill = {
           id: crypto.randomUUID(),
@@ -52,20 +52,20 @@ export const useSkillStore = create<SkillState & SkillActions>()(
           litAt: new Date().toISOString(),
         }
         set((state) => ({ userSkills: [optimistic, ...state.userSkills] }))
-        void lightSkillRecord(skillId, userId, note)
-          .then((saved) =>
-            set((state) => ({
-              userSkills: state.userSkills.map((item) => (item.id === optimistic.id ? saved : item)),
-            }))
-          )
-          .catch(() =>
-            set((state) => ({
-              userSkills: state.userSkills.filter((item) => item.id !== optimistic.id),
-            }))
-          )
+        try {
+          const saved = await lightSkillRecord(skillId, userId, note)
+          set((state) => ({
+            userSkills: state.userSkills.map((item) => (item.id === optimistic.id ? saved : item)),
+          }))
+        } catch (error) {
+          set((state) => ({
+            userSkills: state.userSkills.filter((item) => item.id !== optimistic.id),
+          }))
+          throw error
+        }
       },
 
-      unlightSkill: (skillId, userId) => {
+      unlightSkill: async (skillId, userId) => {
         const previous = get().userSkills
         const target = previous.find((item) => item.skillId === skillId && item.userId === userId)
         set((state) => ({
@@ -74,7 +74,12 @@ export const useSkillStore = create<SkillState & SkillActions>()(
           ),
         }))
         if (target) {
-          void unlightSkillRecord(target.id).catch(() => set({ userSkills: previous }))
+          try {
+            await unlightSkillRecord(target.id)
+          } catch (error) {
+            set({ userSkills: previous })
+            throw error
+          }
         }
       },
     }),
