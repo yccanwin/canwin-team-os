@@ -162,6 +162,7 @@ export interface SalesScoreRecord {
 export interface SalesAssessment {
   id: string;
   periodQuarter: string;  // YYYY-QN
+  salespersonIds: string[];
   pointTarget: number;
   newGmvTarget: number;
   newGmvActual: number;

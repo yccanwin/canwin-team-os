@@ -28,6 +28,7 @@ create table if not exists public.sales_assessments (
   id uuid primary key default gen_random_uuid(),
   team_id text not null references public.teams(id) default 'CANWIN_TEAM',
   period_quarter text not null,
+  salesperson_ids uuid[] not null default '{}',
   point_target numeric(10,1) not null default 3600 check (point_target >= 0),
   new_gmv_target numeric(12,2) not null default 0 check (new_gmv_target >= 0),
   new_gmv_actual numeric(12,2) not null default 0 check (new_gmv_actual >= 0),

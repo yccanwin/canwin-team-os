@@ -28,6 +28,7 @@ type SalesScoreRecordRow = {
 type SalesAssessmentRow = {
   id: string
   period_quarter: string
+  salesperson_ids: string[] | null
   point_target: number | string
   new_gmv_target: number | string
   new_gmv_actual: number | string
@@ -41,7 +42,7 @@ const PRODUCT_SELECT = 'id, name, points, category, is_active, created_by, creat
 const RECORD_SELECT =
   'id, salesperson_id, product_id, product_name, quantity, points, sold_at, note, created_by, created_at'
 const ASSESSMENT_SELECT =
-  'id, period_quarter, point_target, new_gmv_target, new_gmv_actual, renewal_gmv_target, renewal_gmv_actual, updated_by, updated_at'
+  'id, period_quarter, salesperson_ids, point_target, new_gmv_target, new_gmv_actual, renewal_gmv_target, renewal_gmv_actual, updated_by, updated_at'
 const SALES_UNAVAILABLE_RE =
   /relation .*sales_|schema cache|permission denied|violates row-level security|does not exist|not found/i
 
@@ -81,6 +82,7 @@ function rowToAssessment(row: SalesAssessmentRow): SalesAssessment {
   return {
     id: row.id,
     periodQuarter: row.period_quarter,
+    salespersonIds: row.salesperson_ids ?? [],
     pointTarget: Number(row.point_target),
     newGmvTarget: Number(row.new_gmv_target),
     newGmvActual: Number(row.new_gmv_actual),
@@ -209,6 +211,7 @@ export async function upsertSalesAssessmentRecord(
       {
         team_id: CANWIN_TEAM_ID,
         period_quarter: assessment.periodQuarter,
+        salesperson_ids: assessment.salespersonIds,
         point_target: assessment.pointTarget,
         new_gmv_target: assessment.newGmvTarget,
         new_gmv_actual: assessment.newGmvActual,

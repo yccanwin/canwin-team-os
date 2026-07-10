@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Award,
   BarChart3,
@@ -38,6 +38,7 @@ const MEDAL_LEVELS: MedalLevel[] = [
 ]
 
 const DEFAULT_ASSESSMENT = {
+  salespersonIds: [] as string[],
   pointTarget: 3600,
   newGmvTarget: 300000,
   newGmvActual: 0,
@@ -130,7 +131,11 @@ export default function SalesCenterPage() {
   const canEdit = isCaptainRole(currentUser?.role)
   const activeProducts = products.filter((product) => product.isActive)
   const selectedProduct = products.find((product) => product.id === selectedProductId) || activeProducts[0]
-  const quarterRecords = records.filter((record) => inQuarter(record, quarter.start, quarter.end))
+  const quarterRecords = records.filter(
+    (record) =>
+      inQuarter(record, quarter.start, quarter.end) &&
+      assessmentDraft.salespersonIds.includes(record.salespersonId)
+  )
   const monthRecords = quarterRecords.filter((record) => new Date(`${record.soldAt}T00:00:00`).getMonth() === activeMonth)
   const assessment = assessments.find((item) => item.periodQuarter === quarter.key)
   const assessmentDraft: SalesAssessment = assessment ?? {
@@ -144,16 +149,21 @@ export default function SalesCenterPage() {
   const medal = getMedal(quarterPoints)
   const MedalIcon = medal.icon
   const autoPoints = selectedProduct ? selectedProduct.points * quantity : 0
-  const memberRows = users
+  const salespeople = users.filter((user) => assessmentDraft.salespersonIds.includes(user.id))
+  const memberRows = salespeople
     .map((user) => {
       const userRecords = quarterRecords.filter((record) => record.salespersonId === user.id)
       const points = userRecords.reduce((sum, record) => sum + record.points, 0)
       const tags = Array.from(new Set(userRecords.slice(0, 4).map((record) => record.productName)))
       return { user, points, tags }
     })
-    .filter((row) => row.points > 0 || row.user.role === 'admin' || row.user.role === 'captain' || row.user.position.includes('销售'))
     .sort((a, b) => b.points - a.points)
-    .slice(0, 5)
+
+  useEffect(() => {
+    if (!salespeople.some((user) => user.id === selectedUserId)) {
+      setSelectedUserId(salespeople[0]?.id ?? '')
+    }
+  }, [salespeople, selectedUserId])
   const topProducts = activeProducts
     .map((product) => ({
       product,
@@ -363,7 +373,7 @@ export default function SalesCenterPage() {
             </button>
           </div>
           {targetEditing && (
-            <AssessmentEditor assessment={assessmentDraft} onSave={handleSaveAssessment} />
+            <AssessmentEditor assessment={assessmentDraft} users={users} onSave={handleSaveAssessment} />
           )}
         </section>
       )}
@@ -384,7 +394,9 @@ export default function SalesCenterPage() {
                 <span>优势产品</span>
               </div>
               {memberRows.length === 0 ? (
-                <p className="px-4 py-8 text-center text-sm text-slate-400">本季度还没有销售积分记录</p>
+                <p className="px-4 py-8 text-center text-sm text-slate-400">
+                  {salespeople.length === 0 ? '请先在季度指标编辑中选择销售人员' : '本季度还没有销售积分记录'}
+                </p>
               ) : memberRows.map((row, index) => (
                 <div key={row.user.id} className="grid grid-cols-[56px_1fr_100px_100px_1.5fr] items-center border-t border-slate-100 px-3 py-3 text-sm">
                   <span className="font-semibold text-slate-500">#{index + 1}</span>
@@ -467,7 +479,8 @@ export default function SalesCenterPage() {
               <label className="text-sm">
                 <span className="mb-1 block text-slate-500">销售成员</span>
                 <select disabled={!canEdit} value={selectedUserId} onChange={(event) => setSelectedUserId(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 px-3 outline-none focus:border-blue-400 disabled:bg-slate-50">
-                  {users.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}
+                  {salespeople.length === 0 && <option value="">尚未选择销售人员</option>}
+                  {salespeople.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}
                 </select>
               </label>
               <label className="text-sm">
@@ -576,12 +589,15 @@ function MiniProgress({ title, value, target }: { title: string; value: number; 
 
 function AssessmentEditor({
   assessment,
+  users,
   onSave,
 }: {
   assessment: SalesAssessment
+  users: User[]
   onSave: (updates: Partial<SalesAssessment>) => void
 }) {
   const [draft, setDraft] = useState({
+    salespersonIds: assessment.salespersonIds,
     pointTarget: assessment.pointTarget,
     newGmvTarget: assessment.newGmvTarget,
     newGmvActual: assessment.newGmvActual,
@@ -590,7 +606,37 @@ function AssessmentEditor({
   })
 
   return (
-    <div className="grid gap-3 md:grid-cols-5">
+    <div>
+      <div className="mb-4">
+        <p className="mb-2 text-sm text-slate-500">本季度销售人员</p>
+        <div className="flex flex-wrap gap-2">
+          {users.map((user) => {
+            const selected = draft.salespersonIds.includes(user.id)
+            return (
+              <button
+                key={user.id}
+                type="button"
+                onClick={() => setDraft((state) => ({
+                  ...state,
+                  salespersonIds: selected
+                    ? state.salespersonIds.filter((id) => id !== user.id)
+                    : [...state.salespersonIds, user.id],
+                }))}
+                className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
+                  selected
+                    ? 'border-blue-500 bg-blue-50 font-medium text-blue-700'
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-blue-200'
+                }`}
+              >
+                <span className={`h-2 w-2 rounded-full ${selected ? 'bg-blue-500' : 'bg-slate-300'}`} />
+                {user.name}
+                <span className="text-xs opacity-60">{user.position}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+      <div className="grid gap-3 md:grid-cols-5">
       {([
         ['pointTarget', '季度积分目标'],
         ['newGmvTarget', '新增GMV目标'],
@@ -614,6 +660,7 @@ function AssessmentEditor({
         <CheckCircle2 className="h-4 w-4" />
         保存指标
       </button>
+      </div>
     </div>
   )
 }
