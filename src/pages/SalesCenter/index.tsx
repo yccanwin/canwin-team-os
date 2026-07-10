@@ -55,6 +55,13 @@ function formatCurrency(value: number) {
   }).format(value)
 }
 
+function formatPoints(value: number) {
+  return value.toLocaleString('zh-CN', {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  })
+}
+
 function formatDate(value: Date) {
   return value.toISOString().slice(0, 10)
 }
@@ -232,7 +239,7 @@ export default function SalesCenterPage() {
   const metricCards = [
     {
       label: '季度积分',
-      value: `${quarterPoints.toLocaleString()} / ${assessmentDraft.pointTarget.toLocaleString()}`,
+      value: `${formatPoints(quarterPoints)} / ${formatPoints(assessmentDraft.pointTarget)}`,
       rate: percent(quarterPoints, assessmentDraft.pointTarget),
       icon: Sparkles,
       color: 'from-blue-500 to-cyan-400',
@@ -304,7 +311,7 @@ export default function SalesCenterPage() {
               <div>
                 <p className="text-xs font-medium text-slate-500">本季牌级</p>
                 <p className="text-3xl font-semibold text-blue-600">{medal.label}</p>
-                <p className="text-xs text-slate-500">自动按季度积分决定 · 当前 {quarterPoints.toLocaleString()} 分</p>
+                <p className="text-xs text-slate-500">自动按季度积分决定 · 当前 {formatPoints(quarterPoints)} 分</p>
               </div>
             </div>
             <div className="hidden gap-3 text-center text-xs text-slate-500 md:flex">
@@ -385,7 +392,7 @@ export default function SalesCenterPage() {
                     <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-xs font-semibold text-blue-600">{row.user.name.charAt(0)}</span>
                     {row.user.name}
                   </span>
-                  <span className="font-semibold text-blue-600">{row.points}</span>
+                  <span className="font-semibold text-blue-600">{formatPoints(row.points)}</span>
                   <span className="text-slate-500">{percent(row.points, assessmentDraft.pointTarget)}%</span>
                   <span className="flex flex-wrap gap-1">
                     {row.tags.length === 0 ? <span className="text-slate-300">等待记录</span> : row.tags.map((tag) => (
@@ -406,7 +413,7 @@ export default function SalesCenterPage() {
               {canEdit && (
                 <div className="flex items-center gap-2">
                   <input value={productName} onChange={(event) => setProductName(event.target.value)} placeholder="产品名称" className="h-9 w-32 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-blue-400" />
-                  <input value={productPoints || ''} onChange={(event) => setProductPoints(Number(event.target.value))} type="number" min={1} placeholder="积分" className="h-9 w-20 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-blue-400" />
+                  <input value={productPoints || ''} onChange={(event) => setProductPoints(Number(event.target.value))} type="number" min={0.1} step={0.1} placeholder="积分" className="h-9 w-20 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-blue-400" />
                   <button disabled={saving || !productName.trim() || productPoints <= 0} onClick={handleSaveProduct} className="inline-flex h-9 items-center gap-1 rounded-lg bg-blue-600 px-3 text-sm font-medium text-white disabled:opacity-40">
                     <Plus className="h-4 w-4" />
                     {editingProductId ? '保存' : '新增'}
@@ -440,7 +447,7 @@ export default function SalesCenterPage() {
                     >
                       <span className="mb-3 block text-3xl">{PRODUCT_ICONS[index % PRODUCT_ICONS.length]}</span>
                       <span className="block font-semibold text-slate-900">{product.name}</span>
-                      <span className="mt-1 block text-xl font-semibold text-blue-600">+{product.points}</span>
+                      <span className="mt-1 block text-xl font-semibold text-blue-600">+{formatPoints(product.points)}</span>
                       <span className="text-xs text-slate-400">积分</span>
                     </button>
                   )
@@ -466,7 +473,7 @@ export default function SalesCenterPage() {
               <label className="text-sm">
                 <span className="mb-1 block text-slate-500">产品</span>
                 <select disabled={!canEdit} value={selectedProduct?.id ?? ''} onChange={(event) => setSelectedProductId(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 px-3 outline-none focus:border-blue-400 disabled:bg-slate-50">
-                  {activeProducts.map((product) => <option key={product.id} value={product.id}>{product.name} +{product.points}</option>)}
+                  {activeProducts.map((product) => <option key={product.id} value={product.id}>{product.name} +{formatPoints(product.points)}</option>)}
                 </select>
               </label>
               <label className="text-sm">
@@ -508,7 +515,7 @@ export default function SalesCenterPage() {
                     <div key={product.id}>
                       <div className="mb-1 flex justify-between text-xs text-slate-500">
                         <span>{product.name}</span>
-                        <span>{points}</span>
+                        <span>{formatPoints(points)}</span>
                       </div>
                       <div className="h-2 rounded-full bg-slate-100">
                         <div className="h-full rounded-full bg-blue-500" style={{ width: `${Math.min(percent(points, Math.max(quarterPoints, 1)), 100)}%` }} />
@@ -543,7 +550,7 @@ export default function SalesCenterPage() {
               <p className="font-semibold text-slate-900">{record.productName}</p>
               <div className="mt-2 flex items-end justify-between">
                 <span className="text-sm text-slate-500">{userName(users, record.salespersonId)}</span>
-                <span className="text-lg font-semibold text-blue-600">+{record.points}</span>
+                <span className="text-lg font-semibold text-blue-600">+{formatPoints(record.points)}</span>
               </div>
             </div>
           ))}
@@ -558,7 +565,7 @@ function MiniProgress({ title, value, target }: { title: string; value: number; 
   return (
     <div className="rounded-xl border border-slate-100 p-3">
       <p className="mb-2 text-sm font-semibold text-slate-800">{title}</p>
-      <p className="mb-2 text-sm text-slate-500">{typeof value === 'number' && target > 10000 ? `${formatCurrency(value)} / ${formatCurrency(target)}` : `${value.toLocaleString()} / ${target.toLocaleString()}`}</p>
+      <p className="mb-2 text-sm text-slate-500">{typeof value === 'number' && target > 10000 ? `${formatCurrency(value)} / ${formatCurrency(target)}` : `${formatPoints(value)} / ${formatPoints(target)}`}</p>
       <div className="h-2 rounded-full bg-slate-100">
         <div className="h-full rounded-full bg-gradient-to-r from-blue-600 to-cyan-400" style={{ width: `${Math.min(rate, 100)}%` }} />
       </div>
@@ -596,6 +603,7 @@ function AssessmentEditor({
           <input
             type="number"
             min={0}
+            step={key === 'pointTarget' ? 0.1 : 1}
             value={draft[key]}
             onChange={(event) => setDraft((state) => ({ ...state, [key]: Number(event.target.value) }))}
             className="h-10 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-400"
