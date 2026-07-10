@@ -133,18 +133,20 @@ export default function Layout() {
         className={`
           fixed lg:static inset-y-0 left-0 z-30
           flex flex-col
-          app-sidebar w-[200px] bg-[#172033] text-white shadow-2xl shadow-slate-900/20
+          app-sidebar w-[200px] bg-slate-950 text-white shadow-2xl shadow-slate-900/20
           transition-transform duration-300 ease-in-out
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
       >
         {/* Logo */}
-        <div className="px-6 py-5 border-b border-white/10 bg-gradient-to-br from-primary/20 to-emerald-400/10">
+        <div className="app-sidebar-brand px-6 py-5 border-b border-cyan-300/15 bg-gradient-to-br from-cyan-400/15 via-slate-950 to-emerald-400/10">
           <div className="flex items-center gap-2">
-            <BarChart3 className="w-7 h-7 text-primary animate-soft-pulse" />
-            <span className="text-lg font-semibold tracking-wide">翻身小队</span>
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-300/25 bg-cyan-300/10 shadow-[0_0_24px_rgba(34,211,238,.18)]">
+              <BarChart3 className="w-5 h-5 text-cyan-200 animate-soft-pulse" />
+            </span>
+            <span className="text-lg font-semibold tracking-wide text-cyan-50">翻身小队</span>
           </div>
-          <p className="text-xs text-gray-400 mt-1 ml-9">赢在未来</p>
+          <p className="text-xs text-cyan-100/55 mt-1 ml-11">赢在未来</p>
         </div>
 
         {/* 导航菜单 */}
@@ -154,7 +156,7 @@ export default function Layout() {
               {groupIdx > 0 && (
                 <div className="mx-3 my-2 border-t border-white/10" />
               )}
-              <p className="px-3 pt-3 pb-1 text-[10px] uppercase tracking-wider text-gray-500">
+              <p className="app-nav-group-label px-3 pt-3 pb-1 text-[10px] uppercase tracking-wider text-cyan-100/45">
                 {group.label}
               </p>
               <div className="space-y-0.5">
@@ -173,13 +175,13 @@ export default function Layout() {
                         transition-colors duration-150
                         ${
                           isActive
-                            ? 'is-active bg-primary/20 text-white font-medium border-l-[3px] border-primary ml-[-12px] pl-[9px] rounded-l-none'
-                            : 'text-neutral-tertiary hover:bg-white/10 hover:text-white'
+                            ? 'is-active bg-cyan-300/12 text-cyan-50 font-medium border-l-[3px] border-cyan-300 ml-[-12px] pl-[9px] rounded-l-none'
+                            : 'text-cyan-100/58 hover:bg-cyan-300/10 hover:text-cyan-50'
                         }
                       `}
                     >
                       <item.icon
-                        className={`w-5 h-5 shrink-0 ${isActive ? 'text-primary' : ''}`}
+                        className={`w-5 h-5 shrink-0 ${isActive ? 'text-cyan-200' : ''}`}
                       />
                       <span className="truncate">{item.label}</span>
                     </NavLink>
@@ -191,9 +193,9 @@ export default function Layout() {
         </nav>
 
         {/* 底部版本号 */}
-        <div className="px-5 py-3 border-t border-white/10 flex items-center gap-2">
-          <span className="w-2 h-2 bg-green-400 rounded-full shrink-0" />
-          <span className="bg-white/10 text-gray-400 px-2 py-0.5 rounded-full text-[10px]">v2.0</span>
+        <div className="app-sidebar-footer px-5 py-3 border-t border-cyan-300/15 flex items-center gap-2">
+          <span className="w-2 h-2 bg-emerald-300 rounded-full shrink-0 shadow-[0_0_12px_rgba(52,211,153,.7)]" />
+          <span className="bg-cyan-300/10 text-cyan-100/60 px-2 py-0.5 rounded-full text-[10px]">v2.0</span>
         </div>
       </aside>
 
