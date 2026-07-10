@@ -5,7 +5,6 @@ import { usePhotoStore } from '@/stores/usePhotoStore'
 import { useUserStore } from '@/stores/useUserStore'
 import PhotoUploadModal from '@/pages/Photos/PhotoUploadModal'
 import PhotoDetailModal from '@/pages/Photos/PhotoDetailModal'
-import { isCaptainRole } from '@/services/profile'
 import type { Photo } from '@/types'
 
 // ============================================================
@@ -46,12 +45,6 @@ export default function PhotosPage() {
   const [detailPhoto, setDetailPhoto] = useState<Photo | null>(null)
 
   const grouped = useMemo(() => groupPhotosByYearMonth(photos), [photos])
-
-  // 权限判断：队长 或 上传者本人
-  const canEdit = (photo: Photo) =>
-    isCaptainRole(currentUser?.role) || photo.uploadedBy === currentUser?.id
-  const canDelete = (photo: Photo) =>
-    isCaptainRole(currentUser?.role) || photo.uploadedBy === currentUser?.id
 
   // ============ 提交处理 ============
   const handleUploadSubmit = async (
@@ -188,8 +181,8 @@ export default function PhotosPage() {
           onClose={() => setDetailPhoto(null)}
           onEdit={handleEdit}
           onDelete={handleDelete}
-          canEdit={canEdit(detailPhoto)}
-          canDelete={canDelete(detailPhoto)}
+          canEdit={true}
+          canDelete={true}
         />
       )}
     </div>

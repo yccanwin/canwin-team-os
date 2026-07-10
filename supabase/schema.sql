@@ -519,12 +519,14 @@ create policy "team members read timeline" on timeline_events for select to auth
 create policy "captains manage timeline" on timeline_events for all to authenticated using (public.has_role(team_id, array['admin','captain'])) with check (public.has_role(team_id, array['admin','captain']));
 
 create policy "team members read achievements" on achievements for select to authenticated using (public.is_team_member(team_id));
-create policy "captains manage achievements" on achievements for all to authenticated using (public.has_role(team_id, array['admin','captain'])) with check (public.has_role(team_id, array['admin','captain']));
+create policy "team members add achievements" on achievements for insert to authenticated with check (public.is_team_member(team_id) and created_by = auth.uid());
+create policy "team members update achievements" on achievements for update to authenticated using (public.is_team_member(team_id)) with check (public.is_team_member(team_id));
+create policy "team members delete achievements" on achievements for delete to authenticated using (public.is_team_member(team_id));
 
 create policy "team members read photos" on photos for select to authenticated using (public.is_team_member(team_id));
 create policy "team members add photos" on photos for insert to authenticated with check (public.is_team_member(team_id) and uploaded_by = auth.uid());
-create policy "owners or captains manage photos" on photos for update to authenticated using (uploaded_by = auth.uid() or public.has_role(team_id, array['admin','captain'])) with check (uploaded_by = auth.uid() or public.has_role(team_id, array['admin','captain']));
-create policy "owners or captains delete photos" on photos for delete to authenticated using (uploaded_by = auth.uid() or public.has_role(team_id, array['admin','captain']));
+create policy "team members update photos" on photos for update to authenticated using (public.is_team_member(team_id)) with check (public.is_team_member(team_id));
+create policy "team members delete photos" on photos for delete to authenticated using (public.is_team_member(team_id));
 
 create policy "team members read votes" on votes for select to authenticated using (public.is_team_member(team_id));
 create policy "captains manage votes" on votes for all to authenticated using (public.has_role(team_id, array['admin','captain'])) with check (public.has_role(team_id, array['admin','captain']));

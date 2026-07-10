@@ -1,11 +1,10 @@
 import { useState, useMemo } from 'react'
-import { Plus, Trophy, Search } from 'lucide-react'
+import { Plus, Search } from 'lucide-react'
 import { useAchievementStore } from '@/stores/useAchievementStore'
 import { useUserStore } from '@/stores/useUserStore'
 import AchievementDetailModal from './AchievementDetailModal'
 import AchievementFormModal from './AchievementFormModal'
 import EmptyStateIllustration from '@/components/EmptyStateIllustration'
-import { isCaptainRole } from '@/services/profile'
 import type { Achievement } from '@/types'
 
 // 分类筛选配置
@@ -28,7 +27,6 @@ export default function AchievementsPage() {
   const { achievements, addAchievement, updateAchievement, deleteAchievement } =
     useAchievementStore()
   const currentUser = useUserStore((s) => s.currentUser)
-  const isCaptain = isCaptainRole(currentUser?.role)
 
   // 筛选 + 搜索
   const [activeCategory, setActiveCategory] = useState<string>('all')
@@ -83,15 +81,13 @@ export default function AchievementsPage() {
             沉淀做成过的事，给下次行动留下参考
           </p>
         </div>
-        {isCaptain && (
-          <button
-            onClick={() => setFormAch('new')}
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 sm:w-auto"
-          >
-            <Plus className="w-4 h-4" />
-            添加案例
-          </button>
-        )}
+        <button
+          onClick={() => setFormAch('new')}
+          className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 sm:w-auto"
+        >
+          <Plus className="w-4 h-4" />
+          添加案例
+        </button>
       </div>
 
       {/* Filter + Search Bar */}
@@ -131,11 +127,7 @@ export default function AchievementsPage() {
         <EmptyStateIllustration
           variant="achievements"
           title="每个里程碑都值得被铭记"
-          description={
-            isCaptain
-              ? '点击右上角添加第一个案例'
-              : '等待队长添加团队案例'
-          }
+          description="点击右上角添加第一个案例"
         />
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 text-brand-200">
@@ -201,7 +193,7 @@ export default function AchievementsPage() {
             setFormAch(ach)
           }}
           onDelete={handleDelete}
-          isCaptain={isCaptain}
+          isCaptain={true}
         />
       )}
 
