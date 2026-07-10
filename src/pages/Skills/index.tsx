@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { BookOpen, CheckCircle2, ExternalLink, LockKeyhole, Plus, Sparkles, Swords } from 'lucide-react'
+import { BookOpen, CheckCircle2, ExternalLink, LockKeyhole, Pencil, Plus, Sparkles, Swords, Trash2 } from 'lucide-react'
 import { useSkillStore } from '@/stores/useSkillStore'
 import { useUserStore } from '@/stores/useUserStore'
 import { isCaptainRole } from '@/services/profile'
@@ -38,11 +38,14 @@ export default function SkillsPage() {
   const skills = useSkillStore((s) => s.skills)
   const userSkills = useSkillStore((s) => s.userSkills)
   const addSkill = useSkillStore((s) => s.addSkill)
+  const updateSkill = useSkillStore((s) => s.updateSkill)
+  const deleteSkill = useSkillStore((s) => s.deleteSkill)
   const lightSkill = useSkillStore((s) => s.lightSkill)
   const unlightSkill = useSkillStore((s) => s.unlightSkill)
   const currentUser = useUserStore((s) => s.currentUser)
 
   const [showModal, setShowModal] = useState(false)
+  const [editingSkillId, setEditingSkillId] = useState<string>('')
   const [activeCategory, setActiveCategory] = useState<Skill['category']>('sales')
   const [selectedSkillId, setSelectedSkillId] = useState<string>('')
   const [skillSaveError, setSkillSaveError] = useState('')
@@ -75,6 +78,7 @@ export default function SkillsPage() {
   }, [activeSkills])
 
   const resetForm = () => {
+    setEditingSkillId('')
     setName('')
     setCategory(activeCategory)
     setLevel('basic')
@@ -86,20 +90,44 @@ export default function SkillsPage() {
 
   const canUnlock = (skill: Skill) => skill.prerequisiteIds.every((id) => mySkillIds.has(id))
 
-  const handleCreate = async () => {
+  const openCreateModal = () => {
+    resetForm()
+    setShowModal(true)
+  }
+
+  const openEditModal = (skill: Skill) => {
+    setEditingSkillId(skill.id)
+    setName(skill.name)
+    setCategory(skill.category)
+    setLevel(skill.level)
+    setDescription(skill.description ?? '')
+    setLearningUrl(skill.learningUrl ?? '')
+    setPrerequisiteIds(skill.prerequisiteIds)
+    setSkillSaveError('')
+    setShowModal(true)
+  }
+
+  const handleSaveSkill = async () => {
     if (!name.trim() || !currentUser) return
     setSaving(true)
     setSkillSaveError('')
+    const payload = {
+      name: name.trim(),
+      category,
+      level,
+      description: description.trim() || undefined,
+      learningUrl: learningUrl.trim() || undefined,
+      prerequisiteIds: prerequisiteIds.filter((id) => id !== editingSkillId),
+    }
     try {
-      await addSkill({
-        name: name.trim(),
-        category,
-        level,
-        description: description.trim() || undefined,
-        learningUrl: learningUrl.trim() || undefined,
-        prerequisiteIds,
-        createdBy: currentUser.id,
-      })
+      if (editingSkillId) {
+        await updateSkill(editingSkillId, payload)
+      } else {
+        await addSkill({
+          ...payload,
+          createdBy: currentUser.id,
+        })
+      }
       setActiveCategory(category)
       resetForm()
       setShowModal(false)
@@ -129,6 +157,17 @@ export default function SkillsPage() {
     }
   }
 
+  const handleDeleteSkill = async (skill: Skill) => {
+    if (!window.confirm(`确定删除技能「${skill.name}」吗？相关成员点亮记录也会被清理。`)) return
+    setSkillSaveError('')
+    try {
+      await deleteSkill(skill.id)
+      setSelectedSkillId('')
+    } catch (error) {
+      setSkillSaveError(skillErrorMessage(error))
+    }
+  }
+
   return (
     <div className="mx-auto max-w-7xl px-3 py-4 lg:px-6">
       <div className="mb-5 overflow-hidden rounded-card border border-cyan-100 bg-white shadow-card">
@@ -144,7 +183,7 @@ export default function SkillsPage() {
               <p className="mt-1 text-sm text-cyan-100/80">点亮前置技能后，解锁下一层能力节点。</p>
             </div>
             {isCaptain && (
-              <button onClick={() => { resetForm(); setShowModal(true) }} className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-400 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-cyan-300">
+              <button onClick={openCreateModal} className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-400 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-cyan-300">
                 <Plus className="h-4 w-4" />
                 创建技能
               </button>
@@ -217,7 +256,10 @@ export default function SkillsPage() {
                 skills={skills}
                 isLit={mySkillIds.has(selectedSkill.id)}
                 isUnlocked={canUnlock(selectedSkill)}
+                canManage={isCaptain}
                 onToggle={() => handleToggleSkill(selectedSkill)}
+                onEdit={() => openEditModal(selectedSkill)}
+                onDelete={() => handleDeleteSkill(selectedSkill)}
               />
             ) : (
               <p className="text-sm text-brand-200">选择一个技能节点查看详情。</p>
@@ -230,7 +272,7 @@ export default function SkillsPage() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" onClick={() => setShowModal(false)} />
           <div className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
-            <h3 className="mb-5 text-lg font-bold text-brand-400">创建技能</h3>
+            <h3 className="mb-5 text-lg font-bold text-brand-400">{editingSkillId ? '编辑技能' : '创建技能'}</h3>
             <div className="space-y-3">
               <input value={name} onChange={(event) => setName(event.target.value)} placeholder="技能名称" className="w-full rounded-xl border border-brand-100 px-4 py-2.5 text-sm outline-none focus:border-cyan-300" />
               <div className="grid gap-3 sm:grid-cols-2">
@@ -244,15 +286,15 @@ export default function SkillsPage() {
               <textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="技能说明" rows={3} className="w-full resize-none rounded-xl border border-brand-100 px-4 py-2.5 text-sm outline-none focus:border-cyan-300" />
               <input value={learningUrl} onChange={(event) => setLearningUrl(event.target.value)} placeholder="学习资料链接（可选）" className="w-full rounded-xl border border-brand-100 px-4 py-2.5 text-sm outline-none focus:border-cyan-300" />
               <select multiple value={prerequisiteIds} onChange={(event) => setPrerequisiteIds(Array.from(event.target.selectedOptions).map((option) => option.value))} className="min-h-24 w-full rounded-xl border border-brand-100 px-4 py-2.5 text-sm">
-                {skills.map((skill) => <option key={skill.id} value={skill.id}>{skill.name}</option>)}
+                {skills.filter((skill) => skill.id !== editingSkillId).map((skill) => <option key={skill.id} value={skill.id}>{skill.name}</option>)}
               </select>
               <p className="text-xs text-brand-200">按住 Command/Ctrl 可选择多个前置技能。前置技能全部点亮后，当前技能才可点亮。</p>
               {skillSaveError && <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-600">{skillSaveError}</p>}
             </div>
             <div className="mt-5 flex justify-end gap-3">
               <button onClick={() => setShowModal(false)} className="rounded-xl bg-brand-50 px-5 py-2.5 text-sm font-medium text-brand-300 hover:bg-brand-100">取消</button>
-              <button onClick={handleCreate} disabled={!name.trim() || saving} className="rounded-xl bg-cyan-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-cyan-700 disabled:opacity-40">
-                {saving ? '保存中...' : '创建'}
+              <button onClick={handleSaveSkill} disabled={!name.trim() || saving} className="rounded-xl bg-cyan-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-cyan-700 disabled:opacity-40">
+                {saving ? '保存中...' : editingSkillId ? '保存修改' : '创建'}
               </button>
             </div>
           </div>
@@ -303,13 +345,19 @@ function SkillDetail({
   skills,
   isLit,
   isUnlocked,
+  canManage,
   onToggle,
+  onEdit,
+  onDelete,
 }: {
   skill: Skill
   skills: Skill[]
   isLit: boolean
   isUnlocked: boolean
+  canManage: boolean
   onToggle: () => void
+  onEdit: () => void
+  onDelete: () => void
 }) {
   const prerequisiteNames = skill.prerequisiteIds
     .map((id) => skills.find((item) => item.id === id)?.name)
@@ -354,6 +402,24 @@ function SkillDetail({
       >
         {isLit ? '取消点亮' : isUnlocked ? '点亮技能' : '前置未完成'}
       </button>
+      {canManage && (
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button
+            onClick={onEdit}
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-brand-100 bg-white px-3 py-2 text-sm font-medium text-brand-300 hover:bg-brand-50"
+          >
+            <Pencil className="h-4 w-4" />
+            编辑
+          </button>
+          <button
+            onClick={onDelete}
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-100"
+          >
+            <Trash2 className="h-4 w-4" />
+            删除
+          </button>
+        </div>
+      )}
     </div>
   )
 }

@@ -4,9 +4,11 @@ import { safeStorage } from '@/utils/safeStorage'
 import type { Skill, UserSkill } from '@/types'
 import {
   createSkillRecord,
+  deleteSkillRecord,
   isSkillCloudUnavailable,
   lightSkillRecord,
   unlightSkillRecord,
+  updateSkillRecord,
 } from '@/services/skills'
 
 const LOCAL_SKILL_SAVE_MESSAGE =
@@ -20,6 +22,8 @@ interface SkillState {
 interface SkillActions {
   setSkillData: (data: { skills: Skill[]; userSkills: UserSkill[] }) => void
   addSkill: (skill: Omit<Skill, 'id' | 'createdAt'>) => Promise<void>
+  updateSkill: (id: string, updates: Partial<Omit<Skill, 'id' | 'createdAt' | 'createdBy'>>) => Promise<void>
+  deleteSkill: (id: string) => Promise<void>
   lightSkill: (skillId: string, userId: string, note?: string) => Promise<void>
   unlightSkill: (skillId: string, userId: string) => Promise<void>
 }
@@ -49,6 +53,48 @@ export const useSkillStore = create<SkillState & SkillActions>()(
             throw new Error(LOCAL_SKILL_SAVE_MESSAGE, { cause: error })
           }
           set((state) => ({ skills: state.skills.filter((item) => item.id !== optimistic.id) }))
+          throw error
+        }
+      },
+
+      updateSkill: async (id, updates) => {
+        const previous = get().skills
+        set((state) => ({
+          skills: state.skills.map((item) => (item.id === id ? { ...item, ...updates } : item)),
+        }))
+        try {
+          const saved = await updateSkillRecord(id, updates)
+          set((state) => ({
+            skills: state.skills.map((item) => (item.id === id ? saved : item)),
+          }))
+        } catch (error) {
+          if (isSkillCloudUnavailable(error)) {
+            throw new Error(LOCAL_SKILL_SAVE_MESSAGE, { cause: error })
+          }
+          set({ skills: previous })
+          throw error
+        }
+      },
+
+      deleteSkill: async (id) => {
+        const previousSkills = get().skills
+        const previousUserSkills = get().userSkills
+        set((state) => ({
+          skills: state.skills
+            .filter((skill) => skill.id !== id)
+            .map((skill) => ({
+              ...skill,
+              prerequisiteIds: skill.prerequisiteIds.filter((prerequisiteId) => prerequisiteId !== id),
+            })),
+          userSkills: state.userSkills.filter((item) => item.skillId !== id),
+        }))
+        try {
+          await deleteSkillRecord(id)
+        } catch (error) {
+          if (isSkillCloudUnavailable(error)) {
+            throw new Error(LOCAL_SKILL_SAVE_MESSAGE, { cause: error })
+          }
+          set({ skills: previousSkills, userSkills: previousUserSkills })
           throw error
         }
       },

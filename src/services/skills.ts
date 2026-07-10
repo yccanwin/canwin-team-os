@@ -107,6 +107,54 @@ export async function createSkillRecord(skill: Omit<Skill, 'id' | 'createdAt'>):
   return rowToSkill(data as SkillRow)
 }
 
+export async function updateSkillRecord(
+  id: string,
+  updates: Partial<Omit<Skill, 'id' | 'createdAt' | 'createdBy'>>
+): Promise<Skill> {
+  const { data, error } = await supabase
+    .from('skills')
+    .update({
+      name: updates.name,
+      category: updates.category,
+      level: updates.level,
+      description: updates.description,
+      learning_url: updates.learningUrl,
+      prerequisite_ids: updates.prerequisiteIds,
+    })
+    .eq('id', id)
+    .select(SKILL_SELECT)
+    .single()
+
+  if (error) throw new Error(error.message)
+  return rowToSkill(data as SkillRow)
+}
+
+export async function deleteSkillRecord(id: string): Promise<void> {
+  const { data: skills, error: loadError } = await supabase
+    .from('skills')
+    .select(SKILL_SELECT)
+    .eq('team_id', CANWIN_TEAM_ID)
+
+  if (loadError) throw new Error(loadError.message)
+
+  const cleanupResults = await Promise.all(
+    (skills ?? [])
+      .map((row) => rowToSkill(row as SkillRow))
+      .filter((skill) => skill.prerequisiteIds.includes(id))
+      .map((skill) =>
+        supabase
+          .from('skills')
+          .update({ prerequisite_ids: skill.prerequisiteIds.filter((prerequisiteId) => prerequisiteId !== id) })
+          .eq('id', skill.id)
+      )
+  )
+  const cleanupError = cleanupResults.find((result) => result.error)?.error
+  if (cleanupError) throw new Error(cleanupError.message)
+
+  const { error } = await supabase.from('skills').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
 export async function lightSkillRecord(
   skillId: string,
   userId: string,
