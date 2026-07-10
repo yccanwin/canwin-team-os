@@ -20,6 +20,7 @@ import {
   Wrench,
   Shield,
   Network,
+  LineChart,
 } from 'lucide-react'
 import { useUserStore } from '@/stores/useUserStore'
 import { roleLabel, signOut } from '@/services/profile'
@@ -39,6 +40,7 @@ const NAV_GROUPS = [
     items: [
       { to: '/inventory', icon: Package, label: '仓库' },
       { to: '/finance', icon: BarChart3, label: '财务' },
+      { to: '/sales', icon: LineChart, label: '销售中心' },
       { to: '/assets', icon: Building2, label: '资产馆' },
     ],
   },

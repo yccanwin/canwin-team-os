@@ -135,6 +135,42 @@ export interface UserSkill {
   litAt: string;
 }
 
+// ---------- 销售中心 ----------
+export interface SalesProduct {
+  id: string;
+  name: string;
+  points: number;
+  category?: string;
+  isActive: boolean;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface SalesScoreRecord {
+  id: string;
+  salespersonId: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  points: number;
+  soldAt: string;         // YYYY-MM-DD
+  note?: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface SalesAssessment {
+  id: string;
+  periodQuarter: string;  // YYYY-QN
+  pointTarget: number;
+  newGmvTarget: number;
+  newGmvActual: number;
+  renewalGmvTarget: number;
+  renewalGmvActual: number;
+  updatedBy: string;
+  updatedAt: string;
+}
+
 // ---------- 勋章配置 ----------
 export interface BadgeConfig {
   id: string;

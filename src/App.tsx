@@ -17,6 +17,7 @@ import { useAssetStore } from './stores/useAssetStore'
 import { useToolboxStore } from './stores/useToolboxStore'
 import { useWarRoomStore } from './stores/useWarRoomStore'
 import { useSkillStore } from './stores/useSkillStore'
+import { useSalesStore } from './stores/useSalesStore'
 import { isCaptainRole, isFinanceRole, isWarehouseRole, loadTeamProfiles } from './services/profile'
 import { loadTasks } from './services/tasks'
 import { loadFinancePublicSummary, loadFinanceRecords } from './services/finance'
@@ -32,6 +33,7 @@ import { loadAssets, loadPublicAssets } from './services/assets'
 import { loadTools } from './services/toolbox'
 import { loadWarRoomPolicies } from './services/warroom'
 import { loadSkills, loadUserSkills } from './services/skills'
+import { loadSalesAssessments, loadSalesProducts, loadSalesScoreRecords } from './services/sales'
 
 // 懒加载页面
 const Dashboard = lazy(() => import('./pages/Dashboard'))
@@ -42,6 +44,7 @@ const Votes = lazy(() => import('./pages/Votes'))
 const VoteDetail = lazy(() => import('./pages/Votes/VoteDetail'))
 const Inventory = lazy(() => import('./pages/Inventory'))
 const Finance = lazy(() => import('./pages/Finance'))
+const SalesCenter = lazy(() => import('./pages/SalesCenter'))
 const Timeline = lazy(() => import('./pages/Timeline'))
 const Achievements = lazy(() => import('./pages/Achievements'))
 const Photos = lazy(() => import('./pages/Photos'))
@@ -71,6 +74,7 @@ function App() {
   const setTools = useToolboxStore((s) => s.setTools)
   const setPolicies = useWarRoomStore((s) => s.setPolicies)
   const setSkillData = useSkillStore((s) => s.setSkillData)
+  const setSalesData = useSalesStore((s) => s.setSalesData)
 
   useEffect(() => {
     if (!currentUser) return
@@ -95,6 +99,9 @@ function App() {
         policies,
         skills,
         userSkills,
+        salesProducts,
+        salesRecords,
+        salesAssessments,
       ] = await Promise.all([
         loadTeamProfiles(),
         loadTasks(),
@@ -114,6 +121,9 @@ function App() {
         loadWarRoomPolicies(),
         loadSkills(),
         loadUserSkills(),
+        loadSalesProducts(),
+        loadSalesScoreRecords(),
+        loadSalesAssessments(),
       ])
       if (cancelled) return
       setUsers(profiles)
@@ -132,6 +142,9 @@ function App() {
       setPolicies(policies)
       if (skills && userSkills) {
         setSkillData({ skills, userSkills })
+      }
+      if (salesProducts && salesRecords && salesAssessments) {
+        setSalesData({ products: salesProducts, records: salesRecords, assessments: salesAssessments })
       }
     }
 
@@ -155,6 +168,7 @@ function App() {
     setTimelineEvents,
     setPolicies,
     setSkillData,
+    setSalesData,
     setUsers,
     setVotes,
   ])
@@ -175,6 +189,7 @@ function App() {
         <Route path="/votes/:voteId" element={<Suspense fallback={null}><VoteDetail /></Suspense>} />
         <Route path="/inventory" element={<Suspense fallback={null}><Inventory /></Suspense>} />
         <Route path="/finance" element={<Suspense fallback={null}><Finance /></Suspense>} />
+        <Route path="/sales" element={<Suspense fallback={null}><SalesCenter /></Suspense>} />
         <Route path="/timeline" element={<Suspense fallback={null}><Timeline /></Suspense>} />
         <Route path="/achievements" element={<Suspense fallback={null}><Achievements /></Suspense>} />
         <Route path="/photos" element={<Suspense fallback={null}><Photos /></Suspense>} />
