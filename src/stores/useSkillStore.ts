@@ -2,7 +2,15 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { safeStorage } from '@/utils/safeStorage'
 import type { Skill, UserSkill } from '@/types'
-import { createSkillRecord, lightSkillRecord, unlightSkillRecord } from '@/services/skills'
+import {
+  createSkillRecord,
+  isSkillCloudUnavailable,
+  lightSkillRecord,
+  unlightSkillRecord,
+} from '@/services/skills'
+
+const LOCAL_SKILL_SAVE_MESSAGE =
+  '本地已保存：线上技能表尚未启用或当前账号无写入权限，当前改动只保存在本机。执行 Supabase skills / user_skills 表迁移并检查 RLS 后，才能团队共享。'
 
 interface SkillState {
   skills: Skill[]
@@ -37,6 +45,9 @@ export const useSkillStore = create<SkillState & SkillActions>()(
             skills: state.skills.map((item) => (item.id === optimistic.id ? saved : item)),
           }))
         } catch (error) {
+          if (isSkillCloudUnavailable(error)) {
+            throw new Error(LOCAL_SKILL_SAVE_MESSAGE, { cause: error })
+          }
           set((state) => ({ skills: state.skills.filter((item) => item.id !== optimistic.id) }))
           throw error
         }
@@ -58,6 +69,9 @@ export const useSkillStore = create<SkillState & SkillActions>()(
             userSkills: state.userSkills.map((item) => (item.id === optimistic.id ? saved : item)),
           }))
         } catch (error) {
+          if (isSkillCloudUnavailable(error)) {
+            throw new Error(LOCAL_SKILL_SAVE_MESSAGE, { cause: error })
+          }
           set((state) => ({
             userSkills: state.userSkills.filter((item) => item.id !== optimistic.id),
           }))
@@ -77,6 +91,9 @@ export const useSkillStore = create<SkillState & SkillActions>()(
           try {
             await unlightSkillRecord(target.id)
           } catch (error) {
+            if (isSkillCloudUnavailable(error)) {
+              throw new Error(LOCAL_SKILL_SAVE_MESSAGE, { cause: error })
+            }
             set({ userSkills: previous })
             throw error
           }

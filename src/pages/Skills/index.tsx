@@ -25,6 +25,9 @@ const CATEGORY_ORDER: Skill['category'][] = ['sales', 'delivery', 'operation', '
 
 function skillErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : String(error)
+  if (message.includes('本地已保存')) {
+    return message
+  }
   if (/relation .*skills|schema cache|permission denied|violates row-level security|does not exist/i.test(message)) {
     return '保存失败：请先在 Supabase 执行 skills / user_skills 表和 RLS 策略迁移，或检查当前账号权限。'
   }
@@ -101,7 +104,13 @@ export default function SkillsPage() {
       resetForm()
       setShowModal(false)
     } catch (error) {
-      setSkillSaveError(skillErrorMessage(error))
+      const message = skillErrorMessage(error)
+      if (message.includes('本地已保存')) {
+        setActiveCategory(category)
+        resetForm()
+        setShowModal(false)
+      }
+      setSkillSaveError(message)
     } finally {
       setSaving(false)
     }

@@ -25,6 +25,13 @@ type UserSkillRow = {
 const SKILL_SELECT =
   'id, name, category, level, description, learning_url, prerequisite_ids, created_by, created_at'
 const USER_SKILL_SELECT = 'id, user_id, skill_id, note, lit_at'
+const CLOUD_UNAVAILABLE_RE =
+  /relation .*skills|relation .*user_skills|schema cache|permission denied|violates row-level security|does not exist|not found/i
+
+export function isSkillCloudUnavailable(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  return CLOUD_UNAVAILABLE_RE.test(message)
+}
 
 function rowToSkill(row: SkillRow): Skill {
   return {
@@ -50,7 +57,7 @@ function rowToUserSkill(row: UserSkillRow): UserSkill {
   }
 }
 
-export async function loadSkills(): Promise<Skill[]> {
+export async function loadSkills(): Promise<Skill[] | null> {
   const { data, error } = await supabase
     .from('skills')
     .select(SKILL_SELECT)
@@ -59,13 +66,13 @@ export async function loadSkills(): Promise<Skill[]> {
 
   if (error) {
     console.warn('skills table is not available yet:', error.message)
-    return []
+    return null
   }
 
   return (data ?? []).map((row) => rowToSkill(row as SkillRow))
 }
 
-export async function loadUserSkills(): Promise<UserSkill[]> {
+export async function loadUserSkills(): Promise<UserSkill[] | null> {
   const { data, error } = await supabase
     .from('user_skills')
     .select(USER_SKILL_SELECT)
@@ -74,7 +81,7 @@ export async function loadUserSkills(): Promise<UserSkill[]> {
 
   if (error) {
     console.warn('user_skills table is not available yet:', error.message)
-    return []
+    return null
   }
 
   return (data ?? []).map((row) => rowToUserSkill(row as UserSkillRow))

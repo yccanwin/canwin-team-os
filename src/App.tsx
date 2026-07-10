@@ -130,7 +130,9 @@ function App() {
       setAssets(assets)
       setTools(tools)
       setPolicies(policies)
-      setSkillData({ skills, userSkills })
+      if (skills && userSkills) {
+        setSkillData({ skills, userSkills })
+      }
     }
 
     void loadCloudData()
