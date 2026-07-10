@@ -1,1 +1,0 @@
-import{F as e}from"./index-CP3ABadA.js";var t=e(`minus`,[[`path`,{d:`M5 12h14`,key:`1ays0h`}]]);export{t};
