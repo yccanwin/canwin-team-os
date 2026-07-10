@@ -1,0 +1,1 @@
+import{F as e}from"./index-CP3ABadA.js";var t=e(`check`,[[`path`,{d:`M20 6 9 17l-5-5`,key:`1gmf2c`}]]);export{t};
