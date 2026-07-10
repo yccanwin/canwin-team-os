@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { useUserStore } from '@/stores/useUserStore'
 import { roleLabel, signOut } from '@/services/profile'
+import PersonalReminderTicker from '@/components/PersonalReminderTicker'
 
 const NAV_GROUPS = [
   {
@@ -210,8 +211,10 @@ export default function Layout() {
             <Menu className="w-5 h-5 text-brand-400" />
           </button>
 
+          <PersonalReminderTicker />
+
           {/* 用户切换 */}
-          <div className="flex items-center gap-3 ml-auto" ref={dropdownRef}>
+          <div className="flex items-center gap-3 md:ml-0 ml-auto" ref={dropdownRef}>
             <div className="relative">
               <button
                 onClick={() => setUserDropdownOpen(!userDropdownOpen)}

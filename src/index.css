@@ -397,6 +397,15 @@ body {
   }
 }
 
+@keyframes tickerDrift {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
 @media (min-width: 1024px) {
   .desktop-tech-mode {
     position: relative;
@@ -587,6 +596,39 @@ body {
   .desktop-tech-mode .app-user-button:hover {
     background: rgba(236, 254, 255, 0.74);
     box-shadow: 0 0 24px rgba(34, 211, 238, 0.14);
+  }
+
+  .desktop-tech-mode .ticker-shell {
+    position: relative;
+    border-color: rgba(125, 211, 252, 0.28);
+    background:
+      linear-gradient(90deg, rgba(255, 255, 255, 0.72), rgba(240, 253, 250, 0.62)),
+      linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.08), transparent);
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.48),
+      0 10px 30px rgba(14, 165, 233, 0.08);
+  }
+
+  .desktop-tech-mode .ticker-shell::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.95), transparent 10%, transparent 90%, rgba(255, 255, 255, 0.95));
+  }
+
+  .desktop-tech-mode .ticker-track {
+    overflow: hidden;
+  }
+
+  .desktop-tech-mode .ticker-content {
+    width: max-content;
+    animation: tickerDrift 32s linear infinite;
+  }
+
+  .desktop-tech-mode .ticker-shell:hover .ticker-content {
+    animation-play-state: paused;
   }
 
   .desktop-tech-mode .app-main {

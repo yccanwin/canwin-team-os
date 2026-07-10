@@ -7,6 +7,7 @@ import { useInventoryStore } from '@/stores/useInventoryStore'
 import { useTimelineStore } from '@/stores/useTimelineStore'
 import { usePhotoStore } from '@/stores/usePhotoStore'
 import { useWarRoomStore } from '@/stores/useWarRoomStore'
+import { useYanchengWeather } from '@/hooks/useYanchengWeather'
 import { KPISection } from './KPISection'
 import GoalProgressSection from './GoalProgressSection'
 import GoalRoadmapSection from './GoalRoadmapSection'
@@ -26,6 +27,7 @@ export default function Dashboard() {
   const timelineEvents = useTimelineStore((s) => s.events)
   const photos = usePhotoStore((s) => s.photos)
   const policies = useWarRoomStore((s) => s.policies)
+  const { weather } = useYanchengWeather()
 
   const todayRevenue = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10)
@@ -85,6 +87,24 @@ export default function Dashboard() {
             </p>
           </div>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+            <div className="rounded-xl border border-cyan-100 bg-white/80 px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-medium text-brand-300">盐城天气</p>
+                <span className="rounded-full bg-cyan-50 px-2 py-0.5 text-[11px] font-medium text-cyan-700">6小时缓存</span>
+              </div>
+              {weather ? (
+                <>
+                  <p className="mt-1 text-sm font-medium text-brand-400">
+                    {weather.weatherText} · {weather.temperature ?? '--'}°C · {weather.minTemperature ?? '--'}-{weather.maxTemperature ?? '--'}°C
+                  </p>
+                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-brand-300">
+                    降雨概率 {weather.rainProbability ?? 0}%{weather.nextRainTime ? ` · ${weather.nextRainTime} 可能下雨` : ''}。{weather.advisory}
+                  </p>
+                </>
+              ) : (
+                <p className="mt-1 text-sm text-brand-300">天气预报加载中</p>
+              )}
+            </div>
             <div className="rounded-xl bg-white/80 px-4 py-3">
               <p className="text-xs font-medium text-brand-300">今日休息</p>
               <p className="mt-1 text-sm text-brand-400">{restUsers.length ? restUsers.map((u) => u.name).join('、') : '无人休息'}</p>
