@@ -131,12 +131,6 @@ export default function SalesCenterPage() {
   const canEdit = isCaptainRole(currentUser?.role)
   const activeProducts = products.filter((product) => product.isActive)
   const selectedProduct = products.find((product) => product.id === selectedProductId) || activeProducts[0]
-  const quarterRecords = records.filter(
-    (record) =>
-      inQuarter(record, quarter.start, quarter.end) &&
-      assessmentDraft.salespersonIds.includes(record.salespersonId)
-  )
-  const monthRecords = quarterRecords.filter((record) => new Date(`${record.soldAt}T00:00:00`).getMonth() === activeMonth)
   const assessment = assessments.find((item) => item.periodQuarter === quarter.key)
   const assessmentDraft: SalesAssessment = assessment ?? {
     id: `draft-${quarter.key}`,
@@ -145,6 +139,12 @@ export default function SalesCenterPage() {
     updatedBy: currentUser?.id ?? '',
     updatedAt: new Date().toISOString(),
   }
+  const quarterRecords = records.filter(
+    (record) =>
+      inQuarter(record, quarter.start, quarter.end) &&
+      assessmentDraft.salespersonIds.includes(record.salespersonId)
+  )
+  const monthRecords = quarterRecords.filter((record) => new Date(`${record.soldAt}T00:00:00`).getMonth() === activeMonth)
   const quarterPoints = quarterRecords.reduce((sum, record) => sum + record.points, 0)
   const medal = getMedal(quarterPoints)
   const MedalIcon = medal.icon
