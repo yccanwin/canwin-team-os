@@ -65,6 +65,7 @@ const AccessAdminRealV3 = lazy(() => import('./features/access-admin/AccessAdmin
 const SettingsHomeV3 = lazy(() => import('./features/system-settings/SettingsHome'))
 const RegionAdminRealV3 = lazy(() => import('./features/system-settings/RegionAdminRealRoute'))
 const CatalogAdminRealV3 = lazy(() => import('./features/system-settings/CatalogAdminRealRoute'))
+const CatalogVersionRealV3 = lazy(() => import('./features/system-settings/CatalogVersionRealRoute'))
 
 function App() {
   const currentUser = useUserStore((s) => s.currentUser)
@@ -218,6 +219,7 @@ function App() {
         <Route path="/settings-v3" element={<Suspense fallback={null}><FeatureFlagGate flagKey="sales_os_v3"><SettingsHomeV3 /></FeatureFlagGate></Suspense>} />
         <Route path="/settings-v3/regions" element={<Suspense fallback={null}><FeatureFlagGate flagKey="sales_os_v3"><RegionAdminRealV3 /></FeatureFlagGate></Suspense>} />
         <Route path="/settings-v3/catalog" element={<Suspense fallback={null}><FeatureFlagGate flagKey="sales_os_v3"><CatalogAdminRealV3 /></FeatureFlagGate></Suspense>} />
+        <Route path="/settings-v3/catalog/versions" element={<Suspense fallback={null}><FeatureFlagGate flagKey="sales_os_v3"><CatalogVersionRealV3 /></FeatureFlagGate></Suspense>} />
         <Route path="/settings-v3/access" element={<Suspense fallback={null}><FeatureFlagGate flagKey="sales_os_v3"><AccessAdminRealV3 /></FeatureFlagGate></Suspense>} />
       </Route>
     </Routes>
