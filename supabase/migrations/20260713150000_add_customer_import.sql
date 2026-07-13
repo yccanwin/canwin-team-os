@@ -29,7 +29,7 @@ create table public.import_rollback_conflicts(
 );
 
 create or replace function public.create_customer_import_batch(p_source_name text,p_rows jsonb)
-returns public.import_batches language plpgsql security definer set search_path=''as$$declare r public.profiles;b public.import_batches;item jsonb;n integer;i integer:=0;begin
+returns public.import_batches language plpgsql security definer set search_path='' as $$declare r public.profiles;b public.import_batches;item jsonb;n integer;i integer:=0;begin
  select*into r from public.profiles where id=auth.uid()and status='active';if r.id is null or not public.has_access_role(r.team_id,array['owner','admin'])or not public.is_feature_enabled(r.team_id,'sales_os_v3')then raise exception'IMPORT_ADMIN_REQUIRED'using errcode='42501';end if;
  if jsonb_typeof(p_rows)<>'array'then raise exception'ROWS_ARRAY_REQUIRED'using errcode='22023';end if;n:=jsonb_array_length(p_rows);if n<1 or n>500 then raise exception'ROW_COUNT_1_TO_500_REQUIRED'using errcode='22023';end if;
  insert into public.import_batches(team_id,source_name,row_count,created_by)values(r.team_id,coalesce(nullif(trim(p_source_name),''),'customer-import'),n,r.id)returning*into b;
@@ -37,7 +37,7 @@ returns public.import_batches language plpgsql security definer set search_path=
  insert into public.audit_logs(team_id,actor_id,action,target_type,target_id,after_data)values(r.team_id,r.id,'import.batch_staged','import_batch',b.id,jsonb_build_object('rows',n));return b;end$$;
 
 create or replace function public.precheck_customer_import(p_batch_id uuid)
-returns jsonb language plpgsql security definer set search_path=''as$$
+returns jsonb language plpgsql security definer set search_path='' as $$
 declare r public.profiles;b public.import_batches;ir public.import_rows;e jsonb;norm jsonb;region_id uuid;owner_id uuid;item_id uuid;existing_store uuid;report jsonb;blockers integer;begin
  select*into r from public.profiles where id=auth.uid()and status='active';select*into b from public.import_batches where id=p_batch_id for update;
  if b.id is null or r.id is null or b.team_id<>r.team_id then raise exception'BATCH_NOT_FOUND'using errcode='P0002';end if;if not public.has_access_role(r.team_id,array['owner','admin'])or not public.is_feature_enabled(r.team_id,'sales_os_v3')then raise exception'IMPORT_ADMIN_REQUIRED'using errcode='42501';end if;
@@ -63,7 +63,7 @@ declare r public.profiles;b public.import_batches;ir public.import_rows;e jsonb;
  update public.import_batches set status=case when blockers=0 then'dry_run_ready'else'precheck_failed'end,blocking_error_count=blockers,dry_run_report=report,prechecked_at=now()where id=b.id;return report;end$$;
 
 create or replace function public.commit_customer_import(p_batch_id uuid)
-returns jsonb language plpgsql security definer set search_path=''as$$<<import_commit>>
+returns jsonb language plpgsql security definer set search_path='' as $$<<import_commit>>
 declare r public.profiles;b public.import_batches;ir public.import_rows;brand_id uuid;store_id uuid;contact_id uuid;subscription_id uuid;created_any boolean;result jsonb;before_image jsonb;after_image jsonb;begin
  select*into r from public.profiles where id=auth.uid()and status='active';select*into b from public.import_batches where id=p_batch_id for update;
  if b.id is null or r.id is null or b.team_id<>r.team_id then raise exception'BATCH_NOT_FOUND'using errcode='P0002';end if;if not public.has_access_role(r.team_id,array['owner','admin'])or not public.is_feature_enabled(r.team_id,'sales_os_v3')then raise exception'IMPORT_ADMIN_REQUIRED'using errcode='42501';end if;
@@ -94,7 +94,7 @@ declare r public.profiles;b public.import_batches;ir public.import_rows;brand_id
  insert into public.audit_logs(team_id,actor_id,action,target_type,target_id,after_data)values(b.team_id,r.id,'import.batch_committed','import_batch',b.id,b.dry_run_report);return jsonb_build_object('batch_id',b.id,'status','committed');end$$;
 
 create or replace function public.rollback_customer_import(p_batch_id uuid)
-returns jsonb language plpgsql security definer set search_path=''as$$declare r public.profiles;b public.import_batches;snap public.import_update_snapshots;e public.import_created_entities;current_data jsonb;conflicts integer;final_status text;begin
+returns jsonb language plpgsql security definer set search_path='' as $$declare r public.profiles;b public.import_batches;snap public.import_update_snapshots;e public.import_created_entities;current_data jsonb;conflicts integer;final_status text;begin
  select*into r from public.profiles where id=auth.uid()and status='active';select*into b from public.import_batches where id=p_batch_id for update;
  if b.id is null or r.id is null or b.team_id<>r.team_id or not public.has_access_role(r.team_id,array['owner','admin'])or not public.is_feature_enabled(r.team_id,'sales_os_v3')then raise exception'ROLLBACK_FORBIDDEN'using errcode='42501';end if;
  if b.status in('rolled_back','rollback_conflict')then return jsonb_build_object('batch_id',b.id,'status',b.status);end if;if b.status not in('committed','committed_with_errors')then raise exception'COMMITTED_BATCH_REQUIRED'using errcode='55000';end if;
@@ -116,7 +116,7 @@ returns jsonb language plpgsql security definer set search_path=''as$$declare r 
  select count(*)into conflicts from public.import_rollback_conflicts where batch_id=b.id;final_status:=case when conflicts=0 then'rolled_back'else'rollback_conflict'end;
  update public.import_batches set status=final_status,rolled_back_at=now()where id=b.id;insert into public.audit_logs(team_id,actor_id,action,target_type,target_id,after_data)values(b.team_id,r.id,case when conflicts=0 then'import.batch_rolled_back'else'import.batch_rollback_conflict'end,'import_batch',b.id,jsonb_build_object('status',final_status,'conflicts',conflicts));return jsonb_build_object('batch_id',b.id,'status',final_status,'conflicts',conflicts);end$$;
 
-do$$declare t text;begin foreach t in array array['customer_product_subscriptions','import_batches','import_rows','import_created_entities','import_update_snapshots','import_rollback_conflicts']loop execute format('alter table public.%I enable row level security',t);execute format('create policy"sales os v3 server gate"on public.%I as restrictive for all to authenticated using(public.is_feature_enabled(team_id,''sales_os_v3''))with check(public.is_feature_enabled(team_id,''sales_os_v3''))',t);end loop;end$$;
+do $$declare t text;begin foreach t in array array['customer_product_subscriptions','import_batches','import_rows','import_created_entities','import_update_snapshots','import_rollback_conflicts']loop execute format('alter table public.%I enable row level security',t);execute format('create policy"sales os v3 server gate"on public.%I as restrictive for all to authenticated using(public.is_feature_enabled(team_id,''sales_os_v3''))with check(public.is_feature_enabled(team_id,''sales_os_v3''))',t);end loop;end$$;
 create policy"scoped subscriptions read"on public.customer_product_subscriptions for select to authenticated using(owner_id=auth.uid()or public.can_act_for(team_id,owner_id)or public.has_permission(team_id,'customers.supervise')or public.has_permission(team_id,'operations.manage'));
 create policy"admins read import batches"on public.import_batches for select to authenticated using(public.has_access_role(team_id,array['owner','admin']));
 create policy"admins read import rows"on public.import_rows for select to authenticated using(public.has_access_role(team_id,array['owner','admin']));
