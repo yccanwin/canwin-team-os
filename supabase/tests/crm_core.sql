@@ -77,7 +77,7 @@ begin
       from information_schema.columns where table_schema='public' and table_name='crm_leads_visible')
     is distinct from array['id','read_scope','store_name','contact_name','masked_phone','district_name',
       'business_type','source','created_at','next_action_at','stage','facts','lead_status',
-      'owner_display_name','claimable','active_opportunity_id'] then
+      'owner_display_name','claimable','active_opportunity_id','recycle_risk','recycle_due_at','recycle_paused'] then
     raise exception 'crm_leads_visible column contract changed';
   end if;
 
