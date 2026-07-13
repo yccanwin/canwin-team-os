@@ -83,6 +83,15 @@ export function SalesWorkbench({
   const selected = leads.find((lead) => lead.id === selectedId)
 
   const todayTasks = useMemo(() => leads.filter((lead) => lead.stage !== 'opportunity').map((lead) => prioritizeLead(lead)).sort((a, b) => a.rank - b.rank), [leads])
+  const workbenchSummary = useMemo(() => {
+    if (demoMode) return mockSummary
+    return {
+      appointments: todayTasks.filter((task) => task.priority === 'upcoming_appointment').length,
+      overdue: todayTasks.filter((task) => task.priority === 'overdue_appointment').length,
+      newLeads: leads.filter((lead) => lead.stage === 'new').length,
+      recycleRisks: todayTasks.filter((task) => task.priority === 'recycle_risk').length,
+    }
+  }, [demoMode, leads, todayTasks])
 
   useEffect(() => {
     if (recapStartedAt === null) return
@@ -248,7 +257,7 @@ export function SalesWorkbench({
     && qualification.keyPersonReached
 
   return (
-    <section className="sales-workbench" aria-label="CanWin 3.0 销售工作台演示">
+    <section className="sales-workbench" aria-label={`CanWin 3.0 销售工作台${demoMode ? '演示' : ''}`}>
       <header className="sw-header">
         <div>
           <span className="sw-eyebrow">CANWIN TEAM OS 3.0 · {demoMode ? '演示模式' : '真实模式'}</span>
@@ -263,10 +272,10 @@ export function SalesWorkbench({
         {activeTab === 'today' && (
           <>
             <div className="sw-metrics" aria-label="今日概览">
-              <Metric value={mockSummary.appointments} label="临近预约" tone="blue" />
-              <Metric value={mockSummary.overdue} label="已逾期" tone="red" />
-              <Metric value={mockSummary.newLeads} label="新线索" tone="green" />
-              <Metric value={mockSummary.recycleRisks} label="回收风险" tone="amber" />
+              <Metric value={workbenchSummary.appointments} label="临近预约" tone="blue" />
+              <Metric value={workbenchSummary.overdue} label="已逾期" tone="red" />
+              <Metric value={workbenchSummary.newLeads} label="新线索" tone="green" />
+              <Metric value={workbenchSummary.recycleRisks} label="回收风险" tone="amber" />
             </div>
             <div className="sw-section-title"><span>智能行动队列</span><small>按紧急程度排序</small></div>
             <div className="sw-task-list">
@@ -281,6 +290,7 @@ export function SalesWorkbench({
                   <ChevronRight size={18} />
                 </button>
               ))}
+              {!isLoading && todayTasks.length === 0 && <Placeholder icon={CheckCircle2} title="今日待办已清空" text="当前没有需要处理的线索，可查看客户或已有报价。" />}
             </div>
             {orderSignals.filter((signal) => signal.count > 0).length > 0 && <div className="sw-order-signals">{orderSignals.filter((signal) => signal.count > 0).map((signal) => <a key={signal.kind} href="#/orders-v3"><PackageCheck size={18} /><span><strong>{signal.kind === 'delivery_exception' ? '交付异常' : '续费待办'}</strong><small>{signal.count} 项 · 前往订单履约</small></span><ChevronRight size={18} /></a>)}</div>}
           </>
@@ -401,7 +411,10 @@ function MetricPair({ label, target, actual }: { label: string; target: string; 
 }
 
 function OrderEntry() {
-  return <div className="sw-placeholder sw-order-entry"><PackageCheck size={38} /><h2>订单与履约</h2><p>查看软件、硬件履约状态，以及交付异常和续费进度。</p><a className="sw-primary" href="#/orders-v3">前往订单履约 <ChevronRight size={18} /></a></div>
+  return <div className="sw-order-hub">
+    <a href="#/quotes-v3"><BriefcaseBusiness size={30} /><span><strong>报价与定金</strong><small>新建报价、查看报价状态与定金进度</small></span><ChevronRight size={20} /></a>
+    <a href="#/orders-v3"><PackageCheck size={30} /><span><strong>订单与履约</strong><small>查看软件、硬件履约、交付异常和续费进度</small></span><ChevronRight size={20} /></a>
+  </div>
 }
 
 export default SalesWorkbench
