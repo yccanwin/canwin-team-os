@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { CANWIN_TEAM_ID } from '@/config/team'
 import type { Achievement } from '@/types'
-import { resolveMediaUrl, resolveMediaUrls } from '@/services/storage'
+import { resolveMediaUrl, resolveMediaUrls, resolveStoredMediaUrl, resolveStoredMediaUrls } from '@/services/storage'
 
 type AchievementRow = {
   id: string
@@ -76,7 +76,14 @@ export async function loadAchievements(): Promise<Achievement[]> {
     .order('achieved_date', { ascending: false })
 
   if (error) throw new Error(error.message)
-  return (data ?? []).map((row) => rowToAchievement(row as AchievementRow))
+  return Promise.all((data ?? []).map(async (row) => {
+    const achievement = rowToAchievement(row as AchievementRow)
+    return {
+      ...achievement,
+      icon: (await resolveStoredMediaUrl(achievement.icon)) || achievement.icon,
+      images: (await resolveStoredMediaUrls(achievement.images)) || achievement.images,
+    }
+  }))
 }
 
 export async function createAchievementRecord(

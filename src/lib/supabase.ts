@@ -10,6 +10,11 @@ if (!supabaseUrl || !supabaseAnonKey) {
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   db: { schema: 'public' },
   realtime: { params: { eventsPerSecond: 10 } },
+  auth: {
+    persistSession: true,
+    storage: window.sessionStorage,
+    storageKey: 'canwin-auth-session',
+  },
 })
 
 export function isSupabaseConfigured(): boolean {

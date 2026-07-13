@@ -19,7 +19,6 @@ type ProfileRow = {
 export type MemberPayload = {
   id?: string
   email?: string
-  password?: string
   name: string
   role: User['role']
   position: string
@@ -56,8 +55,10 @@ async function invokeAdminMembers(body: Record<string, unknown>) {
 
 export async function createTeamMember(payload: MemberPayload): Promise<User> {
   const data = await invokeAdminMembers({
-    action: 'create',
+    action: 'invite',
     ...payload,
+    roleCodes: [payload.role === 'captain' ? 'supervisor' : payload.role === 'member' ? 'sales' : payload.role],
+    idempotencyKey: crypto.randomUUID(),
   })
   return profileToUser(data.profile as ProfileRow)
 }
@@ -66,10 +67,14 @@ export async function updateTeamMember(payload: MemberPayload): Promise<User> {
   const data = await invokeAdminMembers({
     action: 'update',
     ...payload,
+    roleCodes: [payload.role === 'captain' ? 'supervisor' : payload.role === 'member' ? 'sales' : payload.role],
+    idempotencyKey: crypto.randomUUID(),
   })
   return profileToUser(data.profile as ProfileRow)
 }
 
 export async function disableTeamMember(id: string): Promise<void> {
-  await invokeAdminMembers({ action: 'disable', id })
+  await invokeAdminMembers({
+    action: 'set-status', id, status: 'disabled', idempotencyKey: crypto.randomUUID(),
+  })
 }

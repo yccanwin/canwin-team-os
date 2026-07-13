@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { CANWIN_TEAM_ID } from '@/config/team'
 import { writeAuditLog } from '@/services/auditLogs'
-import { resolveMediaUrl } from '@/services/storage'
+import { resolveMediaUrl, resolveStoredMediaUrl } from '@/services/storage'
 import type { PersonalGoal, PersonalGoalUpdate } from '@/types'
 import { derivePersonalGoalStatus } from '@/utils/personalGoalStatus'
 
@@ -126,7 +126,11 @@ export async function loadPersonalGoals(): Promise<PersonalGoal[]> {
   if (updatesError) throw new Error(updatesError.message)
 
   const updatesByGoal = new Map<string, PersonalGoalUpdate[]>()
-  ;((updates ?? []) as GoalUpdateRow[]).forEach((row) => {
+  const storedUpdates = await Promise.all(((updates ?? []) as GoalUpdateRow[]).map(async (row) => ({
+    ...row,
+    image_url: (await resolveStoredMediaUrl(row.image_url || undefined)) || row.image_url,
+  })))
+  storedUpdates.forEach((row) => {
     const list = updatesByGoal.get(row.goal_id) ?? []
     list.push(rowToUpdate(row))
     updatesByGoal.set(row.goal_id, list)

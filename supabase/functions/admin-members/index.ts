@@ -1,12 +1,14 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 type MemberPayload = {
-  action: 'create' | 'update' | 'disable'
+  action: 'invite' | 'update' | 'set-status'
   id?: string
   email?: string
-  password?: string
   name?: string
   role?: 'admin' | 'captain' | 'finance' | 'warehouse' | 'member'
+  roleCodes?: string[]
+  status?: 'active' | 'disabled'
+  idempotencyKey?: string
   position?: string
   avatarUrl?: string
   joinDate?: string
@@ -50,36 +52,60 @@ Deno.serve(async (req) => {
     .select('id, team_id, role, status')
     .eq('id', authData.user.id)
     .single()
-  if (actorError || actorProfile?.role !== 'admin' || actorProfile.status !== 'active') {
-    return jsonResponse({ error: 'Only active admin can manage members' }, 403)
+  if (actorError || !actorProfile || actorProfile.status !== 'active') {
+    return jsonResponse({ error: 'Only active access managers can manage members' }, 403)
   }
 
   const payload = (await req.json()) as MemberPayload
   const teamId = actorProfile.team_id || 'CANWIN_TEAM'
+  const { data: canManage, error: permissionError } = await userClient.rpc('has_permission', {
+    target_team_id: teamId,
+    target_permission_code: 'access.manage',
+  })
+  if (permissionError || !canManage) return jsonResponse({ error: 'ACCESS_ADMIN_REQUIRED' }, 403)
 
-  if (payload.action === 'create') {
-    if (!payload.email || !payload.password || !payload.name || !payload.role || !payload.position) {
+  if (payload.action === 'invite') {
+    if (!payload.email || !payload.name || !payload.roleCodes?.length || !payload.idempotencyKey) {
       return jsonResponse({ error: 'Missing required member fields' }, 400)
     }
 
-    const { data: created, error: createError } = await adminClient.auth.admin.createUser({
-      email: payload.email,
-      password: payload.password,
-      email_confirm: true,
-      user_metadata: { name: payload.name },
+    const { error: registryError } = await userClient.rpc('admin_create_team_invitation', {
+      p_email: payload.email,
+      p_display_name: payload.name,
+      p_role_codes: payload.roleCodes,
+      p_idempotency_key: payload.idempotencyKey,
     })
-    if (createError || !created.user) {
-      return jsonResponse({ error: createError?.message || 'Failed to create auth user' }, 400)
+    if (registryError) return jsonResponse({ error: registryError.message }, 400)
+
+    const siteUrl = Deno.env.get('SITE_URL')
+    const { data: invited, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(
+      payload.email.trim().toLowerCase(),
+      {
+        data: { name: payload.name, team_id: teamId },
+        ...(siteUrl ? { redirectTo: siteUrl } : {}),
+      },
+    )
+    if (inviteError || !invited.user) {
+      return jsonResponse({ error: inviteError?.message || 'Failed to send invitation' }, 400)
     }
 
+    const legacyRole = payload.roleCodes.includes('admin')
+      ? 'admin'
+      : payload.roleCodes.includes('supervisor')
+        ? 'captain'
+        : payload.roleCodes.includes('finance')
+          ? 'finance'
+          : payload.roleCodes.includes('warehouse')
+            ? 'warehouse'
+            : 'member'
     const { data: profile, error: profileError } = await adminClient
       .from('profiles')
       .upsert({
-        id: created.user.id,
+        id: invited.user.id,
         team_id: teamId,
         name: payload.name,
-        role: payload.role,
-        position: payload.position,
+        role: legacyRole,
+        position: payload.position || '',
         avatar_url: payload.avatarUrl || null,
         join_date: payload.joinDate || new Date().toISOString().slice(0, 10),
         status: 'active',
@@ -87,20 +113,19 @@ Deno.serve(async (req) => {
       .select('id, team_id, name, role, position, avatar_url, join_date, status, rest_days, mood, taboos')
       .single()
     if (profileError) return jsonResponse({ error: profileError.message }, 400)
+    const { error: rolesError } = await userClient.rpc('admin_replace_profile_roles', {
+      p_profile_id: invited.user.id,
+      p_role_codes: payload.roleCodes,
+      p_idempotency_key: crypto.randomUUID(),
+    })
+    if (rolesError) return jsonResponse({ error: rolesError.message }, 400)
     return jsonResponse({ profile })
   }
 
   if (payload.action === 'update') {
-    if (!payload.id || !payload.name || !payload.role || !payload.position) {
+    if (!payload.id || !payload.name || !payload.role || !payload.position || !payload.roleCodes?.length) {
       return jsonResponse({ error: 'Missing required member fields' }, 400)
     }
-    if (payload.password) {
-      const { error: passwordError } = await adminClient.auth.admin.updateUserById(payload.id, {
-        password: payload.password,
-      })
-      if (passwordError) return jsonResponse({ error: passwordError.message }, 400)
-    }
-
     const { data: profile, error: updateError } = await adminClient
       .from('profiles')
       .update({
@@ -116,19 +141,38 @@ Deno.serve(async (req) => {
       .select('id, team_id, name, role, position, avatar_url, join_date, status, rest_days, mood, taboos')
       .single()
     if (updateError) return jsonResponse({ error: updateError.message }, 400)
+    const { error: rolesError } = await userClient.rpc('admin_replace_profile_roles', {
+      p_profile_id: payload.id,
+      p_role_codes: payload.roleCodes,
+      p_idempotency_key: payload.idempotencyKey || crypto.randomUUID(),
+    })
+    if (rolesError) return jsonResponse({ error: rolesError.message }, 400)
+    const { error: auditError } = await adminClient.from('audit_logs').insert({
+      team_id: teamId,
+      actor_id: authData.user.id,
+      action: 'profile.details_updated',
+      target_type: 'profile',
+      target_id: payload.id,
+      after_data: { name: payload.name, position: payload.position, role: payload.role },
+    })
+    if (auditError) return jsonResponse({ error: auditError.message }, 400)
     return jsonResponse({ profile })
   }
 
-  if (payload.action === 'disable') {
-    if (!payload.id) return jsonResponse({ error: 'Missing member id' }, 400)
-    if (payload.id === authData.user.id) return jsonResponse({ error: 'Admin cannot disable self' }, 400)
-
-    const { error: disableError } = await adminClient
-      .from('profiles')
-      .update({ status: 'disabled' })
-      .eq('id', payload.id)
-      .eq('team_id', teamId)
-    if (disableError) return jsonResponse({ error: disableError.message }, 400)
+  if (payload.action === 'set-status') {
+    if (!payload.id || !payload.status || !payload.idempotencyKey) {
+      return jsonResponse({ error: 'Missing status fields' }, 400)
+    }
+    const { error: statusError } = await userClient.rpc('admin_set_profile_status', {
+      p_profile_id: payload.id,
+      p_status: payload.status,
+      p_idempotency_key: payload.idempotencyKey,
+    })
+    if (statusError) return jsonResponse({ error: statusError.message }, 400)
+    const { error: authStatusError } = await adminClient.auth.admin.updateUserById(payload.id, {
+      ban_duration: payload.status === 'disabled' ? '876000h' : 'none',
+    })
+    if (authStatusError) return jsonResponse({ error: authStatusError.message }, 400)
     return jsonResponse({ ok: true })
   }
 

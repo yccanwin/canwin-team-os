@@ -20,11 +20,18 @@ export function createSupabaseAccessAdminDataSource(client: SupabaseClient): Acc
       fail('保存角色失败', error)
     },
     async createInvitation(email, displayName, roleCodes) {
-      const { error } = await client.rpc('admin_create_team_invitation', { p_email: email, p_display_name: displayName, p_role_codes: roleCodes, p_idempotency_key: requestKey() })
+      const { error } = await client.functions.invoke('admin-members', {
+        body: {
+          action: 'invite', email, name: displayName, roleCodes,
+          idempotencyKey: requestKey(),
+        },
+      })
       fail('登记邀请失败', error)
     },
     async setProfileStatus(profileId, status) {
-      const { error } = await client.rpc('admin_set_profile_status', { p_profile_id: profileId, p_status: status, p_idempotency_key: requestKey() })
+      const { error } = await client.functions.invoke('admin-members', {
+        body: { action: 'set-status', id: profileId, status, idempotencyKey: requestKey() },
+      })
       fail('修改账号状态失败', error)
     },
     async createDelegation(input) {
