@@ -20,6 +20,8 @@ export interface SalesWorkbenchDataSource {
   upsertLead(input: LeadMutation): Promise<string>
   loadQuickLeadContext(): Promise<QuickLeadContext>
   createQuickLead(input: QuickLeadMutation): Promise<string>
+  precheckLeadConversion(input: { leadId: string; brandName: string; storeName: string }): Promise<LeadConversionPrecheck>
+  convertLeadToCustomer(input: LeadConversionMutation): Promise<{ brandId: string; storeId: string; contactId: string; idempotent: boolean }>
 }
 
 export interface BrandMutation { id?: string; name: string; businessMode: string }
@@ -47,6 +49,12 @@ export interface LeadFollowupContext {
   nurtureUntil?: string
   unreachableDays: number
   activities: LeadActivity[]
+}
+export interface LeadConversionMatch { id: string; name: string; brandId?: string; storeId?: string; businessMode?: string }
+export interface LeadConversionPrecheck { brands: LeadConversionMatch[]; stores: LeadConversionMatch[]; contacts: LeadConversionMatch[] }
+export interface LeadConversionMutation {
+  leadId: string; brandId?: string; brandName: string; businessMode: string; storeId?: string; storeName: string
+  businessType: string; address: string; contactId?: string; contactName: string; contactTitle: string; isKeyPerson: boolean
 }
 export interface CrmEditorOptions {
   brands: Array<{ id: string; name: string; businessMode: string }>

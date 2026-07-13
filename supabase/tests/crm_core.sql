@@ -106,5 +106,12 @@ begin
     or not has_table_privilege('authenticated','public.crm_leads_visible','SELECT') then
     raise exception 'Workbench SQL contract grants are unsafe';
   end if;
+  if to_regclass('public.crm_lead_conversions')is null
+    or to_regprocedure('public.precheck_crm_lead_conversion(uuid,text,text)')is null
+    or to_regprocedure('public.convert_crm_lead_to_customer(uuid,uuid,text,text,uuid,text,text,text,uuid,text,text,boolean)')is null then raise exception 'Lead conversion contract missing';end if;
+  if position('for update' in lower(pg_get_functiondef('public.convert_crm_lead_to_customer(uuid,uuid,text,text,uuid,text,text,text,uuid,text,text,boolean)'::regprocedure)))=0
+    or position('last_effective_followup_at' in lower(pg_get_functiondef('public.convert_crm_lead_to_customer(uuid,uuid,text,text,uuid,text,text,text,uuid,text,text,boolean)'::regprocedure)))=0
+    or position('crm_owner_history' in lower(pg_get_functiondef('public.convert_crm_lead_to_customer(uuid,uuid,text,text,uuid,text,text,text,uuid,text,text,boolean)'::regprocedure)))=0
+    or position('audit_logs' in lower(pg_get_functiondef('public.convert_crm_lead_to_customer(uuid,uuid,text,text,uuid,text,text,text,uuid,text,text,boolean)'::regprocedure)))=0 then raise exception 'Atomic lead conversion safeguards missing';end if;
 end $$;
 select 'crm_core_ok' as result;

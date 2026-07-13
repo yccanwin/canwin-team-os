@@ -169,5 +169,22 @@ export function createSupabaseSalesWorkbenchDataSource(client: SupabaseClient): 
       if (error) throw new SalesWorkbenchDataError(`新增线索失败：${error.message}`, error)
       return String(data)
     },
+    async precheckLeadConversion(input) {
+      const { data, error } = await client.rpc('precheck_crm_lead_conversion', { p_lead_id: input.leadId, p_brand_name: input.brandName.trim(), p_store_name: input.storeName.trim() })
+      if (error) throw new SalesWorkbenchDataError(`客户去重预检失败：${error.message}`, error)
+      const value = data as { brand_matches?: Array<Record<string, unknown>>; store_matches?: Array<Record<string, unknown>>; contact_matches?: Array<Record<string, unknown>> } | null
+      const map = (items: Array<Record<string, unknown>> = []) => items.map((item) => ({ id: String(item.id), name: String(item.name), brandId: item.brand_id ? String(item.brand_id) : undefined, storeId: item.store_id ? String(item.store_id) : undefined, businessMode: item.business_mode ? String(item.business_mode) : undefined }))
+      return { brands: map(value?.brand_matches), stores: map(value?.store_matches), contacts: map(value?.contact_matches) }
+    },
+    async convertLeadToCustomer(input) {
+      const { data, error } = await client.rpc('convert_crm_lead_to_customer', {
+        p_lead_id: input.leadId, p_brand_id: input.brandId ?? null, p_brand_name: input.brandName.trim(), p_business_mode: input.businessMode,
+        p_store_id: input.storeId ?? null, p_store_name: input.storeName.trim(), p_business_type: input.businessType, p_address: input.address.trim() || null,
+        p_contact_id: input.contactId ?? null, p_contact_name: input.contactName.trim(), p_contact_title: input.contactTitle.trim() || null, p_is_key_person: input.isKeyPerson,
+      })
+      if (error) throw new SalesWorkbenchDataError(`转客户失败：${error.message}`, error)
+      const value = data as { brand_id: string; store_id: string; contact_id: string; idempotent?: boolean }
+      return { brandId: String(value.brand_id), storeId: String(value.store_id), contactId: String(value.contact_id), idempotent: value.idempotent === true }
+    },
   }
 }

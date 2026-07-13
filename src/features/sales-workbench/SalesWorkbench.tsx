@@ -23,6 +23,7 @@ import { prioritizeLead } from './actionPriority'
 import { CrmEntityEditor } from './CrmEntityEditor'
 import { QualificationEvidenceEditor } from './QualificationEvidenceEditor'
 import { QuickLeadForm } from './QuickLeadForm'
+import { LeadConversionForm } from './LeadConversionForm'
 import './sales-workbench.css'
 
 const tabs: Array<{ id: WorkbenchTab; label: string; icon: typeof House }> = [
@@ -380,6 +381,7 @@ export function SalesWorkbench({
                 {currentLeadScope === 'mine' && <div className="sw-risk-panel"><LeadRiskBadge lead={selected} /><span>{selected.recyclePaused ? '服务端已暂停自动回收' : selected.recycleDueAt ? `服务端回收节点：${new Date(selected.recycleDueAt).toLocaleString('zh-CN')}` : '当前没有回收风险'}</span></div>}
 
                 {selected.facts.length > 0 && <div className="sw-known-facts"><strong>已获得的新事实</strong>{selected.facts.map((fact) => <p key={fact}><CheckCircle2 size={15} />{fact}</p>)}</div>}
+                {!demoMode && currentLeadScope === 'mine' && dataSource && selected.facts.length > 0 && <LeadConversionForm leadId={selected.id} defaultContactName={selected.contactName} dataSource={dataSource} onConverted={refreshCrm} />}
 
                 <div className="sw-flow"><FlowStep done label="线索" /><FlowStep done={selected.stage !== 'new'} label="联系" /><FlowStep done={['qualified', 'opportunity'].includes(selected.stage)} label="有效跟进" /><FlowStep done={selected.stage === 'opportunity'} label="商机" /></div>
 
