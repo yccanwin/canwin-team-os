@@ -58,8 +58,8 @@ export const createSupabaseQuoteOrderDataSource = (client: SupabaseClient): Quot
   async loadDraftOptions() {
     const [opportunities, packages, items] = await Promise.all([
       client.from('crm_opportunities').select('id,value_grade,demo_completed_at,crm_stores!inner(name),crm_brands(name)').is('qualification_superseded_at', null).order('created_at', { ascending: false }),
-      client.from('deal_packages').select('id,name,deal_catalog_versions!inner(status)').eq('deal_catalog_versions.status', 'published').order('name'),
-      client.from('deal_catalog_items').select('id,name,item_type,customer_list_price,deal_catalog_versions!inner(status)').eq('deal_catalog_versions.status', 'published').order('name'),
+      client.from('deal_packages').select('id,name,deal_catalog_versions!inner(status)').eq('is_active', true).eq('deal_catalog_versions.status', 'published').order('name'),
+      client.from('deal_catalog_items').select('id,name,item_type,customer_list_price,deal_catalog_versions!inner(status)').eq('is_active', true).eq('deal_catalog_versions.status', 'published').order('name'),
     ])
     const error = opportunities.error ?? packages.error ?? items.error
     if (error) return fail(error, '读取报价选项失败')

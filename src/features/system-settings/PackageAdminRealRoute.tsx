@@ -1,0 +1,1 @@
+import {supabase}from'../../lib/supabase';import{PackageAdminPage}from'./PackageAdminPage';import{createPackageSupabaseDataSource}from'./packageSupabaseDataSource';const dataSource=createPackageSupabaseDataSource(supabase);export default function PackageAdminRealRoute(){return <PackageAdminPage dataSource={dataSource}/>}

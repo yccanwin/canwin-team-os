@@ -85,8 +85,8 @@ begin
       insert into public.deal_catalog_items(team_id, catalog_version_id, sku, name, item_type, customer_list_price, procurement_cost, points, applicable_business_types, is_active)
       select actor.team_id, draft.id, i.sku, i.name, i.item_type, i.customer_list_price, i.procurement_cost, i.points, i.applicable_business_types, i.is_active
       from public.deal_catalog_items i where i.team_id = actor.team_id and i.catalog_version_id = source.id;
-      insert into public.deal_packages(team_id, catalog_version_id, code, name, business_type)
-      select actor.team_id, draft.id, pkg.code, pkg.name, pkg.business_type from public.deal_packages pkg
+      insert into public.deal_packages(team_id, catalog_version_id, code, name, business_type, is_active)
+      select actor.team_id, draft.id, pkg.code, pkg.name, pkg.business_type, pkg.is_active from public.deal_packages pkg
       where pkg.team_id = actor.team_id and pkg.catalog_version_id = source.id;
       insert into public.deal_package_items(team_id, package_id, catalog_item_id, quantity)
       select actor.team_id, new_pkg.id, new_item.id, old_pi.quantity
