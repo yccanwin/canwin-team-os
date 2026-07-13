@@ -15,7 +15,7 @@ const modules = [
     description: '统一管理软件、硬件、套餐和销售目录版本。',
     to: '/settings-v3/catalog',
     icon: Boxes,
-    status: '待接入配置',
+    status: '可用',
     accent: 'bg-amber-50 text-amber-700',
   },
   {
