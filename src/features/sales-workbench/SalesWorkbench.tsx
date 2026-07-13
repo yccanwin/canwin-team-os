@@ -8,9 +8,11 @@ import {
   Clock3,
   ContactRound,
   House,
+  Plus,
   Phone,
   PackageCheck,
   RotateCcw,
+  Settings2,
   Sparkles,
   UsersRound,
 } from 'lucide-react'
@@ -24,11 +26,19 @@ import './sales-workbench.css'
 
 const tabs: Array<{ id: WorkbenchTab; label: string; icon: typeof House }> = [
   { id: 'today', label: '今日', icon: House },
-  { id: 'leads', label: '线索清洗', icon: ClipboardList },
+  { id: 'leads', label: '线索', icon: ClipboardList },
   { id: 'customers', label: '客户', icon: UsersRound },
   { id: 'orders', label: '订单', icon: BriefcaseBusiness },
   { id: 'profile', label: '我的', icon: CircleUserRound },
 ]
+
+const tabDescriptions: Record<WorkbenchTab, string> = {
+  today: '只看今天必须推进的事项',
+  leads: '联系、跟进并推进有效商机',
+  customers: '查看品牌、门店与联系人档案',
+  orders: '进入报价、订单与交付流程',
+  profile: '查看个人目标与销售结果',
+}
 
 const stageLabel: Record<LeadStage, string> = {
   new: '待联系',
@@ -80,7 +90,14 @@ export function SalesWorkbench({
   const [assessments, setAssessments] = useState<SalesAssessmentSummary[]>(() => demoMode ? mockAssessments : [])
   const [assessmentError, setAssessmentError] = useState('')
   const [currentLeadScope, setCurrentLeadScope] = useState<LeadReadScope>(leadScope)
+  const [showCustomerEditor, setShowCustomerEditor] = useState(false)
   const selected = leads.find((lead) => lead.id === selectedId)
+  const activeTabConfig = tabs.find((tab) => tab.id === activeTab) ?? tabs[0]
+
+  const activateTab = (tab: WorkbenchTab) => {
+    setActiveTab(tab)
+    if (tab !== 'customers') setShowCustomerEditor(false)
+  }
 
   const todayTasks = useMemo(() => leads.filter((lead) => lead.stage !== 'opportunity').map((lead) => prioritizeLead(lead)).sort((a, b) => a.rank - b.rank), [leads])
   const workbenchSummary = useMemo(() => {
@@ -258,15 +275,25 @@ export function SalesWorkbench({
 
   return (
     <section className="sales-workbench" aria-label={`CanWin 3.0 销售工作台${demoMode ? '演示' : ''}`}>
-      <header className="sw-header">
-        <div>
-          <span className="sw-eyebrow">CANWIN TEAM OS 3.0 · {demoMode ? '演示模式' : '真实模式'}</span>
-          <h1>{activeTab === 'today' ? '今天先做什么' : tabs.find((tab) => tab.id === activeTab)?.label}</h1>
+      <aside className="sw-desktop-nav" aria-label="销售工作台一级导航">
+        <div className="sw-brand-mark"><span>CANWIN</span><strong>销售工作台</strong></div>
+        <div className="sw-desktop-nav-items">
+          {tabs.map(({ id, label, icon: Icon }) => <button key={id} className={activeTab === id ? 'is-active' : ''} onClick={() => activateTab(id)}><Icon size={19} /><span>{label}</span></button>)}
         </div>
-        <div className="sw-avatar" title={salespersonName}>销</div>
-      </header>
+        <div className="sw-account-card"><div className="sw-avatar" title={salespersonName}>销</div><span><strong>{salespersonName}</strong><small>{demoMode ? '演示模式' : '真实数据'}</small></span></div>
+      </aside>
 
-      <main className="sw-main">
+      <div className="sw-workspace">
+        <header className="sw-header">
+          <div>
+            <span className="sw-eyebrow">销售工作台 / {activeTabConfig.label}</span>
+            <h1>{activeTab === 'today' ? '今天先做什么' : activeTabConfig.label}</h1>
+            <p>{tabDescriptions[activeTab]}</p>
+          </div>
+          <div className="sw-mobile-account"><div className="sw-avatar" title={salespersonName}>销</div></div>
+        </header>
+
+        <main className="sw-main">
         {dataError && <div className="sw-data-error" role="alert">{dataError}</div>}
         {isLoading && <div className="sw-loading" role="status">正在处理，请稍候…</div>}
         {activeTab === 'today' && (
@@ -280,7 +307,7 @@ export function SalesWorkbench({
             <div className="sw-section-title"><span>智能行动队列</span><small>按紧急程度排序</small></div>
             <div className="sw-task-list">
               {todayTasks.map(({ lead, priority, label, ageHours }) => (
-                <button key={lead.id} className="sw-task-card" onClick={() => { setSelectedId(lead.id); setActiveTab('leads') }}>
+                <button key={lead.id} className="sw-task-card" onClick={() => { setSelectedId(lead.id); activateTab('leads') }}>
                   <span className={`sw-priority is-${priority}`} />
                   <div className="sw-task-copy">
                     <strong><em className={`sw-action-label is-${priority}`}>{label}</em>{lead.storeName}</strong>
@@ -352,7 +379,15 @@ export function SalesWorkbench({
         )}
 
         {activeTab === 'customers' && (
-          <><CustomerDirectory customers={customers} selectedBrandId={selectedBrandId} onSelectBrand={setSelectedBrandId} error={customerError} />{!demoMode && dataSource && <CrmEntityEditor dataSource={dataSource} onSaved={refreshCrm} />}</>
+          <div className="sw-customer-page">
+            <div className="sw-page-actions">
+              <div><strong>{showCustomerEditor ? '维护客户资料' : '客户档案'}</strong><span>{showCustomerEditor ? '品牌、门店、联系人与线索资料维护' : `${customers.length} 个可见品牌客户`}</span></div>
+              {!demoMode && dataSource && <button className="sw-compact-action" onClick={() => setShowCustomerEditor((current) => !current)}>{showCustomerEditor ? <><UsersRound size={17} />返回客户列表</> : <><Plus size={17} />新建或维护</>}</button>}
+            </div>
+            {showCustomerEditor && !demoMode && dataSource
+              ? <div className="sw-editor-page"><div className="sw-editor-note"><Settings2 size={18} /><span>资料维护是独立操作区，保存后会自动返回最新真实数据。</span></div><CrmEntityEditor dataSource={dataSource} onSaved={refreshCrm} /></div>
+              : <CustomerDirectory customers={customers} selectedBrandId={selectedBrandId} onSelectBrand={setSelectedBrandId} error={customerError} />}
+          </div>
         )}
         {activeTab === 'orders' && <OrderEntry />}
         {activeTab === 'profile' && <MyAssessments name={salespersonName} assessments={assessments} error={assessmentError} />}
@@ -369,10 +404,11 @@ export function SalesWorkbench({
             />
           </div>
         )}
-      </main>
+        </main>
+      </div>
 
       <nav className="sw-bottom-nav" aria-label="销售工作台导航">
-        {tabs.map(({ id, label, icon: Icon }) => <button key={id} className={activeTab === id ? 'is-active' : ''} onClick={() => setActiveTab(id)}><Icon size={21} /><span>{label}</span></button>)}
+        {tabs.map(({ id, label, icon: Icon }) => <button key={id} className={activeTab === id ? 'is-active' : ''} onClick={() => activateTab(id)}><Icon size={21} /><span>{label}</span></button>)}
       </nav>
     </section>
   )
