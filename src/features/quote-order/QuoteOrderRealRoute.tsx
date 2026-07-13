@@ -15,6 +15,7 @@ const requestedOpportunityId = new URLSearchParams(window.location.hash.split('?
 const money = (value: number) => `¥${value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 const statusLabel: Record<string, string> = { draft: '草稿', approval_pending: '待主管审批', submitted: '已提交', approved: '已批准', frozen: '已冻结', rejected: '已驳回' }
 const approvalLabel: Record<DealQuoteApprovalRecord['status'], string> = { not_required: '无需审批', pending: '待主管审批', approved: '主管已批准', rejected: '主管已驳回' }
+const orderStatusLabel: Record<string, string> = { deposit_confirmed: '定金已确认', internal_paid: '内部款已结清', fulfilling: '履约中', completed: '已完成', cancelled: '已取消' }
 
 export default function QuoteOrderRealRoute() {
   const [quotes, setQuotes] = useState<DealQuoteRecord[]>([])
@@ -28,6 +29,8 @@ export default function QuoteOrderRealRoute() {
   const [approvalNote, setApprovalNote] = useState('')
   const [amount, setAmount] = useState('')
   const [externalRef, setExternalRef] = useState('')
+  const [recipientType, setRecipientType] = useState<'company' | 'sales'>('company')
+  const [depositKey, setDepositKey] = useState(() => crypto.randomUUID())
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -55,6 +58,7 @@ export default function QuoteOrderRealRoute() {
   }
   const openQuote = async (target: DealQuoteRecord) => {
     setQuote(target); setOrder(null); setError(''); setNotice(''); setApproval(null); setDraftLinesReady(false)
+    setAmount(''); setExternalRef(''); setRecipientType('company'); setDepositKey(crypto.randomUUID())
     setBusy(true)
     try {
       await refreshApproval(target)
@@ -131,6 +135,23 @@ export default function QuoteOrderRealRoute() {
     } catch (caught) { setError(caught instanceof Error ? caught.message : '确认A类演示失败') }
     finally { setBusy(false) }
   }
+  const confirmDeposit = async () => {
+    if (!quote) return
+    setBusy(true); setError(''); setNotice('')
+    try {
+      const nextOrder = await dataSource.confirmDeposit({
+        quoteId: quote.id,
+        amount: Number(amount),
+        externalRef: externalRef.trim(),
+        recipientType,
+        idempotencyKey: depositKey,
+      })
+      const frozenQuote = await dataSource.getQuote(quote.id)
+      setOrder(nextOrder); updateQuote(frozenQuote)
+      setNotice('定金已确认，最终报价已冻结，订单已生成')
+    } catch (caught) { setError(caught instanceof Error ? caught.message : '确认定金失败') }
+    finally { setBusy(false) }
+  }
 
   const selectedOpportunity = options?.opportunities.find(item => item.id === opportunityId)
   const aDemoBlocked = Boolean(quote?.valueGrade === 'A' && !quote.demoCompleted)
@@ -164,7 +185,7 @@ export default function QuoteOrderRealRoute() {
       </>}
     </article>
 
-    <article className="qo-card qo-deposit"><div className="qo-title"><span>04</span><div><h2>定金确认</h2><p>仅已提交或主管批准的报价可确认定金</p></div></div>{!quote && <p className="qo-empty">选择已提交的报价后可进行定金确认。</p>}{quote && !canConfirmDeposit && <div className="qo-lock"><ShieldCheck size={20} /><span><b>当前不可确认定金</b>{quote.status === 'approval_pending' ? '特殊报价必须等待主管批准。' : '请先完成报价提交或审批。'}</span></div>}{quote && canConfirmDeposit && <div className="qo-deposit-form"><div className="qo-deposit-quote"><span>{quote.storeName} · V{quote.versionNo}</span><strong>{money(quote.customerTotal)}</strong></div><label>本次定金金额<input value={amount} onChange={event => setAmount(event.target.value)} type="number" min="0.01" placeholder="0.00" /></label><label>付款凭证号<input value={externalRef} onChange={event => setExternalRef(event.target.value)} placeholder="银行流水号或财务凭证号" /></label><button disabled={busy || !(Number(amount) > 0) || !externalRef.trim()} onClick={async () => { if (!quote) return; setBusy(true); setError(''); try { const next = await dataSource.confirmDeposit({ quoteId: quote.id, amount: Number(amount), externalRef: externalRef.trim(), idempotencyKey: crypto.randomUUID() }); setOrder(next); setNotice('定金已确认，订单已生成') } catch (caught) { setError(caught instanceof Error ? caught.message : '确认定金失败') } finally { setBusy(false) } }} className="qo-primary"><WalletCards size={17} />确认定金并生成订单</button></div>}{order && <div className="qo-order-created"><CheckCircle2 size={22} /><span><b>订单已生成</b>订单 {order.id} · 内部应付 {money(order.internalDue)}</span><a href={`#/orders-v3?order=${encodeURIComponent(order.id)}`}>进入订单履约</a></div>}</article>
+    <article className="qo-card qo-deposit"><div className="qo-title"><span>04</span><div><h2>定金确认 <em className="qo-finance-only">仅财务</em></h2><p>仅已提交或主管批准的报价可确认定金</p></div></div>{!quote && <p className="qo-empty">选择已提交的报价后可进行定金确认。</p>}{quote && !canConfirmDeposit && !order && <div className="qo-lock"><ShieldCheck size={20} /><span><b>当前不可确认定金</b>{quote.status === 'approval_pending' ? '特殊报价必须等待主管批准。' : quote.status === 'frozen' ? '该报价已冻结，请从订单进入履约。' : '请先完成报价提交或审批。'}</span></div>}{quote && canConfirmDeposit && !order && <div className="qo-deposit-form"><div className="qo-deposit-quote"><span>{quote.storeName} · V{quote.versionNo}</span><strong>{money(quote.customerTotal)}</strong></div><label>本次定金金额<input value={amount} onChange={event => setAmount(event.target.value)} type="number" min="0.01" max={quote.customerTotal} placeholder="0.00" /></label><label>收款对象<select value={recipientType} onChange={event => setRecipientType(event.target.value as 'company' | 'sales')}><option value="company">公司收款</option><option value="sales">销售代收</option></select></label><label className="qo-deposit-reference">付款凭证号<input value={externalRef} onChange={event => setExternalRef(event.target.value)} placeholder="银行流水号或财务凭证号" /></label><button disabled={busy || !(Number(amount) > 0) || Number(amount) > quote.customerTotal || !externalRef.trim()} onClick={() => void confirmDeposit()} className="qo-primary"><WalletCards size={17} />确认定金、冻结报价并生成订单</button></div>}{order && <div className="qo-order-result"><div className="qo-order-created"><CheckCircle2 size={22} /><span><b>成交完成 · {orderStatusLabel[order.status] ?? order.status}</b><strong>{order.orderNumber}</strong><small>成交时间：{new Date(order.createdAt).toLocaleString('zh-CN')} · 最终报价已冻结</small></span><a href={`#/orders-v3?order=${encodeURIComponent(order.id)}`}>进入订单履约</a></div><p>退款或取消必须通过后续“冲销/取消”流程新增历史记录，不会覆盖本次定金和订单记录。</p></div>}</article>
     </section></div>
     <InternalPaymentPanel dataSource={dataSource} />
   </main>

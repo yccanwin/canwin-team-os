@@ -18,7 +18,7 @@ type RawQuote = {
     crm_stores?: { name: string } | null; crm_brands?: { name: string } | null
   } | null
 }
-type RawOrder = { id: string; quote_id: string; status: string; customer_total: number | string; internal_due: number | string; internal_paid: number | string }
+type RawOrder = { id: string; order_number: string | null; quote_id: string; status: string; created_at: string; customer_total: number | string; internal_due: number | string; internal_paid: number | string }
 type RawInternalPayment = { order_id: string; quote_id: string; store_name: string; order_status: string; internal_due: number | string; internal_paid: number | string; internal_remaining: number | string; fulfillment_unlocked: boolean; can_manage: boolean }
 type RawDraftLine = { line_id: string; kind: 'package' | 'hardware' | 'addon'; source_id: string; item_name: string; quantity: number | string; customer_price: number | string }
 type RawApproval = { status: DealQuoteApprovalRecord['status']; note: string | null; decided_at: string | null; can_decide: boolean }
@@ -45,7 +45,7 @@ const mapQuote = (row: RawQuote): DealQuoteRecord => ({
   valueGrade: row.crm_opportunities?.value_grade ?? '',
   demoCompleted: Boolean(row.crm_opportunities?.demo_completed_at),
 })
-const mapOrder = (row: RawOrder): DealOrderRecord => ({ id: row.id, quoteId: row.quote_id, status: row.status, customerTotal: Number(row.customer_total), internalDue: Number(row.internal_due), internalPaid: Number(row.internal_paid) })
+const mapOrder = (row: RawOrder): DealOrderRecord => ({ id: row.id, orderNumber: row.order_number ?? row.id, quoteId: row.quote_id, status: row.status, createdAt: row.created_at, customerTotal: Number(row.customer_total), internalDue: Number(row.internal_due), internalPaid: Number(row.internal_paid) })
 const mapInternalPayment = (row: RawInternalPayment): InternalPaymentWorkbenchRecord => ({ orderId: row.order_id, quoteId: row.quote_id, storeName: row.store_name, orderStatus: row.order_status, internalDue: Number(row.internal_due), internalPaid: Number(row.internal_paid), internalRemaining: Number(row.internal_remaining), fulfillmentUnlocked: row.fulfillment_unlocked, canManage: row.can_manage })
 const mapDraftLine = (row: RawDraftLine): DealQuoteDraftLineRecord => ({ lineId: row.line_id, kind: row.kind, sourceId: row.source_id, itemName: row.item_name, quantity: Number(row.quantity), customerPrice: Number(row.customer_price) })
 const quoteSelection = 'id,opportunity_id,version_no,status,valid_until,customer_total,internal_total,has_special_content,special_content,submitted_at,frozen_at,crm_opportunities!inner(value_grade,demo_completed_at,crm_stores!inner(name),crm_brands(name))'
@@ -123,7 +123,7 @@ export const createSupabaseQuoteOrderDataSource = (client: SupabaseClient): Quot
     return { status: row.status, note: row.note, decidedAt: row.decided_at, canDecide: row.can_decide }
   },
   async confirmDeposit(input) {
-    const { data, error } = await client.rpc('confirm_deal_deposit', { p_quote_id: input.quoteId, p_amount: input.amount, p_external_ref: input.externalRef, p_idempotency_key: input.idempotencyKey })
+    const { data, error } = await client.rpc('confirm_deal_deposit', { p_quote_id: input.quoteId, p_amount: input.amount, p_external_ref: input.externalRef, p_idempotency_key: input.idempotencyKey, p_recipient_type: input.recipientType })
     if (error || !data) return fail(error, '确认定金失败')
     return mapOrder(data as RawOrder)
   },

@@ -25,8 +25,10 @@ export interface DealQuoteApprovalRecord {
 
 export interface DealOrderRecord {
   id: string
+  orderNumber: string
   quoteId: string
   status: string
+  createdAt: string
   customerTotal: number
   internalDue: number
   internalPaid: number
@@ -67,7 +69,7 @@ export interface QuoteOrderDataSource {
   submitQuote(quoteId: string): Promise<DealQuoteRecord>
   decideQuote(quoteId: string, approved: boolean, note?: string): Promise<DealQuoteRecord>
   getApproval(quoteId: string): Promise<DealQuoteApprovalRecord>
-  confirmDeposit(input: { quoteId: string; amount: number; externalRef: string; idempotencyKey: string }): Promise<DealOrderRecord>
+  confirmDeposit(input: { quoteId: string; amount: number; externalRef: string; recipientType: 'company' | 'sales'; idempotencyKey: string }): Promise<DealOrderRecord>
   listInternalPayments(): Promise<InternalPaymentWorkbenchRecord[]>
   confirmInternalPayment(input: { orderId: string; amount: number; method: InternalPaymentMethod; externalRef: string; idempotencyKey: string }): Promise<DealOrderRecord>
 }
