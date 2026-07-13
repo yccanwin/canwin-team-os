@@ -1,4 +1,4 @@
-import { ArrowRight, Boxes, MapPinned, Settings2, ShieldCheck } from 'lucide-react'
+import { ArrowRight, Boxes, FileSpreadsheet, MapPinned, Settings2, ShieldCheck } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 const modules = [
@@ -25,6 +25,14 @@ const modules = [
     icon: ShieldCheck,
     status: '可用',
     accent: 'bg-emerald-50 text-emerald-700',
+  },
+  {
+    title: '旧客户导入',
+    description: '下载标准模板，预检 Excel 或 CSV，并在零错误后确认写入客户档案。',
+    to: '/settings-v3/customer-import',
+    icon: FileSpreadsheet,
+    status: '可用',
+    accent: 'bg-indigo-50 text-indigo-700',
   },
 ] as const
 
