@@ -9,6 +9,13 @@ alter table public.crm_leads add constraint crm_leads_status_check check(status 
 alter table public.crm_opportunities add column if not exists decision_at timestamptz;
 
 -- Public-pool contract fields; no owner id, raw phone, email or messaging id.
+do $migration$
+begin
+ if to_regclass('public.crm_leads_visible') is null or not exists(
+  select 1 from information_schema.columns
+  where table_schema='public' and table_name='crm_leads_visible' and column_name='active_opportunity_id'
+ )then
+  execute $view$
 create or replace view public.crm_leads_visible with(security_invoker=true)as
 select l.id,case when l.owner_id=auth.uid()then'mine'::text else'region'::text end read_scope,
  coalesce(s.name,l.title)store_name,c.name contact_name,null::text masked_phone,r.name district_name,s.business_type,l.source,l.created_at,l.next_action_at,
@@ -18,7 +25,11 @@ select l.id,case when l.owner_id=auth.uid()then'mine'::text else'region'::text e
 from public.crm_leads l left join public.crm_stores s on s.id=l.store_id and s.team_id=l.team_id join public.sales_regions r on r.id=l.region_id and r.team_id=l.team_id
 left join public.profiles p on p.id=l.owner_id and p.team_id=l.team_id
 left join lateral(select contact.name from public.crm_contacts contact where contact.team_id=l.team_id and(contact.store_id=l.store_id or(l.store_id is null and contact.brand_id=l.brand_id))order by contact.is_key_person desc,contact.created_at limit 1)c on true
-where public.is_feature_enabled(l.team_id,'sales_os_v3')and public.crm_can_access_region(l.team_id,l.region_id,l.owner_id);
+where public.is_feature_enabled(l.team_id,'sales_os_v3')and public.crm_can_access_region(l.team_id,l.region_id,l.owner_id)
+  $view$;
+ end if;
+end
+$migration$;
 
 create table public.crm_contact_attempts(
  id uuid primary key default gen_random_uuid(),team_id text not null references public.teams(id),lead_id uuid not null,
