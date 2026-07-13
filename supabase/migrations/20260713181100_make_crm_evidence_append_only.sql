@@ -15,13 +15,14 @@ create table public.crm_qualification_evidence_revocations (
 alter table public.crm_qualification_evidence_revocations enable row level security;
 create policy "sales os v3 server gate" on public.crm_qualification_evidence_revocations
 as restrictive for all to authenticated
-using(public.is_feature_enabled(team_id,'sales_os_v3'))
-with check(public.is_feature_enabled(team_id,'sales_os_v3'));
+using(public.is_feature_enabled(crm_qualification_evidence_revocations.team_id,'sales_os_v3'))
+with check(public.is_feature_enabled(crm_qualification_evidence_revocations.team_id,'sales_os_v3'));
 create policy "qualification revocations scoped read" on public.crm_qualification_evidence_revocations
 for select to authenticated using(exists(
   select 1 from public.crm_qualification_evidence e
   join public.crm_leads l on l.id=e.lead_id and l.team_id=e.team_id
-  where e.id=evidence_id and e.team_id=team_id
+  where e.id=crm_qualification_evidence_revocations.evidence_id
+    and e.team_id=crm_qualification_evidence_revocations.team_id
     and public.crm_can_access_region(l.team_id,l.region_id,l.owner_id)
 ));
 revoke all on public.crm_qualification_evidence_revocations from anon;
@@ -60,12 +61,12 @@ create or replace function public.record_crm_qualification_evidence(
 ) returns uuid language plpgsql security definer set search_path='' as $$
 declare r public.profiles;l public.crm_leads;e public.crm_qualification_evidence;
 begin
-  select * into r from public.profiles where id=auth.uid()and status='active';
+  select p.* into r from public.profiles p where p.id=auth.uid()and p.status='active';
   if r.id is null or not public.is_feature_enabled(r.team_id,'sales_os_v3')
     or not public.has_permission(r.team_id,'customers.manage') then
     raise exception 'CRM_MANAGE_FORBIDDEN' using errcode='42501';
   end if;
-  select * into l from public.crm_leads where id=p_lead_id for update;
+  select lead.* into l from public.crm_leads lead where lead.id=p_lead_id for update;
   if l.id is null or l.team_id<>r.team_id
     or not(l.owner_id=r.id or public.can_act_for(r.team_id,l.owner_id)
       or public.has_permission(r.team_id,'customers.supervise'))
@@ -97,13 +98,13 @@ create or replace function public.revoke_crm_qualification_evidence(
 ) returns uuid language plpgsql security definer set search_path='' as $$
 declare r public.profiles;e public.crm_qualification_evidence;l public.crm_leads;v public.crm_qualification_evidence_revocations;
 begin
-  select * into r from public.profiles where id=auth.uid()and status='active';
+  select p.* into r from public.profiles p where p.id=auth.uid()and p.status='active';
   if r.id is null or not public.is_feature_enabled(r.team_id,'sales_os_v3')
     or not public.has_permission(r.team_id,'customers.manage') then
     raise exception 'CRM_MANAGE_FORBIDDEN' using errcode='42501';
   end if;
-  select * into e from public.crm_qualification_evidence where id=p_evidence_id;
-  select * into l from public.crm_leads where id=e.lead_id for update;
+  select evidence.* into e from public.crm_qualification_evidence evidence where evidence.id=p_evidence_id;
+  select lead.* into l from public.crm_leads lead where lead.id=e.lead_id for update;
   if e.id is null or l.id is null or e.team_id<>r.team_id or l.team_id<>r.team_id
     or not(l.owner_id=r.id or public.can_act_for(r.team_id,l.owner_id)
       or public.has_permission(r.team_id,'customers.supervise'))
@@ -128,12 +129,12 @@ create or replace function public.record_crm_store_qualification_facts(
 ) returns uuid language plpgsql security definer set search_path='' as $$
 declare r public.profiles;s public.crm_stores;before_state jsonb;after_state jsonb;
 begin
-  select * into r from public.profiles where id=auth.uid()and status='active';
+  select p.* into r from public.profiles p where p.id=auth.uid()and p.status='active';
   if r.id is null or not public.is_feature_enabled(r.team_id,'sales_os_v3')
     or not public.has_permission(r.team_id,'customers.manage') then
     raise exception 'CRM_MANAGE_FORBIDDEN' using errcode='42501';
   end if;
-  select * into s from public.crm_stores where id=p_store_id for update;
+  select store.* into s from public.crm_stores store where store.id=p_store_id for update;
   if s.id is null or s.team_id<>r.team_id
     or not(s.owner_id=r.id or public.has_permission(r.team_id,'customers.supervise'))
     or not public.crm_can_access_region(s.team_id,s.region_id,s.owner_id) then
@@ -145,9 +146,9 @@ begin
   end if;
   before_state:=jsonb_build_object('area_sqm',s.area_sqm,'private_room_count',s.private_room_count,
     'is_landmark',s.is_landmark,'is_takeaway_only',s.is_takeaway_only);
-  update public.crm_stores set area_sqm=p_area_sqm,private_room_count=p_private_room_count,
+  update public.crm_stores as store set area_sqm=p_area_sqm,private_room_count=p_private_room_count,
     is_landmark=coalesce(p_is_landmark,false),is_takeaway_only=coalesce(p_is_takeaway_only,false),updated_at=now()
-  where id=s.id returning * into s;
+  where store.id=s.id returning store.* into s;
   after_state:=jsonb_build_object('area_sqm',s.area_sqm,'private_room_count',s.private_room_count,
     'is_landmark',s.is_landmark,'is_takeaway_only',s.is_takeaway_only);
   insert into public.audit_logs(team_id,actor_id,action,target_type,target_id,before_data,after_data)
@@ -161,7 +162,7 @@ create or replace function public.upsert_crm_contact(
 ) returns uuid language plpgsql security definer set search_path='' as $$
 declare r public.profiles;c public.crm_contacts;s public.crm_stores;b public.crm_brands;before_key boolean;
 begin
-  select * into r from public.profiles where id=auth.uid()and status='active';
+  select p.* into r from public.profiles p where p.id=auth.uid()and p.status='active';
   if r.id is null or not public.is_feature_enabled(r.team_id,'sales_os_v3')
     or not public.has_permission(r.team_id,'customers.manage') then
     raise exception 'CRM_MANAGE_FORBIDDEN' using errcode='42501';
@@ -170,13 +171,15 @@ begin
     raise exception 'INVALID_CONTACT' using errcode='22023';
   end if;
   if p_store_id is not null then
-    select * into s from public.crm_stores where id=p_store_id and team_id=r.team_id;
+    select store.* into s from public.crm_stores store
+    where store.id=p_store_id and store.team_id=r.team_id;
     if s.id is null or not public.crm_can_access_region(s.team_id,s.region_id,s.owner_id)
       or(p_brand_id is not null and p_brand_id is distinct from s.brand_id)then
       raise exception 'CONTACT_STORE_MISMATCH' using errcode='22023';
     end if;b.id:=s.brand_id;
   else
-    select * into b from public.crm_brands where id=p_brand_id and team_id=r.team_id;
+    select brand.* into b from public.crm_brands brand
+    where brand.id=p_brand_id and brand.team_id=r.team_id;
     if b.id is null or not(b.owner_id=r.id or public.has_permission(r.team_id,'customers.supervise'))then
       raise exception 'CONTACT_BRAND_FORBIDDEN' using errcode='42501';
     end if;
@@ -191,15 +194,15 @@ begin
         jsonb_build_object('is_key_person',null),jsonb_build_object('is_key_person',true));
     end if;
   else
-    select * into c from public.crm_contacts where id=p_id for update;
+    select contact.* into c from public.crm_contacts contact where contact.id=p_id for update;
     if c.id is null or c.team_id<>r.team_id
       or not(c.owner_id=r.id or public.has_permission(r.team_id,'customers.supervise'))then
       raise exception 'CONTACT_FORBIDDEN' using errcode='42501';
     end if;
     before_key:=c.is_key_person;
-    update public.crm_contacts set brand_id=coalesce(p_brand_id,b.id),store_id=p_store_id,
+    update public.crm_contacts as contact set brand_id=coalesce(p_brand_id,b.id),store_id=p_store_id,
       name=trim(p_name),title=nullif(trim(p_title),''),is_key_person=coalesce(p_is_key_person,false),updated_at=now()
-    where id=p_id returning * into c;
+    where contact.id=p_id returning contact.* into c;
     if before_key is distinct from c.is_key_person then
       insert into public.audit_logs(team_id,actor_id,action,target_type,target_id,before_data,after_data)
       values(c.team_id,r.id,'crm.contact_key_person_changed','crm_contact',c.id,
@@ -214,22 +217,23 @@ language plpgsql security definer set search_path='' as $$
 declare r public.profiles;l public.crm_leads;s public.crm_stores;o public.crm_opportunities;
   g text;annual_ok boolean;contacted boolean;meeting_time timestamptz;
 begin
-  select * into r from public.profiles where id=auth.uid()and status='active';
+  select p.* into r from public.profiles p where p.id=auth.uid()and p.status='active';
   if r.id is null or not public.is_feature_enabled(r.team_id,'sales_os_v3')
     or not public.has_permission(r.team_id,'customers.manage')then
     raise exception 'CRM_MANAGE_FORBIDDEN' using errcode='42501';
   end if;
-  select * into l from public.crm_leads where id=p_lead_id for update;
+  select lead.* into l from public.crm_leads lead where lead.id=p_lead_id for update;
   if l.id is null or l.team_id<>r.team_id
     or not(l.owner_id=r.id or public.can_act_for(r.team_id,l.owner_id)
       or public.has_permission(r.team_id,'customers.supervise'))
     or not public.crm_can_access_region(l.team_id,l.region_id,l.owner_id)then
     raise exception 'QUALIFY_FORBIDDEN' using errcode='42501';
   end if;
-  select * into o from public.crm_opportunities
-    where lead_id=l.id and qualification_superseded_at is null;
+  select opportunity.* into o from public.crm_opportunities opportunity
+    where opportunity.lead_id=l.id and opportunity.qualification_superseded_at is null;
   if o.id is not null then return o.id;end if;
-  select * into s from public.crm_stores where id=l.store_id and team_id=l.team_id;
+  select store.* into s from public.crm_stores store
+    where store.id=l.store_id and store.team_id=l.team_id;
   if s.id is null or s.brand_id is null or s.region_id<>l.region_id
     or s.brand_id is distinct from l.brand_id or s.store_status='closed'then
     raise exception 'REAL_STORE_REQUIRED' using errcode='22023';
@@ -255,9 +259,9 @@ begin
   values(l.team_id,l.id,l.brand_id,l.store_id,l.region_id,l.owner_id,g,true,contacted,meeting_time,r.id)
   on conflict(lead_id)where lead_id is not null and qualification_superseded_at is null
   do nothing returning * into o;
-  if o.id is null then select * into o from public.crm_opportunities
-    where lead_id=l.id and qualification_superseded_at is null;end if;
-  update public.crm_leads set status='qualified',updated_at=now()where id=l.id;
+  if o.id is null then select opportunity.* into o from public.crm_opportunities opportunity
+    where opportunity.lead_id=l.id and opportunity.qualification_superseded_at is null;end if;
+  update public.crm_leads as lead set status='qualified',updated_at=now()where lead.id=l.id;
   return o.id;
 end $$;
 
