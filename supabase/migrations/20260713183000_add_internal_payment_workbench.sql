@@ -4,7 +4,7 @@ returns table(
   order_id uuid,quote_id uuid,store_name text,order_status text,
   internal_due numeric,internal_paid numeric,internal_remaining numeric,
   fulfillment_unlocked boolean,can_manage boolean
-)language sql security definer stable set search_path=''as$$
+)language sql security definer stable set search_path='' as $$
   with me as(
     select p.id,p.team_id,
       public.has_permission(p.team_id,'finance.manage')as can_manage,

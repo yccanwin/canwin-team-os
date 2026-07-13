@@ -49,10 +49,12 @@ create table public.fulfillment_renewal_milestones(
 );
 
 create or replace function public.fulfillment_authorized(p_team text,p_permission text)
-returns boolean language sql security definer stable set search_path='' as $$select public.is_feature_enabled(p_team,'sales_os_v3') and public.has_permission(p_team,p_permission)$$;
+returns boolean language sql security definer stable set search_path='' as $function$
+  select public.is_feature_enabled(p_team,'sales_os_v3') and public.has_permission(p_team,p_permission)
+$function$;
 
 create or replace function public.can_read_order_delivery(p_team_id text,p_delivery_id uuid)
-returns boolean language sql security definer stable set search_path='' as $$
+returns boolean language sql security definer stable set search_path='' as $function$
  select public.is_feature_enabled(p_team_id,'sales_os_v3') and exists(
   select 1 from public.fulfillment_deliveries d
   join public.deal_orders o on o.id=d.order_id and o.team_id=d.team_id
@@ -61,12 +63,12 @@ returns boolean language sql security definer stable set search_path='' as $$
   where d.id=p_delivery_id and d.team_id=p_team_id
     and(q.owner_id=auth.uid() or public.can_act_for(d.team_id,q.owner_id))
  )
-$$;
+$function$;
 revoke all on function public.can_read_order_delivery(text,uuid) from public;
 grant execute on function public.can_read_order_delivery(text,uuid) to authenticated;
 
 create or replace function public.create_order_delivery(p_order_id uuid,p_store_id uuid,p_service_expires_on date)
-returns public.fulfillment_deliveries language plpgsql security definer set search_path='' as $$
+returns public.fulfillment_deliveries language plpgsql security definer set search_path='' as $function$
 declare o public.deal_orders;d public.fulfillment_deliveries;r public.profiles;
 begin select * into r from public.profiles where id=auth.uid() and status='active';select * into o from public.deal_orders where id=p_order_id for update;
  if o.id is null or r.id is null or o.team_id<>r.team_id then raise exception 'ORDER_NOT_FOUND' using errcode='P0002';end if;
@@ -78,10 +80,12 @@ begin select * into r from public.profiles where id=auth.uid() and status='activ
  insert into public.fulfillment_implementation(team_id,delivery_id) values(d.team_id,d.id) on conflict(delivery_id) do nothing;
  if p_service_expires_on is not null then insert into public.fulfillment_renewal_milestones(team_id,delivery_id,days_before,due_on)
   select d.team_id,d.id,m.days,p_service_expires_on-m.days from unnest(array[60,30,15]) as m(days) on conflict(delivery_id,days_before) do nothing;end if;
- insert into public.audit_logs(team_id,actor_id,action,target_type,target_id,after_data) values(d.team_id,r.id,'delivery.created','fulfillment_delivery',d.id,to_jsonb(d));return d;end$$;
+ insert into public.audit_logs(team_id,actor_id,action,target_type,target_id,after_data) values(d.team_id,r.id,'delivery.created','fulfillment_delivery',d.id,to_jsonb(d));return d;
+end;
+$function$;
 
 create or replace function public.reserve_delivery_stock(p_delivery_id uuid,p_stock_id uuid,p_quantity numeric,p_expected_on date default null)
-returns public.fulfillment_inventory_reservations language plpgsql security definer set search_path='' as $$
+returns public.fulfillment_inventory_reservations language plpgsql security definer set search_path='' as $function$
 declare d public.fulfillment_deliveries;s public.fulfillment_inventory_stock;r public.profiles;res public.fulfillment_inventory_reservations;
 begin if p_quantity<=0 then raise exception 'POSITIVE_QUANTITY_REQUIRED' using errcode='22023';end if;
  select * into r from public.profiles where id=auth.uid() and status='active';select * into d from public.fulfillment_deliveries where id=p_delivery_id;select * into s from public.fulfillment_inventory_stock where id=p_stock_id for update;
@@ -93,20 +97,24 @@ begin if p_quantity<=0 then raise exception 'POSITIVE_QUANTITY_REQUIRED' using e
  update public.fulfillment_inventory_stock set reserved_quantity=reserved_quantity+p_quantity,updated_at=now() where id=s.id;
  insert into public.fulfillment_inventory_reservations(team_id,delivery_id,stock_id,quantity,created_by) values(d.team_id,d.id,s.id,p_quantity,r.id) returning * into res;
  insert into public.fulfillment_inventory_movements(team_id,stock_id,reservation_id,movement_type,quantity,actor_id) values(d.team_id,s.id,res.id,'reserve',p_quantity,r.id);
- update public.fulfillment_states set hardware_status='reserved',updated_at=now() where delivery_id=d.id;return res;end$$;
+ update public.fulfillment_states set hardware_status='reserved',updated_at=now() where delivery_id=d.id;return res;
+end;
+$function$;
 
 create or replace function public.release_delivery_stock(p_reservation_id uuid)
-returns public.fulfillment_inventory_reservations language plpgsql security definer set search_path='' as $$
+returns public.fulfillment_inventory_reservations language plpgsql security definer set search_path='' as $function$
 declare res public.fulfillment_inventory_reservations;s public.fulfillment_inventory_stock;r public.profiles;
 begin select * into r from public.profiles where id=auth.uid() and status='active';select * into res from public.fulfillment_inventory_reservations where id=p_reservation_id for update;
  if res.id is null or r.id is null or res.team_id<>r.team_id or not public.fulfillment_authorized(res.team_id,'inventory.manage') then raise exception 'RESERVATION_FORBIDDEN' using errcode='42501';end if;
  if res.status<>'reserved' then return res;end if;select * into s from public.fulfillment_inventory_stock where id=res.stock_id for update;
  update public.fulfillment_inventory_stock set reserved_quantity=reserved_quantity-res.quantity,updated_at=now() where id=s.id;
  update public.fulfillment_inventory_reservations set status='released',updated_at=now() where id=res.id returning * into res;
- insert into public.fulfillment_inventory_movements(team_id,stock_id,reservation_id,movement_type,quantity,actor_id) values(res.team_id,s.id,res.id,'release',res.quantity,r.id);return res;end$$;
+ insert into public.fulfillment_inventory_movements(team_id,stock_id,reservation_id,movement_type,quantity,actor_id) values(res.team_id,s.id,res.id,'release',res.quantity,r.id);return res;
+end;
+$function$;
 
 create or replace function public.ship_delivery_stock(p_reservation_id uuid)
-returns public.fulfillment_inventory_reservations language plpgsql security definer set search_path='' as $$
+returns public.fulfillment_inventory_reservations language plpgsql security definer set search_path='' as $function$
 declare res public.fulfillment_inventory_reservations;s public.fulfillment_inventory_stock;r public.profiles;
 begin select * into r from public.profiles where id=auth.uid() and status='active';select * into res from public.fulfillment_inventory_reservations where id=p_reservation_id for update;
  if res.id is null or r.id is null or res.team_id<>r.team_id or not public.fulfillment_authorized(res.team_id,'inventory.manage') then raise exception 'RESERVATION_FORBIDDEN' using errcode='42501';end if;
@@ -115,43 +123,63 @@ begin select * into r from public.profiles where id=auth.uid() and status='activ
  update public.fulfillment_inventory_stock set quantity=quantity-res.quantity,reserved_quantity=reserved_quantity-res.quantity,updated_at=now() where id=s.id;
  update public.fulfillment_inventory_reservations set status='shipped',updated_at=now() where id=res.id returning * into res;
  insert into public.fulfillment_inventory_movements(team_id,stock_id,reservation_id,movement_type,quantity,actor_id) values(res.team_id,s.id,res.id,'ship',res.quantity,r.id);
- if not exists(select 1 from public.fulfillment_inventory_reservations x where x.delivery_id=res.delivery_id and x.status='reserved') then update public.fulfillment_states set hardware_status='shipped',updated_at=now() where delivery_id=res.delivery_id;end if;return res;end$$;
+ if not exists(select 1 from public.fulfillment_inventory_reservations x where x.delivery_id=res.delivery_id and x.status='reserved') then update public.fulfillment_states set hardware_status='shipped',updated_at=now() where delivery_id=res.delivery_id;end if;return res;
+end;
+$function$;
 
 create or replace function public.set_delivery_software_active(p_delivery_id uuid)
-returns public.fulfillment_states language plpgsql security definer set search_path='' as $$declare s public.fulfillment_states;r public.profiles;begin
+returns public.fulfillment_states language plpgsql security definer set search_path='' as $function$
+declare s public.fulfillment_states;r public.profiles;
+begin
  select * into r from public.profiles where id=auth.uid() and status='active';select * into s from public.fulfillment_states where delivery_id=p_delivery_id for update;
  if s.delivery_id is null or r.id is null or s.team_id<>r.team_id or not public.fulfillment_authorized(s.team_id,'implementation.manage') then raise exception 'IMPLEMENTATION_FORBIDDEN' using errcode='42501';end if;
  if not exists(select 1 from public.fulfillment_deliveries d join public.deal_orders o on o.id=d.order_id and o.team_id=d.team_id where d.id=s.delivery_id and o.fulfillment_allowed_at is not null and o.internal_paid>=o.internal_due) then raise exception 'INTERNAL_PAYMENT_REQUIRED' using errcode='23514';end if;
- update public.fulfillment_states set software_status='active',updated_at=now() where delivery_id=s.delivery_id returning * into s;return s;end$$;
+ update public.fulfillment_states set software_status='active',updated_at=now() where delivery_id=s.delivery_id returning * into s;return s;
+end;
+$function$;
 
 create or replace function public.complete_delivery_hardware(p_delivery_id uuid)
-returns public.fulfillment_states language plpgsql security definer set search_path='' as $$declare s public.fulfillment_states;r public.profiles;begin
+returns public.fulfillment_states language plpgsql security definer set search_path='' as $function$
+declare s public.fulfillment_states;r public.profiles;
+begin
  select * into r from public.profiles where id=auth.uid() and status='active';select * into s from public.fulfillment_states where delivery_id=p_delivery_id for update;
  if s.delivery_id is null or r.id is null or s.team_id<>r.team_id or not public.fulfillment_authorized(s.team_id,'inventory.manage') then raise exception 'INVENTORY_FORBIDDEN' using errcode='42501';end if;
  if exists(select 1 from public.fulfillment_exceptions e where e.delivery_id=s.delivery_id and e.exception_type='stock_shortage' and e.status='open') then raise exception 'OPEN_STOCK_SHORTAGE' using errcode='23514';end if;
  if exists(select 1 from public.fulfillment_inventory_reservations x where x.delivery_id=s.delivery_id and x.status<>'shipped') then raise exception 'HARDWARE_NOT_SHIPPED' using errcode='23514';end if;
  if exists(select 1 from public.fulfillment_deliveries d join public.deal_orders o on o.id=d.order_id and o.team_id=d.team_id join public.deal_quote_lines ql on ql.quote_id=o.quote_id and ql.team_id=o.team_id where d.id=s.delivery_id and ql.item_type_snapshot='hardware')
   and not exists(select 1 from public.fulfillment_inventory_reservations x where x.delivery_id=s.delivery_id and x.status='shipped') then raise exception 'HARDWARE_NOT_SHIPPED' using errcode='23514';end if;
- update public.fulfillment_states set hardware_status='completed',updated_at=now() where delivery_id=s.delivery_id returning * into s;return s;end$$;
+ update public.fulfillment_states set hardware_status='completed',updated_at=now() where delivery_id=s.delivery_id returning * into s;return s;
+end;
+$function$;
 
 create or replace function public.mark_delivery_implementation(p_delivery_id uuid,p_step text)
-returns public.fulfillment_implementation language plpgsql security definer set search_path='' as $$declare i public.fulfillment_implementation;r public.profiles;begin
+returns public.fulfillment_implementation language plpgsql security definer set search_path='' as $function$
+declare i public.fulfillment_implementation;r public.profiles;
+begin
  if p_step not in('installation','training') then raise exception 'INVALID_IMPLEMENTATION_STEP' using errcode='22023';end if;
  select * into r from public.profiles where id=auth.uid() and status='active';select * into i from public.fulfillment_implementation where delivery_id=p_delivery_id for update;
  if i.delivery_id is null or r.id is null or i.team_id<>r.team_id or not public.fulfillment_authorized(i.team_id,'implementation.manage') then raise exception 'IMPLEMENTATION_FORBIDDEN' using errcode='42501';end if;
  update public.fulfillment_implementation set installed_at=case when p_step='installation' then coalesce(installed_at,now()) else installed_at end,installed_by=case when p_step='installation' then coalesce(installed_by,r.id) else installed_by end,
- trained_at=case when p_step='training' then coalesce(trained_at,now()) else trained_at end,trained_by=case when p_step='training' then coalesce(trained_by,r.id) else trained_by end,updated_at=now() where delivery_id=i.delivery_id returning * into i;return i;end$$;
+ trained_at=case when p_step='training' then coalesce(trained_at,now()) else trained_at end,trained_by=case when p_step='training' then coalesce(trained_by,r.id) else trained_by end,updated_at=now() where delivery_id=i.delivery_id returning * into i;return i;
+end;
+$function$;
 
 create or replace function public.create_delivery_handoff(p_delivery_id uuid,p_checklist jsonb)
-returns public.fulfillment_handoffs language plpgsql security definer set search_path='' as $$declare i public.fulfillment_implementation;h public.fulfillment_handoffs;r public.profiles;begin
+returns public.fulfillment_handoffs language plpgsql security definer set search_path='' as $function$
+declare i public.fulfillment_implementation;h public.fulfillment_handoffs;r public.profiles;
+begin
  select * into r from public.profiles where id=auth.uid() and status='active';select * into i from public.fulfillment_implementation where delivery_id=p_delivery_id for update;
  if i.delivery_id is null or r.id is null or i.team_id<>r.team_id or not public.fulfillment_authorized(i.team_id,'implementation.manage') then raise exception 'IMPLEMENTATION_FORBIDDEN' using errcode='42501';end if;
  if i.installed_at is null or i.trained_at is null then raise exception 'INSTALLATION_AND_TRAINING_REQUIRED' using errcode='23514';end if;
  insert into public.fulfillment_handoffs(team_id,delivery_id,checklist,created_by) values(i.team_id,i.delivery_id,coalesce(p_checklist,'{}'),r.id) on conflict(team_id,delivery_id) do update set checklist=excluded.checklist returning * into h;
- update public.fulfillment_deliveries set status='handoff' where id=i.delivery_id;return h;end$$;
+ update public.fulfillment_deliveries set status='handoff' where id=i.delivery_id;return h;
+end;
+$function$;
 
 create or replace function public.confirm_delivery_handoff(p_handoff_id uuid)
-returns public.fulfillment_deliveries language plpgsql security definer set search_path='' as $$declare h public.fulfillment_handoffs;d public.fulfillment_deliveries;s public.fulfillment_states;r public.profiles;begin
+returns public.fulfillment_deliveries language plpgsql security definer set search_path='' as $function$
+declare h public.fulfillment_handoffs;d public.fulfillment_deliveries;s public.fulfillment_states;r public.profiles;
+begin
  select * into r from public.profiles where id=auth.uid() and status='active';select * into h from public.fulfillment_handoffs where id=p_handoff_id for update;
  if h.id is null or r.id is null or h.team_id<>r.team_id or not public.fulfillment_authorized(h.team_id,'operations.manage') then raise exception 'OPERATIONS_FORBIDDEN' using errcode='42501';end if;
  select * into s from public.fulfillment_states where delivery_id=h.delivery_id;
@@ -159,10 +187,19 @@ returns public.fulfillment_deliveries language plpgsql security definer set sear
  if s.hardware_status='pending' and exists(select 1 from public.fulfillment_deliveries d join public.deal_orders o on o.id=d.order_id and o.team_id=d.team_id join public.deal_quote_lines ql on ql.quote_id=o.quote_id and ql.team_id=o.team_id where d.id=h.delivery_id and ql.item_type_snapshot='hardware') then raise exception 'FULFILLMENT_NOT_COMPLETE' using errcode='23514';end if;
  update public.fulfillment_handoffs set status='confirmed',confirmed_by=r.id,confirmed_at=now() where id=h.id;
  update public.fulfillment_deliveries set status='completed',completed_at=now() where id=h.delivery_id returning * into d;
- insert into public.audit_logs(team_id,actor_id,action,target_type,target_id,after_data) values(d.team_id,r.id,'delivery.completed','fulfillment_delivery',d.id,to_jsonb(d));return d;end$$;
+ insert into public.audit_logs(team_id,actor_id,action,target_type,target_id,after_data) values(d.team_id,r.id,'delivery.completed','fulfillment_delivery',d.id,to_jsonb(d));return d;
+end;
+$function$;
 
-do$$declare t text;begin foreach t in array array['fulfillment_deliveries','fulfillment_states','fulfillment_inventory_stock','fulfillment_inventory_reservations','fulfillment_inventory_movements','fulfillment_exceptions','fulfillment_implementation','fulfillment_handoffs','fulfillment_renewal_milestones']loop
- execute format('alter table public.%I enable row level security',t);execute format('create policy "sales os v3 server gate" on public.%I as restrictive for all to authenticated using(public.is_feature_enabled(team_id,''sales_os_v3'')) with check(public.is_feature_enabled(team_id,''sales_os_v3''))',t);end loop;end$$;
+do $migration$
+declare t text;
+begin
+foreach t in array array['fulfillment_deliveries','fulfillment_states','fulfillment_inventory_stock','fulfillment_inventory_reservations','fulfillment_inventory_movements','fulfillment_exceptions','fulfillment_implementation','fulfillment_handoffs','fulfillment_renewal_milestones'] loop
+ execute format('alter table public.%I enable row level security',t);
+ execute format('create policy "sales os v3 server gate" on public.%I as restrictive for all to authenticated using(public.is_feature_enabled(team_id,''sales_os_v3'')) with check(public.is_feature_enabled(team_id,''sales_os_v3''))',t);
+end loop;
+end;
+$migration$;
 create policy "delivery roles read" on public.fulfillment_deliveries for select to authenticated using(public.can_read_order_delivery(team_id,id) or public.has_permission(team_id,'customers.supervise') or public.has_permission(team_id,'implementation.manage') or public.has_permission(team_id,'operations.manage') or public.has_permission(team_id,'inventory.manage'));
 create policy "delivery roles read states" on public.fulfillment_states for select to authenticated using(public.can_read_order_delivery(team_id,delivery_id) or public.has_permission(team_id,'customers.supervise') or public.has_permission(team_id,'implementation.manage') or public.has_permission(team_id,'operations.manage') or public.has_permission(team_id,'inventory.manage'));
 create policy "inventory reads stock" on public.fulfillment_inventory_stock for select to authenticated using(public.has_permission(team_id,'inventory.manage'));

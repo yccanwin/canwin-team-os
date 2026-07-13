@@ -69,7 +69,7 @@ begin
     select 1 from public.fulfillment_exceptions e where e.delivery_id=d.id and e.exception_type='stock_shortage' and e.status='open'
   )then'shortage' else'reserved' end,updated_at=now() where delivery_id=d.id;
   return res;
-end$$;
+end $$;
 
 create or replace function public.ship_delivery_stock(p_reservation_id uuid)
 returns public.fulfillment_inventory_reservations language plpgsql security definer set search_path='' as $$
@@ -90,7 +90,7 @@ begin
     when exists(select 1 from public.fulfillment_inventory_reservations x where x.delivery_id=res.delivery_id and x.status='reserved')then'reserved'
     else'shipped'end,updated_at=now() where delivery_id=res.delivery_id;
   return res;
-end$$;
+end $$;
 
 create or replace function public.complete_delivery_hardware(p_delivery_id uuid)
 returns public.fulfillment_states language plpgsql security definer set search_path='' as $$
@@ -103,7 +103,7 @@ begin
   if exists(select 1 from public.fulfillment_inventory_reservations x where x.delivery_id=s.delivery_id and x.status<>'shipped') then raise exception 'HARDWARE_NOT_SHIPPED' using errcode='23514';end if;
   if exists(select 1 from public.fulfillment_deliveries d join public.deal_orders o on o.id=d.order_id and o.team_id=d.team_id join public.deal_quote_lines ql on ql.quote_id=o.quote_id and ql.team_id=o.team_id where d.id=s.delivery_id and ql.item_type_snapshot='hardware') and not exists(select 1 from public.fulfillment_inventory_reservations x where x.delivery_id=s.delivery_id and x.status='shipped') then raise exception 'HARDWARE_NOT_SHIPPED' using errcode='23514';end if;
   update public.fulfillment_states set hardware_status='completed',updated_at=now() where delivery_id=s.delivery_id returning * into s;return s;
-end$$;
+end $$;
 
 revoke all on function public.can_manage_delivery_hardware() from public;
 grant execute on function public.can_manage_delivery_hardware() to authenticated;

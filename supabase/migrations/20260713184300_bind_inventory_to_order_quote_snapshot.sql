@@ -1,6 +1,6 @@
 -- Inventory is enabled by a formal order. Its immutable deposit-frozen quote lines are the hardware snapshot.
 create or replace function public.reserve_delivery_stock(p_delivery_id uuid,p_stock_id uuid,p_quantity numeric,p_expected_on date)
-returns public.fulfillment_inventory_reservations language plpgsql security definer set search_path=''as$$
+returns public.fulfillment_inventory_reservations language plpgsql security definer set search_path='' as $$
 declare d public.fulfillment_deliveries;s public.fulfillment_inventory_stock;r public.profiles;o public.deal_orders;
  res public.fulfillment_inventory_reservations;available numeric;item_name text;required_quantity numeric;allocated_quantity numeric;
 begin
@@ -38,10 +38,10 @@ begin
  update public.fulfillment_exceptions set status='resolved',resolved_at=now()where delivery_id=d.id and stock_id=s.id and exception_type='stock_shortage'and status='open';
  update public.fulfillment_states set hardware_status=case when exists(select 1 from public.fulfillment_exceptions e where e.delivery_id=d.id and e.exception_type='stock_shortage'and e.status='open')then'shortage'else'reserved'end,updated_at=now()where delivery_id=d.id;
  return res;
-end$$;
+ end $$;
 
 create or replace function public.ship_delivery_stock(p_reservation_id uuid)
-returns public.fulfillment_inventory_reservations language plpgsql security definer set search_path=''as$$
+returns public.fulfillment_inventory_reservations language plpgsql security definer set search_path='' as $$
 declare res public.fulfillment_inventory_reservations;s public.fulfillment_inventory_stock;r public.profiles;
  d public.fulfillment_deliveries;o public.deal_orders;required_quantity numeric;allocated_quantity numeric;anomaly text;
 begin
@@ -72,10 +72,10 @@ begin
  insert into public.fulfillment_inventory_movements(team_id,stock_id,reservation_id,movement_type,quantity,actor_id)values(res.team_id,s.id,res.id,'ship',res.quantity,r.id);
  update public.fulfillment_states set hardware_status=case when exists(select 1 from public.fulfillment_exceptions e where e.delivery_id=d.id and e.exception_type='stock_shortage'and e.status='open')then'shortage'when exists(select 1 from public.fulfillment_inventory_reservations x where x.delivery_id=d.id and x.status='reserved')then'reserved'else'shipped'end,updated_at=now()where delivery_id=d.id;
  return res;
-end$$;
+ end $$;
 
 create or replace function public.complete_delivery_hardware(p_delivery_id uuid)
-returns public.fulfillment_states language plpgsql security definer set search_path=''as$$
+returns public.fulfillment_states language plpgsql security definer set search_path='' as $$
 declare st public.fulfillment_states;r public.profiles;d public.fulfillment_deliveries;o public.deal_orders;
 begin
  select*into r from public.profiles where id=auth.uid()and status='active';
@@ -88,7 +88,7 @@ begin
  if exists(select 1 from public.fulfillment_inventory_reservations x where x.delivery_id=d.id and x.status='reserved')then raise exception'HARDWARE_NOT_SHIPPED'using errcode='23514';end if;
  if exists(with required as(select ql.source_item_id sku,sum(ql.quantity)quantity from public.deal_quote_lines ql where ql.team_id=o.team_id and ql.quote_id=o.quote_id and ql.item_type_snapshot='hardware'group by ql.source_item_id),shipped as(select inv.catalog_item_id sku,sum(x.quantity)quantity from public.fulfillment_inventory_reservations x join public.fulfillment_inventory_stock inv on inv.id=x.stock_id and inv.team_id=x.team_id where x.delivery_id=d.id and x.team_id=d.team_id and x.status='shipped'group by inv.catalog_item_id)select 1 from required full join shipped using(sku)where required.sku is null or shipped.sku is null or required.quantity is distinct from shipped.quantity)then raise exception'HARDWARE_ORDER_QUANTITY_MISMATCH'using errcode='23514';end if;
  update public.fulfillment_states set hardware_status='completed',updated_at=now()where delivery_id=d.id returning*into st;return st;
-end$$;
+ end $$;
 
 revoke all on function public.reserve_delivery_stock(uuid,uuid,numeric,date),public.ship_delivery_stock(uuid),public.complete_delivery_hardware(uuid)from public,anon;
 grant execute on function public.reserve_delivery_stock(uuid,uuid,numeric,date),public.ship_delivery_stock(uuid),public.complete_delivery_hardware(uuid)to authenticated;

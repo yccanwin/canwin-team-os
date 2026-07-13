@@ -17,7 +17,7 @@ alter table public.deal_quote_lines
   add column if not exists draft_input_customer_price numeric check(draft_input_customer_price is null or draft_input_customer_price>=0);
 
 create or replace function public.create_deal_quote_draft(p_opportunity_id uuid)returns uuid
-language plpgsql security definer set search_path=''as$$
+language plpgsql security definer set search_path='' as $$
 declare r public.profiles;o public.crm_opportunities;q public.deal_quotes;v integer;
 begin
  select*into r from public.profiles where id=auth.uid()and status='active';
@@ -45,7 +45,7 @@ begin
 end$$;
 
 create or replace function public.replace_deal_quote_lines(p_quote_id uuid,p_lines jsonb)returns uuid
-language plpgsql security definer set search_path=''as$$
+language plpgsql security definer set search_path='' as $$
 declare r public.profiles;q public.deal_quotes;x jsonb;i public.deal_catalog_items;
  p public.deal_packages;pi record;qty numeric;price numeric;kind text;source uuid;
  weight numeric;total_weight numeric;group_id uuid;
@@ -131,7 +131,7 @@ end$$;
 
 create or replace function public.get_deal_quote_draft_lines(p_quote_id uuid)
 returns table(line_id uuid,kind text,source_id uuid,item_name text,quantity numeric,customer_price numeric)
-language plpgsql security definer stable set search_path=''as$$
+language plpgsql security definer stable set search_path='' as $$
 declare r public.profiles;q public.deal_quotes;
 begin
  select*into r from public.profiles where id=auth.uid()and status='active';

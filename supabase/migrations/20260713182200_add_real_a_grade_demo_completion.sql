@@ -1,6 +1,6 @@
 -- A-grade demo completion is a real audited server transition.
 create or replace function public.complete_opportunity_demo(p_opportunity_id uuid)returns uuid
-language plpgsql security definer set search_path=''as$$
+language plpgsql security definer set search_path='' as $$
 declare r public.profiles;o public.crm_opportunities;before_at timestamptz;
 begin
  select*into r from public.profiles where id=auth.uid()and status='active';select*into o from public.crm_opportunities where id=p_opportunity_id for update;

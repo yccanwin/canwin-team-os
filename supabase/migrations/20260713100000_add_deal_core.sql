@@ -94,7 +94,7 @@ create table public.deal_sales_expenses(
 );
 
 create or replace function public.submit_deal_quote(p_quote_id uuid)
-returns public.deal_quotes language plpgsql security definer set search_path='' as $$
+returns public.deal_quotes language plpgsql security definer set search_path='' as $function$
 declare q public.deal_quotes; o public.crm_opportunities; requester public.profiles; totals record;
 begin
   select * into requester from public.profiles where id=auth.uid() and status='active';
@@ -113,10 +113,11 @@ begin
     submitted_at=now(),updated_at=now() where id=q.id returning * into q;
   if q.status='approval_pending' then insert into public.deal_quote_approvals(team_id,quote_id) values(q.team_id,q.id) on conflict(quote_id) do nothing; end if;
   return q;
-end $$;
+end;
+$function$;
 
 create or replace function public.decide_deal_quote(p_quote_id uuid,p_approved boolean,p_note text default null)
-returns public.deal_quotes language plpgsql security definer set search_path='' as $$
+returns public.deal_quotes language plpgsql security definer set search_path='' as $function$
 declare q public.deal_quotes; requester public.profiles;
 begin
   select * into requester from public.profiles where id=auth.uid() and status='active'; select * into q from public.deal_quotes where id=p_quote_id for update;
@@ -125,10 +126,11 @@ begin
   if q.status<>'approval_pending' then raise exception 'QUOTE_NOT_PENDING' using errcode='55000'; end if;
   update public.deal_quote_approvals set status=case when p_approved then 'approved' else 'rejected' end,note=p_note,decided_by=requester.id,decided_at=now() where quote_id=q.id;
   update public.deal_quotes set status=case when p_approved then 'approved' else 'rejected' end,updated_at=now() where id=q.id returning * into q; return q;
-end $$;
+end;
+$function$;
 
 create or replace function public.confirm_deal_deposit(p_quote_id uuid,p_amount numeric,p_external_ref text,p_idempotency_key uuid,p_recipient_type text default 'company')
-returns public.deal_orders language plpgsql security definer set search_path='' as $$
+returns public.deal_orders language plpgsql security definer set search_path='' as $function$
 declare q public.deal_quotes; requester public.profiles; ord public.deal_orders;
 begin
   if p_amount<=0 or p_recipient_type not in('company','sales') then raise exception 'VALID_DEPOSIT_REQUIRED' using errcode='22023'; end if;
@@ -146,10 +148,11 @@ begin
   insert into public.deal_payments(team_id,order_id,payment_type,amount,recipient_type,external_ref,idempotency_key,confirmed_by)
     values(q.team_id,ord.id,'deposit',p_amount,p_recipient_type,p_external_ref,p_idempotency_key,requester.id);
   return ord;
-end $$;
+end;
+$function$;
 
 create or replace function public.confirm_deal_internal_payment(p_order_id uuid,p_amount numeric,p_external_ref text,p_idempotency_key uuid,p_method text default 'cash_remitted')
-returns public.deal_orders language plpgsql security definer set search_path='' as $$
+returns public.deal_orders language plpgsql security definer set search_path='' as $function$
 declare ord public.deal_orders; requester public.profiles; paid numeric;
 begin
   if p_amount<=0 or p_method not in('cash_remitted','withheld_from_company_receipt') or nullif(trim(p_external_ref),'')is null then raise exception 'VALID_INTERNAL_SETTLEMENT_REQUIRED' using errcode='22023'; end if;
@@ -164,24 +167,61 @@ begin
   select coalesce(sum(amount),0) into ord.internal_paid from public.deal_internal_settlements where team_id=ord.team_id and order_id=ord.id;
   update public.deal_orders set internal_paid=ord.internal_paid,status=case when ord.internal_paid>=internal_due then 'internal_paid' else status end,
     fulfillment_allowed_at=case when ord.internal_paid>=internal_due then coalesce(fulfillment_allowed_at,now()) else null end where id=ord.id returning * into ord; return ord;
-end $$;
+end;
+$function$;
 
 create or replace function public.record_deal_procurement_cost(p_order_id uuid,p_amount numeric,p_external_ref text,p_idempotency_key uuid)
-returns public.deal_procurement_cost_payments language plpgsql security definer set search_path=''as$$declare o public.deal_orders;r public.profiles;c public.deal_procurement_cost_payments;begin
- if p_amount<=0 or nullif(trim(p_external_ref),'')is null then raise exception'VALID_PROCUREMENT_PAYMENT_REQUIRED'using errcode='22023';end if;select*into r from public.profiles where id=auth.uid()and status='active';select*into o from public.deal_orders where id=p_order_id for update;
- if o.id is null or r.id is null or o.team_id<>r.team_id or not public.is_feature_enabled(o.team_id,'sales_os_v3')or not public.has_permission(o.team_id,'finance.manage')then raise exception'FINANCE_FORBIDDEN'using errcode='42501';end if;
- insert into public.deal_procurement_cost_payments(team_id,order_id,amount,external_ref,idempotency_key,confirmed_by)values(o.team_id,o.id,p_amount,p_external_ref,p_idempotency_key,r.id)
- on conflict(team_id,idempotency_key)do update set idempotency_key=excluded.idempotency_key returning*into c;return c;end$$;
+returns public.deal_procurement_cost_payments language plpgsql security definer set search_path='' as $function$
+declare
+  o public.deal_orders;
+  r public.profiles;
+  c public.deal_procurement_cost_payments;
+begin
+  if p_amount<=0 or nullif(trim(p_external_ref),'') is null then
+    raise exception 'VALID_PROCUREMENT_PAYMENT_REQUIRED' using errcode='22023';
+  end if;
+  select * into r from public.profiles where id=auth.uid() and status='active';
+  select * into o from public.deal_orders where id=p_order_id for update;
+  if o.id is null or r.id is null or o.team_id<>r.team_id
+    or not public.is_feature_enabled(o.team_id,'sales_os_v3')
+    or not public.has_permission(o.team_id,'finance.manage') then
+    raise exception 'FINANCE_FORBIDDEN' using errcode='42501';
+  end if;
+  insert into public.deal_procurement_cost_payments(team_id,order_id,amount,external_ref,idempotency_key,confirmed_by)
+    values(o.team_id,o.id,p_amount,p_external_ref,p_idempotency_key,r.id)
+    on conflict(team_id,idempotency_key) do update set idempotency_key=excluded.idempotency_key returning * into c;
+  return c;
+end;
+$function$;
 
 create or replace function public.record_deal_sales_expense(p_order_id uuid,p_amount numeric,p_reason text,p_idempotency_key uuid)
-returns public.deal_sales_expenses language plpgsql security definer set search_path=''as$$declare o public.deal_orders;q public.deal_quotes;r public.profiles;e public.deal_sales_expenses;begin
- if p_amount<=0 or nullif(trim(p_reason),'')is null then raise exception'VALID_SALES_EXPENSE_REQUIRED'using errcode='22023';end if;select*into r from public.profiles where id=auth.uid()and status='active';select*into o from public.deal_orders where id=p_order_id for update;select*into q from public.deal_quotes where id=o.quote_id;
- if o.id is null or r.id is null or o.team_id<>r.team_id or not public.is_feature_enabled(o.team_id,'sales_os_v3')or not public.has_permission(o.team_id,'finance.manage')then raise exception'FINANCE_FORBIDDEN'using errcode='42501';end if;
- insert into public.deal_sales_expenses(team_id,order_id,salesperson_id,amount,reason,idempotency_key,confirmed_by)values(o.team_id,o.id,q.owner_id,p_amount,trim(p_reason),p_idempotency_key,r.id)
- on conflict(team_id,idempotency_key)do update set idempotency_key=excluded.idempotency_key returning*into e;return e;end$$;
+returns public.deal_sales_expenses language plpgsql security definer set search_path='' as $function$
+declare
+  o public.deal_orders;
+  q public.deal_quotes;
+  r public.profiles;
+  e public.deal_sales_expenses;
+begin
+  if p_amount<=0 or nullif(trim(p_reason),'') is null then
+    raise exception 'VALID_SALES_EXPENSE_REQUIRED' using errcode='22023';
+  end if;
+  select * into r from public.profiles where id=auth.uid() and status='active';
+  select * into o from public.deal_orders where id=p_order_id for update;
+  select * into q from public.deal_quotes where id=o.quote_id;
+  if o.id is null or r.id is null or o.team_id<>r.team_id
+    or not public.is_feature_enabled(o.team_id,'sales_os_v3')
+    or not public.has_permission(o.team_id,'finance.manage') then
+    raise exception 'FINANCE_FORBIDDEN' using errcode='42501';
+  end if;
+  insert into public.deal_sales_expenses(team_id,order_id,salesperson_id,amount,reason,idempotency_key,confirmed_by)
+    values(o.team_id,o.id,q.owner_id,p_amount,trim(p_reason),p_idempotency_key,r.id)
+    on conflict(team_id,idempotency_key) do update set idempotency_key=excluded.idempotency_key returning * into e;
+  return e;
+end;
+$function$;
 
 create or replace function public.reverse_deal_payment(p_payment_id uuid,p_amount numeric,p_reason text,p_idempotency_key uuid)
-returns public.deal_payment_reversals language plpgsql security definer set search_path='' as $$
+returns public.deal_payment_reversals language plpgsql security definer set search_path='' as $function$
 declare pay public.deal_payments; requester public.profiles; rev public.deal_payment_reversals; reversed numeric;
 begin
   if p_amount<=0 or nullif(trim(p_reason),'') is null then raise exception 'REVERSAL_INPUT_REQUIRED' using errcode='22023'; end if;
@@ -193,12 +233,18 @@ begin
   insert into public.deal_payment_reversals(team_id,payment_id,amount,reason,idempotency_key,confirmed_by)
     values(pay.team_id,pay.id,p_amount,trim(p_reason),p_idempotency_key,requester.id)
     on conflict(team_id,idempotency_key) do update set idempotency_key=excluded.idempotency_key returning * into rev; return rev;
-end $$;
+end;
+$function$;
 
-do $$ declare t text; begin foreach t in array array['deal_catalog_versions','deal_catalog_items','deal_packages','deal_package_items','deal_quotes','deal_quote_lines','deal_quote_approvals','deal_orders','deal_payments','deal_payment_reversals','deal_internal_settlements','deal_procurement_cost_payments','deal_sales_expenses'] loop
+do $migration$
+declare t text;
+begin
+foreach t in array array['deal_catalog_versions','deal_catalog_items','deal_packages','deal_package_items','deal_quotes','deal_quote_lines','deal_quote_approvals','deal_orders','deal_payments','deal_payment_reversals','deal_internal_settlements','deal_procurement_cost_payments','deal_sales_expenses'] loop
   execute format('alter table public.%I enable row level security',t);
   execute format('create policy "sales os v3 server gate" on public.%I as restrictive for all to authenticated using (public.is_feature_enabled(team_id,''sales_os_v3'')) with check (public.is_feature_enabled(team_id,''sales_os_v3''))',t);
-end loop; end $$;
+end loop;
+end;
+$migration$;
 
 create policy "team reads catalog versions" on public.deal_catalog_versions for select to authenticated using(public.is_team_member(team_id));
 create policy "team reads catalog items" on public.deal_catalog_items for select to authenticated using(public.is_team_member(team_id));

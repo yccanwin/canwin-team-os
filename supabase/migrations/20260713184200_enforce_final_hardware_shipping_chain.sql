@@ -1,6 +1,6 @@
 -- Final hardware chain: old invalid reservations may never reach inventory shipment.
 create or replace function public.ship_delivery_stock(p_reservation_id uuid)
-returns public.fulfillment_inventory_reservations language plpgsql security definer set search_path=''as$$
+returns public.fulfillment_inventory_reservations language plpgsql security definer set search_path='' as $$
 declare res public.fulfillment_inventory_reservations;s public.fulfillment_inventory_stock;
  r public.profiles;d public.fulfillment_deliveries;o public.deal_orders;q public.deal_quotes;
  required_quantity numeric;allocated_quantity numeric;anomaly text;
@@ -59,10 +59,10 @@ begin
      where x.delivery_id=d.id and x.status='reserved')then'reserved'
    else'shipped'end,updated_at=now()where delivery_id=d.id;
  return res;
-end$$;
+ end $$;
 
 create or replace function public.complete_delivery_hardware(p_delivery_id uuid)
-returns public.fulfillment_states language plpgsql security definer set search_path=''as$$
+returns public.fulfillment_states language plpgsql security definer set search_path='' as $$
 declare st public.fulfillment_states;r public.profiles;d public.fulfillment_deliveries;
  o public.deal_orders;q public.deal_quotes;
 begin
@@ -100,7 +100,7 @@ begin
  )then raise exception'HARDWARE_QUOTE_QUANTITY_MISMATCH'using errcode='23514';end if;
  update public.fulfillment_states set hardware_status='completed',updated_at=now()
  where delivery_id=d.id returning*into st;return st;
-end$$;
+ end $$;
 revoke all on function public.ship_delivery_stock(uuid),public.complete_delivery_hardware(uuid)from public,anon;
 grant execute on function public.ship_delivery_stock(uuid),public.complete_delivery_hardware(uuid)to authenticated;
 notify pgrst,'reload schema';

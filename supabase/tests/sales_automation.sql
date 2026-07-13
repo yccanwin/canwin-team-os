@@ -18,7 +18,7 @@ do$$begin
  if has_function_privilege('authenticated','public.run_sales_automation_batch(text,timestamp with time zone)','EXECUTE')or has_function_privilege('anon','public.run_sales_automation_batch(text,timestamp with time zone)','EXECUTE')then raise exception 'Batch RPC exposed';end if;
  if(select count(*)from pg_policies where schemaname='public'and tablename in('crm_contact_attempts','crm_recycle_pauses')and policyname='sales os v3 server gate'and permissive='RESTRICTIVE')<>2 then raise exception 'Automation gates missing';end if;
  if (select array_agg(column_name::text order by ordinal_position)from information_schema.columns where table_schema='public'and table_name='crm_leads_visible')
-  is distinct from array['id','read_scope','store_name','contact_name','masked_phone','district_name','business_type','source','created_at','next_action_at','stage','facts','lead_status','owner_display_name','claimable']then raise exception 'Lead pool view contract changed';end if;
+  is distinct from array['id','read_scope','store_name','contact_name','masked_phone','district_name','business_type','source','created_at','next_action_at','stage','facts','lead_status','owner_display_name','claimable','active_opportunity_id']then raise exception 'Lead pool view contract changed';end if;
  if exists(select 1 from information_schema.columns where table_schema='public'and table_name='crm_leads_visible'and column_name in('phone','owner_id','email','wechat_id'))then raise exception 'Lead pool view leaks sensitive owner/contact data';end if;
  if position('claimable' in lower(pg_get_viewdef('public.crm_leads_visible'::regclass,true)))=0
   or position('owner_id is null' in lower(pg_get_viewdef('public.crm_leads_visible'::regclass,true)))=0
