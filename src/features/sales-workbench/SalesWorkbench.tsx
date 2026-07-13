@@ -88,6 +88,7 @@ export function SalesWorkbench({
   const [customerError, setCustomerError] = useState('')
   const [recapStartedAt, setRecapStartedAt] = useState<number | null>(null)
   const [recapSeconds, setRecapSeconds] = useState(60)
+  const [recapIsFirst, setRecapIsFirst] = useState(true)
   const [assessments, setAssessments] = useState<SalesAssessmentSummary[]>(() => demoMode ? mockAssessments : [])
   const [assessmentError, setAssessmentError] = useState('')
   const [currentLeadScope, setCurrentLeadScope] = useState<LeadReadScope>(leadScope)
@@ -200,10 +201,11 @@ export function SalesWorkbench({
     }))
   }
 
-  const markContacted = (startedAt: number) => {
+  const markContacted = (startedAt: number, isFirst = true) => {
     if (!selected) return
-    setRecapStartedAt(startedAt)
+    setRecapStartedAt(isFirst ? startedAt : null)
     setRecapSeconds(60)
+    setRecapIsFirst(isFirst)
     if (!demoMode) {
       setContactedForForm((current) => current.includes(selected.id) ? current : [...current, selected.id])
       return
@@ -215,9 +217,10 @@ export function SalesWorkbench({
     if (!selected || demoMode || !dataSource || currentLeadScope !== 'mine') return
     setIsLoading(true); setDataError('')
     try {
+      const isFirstReached = !followupContext?.activities.some((item) => item.outcome === 'reached' || item.activityType === 'effective_followup')
       await dataSource.recordContactAttempt(selected.id, result)
       setFollowupContext(await dataSource.getLeadFollowupContext(selected.id))
-      if (result === 'reached') markContacted(Date.now())
+      if (result === 'reached') markContacted(Date.now(), isFirstReached)
     } catch (error) { setDataError(error instanceof Error ? error.message : '记录联系尝试失败') }
     finally { setIsLoading(false) }
   }
@@ -383,13 +386,13 @@ export function SalesWorkbench({
                 {!demoMode && currentLeadScope === 'region' && selected.claimable && <button className="sw-secondary" disabled={isLoading} onClick={claimSelectedLead}>通过 RPC 领取该线索</button>}
                 {!demoMode && currentLeadScope === 'region' && !selected.claimable && <div className="sw-owner-notice">已占用 · 负责人：{selected.ownerDisplayName ?? '未显示'} · 不可领取</div>}
 
-                {selected.stage === 'new' && (demoMode || (currentLeadScope === 'mine' && followupContext && !['nurturing', 'supervisor_review'].includes(followupContext.leadStatus))) && <div className="sw-attempt-actions">
+                {(demoMode ? selected.stage === 'new' : currentLeadScope === 'mine' && followupContext && !['nurturing', 'supervisor_review'].includes(followupContext.leadStatus)) && <div className="sw-attempt-actions">
                   <button className="sw-primary" disabled={isLoading} onClick={() => demoMode ? markContacted(Date.now()) : void recordContactAttempt('reached')}><Phone size={18} />电话已接通</button>
                   {!demoMode && <><button className="sw-secondary" disabled={isLoading} onClick={() => void recordContactAttempt('no_answer')}>未接电话</button><button className="sw-secondary" disabled={isLoading} onClick={() => void recordContactAttempt('unreachable')}>无法联系</button></>}
                 </div>}
                 {(selected.stage === 'contacted' || contactedForForm.includes(selected.id)) && (
                   <div className="sw-followup-form">
-                    <div className="sw-recap-title"><strong>首次电话 60 秒复盘</strong><span>{recapSeconds > 0 ? `建议剩余 ${recapSeconds} 秒` : '可继续填写，内容完整优先'}</span></div>
+                    <div className="sw-recap-title"><strong>{recapIsFirst ? '首次电话 60 秒复盘' : '本次沟通记录'}</strong><span>{recapIsFirst ? (recapSeconds > 0 ? `建议剩余 ${recapSeconds} 秒` : '可继续填写，内容完整优先') : '记录新的业务事实或客户承诺'}</span></div>
                     <p className="sw-either-hint">新业务事实 / 客户承诺：二选一至少填写一项</p>
                     <label>获得的新业务事实（二选一）<textarea value={draft.fact} onChange={(event) => setDraft({ ...draft, fact: event.target.value })} placeholder="例如：新店计划8月18日开业，目前使用竞品收银系统" /></label>
                     <label>客户承诺（二选一）<input value={draft.commitment} onChange={(event) => setDraft({ ...draft, commitment: event.target.value })} placeholder="例如：周五安排老板参加演示" /></label>
