@@ -7,10 +7,20 @@ export interface DealQuoteRecord {
   customerTotal: number
   internalTotal: number
   hasSpecialContent: boolean
+  specialContent: string | null
   submittedAt: string | null
   frozenAt: string | null
   storeName: string
   brandName?: string
+  valueGrade: string
+  demoCompleted: boolean
+}
+
+export interface DealQuoteApprovalRecord {
+  status: 'not_required' | 'pending' | 'approved' | 'rejected'
+  note: string | null
+  decidedAt: string | null
+  canDecide: boolean
 }
 
 export interface DealOrderRecord {
@@ -51,10 +61,12 @@ export interface QuoteOrderDataSource {
   createDraft(opportunityId: string): Promise<DealQuoteRecord>
   getDraftLines(quoteId: string): Promise<DealQuoteDraftLineRecord[]>
   replaceDraftLines(quoteId: string, lines: Array<{ kind: 'package' | 'hardware' | 'addon'; sourceId: string; quantity: number; customerPrice: number }>): Promise<DealQuoteRecord>
+  setSpecialContent(quoteId: string, specialContent: string): Promise<DealQuoteRecord>
   listQuotes(): Promise<DealQuoteRecord[]>
   getQuote(quoteId: string): Promise<DealQuoteRecord>
   submitQuote(quoteId: string): Promise<DealQuoteRecord>
   decideQuote(quoteId: string, approved: boolean, note?: string): Promise<DealQuoteRecord>
+  getApproval(quoteId: string): Promise<DealQuoteApprovalRecord>
   confirmDeposit(input: { quoteId: string; amount: number; externalRef: string; idempotencyKey: string }): Promise<DealOrderRecord>
   listInternalPayments(): Promise<InternalPaymentWorkbenchRecord[]>
   confirmInternalPayment(input: { orderId: string; amount: number; method: InternalPaymentMethod; externalRef: string; idempotencyKey: string }): Promise<DealOrderRecord>
