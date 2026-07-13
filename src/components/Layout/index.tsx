@@ -73,6 +73,7 @@ const NAV_GROUPS = [
     label: '设置',
     items: [
       { to: '/settings', icon: Settings, label: '设置' },
+      { to: '/settings-v3', icon: Settings, label: '系统配置' },
     ],
   },
 ]
