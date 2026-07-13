@@ -7,7 +7,7 @@ const modules = [
     description: '维护销售区域与区县归属，为线索分配和数据隔离提供基础。',
     to: '/settings-v3/regions',
     icon: MapPinned,
-    status: '待接入配置',
+    status: '可用',
     accent: 'bg-sky-50 text-sky-700',
   },
   {
