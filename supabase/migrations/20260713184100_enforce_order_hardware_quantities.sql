@@ -1,5 +1,5 @@
 -- Bind inventory reservations and completion to frozen quote hardware SKUs.
-create or replace function public.reserve_delivery_stock(p_delivery_id uuid,p_stock_id uuid,p_quantity numeric,p_expected_on date)
+create or replace function public.reserve_delivery_stock(p_delivery_id uuid,p_stock_id uuid,p_quantity numeric,p_expected_on date default null)
 returns public.fulfillment_inventory_reservations language plpgsql security definer set search_path='' as $$
 declare d public.fulfillment_deliveries;s public.fulfillment_inventory_stock;r public.profiles;res public.fulfillment_inventory_reservations;available numeric;item_name text;required_quantity numeric;allocated_quantity numeric;
 begin
