@@ -1,0 +1,220 @@
+import { Suspense, lazy, useEffect } from 'react'
+import { Routes, Route } from 'react-router-dom'
+import Layout from './components/Layout'
+import AuthGate from './components/AuthGate'
+import { useUserStore } from './stores/useUserStore'
+import { useTaskStore } from './stores/useTaskStore'
+import { useFinanceStore } from './stores/useFinanceStore'
+import { useInventoryStore } from './stores/useInventoryStore'
+import { useVoteStore } from './stores/useVoteStore'
+import { useGoalStore } from './stores/useGoalStore'
+import { usePersonalGoalStore } from './stores/usePersonalGoalStore'
+import { useCalendarStore } from './stores/useCalendarStore'
+import { useTimelineStore } from './stores/useTimelineStore'
+import { useAchievementStore } from './stores/useAchievementStore'
+import { usePhotoStore } from './stores/usePhotoStore'
+import { useAssetStore } from './stores/useAssetStore'
+import { useToolboxStore } from './stores/useToolboxStore'
+import { useWarRoomStore } from './stores/useWarRoomStore'
+import { useSkillStore } from './stores/useSkillStore'
+import { useSalesStore } from './stores/useSalesStore'
+import { isCaptainRole, isFinanceRole, isWarehouseRole, loadTeamProfiles } from './services/profile'
+import { loadTasks } from './services/tasks'
+import { loadFinancePublicSummary, loadFinanceRecords } from './services/finance'
+import { loadInventory, loadInventoryPublic } from './services/inventory'
+import { loadVotes } from './services/votes'
+import { loadGoals } from './services/goals'
+import { loadPersonalGoals } from './services/personalGoals'
+import { loadCalendarEvents } from './services/calendar'
+import { loadTimelineEvents } from './services/timeline'
+import { loadAchievements } from './services/achievements'
+import { loadPhotos } from './services/photos'
+import { loadAssets, loadPublicAssets } from './services/assets'
+import { loadTools } from './services/toolbox'
+import { loadWarRoomPolicies } from './services/warroom'
+import { loadSkills, loadUserSkills } from './services/skills'
+import { loadSalesAssessments, loadSalesProducts, loadSalesScoreRecords } from './services/sales'
+
+// 懒加载页面
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const Tasks = lazy(() => import('./pages/Tasks'))
+const Goals = lazy(() => import('./pages/Goals'))
+const Work = lazy(() => import('./pages/Work'))
+const Votes = lazy(() => import('./pages/Votes'))
+const VoteDetail = lazy(() => import('./pages/Votes/VoteDetail'))
+const Inventory = lazy(() => import('./pages/Inventory'))
+const Finance = lazy(() => import('./pages/Finance'))
+const SalesCenter = lazy(() => import('./pages/SalesCenter'))
+const Timeline = lazy(() => import('./pages/Timeline'))
+const Achievements = lazy(() => import('./pages/Achievements'))
+const Photos = lazy(() => import('./pages/Photos'))
+const Assets = lazy(() => import('./pages/Assets'))
+const Profile = lazy(() => import('./pages/Profile'))
+const Members = lazy(() => import('./pages/Members'))
+const Calendar = lazy(() => import('./pages/Calendar'))
+const Toolbox = lazy(() => import('./pages/Toolbox'))
+const WarRoom = lazy(() => import('./pages/WarRoom'))
+const Skills = lazy(() => import('./pages/Skills'))
+const Settings = lazy(() => import('./pages/Settings'))
+const FeatureFlagGate = lazy(() => import('./features/v3'))
+const SalesWorkbenchV3 = lazy(() => import('./features/sales-workbench/SalesWorkbenchRealRoute'))
+const OrderDeliveryWorkbenchV3 = lazy(() => import('./features/order-delivery/OrderDeliveryRealRoute'))
+const QuoteOrderRealV3 = lazy(() => import('./features/quote-order/QuoteOrderRealRoute'))
+const ManagementBoardRealV3 = lazy(() => import('./features/management-board/ManagementBoardRealRoute'))
+const AccessAdminRealV3 = lazy(() => import('./features/access-admin/AccessAdminRealRoute'))
+
+function App() {
+  const currentUser = useUserStore((s) => s.currentUser)
+  const setUsers = useUserStore((s) => s.setUsers)
+  const setTasks = useTaskStore((s) => s.setTasks)
+  const setRecords = useFinanceStore((s) => s.setRecords)
+  const setInventoryData = useInventoryStore((s) => s.setInventoryData)
+  const setVotes = useVoteStore((s) => s.setVotes)
+  const setGoals = useGoalStore((s) => s.setGoals)
+  const setPersonalGoals = usePersonalGoalStore((s) => s.setPersonalGoals)
+  const setEvents = useCalendarStore((s) => s.setEvents)
+  const setTimelineEvents = useTimelineStore((s) => s.setEvents)
+  const setAchievements = useAchievementStore((s) => s.setAchievements)
+  const setPhotos = usePhotoStore((s) => s.setPhotos)
+  const setAssets = useAssetStore((s) => s.setAssets)
+  const setTools = useToolboxStore((s) => s.setTools)
+  const setPolicies = useWarRoomStore((s) => s.setPolicies)
+  const setSkillData = useSkillStore((s) => s.setSkillData)
+  const setSalesData = useSalesStore((s) => s.setSalesData)
+
+  useEffect(() => {
+    if (!currentUser) return
+
+    let cancelled = false
+
+    async function loadCloudData() {
+      const [
+        profiles,
+        tasks,
+        records,
+        inventory,
+        votes,
+        goals,
+        personalGoals,
+        events,
+        timelineEvents,
+        achievements,
+        photos,
+        assets,
+        tools,
+        policies,
+        skills,
+        userSkills,
+        salesProducts,
+        salesRecords,
+        salesAssessments,
+      ] = await Promise.all([
+        loadTeamProfiles(),
+        loadTasks(),
+        isFinanceRole(currentUser.role) ? loadFinanceRecords() : loadFinancePublicSummary(),
+        isWarehouseRole(currentUser.role) ? loadInventory() : loadInventoryPublic(),
+        loadVotes(),
+        loadGoals(),
+        loadPersonalGoals(),
+        loadCalendarEvents(),
+        loadTimelineEvents(),
+        loadAchievements(),
+        loadPhotos(),
+        isCaptainRole(currentUser.role) || isFinanceRole(currentUser.role) || isWarehouseRole(currentUser.role)
+          ? loadAssets()
+          : loadPublicAssets(),
+        loadTools(),
+        loadWarRoomPolicies(),
+        loadSkills(),
+        loadUserSkills(),
+        loadSalesProducts(),
+        loadSalesScoreRecords(),
+        loadSalesAssessments(),
+      ])
+      if (cancelled) return
+      setUsers(profiles)
+      setTasks(tasks)
+      setRecords(records)
+      setInventoryData(inventory)
+      setVotes(votes)
+      setGoals(goals)
+      setPersonalGoals(personalGoals)
+      setEvents(events)
+      setTimelineEvents(timelineEvents)
+      setAchievements(achievements)
+      setPhotos(photos)
+      setAssets(assets)
+      setTools(tools)
+      setPolicies(policies)
+      if (skills && userSkills) {
+        setSkillData({ skills, userSkills })
+      }
+      if (salesProducts && salesRecords && salesAssessments) {
+        setSalesData({ products: salesProducts, records: salesRecords, assessments: salesAssessments })
+      }
+    }
+
+    void loadCloudData()
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    currentUser,
+    setAchievements,
+    setAssets,
+    setEvents,
+    setGoals,
+    setPersonalGoals,
+    setInventoryData,
+    setPhotos,
+    setRecords,
+    setTasks,
+    setTools,
+    setTimelineEvents,
+    setPolicies,
+    setSkillData,
+    setSalesData,
+    setUsers,
+    setVotes,
+  ])
+
+  if (!currentUser) {
+    return <AuthGate />
+  }
+
+  return (
+    <Routes>
+      <Route element={<Layout />}>
+        <Route path="/" element={<Suspense fallback={null}><Dashboard /></Suspense>} />
+        <Route path="/dashboard" element={<Suspense fallback={null}><Dashboard /></Suspense>} />
+        <Route path="/work" element={<Suspense fallback={null}><Work /></Suspense>} />
+        <Route path="/tasks" element={<Suspense fallback={null}><Tasks /></Suspense>} />
+        <Route path="/goals" element={<Suspense fallback={null}><Goals /></Suspense>} />
+        <Route path="/votes" element={<Suspense fallback={null}><Votes /></Suspense>} />
+        <Route path="/votes/:voteId" element={<Suspense fallback={null}><VoteDetail /></Suspense>} />
+        <Route path="/inventory" element={<Suspense fallback={null}><Inventory /></Suspense>} />
+        <Route path="/finance" element={<Suspense fallback={null}><Finance /></Suspense>} />
+        <Route path="/sales" element={<Suspense fallback={null}><SalesCenter /></Suspense>} />
+        <Route path="/timeline" element={<Suspense fallback={null}><Timeline /></Suspense>} />
+        <Route path="/achievements" element={<Suspense fallback={null}><Achievements /></Suspense>} />
+        <Route path="/photos" element={<Suspense fallback={null}><Photos /></Suspense>} />
+        <Route path="/assets" element={<Suspense fallback={null}><Assets /></Suspense>} />
+        <Route path="/calendar" element={<Suspense fallback={null}><Calendar /></Suspense>} />
+        <Route path="/toolbox" element={<Suspense fallback={null}><Toolbox /></Suspense>} />
+        <Route path="/skills" element={<Suspense fallback={null}><Skills /></Suspense>} />
+        <Route path="/warroom" element={<Suspense fallback={null}><WarRoom /></Suspense>} />
+        <Route path="/members" element={<Suspense fallback={null}><Members /></Suspense>} />
+        <Route path="/profile" element={<Suspense fallback={null}><Profile /></Suspense>} />
+        <Route path="/settings" element={<Suspense fallback={null}><Settings /></Suspense>} />
+        <Route path="/sales-v3" element={<Suspense fallback={null}><FeatureFlagGate flagKey="sales_os_v3"><SalesWorkbenchV3 /></FeatureFlagGate></Suspense>} />
+        <Route path="/orders-v3" element={<Suspense fallback={null}><FeatureFlagGate flagKey="sales_os_v3"><OrderDeliveryWorkbenchV3 /></FeatureFlagGate></Suspense>} />
+        <Route path="/quotes-v3" element={<Suspense fallback={null}><FeatureFlagGate flagKey="sales_os_v3"><QuoteOrderRealV3 /></FeatureFlagGate></Suspense>} />
+        <Route path="/management-v3" element={<Suspense fallback={null}><FeatureFlagGate flagKey="sales_os_v3"><ManagementBoardRealV3 /></FeatureFlagGate></Suspense>} />
+        <Route path="/access-v3" element={<Suspense fallback={null}><FeatureFlagGate flagKey="sales_os_v3"><AccessAdminRealV3 /></FeatureFlagGate></Suspense>} />
+      </Route>
+    </Routes>
+  )
+}
+
+export default App

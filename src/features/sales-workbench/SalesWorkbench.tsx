@@ -1,0 +1,407 @@
+import { useEffect, useMemo, useState } from 'react'
+import {
+  BriefcaseBusiness,
+  CheckCircle2,
+  ChevronRight,
+  CircleUserRound,
+  ClipboardList,
+  Clock3,
+  ContactRound,
+  House,
+  Phone,
+  PackageCheck,
+  RotateCcw,
+  Sparkles,
+  UsersRound,
+} from 'lucide-react'
+import { mockAssessments, mockCustomers, mockLeads, mockSummary } from './mockData'
+import type { LeadReadScope, SalesWorkbenchDataSource } from './dataSource'
+import type { CustomerBrandSummary, FollowUpDraft, LeadStage, OpportunityQualification, OrderActionSignal, SalesAssessmentSummary, SalesLead, WorkbenchTab } from './types'
+import { prioritizeLead } from './actionPriority'
+import { CrmEntityEditor } from './CrmEntityEditor'
+import { QualificationEvidenceEditor } from './QualificationEvidenceEditor'
+import './sales-workbench.css'
+
+const tabs: Array<{ id: WorkbenchTab; label: string; icon: typeof House }> = [
+  { id: 'today', label: '今日', icon: House },
+  { id: 'leads', label: '线索清洗', icon: ClipboardList },
+  { id: 'customers', label: '客户', icon: UsersRound },
+  { id: 'orders', label: '订单', icon: BriefcaseBusiness },
+  { id: 'profile', label: '我的', icon: CircleUserRound },
+]
+
+const stageLabel: Record<LeadStage, string> = {
+  new: '待联系',
+  contacted: '已联系',
+  qualified: '有效跟进',
+  opportunity: '已转商机',
+}
+
+const blankDraft: FollowUpDraft = { fact: '', commitment: '', nextActionAt: '' }
+const blankQualification: OpportunityQualification = {
+  isRealStore: false,
+  grade: '',
+  fitsAnnualProduct: false,
+  keyPersonReached: false,
+}
+
+export interface SalesWorkbenchProps {
+  initialLeads?: SalesLead[]
+  salespersonName?: string
+  onLeadChange?: (lead: SalesLead) => void
+  demoMode?: boolean
+  dataSource?: SalesWorkbenchDataSource
+  leadScope?: LeadReadScope
+  orderSignals?: OrderActionSignal[]
+}
+
+export function SalesWorkbench({
+  initialLeads = mockLeads,
+  salespersonName = '销售演示账号',
+  onLeadChange,
+  demoMode = true,
+  dataSource,
+  leadScope = 'mine',
+  orderSignals = [],
+}: SalesWorkbenchProps) {
+  const [activeTab, setActiveTab] = useState<WorkbenchTab>('today')
+  const [leads, setLeads] = useState(() => demoMode ? initialLeads : [])
+  const [selectedId, setSelectedId] = useState(() => demoMode ? (initialLeads[0]?.id ?? '') : '')
+  const [draft, setDraft] = useState<FollowUpDraft>(blankDraft)
+  const [qualification, setQualification] = useState<OpportunityQualification>(blankQualification)
+  const [dataError, setDataError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [contactedForForm, setContactedForForm] = useState<string[]>([])
+  const [customers, setCustomers] = useState<CustomerBrandSummary[]>(() => demoMode ? mockCustomers : [])
+  const [selectedBrandId, setSelectedBrandId] = useState(() => demoMode ? (mockCustomers[0]?.id ?? '') : '')
+  const [customerError, setCustomerError] = useState('')
+  const [recapStartedAt, setRecapStartedAt] = useState<number | null>(null)
+  const [recapSeconds, setRecapSeconds] = useState(60)
+  const [assessments, setAssessments] = useState<SalesAssessmentSummary[]>(() => demoMode ? mockAssessments : [])
+  const [assessmentError, setAssessmentError] = useState('')
+  const [currentLeadScope, setCurrentLeadScope] = useState<LeadReadScope>(leadScope)
+  const selected = leads.find((lead) => lead.id === selectedId)
+
+  const todayTasks = useMemo(() => leads.filter((lead) => lead.stage !== 'opportunity').map((lead) => prioritizeLead(lead)).sort((a, b) => a.rank - b.rank), [leads])
+
+  useEffect(() => {
+    if (recapStartedAt === null) return
+    const timer = window.setInterval(() => setRecapSeconds(Math.max(0, 60 - Math.floor((Date.now() - recapStartedAt) / 1000))), 1000)
+    return () => window.clearInterval(timer)
+  }, [recapStartedAt])
+
+  useEffect(() => {
+    if (demoMode) return
+    if (!dataSource) {
+      queueMicrotask(() => { setLeads([]); setDataError('真实模式未配置数据源，已停止加载；不会回退演示数据。') })
+      return
+    }
+    let active = true
+    queueMicrotask(() => {
+      if (!active) return
+      setIsLoading(true)
+      setDataError('')
+    })
+    dataSource.listLeads(currentLeadScope).then((items) => {
+      if (!active) return
+      setLeads(items)
+      setSelectedId(items[0]?.id ?? '')
+    }).catch((error: unknown) => {
+      if (!active) return
+      setLeads([])
+      setSelectedId('')
+      setDataError(error instanceof Error ? error.message : '读取线索失败')
+    }).finally(() => { if (active) setIsLoading(false) })
+    return () => { active = false }
+  }, [dataSource, demoMode, currentLeadScope])
+
+  useEffect(() => {
+    if (demoMode) return
+    if (!dataSource) {
+      queueMicrotask(() => { setCustomers([]); setCustomerError('真实模式未配置客户数据源；不会回退演示客户。') })
+      return
+    }
+    let active = true
+    queueMicrotask(() => { if (active) setCustomerError('') })
+    dataSource.listCustomers().then((items) => {
+      if (!active) return
+      setCustomers(items)
+      setSelectedBrandId(items[0]?.id ?? '')
+    }).catch((error: unknown) => {
+      if (!active) return
+      setCustomers([])
+      setSelectedBrandId('')
+      setCustomerError(error instanceof Error ? error.message : '读取客户档案失败')
+    })
+    return () => { active = false }
+  }, [dataSource, demoMode])
+
+  useEffect(() => {
+    if (demoMode) return
+    if (!dataSource) {
+      queueMicrotask(() => { setAssessments([]); setAssessmentError('真实模式未配置目标数据源；不会回退演示目标。') })
+      return
+    }
+    let active = true
+    queueMicrotask(() => { if (active) setAssessmentError('') })
+    dataSource.listMyAssessments().then((items) => { if (active) setAssessments(items) }).catch((error: unknown) => {
+      if (!active) return
+      setAssessments([])
+      setAssessmentError(error instanceof Error ? error.message : '读取我的目标失败')
+    })
+    return () => { active = false }
+  }, [dataSource, demoMode])
+
+  const updateLead = (id: string, update: Partial<SalesLead>) => {
+    setLeads((current) => current.map((lead) => {
+      if (lead.id !== id) return lead
+      const next = { ...lead, ...update }
+      onLeadChange?.(next)
+      return next
+    }))
+  }
+
+  const markContacted = (startedAt: number) => {
+    if (!selected) return
+    setRecapStartedAt(startedAt)
+    setRecapSeconds(60)
+    if (!demoMode) {
+      setContactedForForm((current) => current.includes(selected.id) ? current : [...current, selected.id])
+      return
+    }
+    updateLead(selected.id, { stage: 'contacted' })
+  }
+
+  const saveQualifiedFollowUp = async () => {
+    if (!selected || (!draft.fact.trim() && !draft.commitment.trim()) || !draft.nextActionAt) return
+    if (!demoMode) {
+      if (!dataSource) return
+      setIsLoading(true)
+      setDataError('')
+      try {
+        const updated = await dataSource.createFollowUp(selected.id, draft)
+        setLeads((current) => current.map((lead) => lead.id === updated.id ? updated : lead))
+        onLeadChange?.(updated)
+        setDraft(blankDraft)
+      } catch (error) {
+        setDataError(error instanceof Error ? error.message : '保存跟进失败')
+      } finally {
+        setIsLoading(false)
+      }
+      return
+    }
+    const fact = [
+      draft.fact.trim() && `新业务事实：${draft.fact.trim()}`,
+      draft.commitment.trim() && `客户承诺：${draft.commitment.trim()}`,
+    ].filter(Boolean).join('；')
+    updateLead(selected.id, {
+      stage: 'qualified',
+      facts: [...selected.facts, fact],
+      nextActionAt: draft.nextActionAt,
+    })
+  }
+
+  const claimSelectedLead = async () => {
+    if (!selected || demoMode || !dataSource || !selected.claimable) return
+    setIsLoading(true)
+    setDataError('')
+    try {
+      const claimed = await dataSource.claimLead(selected.id)
+      onLeadChange?.(claimed)
+      setCurrentLeadScope('mine')
+    } catch (error) {
+      setDataError(error instanceof Error ? error.message : '领取线索失败')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+  const refreshCrm = async () => {
+    if (!dataSource) return
+    const [customerRows, leadRows] = await Promise.all([dataSource.listCustomers(), dataSource.listLeads(currentLeadScope)])
+    setCustomers(customerRows); setLeads(leadRows)
+    setSelectedBrandId(customerRows[0]?.id ?? ''); setSelectedId(leadRows[0]?.id ?? '')
+  }
+
+  const convertOpportunity = async () => {
+    const qualificationPassed = qualification.isRealStore
+      && ['A', 'B', 'C'].includes(qualification.grade)
+      && qualification.fitsAnnualProduct
+      && qualification.keyPersonReached
+    if (!selected || selected.stage !== 'qualified' || !qualificationPassed) return
+    if (!demoMode) {
+      if (!dataSource || qualification.grade === '' || qualification.grade === 'D') return
+      setIsLoading(true); setDataError('')
+      try {
+        await dataSource.qualifyLead(selected.id)
+        const mine = await dataSource.listLeads('mine')
+        setLeads(mine); setSelectedId(selected.id)
+      } catch (error) { setDataError(error instanceof Error ? error.message : '转有效商机失败') }
+      finally { setIsLoading(false) }
+      return
+    }
+    updateLead(selected.id, { stage: 'opportunity' })
+  }
+
+  const qualificationPassed = qualification.isRealStore
+    && ['A', 'B', 'C'].includes(qualification.grade)
+    && qualification.fitsAnnualProduct
+    && qualification.keyPersonReached
+
+  return (
+    <section className="sales-workbench" aria-label="CanWin 3.0 销售工作台演示">
+      <header className="sw-header">
+        <div>
+          <span className="sw-eyebrow">CANWIN TEAM OS 3.0 · {demoMode ? '演示模式' : '真实模式'}</span>
+          <h1>{activeTab === 'today' ? '今天先做什么' : tabs.find((tab) => tab.id === activeTab)?.label}</h1>
+        </div>
+        <div className="sw-avatar" title={salespersonName}>销</div>
+      </header>
+
+      <main className="sw-main">
+        {dataError && <div className="sw-data-error" role="alert">{dataError}</div>}
+        {isLoading && <div className="sw-loading" role="status">正在处理，请稍候…</div>}
+        {activeTab === 'today' && (
+          <>
+            <div className="sw-metrics" aria-label="今日概览">
+              <Metric value={mockSummary.appointments} label="临近预约" tone="blue" />
+              <Metric value={mockSummary.overdue} label="已逾期" tone="red" />
+              <Metric value={mockSummary.newLeads} label="新线索" tone="green" />
+              <Metric value={mockSummary.recycleRisks} label="回收风险" tone="amber" />
+            </div>
+            <div className="sw-section-title"><span>智能行动队列</span><small>按紧急程度排序</small></div>
+            <div className="sw-task-list">
+              {todayTasks.map(({ lead, priority, label, ageHours }) => (
+                <button key={lead.id} className="sw-task-card" onClick={() => { setSelectedId(lead.id); setActiveTab('leads') }}>
+                  <span className={`sw-priority is-${priority}`} />
+                  <div className="sw-task-copy">
+                    <strong><em className={`sw-action-label is-${priority}`}>{label}</em>{lead.storeName}</strong>
+                    <span>{lead.contactName} · {lead.district} · {lead.createdAt}</span>
+                    {lead.stage === 'new' && ageHours !== undefined && ageHours >= 24 && <small className={ageHours >= 48 ? 'is-risk' : 'is-warning'}>{ageHours >= 48 ? '已超过48小时，存在服务端回收风险' : '已超过24小时，需尽快首次联系'}</small>}
+                  </div>
+                  <ChevronRight size={18} />
+                </button>
+              ))}
+            </div>
+            {orderSignals.filter((signal) => signal.count > 0).length > 0 && <div className="sw-order-signals">{orderSignals.filter((signal) => signal.count > 0).map((signal) => <a key={signal.kind} href="#/orders-v3"><PackageCheck size={18} /><span><strong>{signal.kind === 'delivery_exception' ? '交付异常' : '续费待办'}</strong><small>{signal.count} 项 · 前往订单履约</small></span><ChevronRight size={18} /></a>)}</div>}
+          </>
+        )}
+
+        {activeTab === 'leads' && (
+          <div className="sw-lead-layout">
+            <aside className="sw-lead-list">
+              {!demoMode && <div className="sw-scope-switch"><button className={currentLeadScope === 'mine' ? 'is-active' : ''} onClick={() => setCurrentLeadScope('mine')}>我的线索</button><button className={currentLeadScope === 'region' ? 'is-active' : ''} onClick={() => setCurrentLeadScope('region')}>区域公海</button></div>}
+              {leads.map((lead) => (
+                <button key={lead.id} className={lead.id === selectedId ? 'is-selected' : ''} onClick={() => { setSelectedId(lead.id); setDraft(blankDraft) }}>
+                  <span><strong>{lead.storeName}</strong><small>{lead.contactName} · {lead.businessType}</small></span>
+                  <em>{currentLeadScope === 'region' && !lead.claimable ? `负责人：${lead.ownerDisplayName ?? '未显示'}` : stageLabel[lead.stage]}</em>
+                </button>
+              ))}
+            </aside>
+            {selected && (
+              <article className="sw-lead-detail">
+                <div className="sw-detail-heading">
+                  <div><span className="sw-status">{stageLabel[selected.stage]}</span><h2>{selected.storeName}</h2><p>{selected.contactName} · {selected.phone} · {selected.district}</p></div>
+                  <ContactRound size={28} />
+                </div>
+                <dl className="sw-facts"><div><dt>业态</dt><dd>{selected.businessType}</dd></div><div><dt>来源</dt><dd>{selected.source}</dd></div><div><dt>创建</dt><dd>{selected.createdAt}</dd></div></dl>
+
+                {selected.facts.length > 0 && <div className="sw-known-facts"><strong>已获得的新事实</strong>{selected.facts.map((fact) => <p key={fact}><CheckCircle2 size={15} />{fact}</p>)}</div>}
+
+                <div className="sw-flow"><FlowStep done label="线索" /><FlowStep done={selected.stage !== 'new'} label="联系" /><FlowStep done={['qualified', 'opportunity'].includes(selected.stage)} label="有效跟进" /><FlowStep done={selected.stage === 'opportunity'} label="商机" /></div>
+
+                {!demoMode && currentLeadScope === 'region' && selected.claimable && <button className="sw-secondary" disabled={isLoading} onClick={claimSelectedLead}>通过 RPC 领取该线索</button>}
+                {!demoMode && currentLeadScope === 'region' && !selected.claimable && <div className="sw-owner-notice">已占用 · 负责人：{selected.ownerDisplayName ?? '未显示'} · 不可领取</div>}
+
+                {selected.stage === 'new' && <button className="sw-primary" onClick={() => markContacted(Date.now())}><Phone size={18} />{demoMode ? '模拟电话已接通' : '记录电话已接通'}</button>}
+                {(selected.stage === 'contacted' || contactedForForm.includes(selected.id)) && (
+                  <div className="sw-followup-form">
+                    <div className="sw-recap-title"><strong>首次电话 60 秒复盘</strong><span>{recapSeconds > 0 ? `建议剩余 ${recapSeconds} 秒` : '可继续填写，内容完整优先'}</span></div>
+                    <p className="sw-either-hint">新业务事实 / 客户承诺：二选一至少填写一项</p>
+                    <label>获得的新业务事实（二选一）<textarea value={draft.fact} onChange={(event) => setDraft({ ...draft, fact: event.target.value })} placeholder="例如：新店计划8月18日开业，目前使用竞品收银系统" /></label>
+                    <label>客户承诺（二选一）<input value={draft.commitment} onChange={(event) => setDraft({ ...draft, commitment: event.target.value })} placeholder="例如：周五安排老板参加演示" /></label>
+                    <label>下一步时间（必填）<input type="datetime-local" value={draft.nextActionAt} onChange={(event) => setDraft({ ...draft, nextActionAt: event.target.value })} /></label>
+                    <button className="sw-primary" disabled={(!draft.fact.trim() && !draft.commitment.trim()) || !draft.nextActionAt} onClick={saveQualifiedFollowUp}><CheckCircle2 size={18} />保存有效跟进</button>
+                  </div>
+                )}
+                {selected.stage === 'qualified' && demoMode && (
+                  <div className="sw-qualification">
+                    <div className="sw-qualification-heading"><strong>有效商机资格门</strong><span>{qualificationPassed ? '4/4 已通过' : '需全部通过'}</span></div>
+                    <label><input type="checkbox" checked={qualification.isRealStore} onChange={(event) => setQualification({ ...qualification, isRealStore: event.target.checked })} /><span><strong>真实门店</strong><small>已确认门店真实存在</small></span></label>
+                    <label className="sw-grade-field"><span><strong>业务价值等级</strong><small>D级禁止进入有效商机</small></span><select value={qualification.grade} onChange={(event) => setQualification({ ...qualification, grade: event.target.value as OpportunityQualification['grade'] })}><option value="">请选择</option><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D（退出漏斗）</option></select></label>
+                    <label><input type="checkbox" checked={qualification.fitsAnnualProduct} onChange={(event) => setQualification({ ...qualification, fitsAnnualProduct: event.target.checked })} /><span><strong>适合年费产品</strong><small>年费产品可以继续谈</small></span></label>
+                    <label><input type="checkbox" checked={qualification.keyPersonReached} onChange={(event) => setQualification({ ...qualification, keyPersonReached: event.target.checked })} /><span><strong>关键人已建立联系</strong><small>已接触或明确约到关键人</small></span></label>
+                    {qualification.grade === 'D' && <p className="sw-block-message">D级或纯外卖店退出有效漏斗，不能转为商机。</p>}
+                    <button className="sw-primary" disabled={!qualificationPassed} onClick={convertOpportunity}><Sparkles size={18} />转为有效商机</button>
+                  </div>
+                )}
+                {selected.stage === 'opportunity' && <div className="sw-success"><CheckCircle2 /><div><strong>已转为有效商机</strong><span>资格证据已由服务端确认，可进入报价流程。</span>{selected.opportunityId && <a className="sw-primary" href={`#/quotes-v3?opportunity=${encodeURIComponent(selected.opportunityId)}`}>进入报价</a>}</div></div>}
+                {demoMode && selected.stage !== 'new' && <button className="sw-reset" onClick={() => { setDraft(blankDraft); setQualification(blankQualification); setRecapStartedAt(null); setRecapSeconds(60); updateLead(selected.id, { stage: 'new', facts: [], nextActionAt: undefined }) }}><RotateCcw size={15} />重置演示</button>}
+              </article>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'customers' && (
+          <><CustomerDirectory customers={customers} selectedBrandId={selectedBrandId} onSelectBrand={setSelectedBrandId} error={customerError} />{!demoMode && dataSource && <CrmEntityEditor dataSource={dataSource} onSaved={refreshCrm} />}</>
+        )}
+        {activeTab === 'orders' && <OrderEntry />}
+        {activeTab === 'profile' && <MyAssessments name={salespersonName} assessments={assessments} error={assessmentError} />}
+        {activeTab === 'leads' && selected && ['contacted', 'qualified'].includes(selected.stage) && !demoMode && dataSource && (
+          <div className="sw-floating-evidence">
+            <QualificationEvidenceEditor
+              leadId={selected.id}
+              dataSource={dataSource}
+              onQualified={async () => {
+                const mine = await dataSource.listLeads('mine')
+                setLeads(mine)
+                setSelectedId(selected.id)
+              }}
+            />
+          </div>
+        )}
+      </main>
+
+      <nav className="sw-bottom-nav" aria-label="销售工作台导航">
+        {tabs.map(({ id, label, icon: Icon }) => <button key={id} className={activeTab === id ? 'is-active' : ''} onClick={() => setActiveTab(id)}><Icon size={21} /><span>{label}</span></button>)}
+      </nav>
+    </section>
+  )
+}
+
+function Metric({ value, label, tone }: { value: number; label: string; tone: string }) {
+  return <div className={`sw-metric is-${tone}`}><strong>{value}</strong><span>{label}</span></div>
+}
+
+function FlowStep({ done, label }: { done: boolean; label: string }) {
+  return <div className={done ? 'is-done' : ''}><span>{done ? '✓' : ''}</span><small>{label}</small></div>
+}
+
+function Placeholder({ icon: Icon, title, text }: { icon: typeof Clock3; title: string; text: string }) {
+  return <div className="sw-placeholder"><Icon size={34} /><h2>{title}</h2><p>{text}</p></div>
+}
+
+function CustomerDirectory({ customers, selectedBrandId, onSelectBrand, error }: { customers: CustomerBrandSummary[]; selectedBrandId: string; onSelectBrand: (id: string) => void; error: string }) {
+  const selected = customers.find((brand) => brand.id === selectedBrandId)
+  if (error) return <div className="sw-data-error" role="alert">{error}</div>
+  if (customers.length === 0) return <Placeholder icon={UsersRound} title="暂无可见客户" text="当前账号权限范围内没有品牌客户。" />
+  return <div className="sw-customer-layout">
+    <aside className="sw-customer-brands">{customers.map((brand) => <button key={brand.id} className={brand.id === selectedBrandId ? 'is-selected' : ''} onClick={() => onSelectBrand(brand.id)}><strong>{brand.name}</strong><span>{brand.stores.length} 家门店</span></button>)}</aside>
+    {selected && <section className="sw-customer-detail"><div className="sw-detail-heading"><div><span className="sw-status">品牌客户</span><h2>{selected.name}</h2><p>只读档案 · {selected.stores.length} 家门店</p></div><UsersRound size={28} /></div><div className="sw-store-list">{selected.stores.map((store) => <article key={store.id}><div><strong>{store.name}</strong><span>{store.district} · {store.businessType}</span></div><div className="sw-contact-list">{store.contacts.length ? store.contacts.map((contact) => <span key={contact.id}>{contact.name} · {contact.role}</span>) : <span>暂无公开联系人</span>}</div></article>)}</div></section>}
+  </div>
+}
+
+function MyAssessments({ name, assessments, error }: { name: string; assessments: SalesAssessmentSummary[]; error: string }) {
+  const money = (value: number) => `¥${value.toLocaleString('zh-CN')}`
+  if (error) return <div className="sw-data-error" role="alert">{error}</div>
+  return <div className="sw-profile-targets"><div className="sw-detail-heading"><div><span className="sw-status">我的</span><h2>{name}</h2><p>以下为现有 sales_assessments 官方数据口径，仅供查看</p></div><CircleUserRound size={30} /></div>{assessments.length === 0 ? <p className="sw-empty-line">当前账号暂无季度目标。</p> : assessments.map((item) => <article key={item.id}><header><strong>{item.periodQuarter}</strong><span>官方只读</span></header><div className="sw-target-grid"><MetricPair label="积分目标" target={item.pointTarget.toLocaleString('zh-CN')} /><MetricPair label="新签 GMV" target={money(item.newGmvTarget)} actual={money(item.newGmvActual)} /><MetricPair label="续费 GMV" target={money(item.renewalGmvTarget)} actual={money(item.renewalGmvActual)} /></div></article>)}</div>
+}
+
+function MetricPair({ label, target, actual }: { label: string; target: string; actual?: string }) {
+  return <div><span>{label}</span><strong>{target}</strong><small>{actual === undefined ? '季度目标' : `实际 ${actual}`}</small></div>
+}
+
+function OrderEntry() {
+  return <div className="sw-placeholder sw-order-entry"><PackageCheck size={38} /><h2>订单与履约</h2><p>查看软件、硬件履约状态，以及交付异常和续费进度。</p><a className="sw-primary" href="#/orders-v3">前往订单履约 <ChevronRight size={18} /></a></div>
+}
+
+export default SalesWorkbench

@@ -1,0 +1,11 @@
+do$$declare company_def text:=pg_get_viewdef('public.company_profit_summary'::regclass,true);begin
+ if not exists(select 1 from information_schema.columns where table_schema='public'and table_name='deal_payments'and column_name='recipient_type')or not exists(select 1 from information_schema.columns where table_schema='public'and table_name='deal_internal_settlements'and column_name='method')then raise exception'Legacy deal migration not upgraded';end if;
+ if to_regclass('public.deal_procurement_cost_payments')is null or to_regclass('public.deal_sales_expenses')is null then raise exception'Legacy ledger tables not upgraded';end if;
+ if position('deal_internal_settlements' in company_def)=0 or position('deal_procurement_cost_payments' in company_def)=0 or position('profit_adjustments' in company_def)=0 or position('deal_payments' in company_def)>0 then raise exception'Company formula is not dual-ledger safe';end if;
+ if position('has_access_role' in company_def)=0 or position('finance.read' in company_def)=0 or position('customers.supervise' in company_def)>0 then raise exception'Company view role filter unsafe';end if;
+ if(select count(*)from pg_policies where schemaname='public'and policyname in('owner reads company internal settlements','owner reads company procurement costs','owner reads company orders for forecast','owner reads company adjustments v2')and qual like'%owner%')<>4 then raise exception'Pure owner cannot traverse underlying RLS';end if;
+ if exists(select 1 from pg_policies where schemaname='public'and policyname like'owner reads company%'and(coalesce(qual,'')like'%customers.supervise%'or coalesce(qual,'')like'%customers.manage%'or coalesce(qual,'')like'%sales%'))then raise exception'Supervisor/sales gained company ledger access';end if;
+ if position('can_supervise_performance' in pg_get_viewdef('public.supervisor_order_margin'::regclass,true))=0 then raise exception'Supervisor authorized-subordinate margin broken';end if;
+ if position('q.owner_id = auth.uid()' in pg_get_viewdef('public.personal_sales_margin'::regclass,true))=0 then raise exception'Sales own-margin isolation broken';end if;
+ if has_table_privilege('anon','public.company_profit_summary','SELECT')then raise exception'Anon can read company profit';end if;
+end$$;select'dual_ledger_upgrade_ok'result;
