@@ -19,7 +19,7 @@ type RawQuote = {
   } | null
 }
 type RawOrder = { id: string; order_number: string | null; quote_id: string; status: string; created_at: string; customer_total: number | string; internal_due: number | string; internal_paid: number | string }
-type RawInternalPayment = { order_id: string; quote_id: string; store_name: string; order_status: string; internal_due: number | string; internal_paid: number | string; internal_remaining: number | string; fulfillment_unlocked: boolean; can_manage: boolean }
+type RawInternalPayment = { order_id: string; order_number: string; quote_id: string; store_name: string; owner_name: string; order_status: string; customer_total: number | string; customer_paid: number | string; customer_remaining: number | string; internal_due: number | string; internal_paid: number | string; internal_remaining: number | string; procurement_paid: number | string; estimated_margin: number | string | null; final_margin: number | string | null; margin_finalized: boolean; fulfillment_unlocked: boolean; can_manage: boolean; can_view_margin: boolean; lock_reason: string }
 type RawDraftLine = { line_id: string; kind: 'package' | 'hardware' | 'addon'; source_id: string; item_name: string; quantity: number | string; customer_price: number | string }
 type RawApproval = { status: DealQuoteApprovalRecord['status']; note: string | null; decided_at: string | null; can_decide: boolean }
 type OptionRow = Record<string, unknown>
@@ -46,7 +46,7 @@ const mapQuote = (row: RawQuote): DealQuoteRecord => ({
   demoCompleted: Boolean(row.crm_opportunities?.demo_completed_at),
 })
 const mapOrder = (row: RawOrder): DealOrderRecord => ({ id: row.id, orderNumber: row.order_number ?? row.id, quoteId: row.quote_id, status: row.status, createdAt: row.created_at, customerTotal: Number(row.customer_total), internalDue: Number(row.internal_due), internalPaid: Number(row.internal_paid) })
-const mapInternalPayment = (row: RawInternalPayment): InternalPaymentWorkbenchRecord => ({ orderId: row.order_id, quoteId: row.quote_id, storeName: row.store_name, orderStatus: row.order_status, internalDue: Number(row.internal_due), internalPaid: Number(row.internal_paid), internalRemaining: Number(row.internal_remaining), fulfillmentUnlocked: row.fulfillment_unlocked, canManage: row.can_manage })
+const mapInternalPayment = (row: RawInternalPayment): InternalPaymentWorkbenchRecord => ({ orderId: row.order_id, orderNumber: row.order_number, quoteId: row.quote_id, storeName: row.store_name, ownerName: row.owner_name, orderStatus: row.order_status, customerTotal: Number(row.customer_total), customerPaid: Number(row.customer_paid), customerRemaining: Number(row.customer_remaining), internalDue: Number(row.internal_due), internalPaid: Number(row.internal_paid), internalRemaining: Number(row.internal_remaining), procurementPaid: Number(row.procurement_paid), estimatedMargin: row.estimated_margin === null ? null : Number(row.estimated_margin), finalMargin: row.final_margin === null ? null : Number(row.final_margin), marginFinalized: row.margin_finalized, fulfillmentUnlocked: row.fulfillment_unlocked, canManage: row.can_manage, canViewMargin: row.can_view_margin, lockReason: row.lock_reason })
 const mapDraftLine = (row: RawDraftLine): DealQuoteDraftLineRecord => ({ lineId: row.line_id, kind: row.kind, sourceId: row.source_id, itemName: row.item_name, quantity: Number(row.quantity), customerPrice: Number(row.customer_price) })
 const quoteSelection = 'id,opportunity_id,version_no,status,valid_until,customer_total,internal_total,has_special_content,special_content,submitted_at,frozen_at,crm_opportunities!inner(value_grade,demo_completed_at,crm_stores!inner(name),crm_brands(name))'
 
@@ -136,5 +136,17 @@ export const createSupabaseQuoteOrderDataSource = (client: SupabaseClient): Quot
     const { data, error } = await client.rpc('confirm_deal_internal_payment', { p_order_id: input.orderId, p_amount: input.amount, p_method: input.method, p_external_ref: input.externalRef, p_idempotency_key: input.idempotencyKey })
     if (error || !data) return fail(error, '确认内部采购款失败')
     return mapOrder(data as RawOrder)
+  },
+  async confirmCustomerPayment(input) {
+    const { error } = await client.rpc('confirm_order_customer_payment', { p_order_id: input.orderId, p_amount: input.amount, p_recipient_type: input.recipientType, p_external_ref: input.externalRef, p_idempotency_key: input.idempotencyKey })
+    if (error) return fail(error, '确认客户款失败')
+  },
+  async recordProcurementPayment(input) {
+    const { error } = await client.rpc('record_deal_procurement_cost', { p_order_id: input.orderId, p_amount: input.amount, p_external_ref: input.externalRef, p_idempotency_key: input.idempotencyKey })
+    if (error) return fail(error, '记录内部采购款失败')
+  },
+  async finalizeSalesMargin(orderId) {
+    const { error } = await client.rpc('finalize_order_sales_margin', { p_order_id: orderId })
+    if (error) return fail(error, '确认最终价差失败')
   },
 })

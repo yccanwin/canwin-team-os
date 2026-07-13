@@ -47,14 +47,25 @@ export type InternalPaymentMethod = 'cash_remitted' | 'withheld_from_company_rec
 
 export interface InternalPaymentWorkbenchRecord {
   orderId: string
+  orderNumber: string
   quoteId: string
   storeName: string
+  ownerName: string
   orderStatus: string
+  customerTotal: number
+  customerPaid: number
+  customerRemaining: number
   internalDue: number
   internalPaid: number
   internalRemaining: number
+  procurementPaid: number
+  estimatedMargin: number | null
+  finalMargin: number | null
+  marginFinalized: boolean
   fulfillmentUnlocked: boolean
   canManage: boolean
+  canViewMargin: boolean
+  lockReason: string
 }
 
 export interface QuoteOrderDataSource {
@@ -71,7 +82,10 @@ export interface QuoteOrderDataSource {
   getApproval(quoteId: string): Promise<DealQuoteApprovalRecord>
   confirmDeposit(input: { quoteId: string; amount: number; externalRef: string; recipientType: 'company' | 'sales'; idempotencyKey: string }): Promise<DealOrderRecord>
   listInternalPayments(): Promise<InternalPaymentWorkbenchRecord[]>
+  confirmCustomerPayment(input: { orderId: string; amount: number; recipientType: 'company' | 'sales'; externalRef: string; idempotencyKey: string }): Promise<void>
   confirmInternalPayment(input: { orderId: string; amount: number; method: InternalPaymentMethod; externalRef: string; idempotencyKey: string }): Promise<DealOrderRecord>
+  recordProcurementPayment(input: { orderId: string; amount: number; externalRef: string; idempotencyKey: string }): Promise<void>
+  finalizeSalesMargin(orderId: string): Promise<void>
 }
 
 export class QuoteOrderDataError extends Error {
