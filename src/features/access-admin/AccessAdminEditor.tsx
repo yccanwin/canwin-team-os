@@ -20,7 +20,9 @@ export function AccessAdminEditor({ dataSource }: { dataSource: AccessAdminDataS
   const [handover, setHandover] = useState({ fromId: '', toId: '', reason: '离职客户交接' })
 
   const load = useCallback(async () => setSnapshot(await dataSource.loadSnapshot()), [dataSource])
-  useEffect(() => { load().catch((reason: unknown) => setError(reason instanceof Error ? reason.message : '读取权限配置失败')) }, [load])
+  useEffect(() => {
+    queueMicrotask(() => { void load().catch((reason: unknown) => setError(reason instanceof Error ? reason.message : '读取权限配置失败')) })
+  }, [load])
   const activeMembers = useMemo(() => snapshot?.members.filter((member) => member.status === 'active') ?? [], [snapshot])
   const nameOf = (id: string) => snapshot?.members.find((member) => member.id === id)?.name ?? '未知成员'
   const toggle = (value: string, values: string[], setter: (next: string[]) => void) => setter(values.includes(value) ? values.filter((item) => item !== value) : [...values, value])

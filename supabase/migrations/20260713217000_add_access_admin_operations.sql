@@ -49,6 +49,9 @@ create table public.access_admin_requests(
 
 alter table public.team_invitations enable row level security;
 alter table public.access_admin_requests enable row level security;
+alter table public.crm_owner_history drop constraint if exists crm_owner_history_entity_type_check;
+alter table public.crm_owner_history add constraint crm_owner_history_entity_type_check
+ check(entity_type in('brand','store','contact','lead','opportunity'));
 create policy "access managers read invitations"on public.team_invitations for select to authenticated
  using(public.has_permission(team_id,'access.manage'));
 create policy "access managers read own requests"on public.access_admin_requests for select to authenticated
@@ -94,7 +97,7 @@ begin
  payload:=jsonb_build_object('profileId',t.id,'roleCodes',roles);
  select*into prior from public.access_admin_requests where team_id=r.team_id and idempotency_key=p_idempotency_key;
  if prior.idempotency_key is not null then if prior.action<>'profile.roles.replace'or prior.payload<>payload then raise exception'IDEMPOTENCY_KEY_CONFLICT'using errcode='23505';end if;return prior.result;end if;
- perform pg_advisory_xact_lock(hashtextextended(r.team_id,617));
+ perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(r.team_id,617));
  select coalesce(jsonb_agg(ar.code order by ar.code),'[]')into old from public.profile_access_roles par join public.access_roles ar on ar.id=par.role_id where par.team_id=r.team_id and par.profile_id=t.id;
  delete from public.profile_access_roles where team_id=r.team_id and profile_id=t.id;
  insert into public.profile_access_roles(team_id,profile_id,role_id,assigned_by)select r.team_id,t.id,ar.id,r.id from public.access_roles ar where ar.team_id=r.team_id and ar.code=any(roles);
@@ -175,8 +178,8 @@ begin
  if p_idempotency_key is null or p_from_profile_id=p_to_profile_id or nullif(trim(p_reason),'')is null or not exists(select 1 from public.profiles where id=p_from_profile_id and team_id=r.team_id)or not exists(select 1 from public.profiles where id=p_to_profile_id and team_id=r.team_id and status='active')then raise exception'INVALID_REASSIGNMENT'using errcode='22023';end if;
  payload:=jsonb_build_object('fromProfileId',p_from_profile_id,'toProfileId',p_to_profile_id,'reason',trim(p_reason));select*into prior from public.access_admin_requests where team_id=r.team_id and idempotency_key=p_idempotency_key;
  if prior.idempotency_key is not null then if prior.action<>'crm.ownership.reassign'or prior.payload<>payload then raise exception'IDEMPOTENCY_KEY_CONFLICT'using errcode='23505';end if;return prior.result;end if;
- perform pg_advisory_xact_lock(hashtextextended(r.team_id,618));
- for rec in select'brand'::text kind,id from public.crm_brands where team_id=r.team_id and owner_id=p_from_profile_id union all select'store',id from public.crm_stores where team_id=r.team_id and owner_id=p_from_profile_id union all select'lead',id from public.crm_leads where team_id=r.team_id and owner_id=p_from_profile_id union all select'opportunity',id from public.crm_opportunities where team_id=r.team_id and owner_id=p_from_profile_id loop insert into public.crm_owner_history(team_id,entity_type,entity_id,previous_owner_id,new_owner_id,reason,changed_by)values(r.team_id,rec.kind,rec.id,p_from_profile_id,p_to_profile_id,trim(p_reason),r.id);end loop;
+ perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(r.team_id,618));
+ for rec in select'brand'::text kind,id from public.crm_brands where team_id=r.team_id and owner_id=p_from_profile_id union all select'store',id from public.crm_stores where team_id=r.team_id and owner_id=p_from_profile_id union all select'contact',id from public.crm_contacts where team_id=r.team_id and owner_id=p_from_profile_id union all select'lead',id from public.crm_leads where team_id=r.team_id and owner_id=p_from_profile_id union all select'opportunity',id from public.crm_opportunities where team_id=r.team_id and owner_id=p_from_profile_id loop insert into public.crm_owner_history(team_id,entity_type,entity_id,previous_owner_id,new_owner_id,reason,changed_by)values(r.team_id,rec.kind,rec.id,p_from_profile_id,p_to_profile_id,trim(p_reason),r.id);end loop;
  update public.crm_brands set owner_id=p_to_profile_id,updated_at=now()where team_id=r.team_id and owner_id=p_from_profile_id;get diagnostics n=row_count;counts:=counts||jsonb_build_object('brands',n);
  update public.crm_stores set owner_id=p_to_profile_id,updated_at=now()where team_id=r.team_id and owner_id=p_from_profile_id;get diagnostics n=row_count;counts:=counts||jsonb_build_object('stores',n);
  update public.crm_contacts set owner_id=p_to_profile_id,updated_at=now()where team_id=r.team_id and owner_id=p_from_profile_id;get diagnostics n=row_count;counts:=counts||jsonb_build_object('contacts',n);
