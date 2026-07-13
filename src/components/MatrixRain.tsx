@@ -57,7 +57,7 @@ export default function MatrixRain() {
     }
 
     resize()
-    draw()
+    if (!reducedMotion) draw()
     window.addEventListener('resize', resize)
 
     return () => {
