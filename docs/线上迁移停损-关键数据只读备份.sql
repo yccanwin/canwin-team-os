@@ -4,6 +4,98 @@
 -- 注意：MEDIA-1 只备份对象清单；canwin-media 文件本体仍须按 Runbook 另行完整下载。
 
 -- ============================================================
+-- [FAST-1] 单行 JSONB 完整可解析备份包（优先使用）
+-- 一次运行、一次 Export CSV；结果只有一行 backup_package。
+-- 包内含三表全量数据、媒体对象全量清单、各自 count、三表列定义和全部约束。
+-- 数组均按稳定键排序。该包仍不包含 canwin-media 文件二进制本体。
+-- ============================================================
+with finance_backup as(
+  select
+    count(*)as row_count,
+    coalesce(jsonb_agg(to_jsonb(f)order by f.team_id,f.record_type,f.date,f.id),'[]'::jsonb)as rows
+  from public.finance_records f
+),achievements_backup as(
+  select
+    count(*)as row_count,
+    coalesce(jsonb_agg(to_jsonb(a)order by a.team_id,a.achieved_date nulls last,a.id),'[]'::jsonb)as rows
+  from public.achievements a
+),photos_backup as(
+  select
+    count(*)as row_count,
+    coalesce(jsonb_agg(to_jsonb(p)order by p.team_id,p.created_at,p.id),'[]'::jsonb)as rows
+  from public.photos p
+),media_backup as(
+  select
+    count(*)as row_count,
+    coalesce(jsonb_agg(to_jsonb(o)order by o.name,o.id),'[]'::jsonb)as rows
+  from storage.objects o
+  where o.bucket_id='canwin-media'
+),schema_columns as(
+  select coalesce(jsonb_agg(to_jsonb(c)order by c.table_name,c.ordinal_position),'[]'::jsonb)as rows
+  from(
+    select
+      table_schema,table_name,ordinal_position,column_name,data_type,udt_schema,udt_name,
+      character_maximum_length,numeric_precision,numeric_scale,datetime_precision,is_nullable,
+      column_default,is_identity,identity_generation,is_generated,generation_expression
+    from information_schema.columns
+    where table_schema='public'and table_name in('finance_records','achievements','photos')
+  )c
+),target_tables(table_name)as(
+  values('finance_records'),('achievements'),('photos')
+),raw_constraints as(
+  select
+    n.nspname as table_schema,
+    cls.relname as table_name,
+    c.oid as constraint_oid,
+    c.conname as constraint_name,
+    c.contype as constraint_type,
+    c.conrelid,
+    c.conkey,
+    pg_get_constraintdef(c.oid,true)as constraint_definition
+  from pg_constraint c
+  join pg_class cls on cls.oid=c.conrelid
+  join pg_namespace n on n.oid=cls.relnamespace
+  join target_tables t on t.table_name=cls.relname
+  where n.nspname='public'
+),schema_constraints as(
+  select coalesce(jsonb_agg(to_jsonb(x)order by x.table_name,x.constraint_type,x.constraint_name),'[]'::jsonb)as rows
+  from(
+    select
+      rc.table_schema,
+      rc.table_name,
+      rc.constraint_name,
+      rc.constraint_type,
+      coalesce(cols.constraint_columns,'')as constraint_columns,
+      rc.constraint_definition
+    from raw_constraints rc
+    left join lateral(
+      select string_agg(a.attname,', 'order by k.ordinality)as constraint_columns
+      from unnest(rc.conkey)with ordinality as k(attnum,ordinality)
+      join pg_attribute a on a.attrelid=rc.conrelid and a.attnum=k.attnum
+    )cols on true
+  )x
+)
+select jsonb_build_object(
+  'format','canwin-critical-data-backup',
+  'format_version',1,
+  'project_ref','agygfhmkazcbqaqwmljb',
+  'generated_at_utc',to_char(statement_timestamp()at time zone'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+  'datasets',jsonb_build_object(
+    'public.finance_records',jsonb_build_object('count',f.row_count,'rows',f.rows),
+    'public.achievements',jsonb_build_object('count',a.row_count,'rows',a.rows),
+    'public.photos',jsonb_build_object('count',p.row_count,'rows',p.rows),
+    'storage.objects:canwin-media',jsonb_build_object('count',m.row_count,'rows',m.rows)
+  ),
+  'schema',jsonb_build_object('columns',sc.rows,'constraints',sx.rows)
+)as backup_package
+from finance_backup f
+cross join achievements_backup a
+cross join photos_backup p
+cross join media_backup m
+cross join schema_columns sc
+cross join schema_constraints sx;
+
+-- ============================================================
 -- [COUNT-1] 导出前行数基线
 -- 保存本段 CSV。随后 FINANCE-1 / ACHIEVEMENTS-1 / PHOTOS-1 / MEDIA-1
 -- 各自导出的数据行数必须与本段对应 expected_rows 完全一致。
