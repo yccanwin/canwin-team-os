@@ -22,6 +22,7 @@ import type { CustomerBrandSummary, FollowUpDraft, LeadStage, OpportunityQualifi
 import { prioritizeLead } from './actionPriority'
 import { CrmEntityEditor } from './CrmEntityEditor'
 import { QualificationEvidenceEditor } from './QualificationEvidenceEditor'
+import { QuickLeadForm } from './QuickLeadForm'
 import './sales-workbench.css'
 
 const tabs: Array<{ id: WorkbenchTab; label: string; icon: typeof House }> = [
@@ -247,6 +248,11 @@ export function SalesWorkbench({
     setCustomers(customerRows); setLeads(leadRows)
     setSelectedBrandId(customerRows[0]?.id ?? ''); setSelectedId(leadRows[0]?.id ?? '')
   }
+  const handleQuickLeadCreated = async (leadId: string) => {
+    if (!dataSource) return
+    const mine = await dataSource.listLeads('mine')
+    setCurrentLeadScope('mine'); setLeads(mine); setSelectedId(leadId)
+  }
 
   const convertOpportunity = async () => {
     const qualificationPassed = qualification.isRealStore
@@ -324,7 +330,7 @@ export function SalesWorkbench({
         )}
 
         {activeTab === 'leads' && (
-          <div className="sw-lead-layout">
+          <><div className="sw-lead-actions">{!demoMode && dataSource && <QuickLeadForm dataSource={dataSource} onCreated={handleQuickLeadCreated} />}</div><div className="sw-lead-layout">
             <aside className="sw-lead-list">
               {!demoMode && <div className="sw-scope-switch"><button className={currentLeadScope === 'mine' ? 'is-active' : ''} onClick={() => setCurrentLeadScope('mine')}>我的线索</button><button className={currentLeadScope === 'region' ? 'is-active' : ''} onClick={() => setCurrentLeadScope('region')}>区域公海</button></div>}
               {leads.map((lead) => (
@@ -375,7 +381,7 @@ export function SalesWorkbench({
                 {demoMode && selected.stage !== 'new' && <button className="sw-reset" onClick={() => { setDraft(blankDraft); setQualification(blankQualification); setRecapStartedAt(null); setRecapSeconds(60); updateLead(selected.id, { stage: 'new', facts: [], nextActionAt: undefined }) }}><RotateCcw size={15} />重置演示</button>}
               </article>
             )}
-          </div>
+          </div></>
         )}
 
         {activeTab === 'customers' && (

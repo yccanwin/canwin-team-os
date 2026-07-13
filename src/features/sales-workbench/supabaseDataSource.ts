@@ -133,5 +133,16 @@ export function createSupabaseSalesWorkbenchDataSource(client: SupabaseClient): 
     async upsertStore(x){const{data,error}=await client.rpc('upsert_crm_store',{p_id:x.id??null,p_brand_id:x.brandId,p_region_id:x.regionId,p_name:x.name,p_business_type:x.businessType,p_address:x.address||null});if(error)throw new SalesWorkbenchDataError(`保存门店失败：${error.message}`,error);return String(data)},
     async upsertContact(x){const{data,error}=await client.rpc('upsert_crm_contact',{p_id:x.id??null,p_brand_id:x.brandId??null,p_store_id:x.storeId??null,p_name:x.name,p_title:x.title||null,p_is_key_person:x.isKeyPerson});if(error)throw new SalesWorkbenchDataError(`保存联系人失败：${error.message}`,error);return String(data)},
     async upsertLead(x){const{data,error}=await client.rpc('upsert_crm_lead',{p_id:x.id??null,p_region_id:x.regionId,p_brand_id:x.brandId??null,p_store_id:x.storeId??null,p_title:x.title,p_source:x.source||null});if(error)throw new SalesWorkbenchDataError(`保存线索失败：${error.message}`,error);return String(data)},
+    async loadQuickLeadContext() {
+      const { data, error } = await client.rpc('get_quick_lead_context')
+      if (error) throw new SalesWorkbenchDataError(`读取线索区域失败：${error.message}`, error)
+      const value = data as { regions?: Array<{ id: string; name: string }>; default_region_id?: string | null; requires_region_selection?: boolean } | null
+      return { regions: (value?.regions ?? []).map((region) => ({ id: String(region.id), name: String(region.name) })), defaultRegionId: value?.default_region_id ? String(value.default_region_id) : undefined, requiresRegionSelection: value?.requires_region_selection === true }
+    },
+    async createQuickLead(input) {
+      const { data, error } = await client.rpc('create_crm_lead_quick', { p_title: input.title.trim(), p_phone: input.phone.trim(), p_source: input.source.trim(), p_region_id: input.regionId ?? null })
+      if (error) throw new SalesWorkbenchDataError(`新增线索失败：${error.message}`, error)
+      return String(data)
+    },
   }
 }
