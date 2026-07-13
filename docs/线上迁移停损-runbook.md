@@ -6,6 +6,7 @@
 
 1. 在 Supabase 控制台确认当前项目名称和环境是目标生产项目；不确定则 `STOP_WRONG_OR_UNKNOWN_PROJECT`。
 2. 打开 [线上迁移停损-只读预检.sql](./线上迁移停损-只读预检.sql)，按段执行 PRE-1A。若结果为 `PASS_FIRST_MIGRATION_BOOTSTRAP_REQUIRED`，不要执行 PRE-1B，改为执行 PRE-1C、PRE-2 至 PRE-5B；这是首次引导迁移的唯一入口。若结果为 `PASS_FEATURE_FLAGS_TABLE_PRESENT`，再执行 PRE-1B、PRE-1C、PRE-2 至 PRE-5。
+   - 使用加速预检时，必须先单独运行 `FAST-PRE-0`；只有 `PASS_FAST_PRE_0_REQUIRED_RELATIONS_PRESENT` 才运行 `FAST-PRE-BOOTSTRAP`。PRE-0 缺关系会返回 STOP；跳过 PRE-0 或两段之间关系被删除导致主查询报错，也按 STOP 处理。
 3. 保存每段结果；PRE-2 的 `baseline_snapshot` 原样保存，PRE-3 的对象清单导出 CSV。它们只用于迁移前后核对，不是备份。
 4. 任一结果以 `STOP` 开头，立即停止，不执行迁移；把完整结果交回总监判断。
 5. PRE-5 只是列出仓库版本状态，不能复制成迁移命令。首次引导只允许执行 PRE-5A 列出的 `20260713080000_add_access_control_foundation.sql`，不得同时执行任何其他迁移。
