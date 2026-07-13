@@ -52,11 +52,11 @@ begin
       on b.team_id = v_profile.team_id
      and b.quarter_start = v_quarter_start
      and b.status = 'confirmed'
-     and date_trunc('month', b.confirmed_at at time zone 'Asia/Shanghai')::date = m.month_start::date
     left join public.official_reconciliation_lines l
       on l.team_id = b.team_id
      and l.batch_id = b.id
      and l.profile_id = v_profile.id
+     and l.observed_month = m.month_start::date
     group by m.month_start
   ) monthly;
 
