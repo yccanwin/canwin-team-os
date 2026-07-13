@@ -2,9 +2,34 @@ import { CANWIN_TEAM_ID } from '@/config/team'
 import { supabase } from '@/lib/supabase'
 
 const MEDIA_BUCKET = 'canwin-media'
+const MEDIA_REFERENCE_PREFIX = `${MEDIA_BUCKET}:`
 
 function isDataUrl(value?: string): value is string {
   return typeof value === 'string' && value.startsWith('data:')
+}
+
+function managedMediaPath(value?: string): string | undefined {
+  if (!value) return undefined
+  if (value.startsWith(MEDIA_REFERENCE_PREFIX)) {
+    return value.slice(MEDIA_REFERENCE_PREFIX.length)
+  }
+
+  try {
+    const url = new URL(value)
+    const markers = [
+      `/storage/v1/object/public/${MEDIA_BUCKET}/`,
+      `/storage/v1/object/sign/${MEDIA_BUCKET}/`,
+    ]
+    const marker = markers.find((candidate) => url.pathname.includes(candidate))
+    if (!marker) return undefined
+    return decodeURIComponent(url.pathname.split(marker)[1] || '') || undefined
+  } catch {
+    return undefined
+  }
+}
+
+function mediaReference(path: string): string {
+  return `${MEDIA_REFERENCE_PREFIX}${path}`
 }
 
 function dataUrlToBlob(dataUrl: string): { blob: Blob; contentType: string; extension: string } {
@@ -25,7 +50,10 @@ function dataUrlToBlob(dataUrl: string): { blob: Blob; contentType: string; exte
 }
 
 export async function resolveMediaUrl(value: string | undefined, folder: string): Promise<string | undefined> {
-  if (!value || !isDataUrl(value)) return value
+  if (!value) return value
+  const existingPath = managedMediaPath(value)
+  if (existingPath) return mediaReference(existingPath)
+  if (!isDataUrl(value)) return value
 
   const { data: userData, error: userError } = await supabase.auth.getUser()
   if (userError) throw new Error(userError.message)
@@ -40,8 +68,20 @@ export async function resolveMediaUrl(value: string | undefined, folder: string)
 
   if (error) throw new Error(error.message)
 
-  const { data } = supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path)
-  return data.publicUrl
+  return mediaReference(path)
+}
+
+export async function resolveStoredMediaUrl(value: string | undefined): Promise<string | undefined> {
+  const path = managedMediaPath(value)
+  if (!path) return value
+  const { data, error } = await supabase.storage.from(MEDIA_BUCKET).createSignedUrl(path, 3600)
+  if (error) throw new Error(error.message)
+  return data.signedUrl
+}
+
+export async function resolveStoredMediaUrls(values: string[] | undefined): Promise<string[] | undefined> {
+  if (!values) return values
+  return Promise.all(values.map((value) => resolveStoredMediaUrl(value).then((url) => url || value)))
 }
 
 export async function resolveMediaUrls(values: string[] | undefined, folder: string): Promise<string[] | undefined> {
@@ -65,6 +105,18 @@ export async function resolveStorageAttachments<T extends StorageAttachment>(
     attachments.map(async (attachment) => ({
       ...attachment,
       url: (await resolveMediaUrl(attachment.url, folder)) || attachment.url,
+    }))
+  )
+}
+
+export async function resolveStoredAttachments<T extends StorageAttachment>(
+  attachments: T[] | undefined
+): Promise<T[] | undefined> {
+  if (!attachments) return attachments
+  return Promise.all(
+    attachments.map(async (attachment) => ({
+      ...attachment,
+      url: (await resolveStoredMediaUrl(attachment.url)) || attachment.url,
     }))
   )
 }

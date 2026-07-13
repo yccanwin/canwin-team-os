@@ -1,6 +1,6 @@
 -- Post-deployment-compatible dual-ledger upgrade. Safe after legacy 100000/140000.
 -- Never invent classifications for rows written before these columns existed.
-do$$begin
+do $$begin
  if not exists(select 1 from information_schema.columns where table_schema='public'and table_name='deal_payments'and column_name='recipient_type')
    and exists(select 1 from public.deal_payments)then
    raise exception'HISTORICAL_PAYMENT_RECIPIENT_CLASSIFICATION_REQUIRED'using errcode='55000';
@@ -15,7 +15,7 @@ do$$begin
 end$$;
 alter table public.deal_payments add column if not exists recipient_type text not null default'company';
 alter table public.deal_internal_settlements add column if not exists method text not null default'cash_remitted';
-do$$begin
+do $$begin
  if exists(select 1 from public.deal_payments where recipient_type is null or recipient_type not in('company','sales'))then raise exception'UNKNOWN_PAYMENT_RECIPIENT_CLASSIFICATION'using errcode='55000';end if;
  if exists(select 1 from public.deal_internal_settlements where method is null or method not in('cash_remitted','withheld_from_company_receipt'))then raise exception'UNKNOWN_SETTLEMENT_METHOD_CLASSIFICATION'using errcode='55000';end if;
  if not exists(select 1 from pg_constraint where conrelid='public.deal_payments'::regclass and conname='deal_payments_recipient_type_check')then alter table public.deal_payments add constraint deal_payments_recipient_type_check check(recipient_type in('company','sales'));end if;
@@ -27,14 +27,14 @@ create table if not exists public.deal_procurement_cost_payments(
  id uuid primary key default gen_random_uuid(),team_id text not null references public.teams(id),order_id uuid not null,amount numeric(14,2)not null check(amount>0),external_ref text,idempotency_key uuid not null,confirmed_by uuid not null references public.profiles(id),confirmed_at timestamptz not null default now(),
  unique(team_id,id),unique(team_id,idempotency_key),foreign key(team_id,order_id)references public.deal_orders(team_id,id)
 );
-do$$begin if exists(select 1 from public.deal_procurement_cost_payments where external_ref is not null group by team_id,external_ref having count(*)>1)then raise exception'DUPLICATE_PROCUREMENT_EXTERNAL_REF'using errcode='23505';end if;end$$;
+do $$begin if exists(select 1 from public.deal_procurement_cost_payments where external_ref is not null group by team_id,external_ref having count(*)>1)then raise exception'DUPLICATE_PROCUREMENT_EXTERNAL_REF'using errcode='23505';end if;end$$;
 create unique index if not exists deal_procurement_external_ref_key on public.deal_procurement_cost_payments(team_id,external_ref)where external_ref is not null;
 create table if not exists public.deal_sales_expenses(
  id uuid primary key default gen_random_uuid(),team_id text not null references public.teams(id),order_id uuid not null,salesperson_id uuid not null,amount numeric(14,2)not null check(amount>0),reason text not null,idempotency_key uuid not null,confirmed_by uuid not null references public.profiles(id),created_at timestamptz not null default now(),
  unique(team_id,id),unique(team_id,idempotency_key),foreign key(team_id,order_id)references public.deal_orders(team_id,id),foreign key(team_id,salesperson_id)references public.profiles(team_id,id)
 );
 alter table public.deal_procurement_cost_payments enable row level security;alter table public.deal_sales_expenses enable row level security;
-do$$begin
+do $$begin
  if not exists(select 1 from pg_policies where schemaname='public'and tablename='deal_procurement_cost_payments'and policyname='sales os v3 server gate')then create policy"sales os v3 server gate"on public.deal_procurement_cost_payments as restrictive for all to authenticated using(public.is_feature_enabled(team_id,'sales_os_v3'))with check(public.is_feature_enabled(team_id,'sales_os_v3'));end if;
  if not exists(select 1 from pg_policies where schemaname='public'and tablename='deal_sales_expenses'and policyname='sales os v3 server gate')then create policy"sales os v3 server gate"on public.deal_sales_expenses as restrictive for all to authenticated using(public.is_feature_enabled(team_id,'sales_os_v3'))with check(public.is_feature_enabled(team_id,'sales_os_v3'));end if;
 end$$;
@@ -50,7 +50,7 @@ create policy"owner reads company adjustments v2"on public.profit_adjustments fo
 
 create or replace function public.get_order_sales_ledger(p_team text,p_order uuid)
 returns table(net_customer_payments numeric,internal_settlement_due numeric,sales_expenses numeric,sales_margin numeric)
-language plpgsql security definer stable set search_path=''as$$declare o public.deal_orders;q public.deal_quotes;paid numeric;reversed numeric;expenses numeric;begin
+language plpgsql security definer stable set search_path='' as $$declare o public.deal_orders;q public.deal_quotes;paid numeric;reversed numeric;expenses numeric;begin
  select*into o from public.deal_orders where id=p_order and team_id=p_team;select*into q from public.deal_quotes where id=o.quote_id and team_id=o.team_id;
  if o.id is null or not public.is_feature_enabled(p_team,'sales_os_v3')or not(q.owner_id=auth.uid()or public.can_supervise_performance(p_team,q.owner_id,current_date)or public.has_access_role(p_team,array['owner'])or public.has_permission(p_team,'finance.read'))then return;end if;
  select coalesce(sum(amount),0)into paid from public.deal_payments where team_id=p_team and order_id=o.id;select coalesce(sum(r.amount),0)into reversed from public.deal_payment_reversals r join public.deal_payments p on p.id=r.payment_id and p.team_id=r.team_id where p.team_id=p_team and p.order_id=o.id;

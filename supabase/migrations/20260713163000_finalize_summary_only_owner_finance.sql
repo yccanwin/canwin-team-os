@@ -51,7 +51,7 @@ with check(not public.has_access_role(team_id,array['owner'])or public.has_acces
 
 create or replace function public.get_order_sales_ledger(p_team text,p_order uuid)
 returns table(net_customer_payments numeric,internal_settlement_due numeric,sales_expenses numeric,sales_margin numeric)
-language plpgsql security definer stable set search_path=''as$$
+language plpgsql security definer stable set search_path='' as $$
 declare o public.deal_orders;q public.deal_quotes;paid numeric;reversed numeric;expenses numeric;
 begin
  select*into o from public.deal_orders where id=p_order and team_id=p_team;
@@ -72,7 +72,7 @@ begin
 end$$;
 
 create or replace function public.confirm_deal_deposit(p_quote_id uuid,p_amount numeric,p_external_ref text,p_idempotency_key uuid,p_recipient_type text default'company')
-returns public.deal_orders language plpgsql security definer set search_path=''as$$
+returns public.deal_orders language plpgsql security definer set search_path='' as $$
 declare q public.deal_quotes;r public.profiles;o public.deal_orders;p public.deal_payments;key_row public.deal_payments;
 begin
  if p_amount<=0 or p_recipient_type not in('company','sales')or p_idempotency_key is null then raise exception'VALID_DEPOSIT_REQUIRED'using errcode='22023';end if;
@@ -100,7 +100,7 @@ begin
 end$$;
 
 create or replace function public.confirm_deal_internal_payment(p_order_id uuid,p_amount numeric,p_external_ref text,p_idempotency_key uuid,p_method text default'cash_remitted')
-returns public.deal_orders language plpgsql security definer set search_path=''as$$
+returns public.deal_orders language plpgsql security definer set search_path='' as $$
 declare o public.deal_orders;r public.profiles;paid numeric;s public.deal_internal_settlements;
 begin
  if p_amount<=0 or p_method not in('cash_remitted','withheld_from_company_receipt')or nullif(trim(p_external_ref),'')is null or p_idempotency_key is null then raise exception'VALID_INTERNAL_SETTLEMENT_REQUIRED'using errcode='22023';end if;
@@ -123,7 +123,7 @@ begin
 end$$;
 
 create or replace function public.record_deal_procurement_cost(p_order_id uuid,p_amount numeric,p_external_ref text,p_idempotency_key uuid)
-returns public.deal_procurement_cost_payments language plpgsql security definer set search_path=''as$$
+returns public.deal_procurement_cost_payments language plpgsql security definer set search_path='' as $$
 declare o public.deal_orders;r public.profiles;c public.deal_procurement_cost_payments;
 begin
  if p_amount<=0 or nullif(trim(p_external_ref),'')is null or p_idempotency_key is null then raise exception'VALID_PROCUREMENT_PAYMENT_REQUIRED'using errcode='22023';end if;
@@ -139,7 +139,7 @@ begin
 end$$;
 
 create or replace function public.record_deal_sales_expense(p_order_id uuid,p_amount numeric,p_reason text,p_idempotency_key uuid)
-returns public.deal_sales_expenses language plpgsql security definer set search_path=''as$$
+returns public.deal_sales_expenses language plpgsql security definer set search_path='' as $$
 declare o public.deal_orders;q public.deal_quotes;r public.profiles;e public.deal_sales_expenses;
 begin
  if p_amount<=0 or nullif(trim(p_reason),'')is null or p_idempotency_key is null then raise exception'VALID_SALES_EXPENSE_REQUIRED'using errcode='22023';end if;

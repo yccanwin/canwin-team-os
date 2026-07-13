@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { SalesWorkbenchDataError, type LeadReadScope, type SalesWorkbenchDataSource } from './dataSource'
-import type { CustomerBrandSummary, CustomerContactSummary, CustomerStoreSummary, FollowUpDraft, LeadStage, SalesAssessmentSummary, SalesLead } from './types'
+import { SalesWorkbenchDataError, type LeadReadScope, type SalesTodayAction, type SalesWorkbenchDataSource } from './dataSource'
+import type { CustomerBrandSummary, CustomerContactSummary, CustomerStoreSummary, FollowUpDraft, LeadStage, PersonalSalesWorkspace, SalesLead } from './types'
 
 type LeadRow = Record<string, unknown>
 
@@ -22,6 +22,9 @@ function toLead(row: LeadRow): SalesLead {
     leadStatus: String(row.lead_status),
     ownerDisplayName: row.owner_display_name === null ? undefined : String(row.owner_display_name),
     claimable: row.claimable === true,
+    recycleRisk: ['uncontacted_24h', 'uncontacted_48h', 'inactive_15d'].includes(String(row.recycle_risk)) ? String(row.recycle_risk) as SalesLead['recycleRisk'] : 'none',
+    recycleDueAt: row.recycle_due_at ? String(row.recycle_due_at) : undefined,
+    recyclePaused: row.recycle_paused === true,
   }
 }
 
@@ -33,16 +36,30 @@ function firstRow(data: unknown): SalesLead {
 
 export function createSupabaseSalesWorkbenchDataSource(client: SupabaseClient): SalesWorkbenchDataSource {
   return {
+    async listTodayActions() {
+      const { data, error } = await client.rpc('get_sales_today_action_queue')
+      if (error) throw new SalesWorkbenchDataError(`读取今日行动队列失败：${error.message}`, error)
+      const rows = Array.isArray(data) ? data as Array<Record<string, unknown>> : []
+      return rows.map((row): SalesTodayAction => ({
+        id: String(row.id), entityId: String(row.entity_id), entityType: String(row.entity_type) as SalesTodayAction['entityType'],
+        actionType: String(row.action_type), priority: Number(row.priority),
+        priorityTone: ['critical', 'high', 'medium', 'normal'].includes(String(row.priority_tone)) ? String(row.priority_tone) as SalesTodayAction['priorityTone'] : 'normal',
+        label: String(row.label), title: String(row.title), reason: String(row.reason),
+        dueAt: row.due_at ? String(row.due_at) : undefined, route: String(row.route), supervisorException: row.supervisor_exception === true,
+      }))
+    },
     async listLeads(scope: LeadReadScope) {
-      const query = client.from('crm_leads_visible').select('id,read_scope,store_name,contact_name,masked_phone,district_name,business_type,source,created_at,next_action_at,stage,facts,lead_status,owner_display_name,claimable,active_opportunity_id').eq('read_scope', scope).order('created_at', { ascending: false })
+      const query = client.from('crm_leads_visible').select('id,read_scope,store_name,contact_name,masked_phone,district_name,business_type,source,created_at,next_action_at,stage,facts,lead_status,owner_display_name,claimable,active_opportunity_id,recycle_risk,recycle_due_at,recycle_paused').eq('read_scope', scope).order('created_at', { ascending: false })
       const { data, error } = await query
       if (error) throw new SalesWorkbenchDataError(`读取${scope === 'mine' ? '本人' : '区域'}线索失败：${error.message}`, error)
       return (data ?? []).map((row) => toLead(row as LeadRow))
     },
     async claimLead(leadId: string) {
-      const { data, error } = await client.rpc('claim_crm_lead', { p_lead_id: leadId })
+      const { error } = await client.rpc('claim_crm_lead', { p_lead_id: leadId })
       if (error) throw new SalesWorkbenchDataError(`领取线索失败：${error.message}`, error)
-      return firstRow(data)
+      const result = await client.from('crm_leads_visible').select('id,read_scope,store_name,contact_name,masked_phone,district_name,business_type,source,created_at,next_action_at,stage,facts,lead_status,owner_display_name,claimable,active_opportunity_id,recycle_risk,recycle_due_at,recycle_paused').eq('id', leadId).eq('read_scope', 'mine').single()
+      if (result.error) throw new SalesWorkbenchDataError(`领取成功但刷新线索失败：${result.error.message}`, result.error)
+      return toLead(result.data as LeadRow)
     },
     async createFollowUp(leadId: string, followUp: FollowUpDraft) {
       const { data, error } = await client.rpc('record_crm_follow_up', {
@@ -53,6 +70,26 @@ export function createSupabaseSalesWorkbenchDataSource(client: SupabaseClient): 
       })
       if (error) throw new SalesWorkbenchDataError(`保存跟进失败：${error.message}`, error)
       return firstRow(data)
+    },
+    async recordContactAttempt(leadId, result, note) {
+      const response = await client.rpc('record_crm_contact_attempt', { p_lead_id: leadId, p_result: result, p_note: note?.trim() || null, p_occurred_at: new Date().toISOString() })
+      if (response.error) throw new SalesWorkbenchDataError(`记录联系尝试失败：${response.error.message}`, response.error)
+    },
+    async getLeadFollowupContext(leadId) {
+      const { data, error } = await client.rpc('get_crm_lead_followup_context', { p_lead_id: leadId })
+      if (error) throw new SalesWorkbenchDataError(`读取跟进历史失败：${error.message}`, error)
+      const value = data as { lead_status?: string; nurture_until?: string | null; unreachable_days?: number; activities?: Array<Record<string, unknown>> } | null
+      return {
+        leadStatus: String(value?.lead_status ?? ''), nurtureUntil: value?.nurture_until ? String(value.nurture_until) : undefined,
+        unreachableDays: Number(value?.unreachable_days ?? 0),
+        activities: (value?.activities ?? []).map((item) => ({
+          id: String(item.id), activityType: item.activity_type === 'effective_followup' ? 'effective_followup' : 'attempt',
+          occurredAt: String(item.occurred_at), outcome: String(item.outcome ?? ''),
+          businessFact: item.business_fact ? String(item.business_fact) : undefined,
+          customerCommitment: item.customer_commitment ? String(item.customer_commitment) : undefined,
+          nextActionAt: item.next_action_at ? String(item.next_action_at) : undefined,
+        })),
+      }
     },
     async listCustomers() {
       const [brandsResult, storesResult, contactsResult, regionsResult] = await Promise.all([
@@ -93,19 +130,24 @@ export function createSupabaseSalesWorkbenchDataSource(client: SupabaseClient): 
         stores: storesByBrand.get(String(row.id)) ?? [],
       }))
     },
-    async listMyAssessments() {
-      const { data: authData, error: authError } = await client.auth.getUser()
-      if (authError || !authData.user) throw new SalesWorkbenchDataError(`读取当前用户失败：${authError?.message ?? '未登录'}`, authError)
-      const { data, error } = await client.from('sales_assessments')
-        .select('id,period_quarter,point_target,new_gmv_target,new_gmv_actual,renewal_gmv_target,renewal_gmv_actual')
-        .contains('salesperson_ids', [authData.user.id])
-        .order('period_quarter', { ascending: false })
-      if (error) throw new SalesWorkbenchDataError(`读取我的目标失败：${error.message}`, error)
-      return (data ?? []).map((row): SalesAssessmentSummary => ({
-        id: String(row.id), periodQuarter: String(row.period_quarter), pointTarget: Number(row.point_target),
-        newGmvTarget: Number(row.new_gmv_target), newGmvActual: Number(row.new_gmv_actual),
-        renewalGmvTarget: Number(row.renewal_gmv_target), renewalGmvActual: Number(row.renewal_gmv_actual),
-      }))
+    async getMySalesWorkspace() {
+      const { data, error } = await client.rpc('get_my_sales_performance_workspace')
+      if (error) throw new SalesWorkbenchDataError(`读取我的销售工作台失败：${error.message}`, error)
+      const row = (data ?? {}) as Record<string, unknown>
+      const target = row.target && typeof row.target === 'object' ? row.target as Record<string, unknown> : undefined
+      const monthly = Array.isArray(row.monthly_observations) ? row.monthly_observations : []
+      return {
+        profileId: String(row.profile_id ?? ''), displayName: String(row.display_name ?? ''),
+        quarterStart: String(row.quarter_start ?? ''), quarterEnd: String(row.quarter_end ?? ''), quarterLabel: String(row.quarter_label ?? ''),
+        target: target ? {
+          id: String(target.id), pointTarget: Number(target.points_target), estimatedPoints: Number(target.estimated_points), officialPoints: Number(target.official_points),
+          newGmvTarget: Number(target.new_gmv_target), newGmvActual: Number(target.new_gmv_actual), renewalGmvTarget: Number(target.renewal_gmv_target), renewalGmvActual: Number(target.renewal_gmv_actual), updatedAt: String(target.updated_at),
+        } : undefined,
+        monthlyObservations: monthly.map((item) => {
+          const month = item as Record<string, unknown>
+          return { monthStart: String(month.month_start), monthLabel: String(month.month_label), newGmv: Number(month.new_gmv), renewalGmv: Number(month.renewal_gmv), officialPoints: Number(month.official_points) }
+        }),
+      } satisfies PersonalSalesWorkspace
     },
     async qualifyLead(leadId) {
       const { data, error } = await client.rpc('qualify_crm_lead', { p_lead_id: leadId })
@@ -133,5 +175,54 @@ export function createSupabaseSalesWorkbenchDataSource(client: SupabaseClient): 
     async upsertStore(x){const{data,error}=await client.rpc('upsert_crm_store',{p_id:x.id??null,p_brand_id:x.brandId,p_region_id:x.regionId,p_name:x.name,p_business_type:x.businessType,p_address:x.address||null});if(error)throw new SalesWorkbenchDataError(`保存门店失败：${error.message}`,error);return String(data)},
     async upsertContact(x){const{data,error}=await client.rpc('upsert_crm_contact',{p_id:x.id??null,p_brand_id:x.brandId??null,p_store_id:x.storeId??null,p_name:x.name,p_title:x.title||null,p_is_key_person:x.isKeyPerson});if(error)throw new SalesWorkbenchDataError(`保存联系人失败：${error.message}`,error);return String(data)},
     async upsertLead(x){const{data,error}=await client.rpc('upsert_crm_lead',{p_id:x.id??null,p_region_id:x.regionId,p_brand_id:x.brandId??null,p_store_id:x.storeId??null,p_title:x.title,p_source:x.source||null});if(error)throw new SalesWorkbenchDataError(`保存线索失败：${error.message}`,error);return String(data)},
+    async loadQuickLeadContext() {
+      const { data, error } = await client.rpc('get_quick_lead_context')
+      if (error) throw new SalesWorkbenchDataError(`读取线索区域失败：${error.message}`, error)
+      const value = data as { regions?: Array<{ id: string; name: string }>; default_region_id?: string | null; requires_region_selection?: boolean } | null
+      return { regions: (value?.regions ?? []).map((region) => ({ id: String(region.id), name: String(region.name) })), defaultRegionId: value?.default_region_id ? String(value.default_region_id) : undefined, requiresRegionSelection: value?.requires_region_selection === true }
+    },
+    async createQuickLead(input) {
+      const { data, error } = await client.rpc('create_crm_lead_quick', { p_title: input.title.trim(), p_phone: input.phone.trim(), p_source: input.source.trim(), p_region_id: input.regionId ?? null })
+      if (error) throw new SalesWorkbenchDataError(`新增线索失败：${error.message}`, error)
+      return String(data)
+    },
+    async getQualificationStatus(leadId) {
+      const { data, error } = await client.rpc('get_crm_lead_qualification_status', { p_lead_id: leadId })
+      if (error) throw new SalesWorkbenchDataError(`读取资格状态失败：${error.message}`, error)
+      const value = data as Record<string, unknown>
+      return {
+        leadId: String(value.lead_id), storeId: value.store_id ? String(value.store_id) : undefined,
+        storeName: value.store_name ? String(value.store_name) : undefined,
+        businessType: value.business_type ? String(value.business_type) : undefined,
+        businessTypeLabel: value.business_type_label ? String(value.business_type_label) : undefined,
+        areaSqm: value.area_sqm == null ? undefined : Number(value.area_sqm),
+        privateRoomCount: value.private_room_count == null ? undefined : Number(value.private_room_count),
+        isLandmark: value.is_landmark === true, isTakeawayOnly: value.is_takeaway_only === true,
+        isRealStore: value.is_real_store === true,
+        calculatedGrade: value.calculated_grade ? String(value.calculated_grade) as 'A'|'B'|'C'|'D' : undefined,
+        gradeReason: String(value.grade_reason ?? ''), annualFeeViable: value.annual_fee_viable === true,
+        keyPersonReady: value.key_person_ready === true, eligible: value.eligible === true,
+        missingEvidence: Array.isArray(value.missing_evidence) ? value.missing_evidence.map(String) : [],
+        nextAction: String(value.next_action ?? ''), opportunityId: value.opportunity_id ? String(value.opportunity_id) : undefined,
+        demoRequiredBeforeDeposit: value.demo_required_before_deposit === true,
+      }
+    },
+    async precheckLeadConversion(input) {
+      const { data, error } = await client.rpc('precheck_crm_lead_conversion', { p_lead_id: input.leadId, p_brand_name: input.brandName.trim(), p_store_name: input.storeName.trim() })
+      if (error) throw new SalesWorkbenchDataError(`客户去重预检失败：${error.message}`, error)
+      const value = data as { brand_matches?: Array<Record<string, unknown>>; store_matches?: Array<Record<string, unknown>>; contact_matches?: Array<Record<string, unknown>> } | null
+      const map = (items: Array<Record<string, unknown>> = []) => items.map((item) => ({ id: String(item.id), name: String(item.name), brandId: item.brand_id ? String(item.brand_id) : undefined, storeId: item.store_id ? String(item.store_id) : undefined, businessMode: item.business_mode ? String(item.business_mode) : undefined }))
+      return { brands: map(value?.brand_matches), stores: map(value?.store_matches), contacts: map(value?.contact_matches) }
+    },
+    async convertLeadToCustomer(input) {
+      const { data, error } = await client.rpc('convert_crm_lead_to_customer', {
+        p_lead_id: input.leadId, p_brand_id: input.brandId ?? null, p_brand_name: input.brandName.trim(), p_business_mode: input.businessMode,
+        p_store_id: input.storeId ?? null, p_store_name: input.storeName.trim(), p_business_type: input.businessType, p_address: input.address.trim() || null,
+        p_contact_id: input.contactId ?? null, p_contact_name: input.contactName.trim(), p_contact_title: input.contactTitle.trim() || null, p_is_key_person: input.isKeyPerson,
+      })
+      if (error) throw new SalesWorkbenchDataError(`转客户失败：${error.message}`, error)
+      const value = data as { brand_id: string; store_id: string; contact_id: string; idempotent?: boolean }
+      return { brandId: String(value.brand_id), storeId: String(value.store_id), contactId: String(value.contact_id), idempotent: value.idempotent === true }
+    },
   }
 }

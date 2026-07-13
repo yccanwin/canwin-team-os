@@ -1,4 +1,4 @@
-import { ArrowRight, Boxes, MapPinned, Settings2, ShieldCheck } from 'lucide-react'
+import { ArrowRight, Boxes, FileSpreadsheet, MapPinned, Settings2, ShieldCheck } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 const modules = [
@@ -7,7 +7,7 @@ const modules = [
     description: '维护销售区域与区县归属，为线索分配和数据隔离提供基础。',
     to: '/settings-v3/regions',
     icon: MapPinned,
-    status: '待接入配置',
+    status: '可用',
     accent: 'bg-sky-50 text-sky-700',
   },
   {
@@ -15,7 +15,7 @@ const modules = [
     description: '统一管理软件、硬件、套餐和销售目录版本。',
     to: '/settings-v3/catalog',
     icon: Boxes,
-    status: '待接入配置',
+    status: '可用',
     accent: 'bg-amber-50 text-amber-700',
   },
   {
@@ -25,6 +25,14 @@ const modules = [
     icon: ShieldCheck,
     status: '可用',
     accent: 'bg-emerald-50 text-emerald-700',
+  },
+  {
+    title: '旧客户导入',
+    description: '下载标准模板，预检 Excel 或 CSV，并在零错误后确认写入客户档案。',
+    to: '/settings-v3/customer-import',
+    icon: FileSpreadsheet,
+    status: '可用',
+    accent: 'bg-indigo-50 text-indigo-700',
   },
 ] as const
 

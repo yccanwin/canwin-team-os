@@ -27,7 +27,6 @@ export default function MemberFormModal({
   const [joinDate, setJoinDate] = useState(new Date().toISOString().split('T')[0])
   const [avatar, setAvatar] = useState('')
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
 
@@ -37,12 +36,13 @@ export default function MemberFormModal({
   // 回填
   useEffect(() => {
     if (member) {
-      setName(member.name)
-      setPosition(member.position)
-      setRole(member.role)
-      setJoinDate(member.joinDate.split('T')[0])
-      setAvatar(member.avatar || '')
-      setPassword('')
+      queueMicrotask(() => {
+        setName(member.name)
+        setPosition(member.position)
+        setRole(member.role)
+        setJoinDate(member.joinDate.split('T')[0])
+        setAvatar(member.avatar || '')
+      })
     }
   }, [member])
 
@@ -53,8 +53,6 @@ export default function MemberFormModal({
     if (!position.trim()) newErrors.position = '岗位不能为空'
     if (!joinDate) newErrors.joinDate = '入职时间不能为空'
     if (!isEdit && !email.trim()) newErrors.email = '邮箱不能为空'
-    if (!isEdit && password.length < 6) newErrors.password = '初始密码至少 6 位'
-    if (isEdit && password && password.length < 6) newErrors.password = '新密码至少 6 位'
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -72,7 +70,6 @@ export default function MemberFormModal({
       joinDate,
       avatarUrl: avatar.trim() || undefined,
       email: email.trim() || undefined,
-      password: password.trim() || undefined,
     }
 
     try {
@@ -224,25 +221,11 @@ export default function MemberFormModal({
           </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-brand-400 mb-1">
-            {isEdit ? '重置登录密码' : '初始登录密码'}
-            {!isEdit && <span className="text-expense"> *</span>}
-          </label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder={isEdit ? '留空则不修改密码' : '至少 6 位'}
-            className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary ${
-              errors.password ? 'border-expense' : 'border-gray-300'
-            }`}
-          />
-          {errors.password && <p className="text-xs text-expense mt-1">{errors.password}</p>}
-          <p className="text-xs text-brand-300 mt-1">
-            密码由 Supabase Auth 管理，不再使用本地 4 位切换密码。
+        {!isEdit && (
+          <p className="rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-700">
+            系统将向该邮箱发送登录邀请，不再由管理员设置初始密码。
           </p>
-        </div>
+        )}
 
         {submitError && (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">

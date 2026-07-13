@@ -1,7 +1,12 @@
 import { supabase } from '@/lib/supabase'
 import { CANWIN_TEAM_ID } from '@/config/team'
 import type { TimelineEvent } from '@/types'
-import { resolveMediaUrls, resolveStorageAttachments } from '@/services/storage'
+import {
+  resolveMediaUrls,
+  resolveStorageAttachments,
+  resolveStoredAttachments,
+  resolveStoredMediaUrls,
+} from '@/services/storage'
 
 type TimelineRow = {
   id: string
@@ -75,7 +80,14 @@ export async function loadTimelineEvents(): Promise<TimelineEvent[]> {
     .order('event_date', { ascending: false })
 
   if (error) throw new Error(error.message)
-  return (data ?? []).map((row) => rowToTimelineEvent(row as TimelineRow))
+  return Promise.all((data ?? []).map(async (row) => {
+    const event = rowToTimelineEvent(row as TimelineRow)
+    return {
+      ...event,
+      images: (await resolveStoredMediaUrls(event.images)) || event.images,
+      attachments: (await resolveStoredAttachments(event.attachments)) || event.attachments,
+    }
+  }))
 }
 
 export async function createTimelineEvent(event: Omit<TimelineEvent, 'id' | 'createdAt'>): Promise<TimelineEvent> {

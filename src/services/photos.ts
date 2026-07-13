@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { CANWIN_TEAM_ID } from '@/config/team'
 import type { Photo } from '@/types'
-import { resolveMediaUrl } from '@/services/storage'
+import { resolveMediaUrl, resolveStoredMediaUrl } from '@/services/storage'
 
 type PhotoRow = {
   id: string
@@ -81,7 +81,10 @@ export async function loadPhotos(): Promise<Photo[]> {
     .order('taken_at', { ascending: false })
 
   if (error) throw new Error(error.message)
-  return (data ?? []).map((row) => rowToPhoto(row as PhotoRow))
+  return Promise.all((data ?? []).map(async (row) => {
+    const photo = rowToPhoto(row as PhotoRow)
+    return { ...photo, url: (await resolveStoredMediaUrl(photo.url)) || photo.url }
+  }))
 }
 
 export async function createPhotoRecord(

@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase'
 import { CANWIN_TEAM_ID } from '@/config/team'
 import type { Asset } from '@/types'
 import { writeAuditLog } from '@/services/auditLogs'
-import { resolveMediaUrls } from '@/services/storage'
+import { resolveMediaUrls, resolveStoredMediaUrls } from '@/services/storage'
 
 type AssetRow = {
   id: string
@@ -86,7 +86,10 @@ export async function loadAssets(): Promise<Asset[]> {
     .order('purchase_date', { ascending: false })
 
   if (error) throw new Error(error.message)
-  return (data ?? []).map((row) => rowToAsset(row as AssetRow))
+  return Promise.all((data ?? []).map(async (row) => {
+    const asset = rowToAsset(row as AssetRow)
+    return { ...asset, images: (await resolveStoredMediaUrls(asset.images)) || asset.images }
+  }))
 }
 
 export async function loadPublicAssets(): Promise<Asset[]> {
@@ -97,7 +100,10 @@ export async function loadPublicAssets(): Promise<Asset[]> {
     .order('purchase_date', { ascending: false })
 
   if (error) throw new Error(error.message)
-  return (data ?? []).map((row) => rowToAsset({ ...(row as AssetRow), amount: null }))
+  return Promise.all((data ?? []).map(async (row) => {
+    const asset = rowToAsset({ ...(row as AssetRow), amount: null })
+    return { ...asset, images: (await resolveStoredMediaUrls(asset.images)) || asset.images }
+  }))
 }
 
 export async function createAssetRecord(asset: Omit<Asset, 'id' | 'createdAt'>): Promise<Asset> {

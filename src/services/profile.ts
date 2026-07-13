@@ -254,9 +254,18 @@ export async function signInWithPassword(login: string, password: string): Promi
 
 export async function signOut(): Promise<void> {
   if (typeof window !== 'undefined') {
-    window.localStorage.removeItem(SUPABASE_AUTH_STORAGE_KEY)
-    window.localStorage.removeItem(`${SUPABASE_AUTH_STORAGE_KEY}-code-verifier`)
-    window.localStorage.removeItem(`${SUPABASE_AUTH_STORAGE_KEY}-user`)
+    const authKeys = [
+      SUPABASE_AUTH_STORAGE_KEY,
+      `${SUPABASE_AUTH_STORAGE_KEY}-code-verifier`,
+      `${SUPABASE_AUTH_STORAGE_KEY}-user`,
+      'canwin-auth-session',
+      'canwin-auth-session-code-verifier',
+      'canwin-auth-session-user',
+    ]
+    authKeys.forEach((key) => {
+      window.localStorage.removeItem(key)
+      window.sessionStorage.removeItem(key)
+    })
   }
 
   const { error } = await supabase.auth.signOut({ scope: 'local' })

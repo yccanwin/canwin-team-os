@@ -1,42 +1,54 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { AccessAdminDataSource } from './dataSource'
-import type { AccessAdminSnapshot, AccessMemberView } from './types'
+import type { AccessAdminSnapshot } from './types'
+
+const requestKey = () => crypto.randomUUID()
+
+function fail(message: string, error: { message: string } | null) {
+  if (error) throw new Error(`${message}：${error.message}`)
+}
 
 export function createSupabaseAccessAdminDataSource(client: SupabaseClient): AccessAdminDataSource {
-  return { async loadSnapshot(): Promise<AccessAdminSnapshot> {
-    const { data: authData, error: authError } = await client.auth.getUser()
-    if (authError || !authData.user) throw new Error(`读取当前用户失败：${authError?.message ?? '未登录'}`)
-    const [profiles, roles, profileRoles, regions, profileRegions, flags] = await Promise.all([
-      client.from('profiles').select('id,name,status,role').order('name'),
-      client.from('access_roles').select('id,code,name').order('name'),
-      client.from('profile_access_roles').select('profile_id,role_id'),
-      client.from('sales_regions').select('id,code,name').order('name'),
-      client.from('profile_sales_regions').select('profile_id,region_id,is_primary'),
-      client.from('feature_flags').select('id,key,description,enabled').order('key'),
-    ])
-    const error = profiles.error ?? roles.error ?? profileRoles.error ?? regions.error ?? profileRegions.error ?? flags.error
-    if (error) throw new Error(`读取权限总览失败：${error.message}`)
-    const roleById = new Map((roles.data ?? []).map((row) => [String(row.id), { id: String(row.id), code: String(row.code), name: String(row.name) }]))
-    const regionById = new Map((regions.data ?? []).map((row) => [String(row.id), { id: String(row.id), code: String(row.code), name: String(row.name) }]))
-    const members: AccessMemberView[] = (profiles.data ?? []).map((profile) => ({
-      id: String(profile.id), name: profile.name === null ? '未命名成员' : String(profile.name),
-      status: profile.status === null ? 'unknown' : String(profile.status), legacyRole: profile.role === null ? 'member' : String(profile.role),
-      roles: (profileRoles.data ?? []).filter((item) => item.profile_id === profile.id).map((item) => roleById.get(String(item.role_id))).filter((item): item is NonNullable<typeof item> => Boolean(item)),
-      regions: (profileRegions.data ?? []).filter((item) => item.profile_id === profile.id).map((item) => {
-        const region = regionById.get(String(item.region_id)); return region ? { ...region, primary: item.is_primary === true } : null
-      }).filter((item): item is NonNullable<typeof item> => Boolean(item)),
-    }))
-    const current = members.find((member) => member.id === authData.user.id)
-    return {
-      members,
-      featureFlags: (flags.data ?? []).map((flag) => ({ id: String(flag.id), key: String(flag.key), description: flag.description === null ? '' : String(flag.description), enabled: flag.enabled === true })),
-      roles: [...roleById.values()],
-      regions: [...regionById.values()],
-      currentUserIsAdmin: current?.legacyRole === 'admin' || current?.roles.some((role) => role.code === 'admin') === true,
-    }
-  },
-  async manageProfileAccess(profileId, roleCodes, regionIds) {
-    const { error } = await client.rpc('manage_profile_access', { p_profile_id: profileId, p_role_codes: roleCodes, p_region_ids: regionIds })
-    if (error) throw new Error(`保存权限失败：${error.message}`)
-  } }
+  return {
+    async loadSnapshot() {
+      const { data, error } = await client.rpc('get_access_admin_snapshot')
+      fail('读取权限配置失败', error)
+      return data as AccessAdminSnapshot
+    },
+    async replaceRoles(profileId, roleCodes) {
+      const { error } = await client.rpc('admin_replace_profile_roles', { p_profile_id: profileId, p_role_codes: roleCodes, p_idempotency_key: requestKey() })
+      fail('保存角色失败', error)
+    },
+    async createInvitation(email, displayName, roleCodes) {
+      const { error } = await client.functions.invoke('admin-members', {
+        body: {
+          action: 'invite', email, name: displayName, roleCodes,
+          idempotencyKey: requestKey(),
+        },
+      })
+      fail('登记邀请失败', error)
+    },
+    async setProfileStatus(profileId, status) {
+      const { error } = await client.functions.invoke('admin-members', {
+        body: { action: 'set-status', id: profileId, status, idempotencyKey: requestKey() },
+      })
+      fail('修改账号状态失败', error)
+    },
+    async createDelegation(input) {
+      const { error } = await client.rpc('admin_create_delegation', {
+        p_delegator_id: input.delegatorId, p_delegate_id: input.delegateId,
+        p_starts_at: input.startsAt, p_ends_at: input.endsAt, p_reason: input.reason,
+        p_idempotency_key: requestKey(),
+      })
+      fail('创建临时代理失败', error)
+    },
+    async replaceSupervisorSubordinates(supervisorId, subordinateIds) {
+      const { error } = await client.rpc('admin_replace_supervisor_subordinates', { p_supervisor_id: supervisorId, p_subordinate_ids: subordinateIds, p_idempotency_key: requestKey() })
+      fail('保存主管关系失败', error)
+    },
+    async reassignOwnership(fromProfileId, toProfileId, reason) {
+      const { error } = await client.rpc('admin_reassign_crm_ownership', { p_from_profile_id: fromProfileId, p_to_profile_id: toProfileId, p_reason: reason, p_idempotency_key: requestKey() })
+      fail('批量转移客户失败', error)
+    },
+  }
 }

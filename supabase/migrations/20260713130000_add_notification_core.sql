@@ -19,7 +19,7 @@ create table public.notification_supervisor_exceptions(
 );
 
 create or replace function public.enqueue_wecom_notification_jobs(p_team_id text,p_now timestamptz default now())
-returns integer language plpgsql security definer set search_path=''as$$
+returns integer language plpgsql security definer set search_path='' as $function$
 declare today_cn date:=(p_now at time zone'Asia/Shanghai')::date;inserted integer:=0;n integer;
 begin if current_setting('request.jwt.claim.role',true)<>'service_role'then raise exception'SERVICE_ROLE_REQUIRED'using errcode='42501';end if;
  if not public.is_feature_enabled(p_team_id,'sales_os_v3')then raise exception'SALES_OS_V3_DISABLED'using errcode='42501';end if;
@@ -42,16 +42,16 @@ begin if current_setting('request.jwt.claim.role',true)<>'service_role'then rais
   jsonb_build_object('kind','appointment_2h','title','预约提醒','appointment_at',l.next_action_at)
  from public.crm_leads l where l.team_id=p_team_id and l.owner_id is not null and l.next_action_kind='appointment'and l.next_action_at>p_now
   and l.next_action_at-interval'2 hours'between p_now-interval'1 day'and p_now+interval'2 days'
- on conflict(team_id,idempotency_key)do nothing;get diagnostics n=row_count;return inserted+n;end$$;
+ on conflict(team_id,idempotency_key)do nothing;get diagnostics n=row_count;return inserted+n;end $function$;
 
 create or replace function public.claim_wecom_notification_jobs(p_limit integer default 20,p_now timestamptz default now())
-returns setof public.notification_jobs language plpgsql security definer set search_path=''as$$
+returns setof public.notification_jobs language plpgsql security definer set search_path='' as $function$
 begin if current_setting('request.jwt.claim.role',true)<>'service_role'then raise exception'SERVICE_ROLE_REQUIRED'using errcode='42501';end if;
  return query with picked as(select j.id from public.notification_jobs j where(j.status in('pending','retry')or j.status='processing')and j.next_attempt_at<=p_now and j.scheduled_for<=p_now order by j.next_attempt_at for update skip locked limit greatest(1,least(p_limit,100)))
- update public.notification_jobs j set status='processing',next_attempt_at=p_now+interval'10 minutes'from picked where j.id=picked.id returning j.*;end$$;
+ update public.notification_jobs j set status='processing',next_attempt_at=p_now+interval'10 minutes'from picked where j.id=picked.id returning j.*;end $function$;
 
 create or replace function public.complete_wecom_notification_job(p_job_id uuid,p_succeeded boolean,p_error_code text default null,p_error_message text default null,p_now timestamptz default now())
-returns public.notification_jobs language plpgsql security definer set search_path=''as$$
+returns public.notification_jobs language plpgsql security definer set search_path='' as $function$
 declare j public.notification_jobs;attempt_no integer;
 begin if current_setting('request.jwt.claim.role',true)<>'service_role'then raise exception'SERVICE_ROLE_REQUIRED'using errcode='42501';end if;
  select * into j from public.notification_jobs where id=p_job_id for update;if j.id is null then raise exception'JOB_NOT_FOUND'using errcode='P0002';end if;
@@ -61,9 +61,9 @@ begin if current_setting('request.jwt.claim.role',true)<>'service_role'then rais
  elsif attempt_no>=5 then update public.notification_jobs set status='failed',attempt_count=attempt_no,last_error=left(p_error_message,1000)where id=j.id returning*into j;
   insert into public.notification_supervisor_exceptions(team_id,job_id,recipient_id,summary)values(j.team_id,j.id,j.recipient_id,'企业微信通知连续失败5次')on conflict(team_id,job_id)do nothing;
   insert into public.audit_logs(team_id,actor_id,action,target_type,target_id,after_data)values(j.team_id,null,'notification.failed_final','notification_job',j.id,jsonb_build_object('attempts',attempt_no,'error_code',p_error_code));
- else update public.notification_jobs set status='retry',attempt_count=attempt_no,next_attempt_at=p_now+(power(2,attempt_no-1)*interval'5 minutes'),last_error=left(p_error_message,1000)where id=j.id returning*into j;end if;return j;end$$;
+ else update public.notification_jobs set status='retry',attempt_count=attempt_no,next_attempt_at=p_now+(power(2,attempt_no-1)*interval'5 minutes'),last_error=left(p_error_message,1000)where id=j.id returning*into j;end if;return j;end $function$;
 
-do$$declare t text;begin foreach t in array array['notification_jobs','notification_attempts','notification_supervisor_exceptions']loop execute format('alter table public.%I enable row level security',t);execute format('create policy "sales os v3 server gate"on public.%I as restrictive for all to authenticated using(public.is_feature_enabled(team_id,''sales_os_v3''))with check(public.is_feature_enabled(team_id,''sales_os_v3''))',t);end loop;end$$;
+do $migration$ declare t text;begin foreach t in array array['notification_jobs','notification_attempts','notification_supervisor_exceptions']loop execute format('alter table public.%I enable row level security',t);execute format('create policy "sales os v3 server gate"on public.%I as restrictive for all to authenticated using(public.is_feature_enabled(team_id,''sales_os_v3''))with check(public.is_feature_enabled(team_id,''sales_os_v3''))',t);end loop;end $migration$;
 create policy"users read own notification jobs"on public.notification_jobs for select to authenticated using(recipient_id=auth.uid()or public.has_permission(team_id,'customers.supervise'));
 create policy"users read own notification attempts"on public.notification_attempts for select to authenticated using(exists(select 1 from public.notification_jobs j where j.id=job_id and j.team_id=team_id and(j.recipient_id=auth.uid()or public.has_permission(team_id,'customers.supervise'))));
 create policy"supervisors read notification failures"on public.notification_supervisor_exceptions for select to authenticated using(public.has_permission(team_id,'customers.supervise'));

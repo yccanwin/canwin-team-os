@@ -77,7 +77,7 @@ begin
       from information_schema.columns where table_schema='public' and table_name='crm_leads_visible')
     is distinct from array['id','read_scope','store_name','contact_name','masked_phone','district_name',
       'business_type','source','created_at','next_action_at','stage','facts','lead_status',
-      'owner_display_name','claimable','active_opportunity_id'] then
+      'owner_display_name','claimable','active_opportunity_id','recycle_risk','recycle_due_at','recycle_paused'] then
     raise exception 'crm_leads_visible column contract changed';
   end if;
 
@@ -106,5 +106,12 @@ begin
     or not has_table_privilege('authenticated','public.crm_leads_visible','SELECT') then
     raise exception 'Workbench SQL contract grants are unsafe';
   end if;
+  if to_regclass('public.crm_lead_conversions')is null
+    or to_regprocedure('public.precheck_crm_lead_conversion(uuid,text,text)')is null
+    or to_regprocedure('public.convert_crm_lead_to_customer(uuid,uuid,text,text,uuid,text,text,text,uuid,text,text,boolean)')is null then raise exception 'Lead conversion contract missing';end if;
+  if position('for update' in lower(pg_get_functiondef('public.convert_crm_lead_to_customer(uuid,uuid,text,text,uuid,text,text,text,uuid,text,text,boolean)'::regprocedure)))=0
+    or position('last_effective_followup_at' in lower(pg_get_functiondef('public.convert_crm_lead_to_customer(uuid,uuid,text,text,uuid,text,text,text,uuid,text,text,boolean)'::regprocedure)))=0
+    or position('crm_owner_history' in lower(pg_get_functiondef('public.convert_crm_lead_to_customer(uuid,uuid,text,text,uuid,text,text,text,uuid,text,text,boolean)'::regprocedure)))=0
+    or position('audit_logs' in lower(pg_get_functiondef('public.convert_crm_lead_to_customer(uuid,uuid,text,text,uuid,text,text,text,uuid,text,text,boolean)'::regprocedure)))=0 then raise exception 'Atomic lead conversion safeguards missing';end if;
 end $$;
 select 'crm_core_ok' as result;

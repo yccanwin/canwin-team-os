@@ -18,6 +18,9 @@ export interface SalesLead {
   leadStatus?: string
   ownerDisplayName?: string
   claimable?: boolean
+  recycleRisk?: 'none' | 'uncontacted_24h' | 'uncontacted_48h' | 'inactive_15d'
+  recycleDueAt?: string
+  recyclePaused?: boolean
 }
 
 export interface FollowUpDraft {
@@ -64,14 +67,34 @@ export interface CustomerBrandSummary {
 
 export type SalesActionPriority = 'overdue_appointment' | 'upcoming_appointment' | 'today_followup' | 'new_lead' | 'recycle_risk'
 
-export interface SalesAssessmentSummary {
+export interface PersonalSalesTarget {
   id: string
-  periodQuarter: string
   pointTarget: number
+  estimatedPoints: number
+  officialPoints: number
   newGmvTarget: number
   newGmvActual: number
   renewalGmvTarget: number
   renewalGmvActual: number
+  updatedAt: string
+}
+
+export interface PersonalSalesMonthlyObservation {
+  monthStart: string
+  monthLabel: string
+  newGmv: number
+  renewalGmv: number
+  officialPoints: number
+}
+
+export interface PersonalSalesWorkspace {
+  profileId: string
+  displayName: string
+  quarterStart: string
+  quarterEnd: string
+  quarterLabel: string
+  target?: PersonalSalesTarget
+  monthlyObservations: PersonalSalesMonthlyObservation[]
 }
 
 export interface OrderActionSignal {
