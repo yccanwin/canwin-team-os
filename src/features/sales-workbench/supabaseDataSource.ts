@@ -22,6 +22,9 @@ function toLead(row: LeadRow): SalesLead {
     leadStatus: String(row.lead_status),
     ownerDisplayName: row.owner_display_name === null ? undefined : String(row.owner_display_name),
     claimable: row.claimable === true,
+    recycleRisk: ['uncontacted_24h', 'uncontacted_48h', 'inactive_15d'].includes(String(row.recycle_risk)) ? String(row.recycle_risk) as SalesLead['recycleRisk'] : 'none',
+    recycleDueAt: row.recycle_due_at ? String(row.recycle_due_at) : undefined,
+    recyclePaused: row.recycle_paused === true,
   }
 }
 
@@ -34,15 +37,17 @@ function firstRow(data: unknown): SalesLead {
 export function createSupabaseSalesWorkbenchDataSource(client: SupabaseClient): SalesWorkbenchDataSource {
   return {
     async listLeads(scope: LeadReadScope) {
-      const query = client.from('crm_leads_visible').select('id,read_scope,store_name,contact_name,masked_phone,district_name,business_type,source,created_at,next_action_at,stage,facts,lead_status,owner_display_name,claimable,active_opportunity_id').eq('read_scope', scope).order('created_at', { ascending: false })
+      const query = client.from('crm_leads_visible').select('id,read_scope,store_name,contact_name,masked_phone,district_name,business_type,source,created_at,next_action_at,stage,facts,lead_status,owner_display_name,claimable,active_opportunity_id,recycle_risk,recycle_due_at,recycle_paused').eq('read_scope', scope).order('created_at', { ascending: false })
       const { data, error } = await query
       if (error) throw new SalesWorkbenchDataError(`读取${scope === 'mine' ? '本人' : '区域'}线索失败：${error.message}`, error)
       return (data ?? []).map((row) => toLead(row as LeadRow))
     },
     async claimLead(leadId: string) {
-      const { data, error } = await client.rpc('claim_crm_lead', { p_lead_id: leadId })
+      const { error } = await client.rpc('claim_crm_lead', { p_lead_id: leadId })
       if (error) throw new SalesWorkbenchDataError(`领取线索失败：${error.message}`, error)
-      return firstRow(data)
+      const result = await client.from('crm_leads_visible').select('id,read_scope,store_name,contact_name,masked_phone,district_name,business_type,source,created_at,next_action_at,stage,facts,lead_status,owner_display_name,claimable,active_opportunity_id,recycle_risk,recycle_due_at,recycle_paused').eq('id', leadId).eq('read_scope', 'mine').single()
+      if (result.error) throw new SalesWorkbenchDataError(`领取成功但刷新线索失败：${result.error.message}`, result.error)
+      return toLead(result.data as LeadRow)
     },
     async createFollowUp(leadId: string, followUp: FollowUpDraft) {
       const { data, error } = await client.rpc('record_crm_follow_up', {

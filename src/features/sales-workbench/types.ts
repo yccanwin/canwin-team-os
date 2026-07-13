@@ -18,6 +18,9 @@ export interface SalesLead {
   leadStatus?: string
   ownerDisplayName?: string
   claimable?: boolean
+  recycleRisk?: 'none' | 'uncontacted_24h' | 'uncontacted_48h' | 'inactive_15d'
+  recycleDueAt?: string
+  recyclePaused?: boolean
 }
 
 export interface FollowUpDraft {

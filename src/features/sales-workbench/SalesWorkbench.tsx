@@ -107,7 +107,7 @@ export function SalesWorkbench({
       appointments: todayTasks.filter((task) => task.priority === 'upcoming_appointment').length,
       overdue: todayTasks.filter((task) => task.priority === 'overdue_appointment').length,
       newLeads: leads.filter((lead) => lead.stage === 'new').length,
-      recycleRisks: todayTasks.filter((task) => task.priority === 'recycle_risk').length,
+      recycleRisks: leads.filter((lead) => lead.recycleRisk && lead.recycleRisk !== 'none' && !lead.recyclePaused).length,
     }
   }, [demoMode, leads, todayTasks])
 
@@ -332,21 +332,25 @@ export function SalesWorkbench({
         {activeTab === 'leads' && (
           <><div className="sw-lead-actions">{!demoMode && dataSource && <QuickLeadForm dataSource={dataSource} onCreated={handleQuickLeadCreated} />}</div><div className="sw-lead-layout">
             <aside className="sw-lead-list">
-              {!demoMode && <div className="sw-scope-switch"><button className={currentLeadScope === 'mine' ? 'is-active' : ''} onClick={() => setCurrentLeadScope('mine')}>我的线索</button><button className={currentLeadScope === 'region' ? 'is-active' : ''} onClick={() => setCurrentLeadScope('region')}>区域公海</button></div>}
+              {!demoMode && <><div className="sw-scope-switch"><button className={currentLeadScope === 'mine' ? 'is-active' : ''} onClick={() => setCurrentLeadScope('mine')}>我的线索</button><button className={currentLeadScope === 'region' ? 'is-active' : ''} onClick={() => setCurrentLeadScope('region')}>区域公海</button></div><p className="sw-scope-note">{currentLeadScope === 'mine' ? '仅显示由我负责、可以继续跟进的线索' : '可领取线索由服务端确认；已占用线索仅显示负责人'}</p></>}
               {leads.map((lead) => (
-                <button key={lead.id} className={lead.id === selectedId ? 'is-selected' : ''} onClick={() => { setSelectedId(lead.id); setDraft(blankDraft) }}>
-                  <span><strong>{lead.storeName}</strong><small>{lead.contactName} · {lead.businessType}</small></span>
-                  <em>{currentLeadScope === 'region' && !lead.claimable ? `负责人：${lead.ownerDisplayName ?? '未显示'}` : stageLabel[lead.stage]}</em>
+                <button key={lead.id} className={`${lead.id === selectedId ? 'is-selected ' : ''}${currentLeadScope === 'region' && !lead.claimable ? 'is-occupied' : ''}`} onClick={() => { setSelectedId(lead.id); setDraft(blankDraft) }}>
+                  {currentLeadScope === 'region' && !lead.claimable
+                    ? <><span><strong>已占用线索</strong><small>业务信息不可查看</small></span><em>负责人：{lead.ownerDisplayName ?? '未显示'}</em></>
+                    : <><span><strong>{lead.storeName}</strong><small>{lead.contactName} · {lead.businessType}</small>{currentLeadScope === 'mine' && <LeadRiskBadge lead={lead} />}</span><em>{currentLeadScope === 'region' ? '可领取' : stageLabel[lead.stage]}</em></>}
                 </button>
               ))}
+              {!isLoading && leads.length === 0 && <div className="sw-scope-empty">{currentLeadScope === 'mine' ? '暂无我的线索' : '当前区域公海暂无可见线索'}</div>}
             </aside>
-            {selected && (
+            {selected && currentLeadScope === 'region' && !selected.claimable && <article className="sw-lead-detail sw-occupied-detail"><ContactRound size={30} /><h2>该线索已有负责人</h2><p>负责人：{selected.ownerDisplayName ?? '未显示'}</p><span>为保护客户信息，公海列表不展示已占用线索的业务详情，也不可领取。</span></article>}
+            {selected && !(currentLeadScope === 'region' && !selected.claimable) && (
               <article className="sw-lead-detail">
                 <div className="sw-detail-heading">
                   <div><span className="sw-status">{stageLabel[selected.stage]}</span><h2>{selected.storeName}</h2><p>{selected.contactName} · {selected.phone} · {selected.district}</p></div>
                   <ContactRound size={28} />
                 </div>
                 <dl className="sw-facts"><div><dt>业态</dt><dd>{selected.businessType}</dd></div><div><dt>来源</dt><dd>{selected.source}</dd></div><div><dt>创建</dt><dd>{selected.createdAt}</dd></div></dl>
+                {currentLeadScope === 'mine' && <div className="sw-risk-panel"><LeadRiskBadge lead={selected} /><span>{selected.recyclePaused ? '服务端已暂停自动回收' : selected.recycleDueAt ? `服务端回收节点：${new Date(selected.recycleDueAt).toLocaleString('zh-CN')}` : '当前没有回收风险'}</span></div>}
 
                 {selected.facts.length > 0 && <div className="sw-known-facts"><strong>已获得的新事实</strong>{selected.facts.map((fact) => <p key={fact}><CheckCircle2 size={15} />{fact}</p>)}</div>}
 
@@ -426,6 +430,14 @@ function Metric({ value, label, tone }: { value: number; label: string; tone: st
 
 function FlowStep({ done, label }: { done: boolean; label: string }) {
   return <div className={done ? 'is-done' : ''}><span>{done ? '✓' : ''}</span><small>{label}</small></div>
+}
+
+function LeadRiskBadge({ lead }: { lead: SalesLead }) {
+  if (lead.recyclePaused) return <small className="sw-risk-badge is-paused">回收已暂停</small>
+  if (lead.recycleRisk === 'uncontacted_24h') return <small className="sw-risk-badge is-warning">24小时未联系</small>
+  if (lead.recycleRisk === 'uncontacted_48h') return <small className="sw-risk-badge is-danger">48小时回收风险</small>
+  if (lead.recycleRisk === 'inactive_15d') return <small className="sw-risk-badge is-danger">15天无有效跟进</small>
+  return <small className="sw-risk-badge is-safe">正常</small>
 }
 
 function Placeholder({ icon: Icon, title, text }: { icon: typeof Clock3; title: string; text: string }) {
