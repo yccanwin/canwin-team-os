@@ -1,4 +1,4 @@
-import type { CustomerBrandSummary, FollowUpDraft, SalesAssessmentSummary, SalesLead } from './types'
+import type { CustomerBrandSummary, FollowUpDraft, PersonalSalesWorkspace, SalesLead } from './types'
 
 export type LeadReadScope = 'mine' | 'region'
 
@@ -10,7 +10,7 @@ export interface SalesWorkbenchDataSource {
   recordContactAttempt(leadId: string, result: ContactAttemptResult, note?: string): Promise<void>
   getLeadFollowupContext(leadId: string): Promise<LeadFollowupContext>
   listCustomers(): Promise<CustomerBrandSummary[]>
-  listMyAssessments(): Promise<SalesAssessmentSummary[]>
+  getMySalesWorkspace(): Promise<PersonalSalesWorkspace>
   qualifyLead(leadId: string): Promise<string>
   getQualificationStatus(leadId: string): Promise<QualificationStatus>
   recordStoreQualificationFacts(input: { storeId: string; areaSqm?: number; privateRoomCount?: number; isLandmark: boolean; isTakeawayOnly: boolean }): Promise<string>

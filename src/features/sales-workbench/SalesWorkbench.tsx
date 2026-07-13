@@ -16,9 +16,9 @@ import {
   Sparkles,
   UsersRound,
 } from 'lucide-react'
-import { mockAssessments, mockCustomers, mockLeads, mockSummary } from './mockData'
+import { mockCustomers, mockLeads, mockPersonalWorkspace, mockSummary } from './mockData'
 import type { ContactAttemptResult, LeadFollowupContext, LeadReadScope, SalesTodayAction, SalesWorkbenchDataSource } from './dataSource'
-import type { CustomerBrandSummary, FollowUpDraft, LeadStage, OpportunityQualification, OrderActionSignal, SalesAssessmentSummary, SalesLead, WorkbenchTab } from './types'
+import type { CustomerBrandSummary, FollowUpDraft, LeadStage, OpportunityQualification, OrderActionSignal, PersonalSalesWorkspace, SalesLead, WorkbenchTab } from './types'
 import { prioritizeLead } from './actionPriority'
 import { CrmEntityEditor } from './CrmEntityEditor'
 import { QualificationEvidenceEditor } from './QualificationEvidenceEditor'
@@ -90,8 +90,9 @@ export function SalesWorkbench({
   const [recapStartedAt, setRecapStartedAt] = useState<number | null>(null)
   const [recapSeconds, setRecapSeconds] = useState(60)
   const [recapIsFirst, setRecapIsFirst] = useState(true)
-  const [assessments, setAssessments] = useState<SalesAssessmentSummary[]>(() => demoMode ? mockAssessments : [])
+  const [personalWorkspace, setPersonalWorkspace] = useState<PersonalSalesWorkspace | null>(() => demoMode ? mockPersonalWorkspace : null)
   const [assessmentError, setAssessmentError] = useState('')
+  const [assessmentLoading, setAssessmentLoading] = useState(false)
   const [currentLeadScope, setCurrentLeadScope] = useState<LeadReadScope>(leadScope)
   const [showCustomerEditor, setShowCustomerEditor] = useState(false)
   const [followupContext, setFollowupContext] = useState<LeadFollowupContext | null>(null)
@@ -190,16 +191,16 @@ export function SalesWorkbench({
   useEffect(() => {
     if (demoMode) return
     if (!dataSource) {
-      queueMicrotask(() => { setAssessments([]); setAssessmentError('真实模式未配置目标数据源；不会回退演示目标。') })
+      queueMicrotask(() => { setPersonalWorkspace(null); setAssessmentError('真实模式未配置目标数据源；不会回退演示目标。') })
       return
     }
     let active = true
-    queueMicrotask(() => { if (active) setAssessmentError('') })
-    dataSource.listMyAssessments().then((items) => { if (active) setAssessments(items) }).catch((error: unknown) => {
+    queueMicrotask(() => { if (active) { setAssessmentError(''); setAssessmentLoading(true) } })
+    dataSource.getMySalesWorkspace().then((workspace) => { if (active) setPersonalWorkspace(workspace) }).catch((error: unknown) => {
       if (!active) return
-      setAssessments([])
+      setPersonalWorkspace(null)
       setAssessmentError(error instanceof Error ? error.message : '读取我的目标失败')
-    })
+    }).finally(() => { if (active) setAssessmentLoading(false) })
     return () => { active = false }
   }, [dataSource, demoMode])
 
@@ -458,7 +459,7 @@ export function SalesWorkbench({
           </div>
         )}
         {activeTab === 'orders' && <OrderEntry />}
-        {activeTab === 'profile' && <MyAssessments name={salespersonName} assessments={assessments} error={assessmentError} />}
+        {activeTab === 'profile' && <MySalesWorkspace name={salespersonName} workspace={personalWorkspace} error={assessmentError} loading={assessmentLoading} />}
         {activeTab === 'leads' && selected && ['contacted', 'qualified'].includes(selected.stage) && !demoMode && dataSource && (
           <div className="sw-floating-evidence">
             <QualificationEvidenceEditor
@@ -531,10 +532,23 @@ function CustomerDirectory({ customers, selectedBrandId, onSelectBrand, error }:
   </div>
 }
 
-function MyAssessments({ name, assessments, error }: { name: string; assessments: SalesAssessmentSummary[]; error: string }) {
+function MySalesWorkspace({ name, workspace, error, loading }: { name: string; workspace: PersonalSalesWorkspace | null; error: string; loading: boolean }) {
   const money = (value: number) => `¥${value.toLocaleString('zh-CN')}`
   if (error) return <div className="sw-data-error" role="alert">{error}</div>
-  return <div className="sw-profile-targets"><div className="sw-detail-heading"><div><span className="sw-status">我的</span><h2>{name}</h2><p>以下为现有 sales_assessments 官方数据口径，仅供查看</p></div><CircleUserRound size={30} /></div>{assessments.length === 0 ? <p className="sw-empty-line">当前账号暂无季度目标。</p> : assessments.map((item) => <article key={item.id}><header><strong>{item.periodQuarter}</strong><span>官方只读</span></header><div className="sw-target-grid"><MetricPair label="积分目标" target={item.pointTarget.toLocaleString('zh-CN')} /><MetricPair label="新签 GMV" target={money(item.newGmvTarget)} actual={money(item.newGmvActual)} /><MetricPair label="续费 GMV" target={money(item.renewalGmvTarget)} actual={money(item.renewalGmvActual)} /></div></article>)}</div>
+  if (loading) return <div className="sw-profile-targets"><p className="sw-empty-line">正在读取本季度个人目标…</p></div>
+  if (!workspace) return <div className="sw-profile-targets"><p className="sw-empty-line">当前无法读取个人工作台。</p></div>
+  const displayName = workspace.displayName || name
+  return <div className="sw-profile-targets">
+    <div className="sw-detail-heading"><div><span className="sw-status">仅本人可见</span><h2>{displayName}</h2><p>{workspace.quarterLabel} · {workspace.quarterStart} 至 {workspace.quarterEnd}</p></div><CircleUserRound size={30} /></div>
+    {!workspace.target ? <div className="sw-profile-empty"><strong>本季度尚未设置个人目标</strong><p>请联系主管设置积分、新签 GMV 与续费 GMV 目标。设置后会自动显示在这里。</p></div> : <>
+      <section className="sw-point-ledgers" aria-label="积分双口径">
+        <div className="is-estimated"><span>预计积分</span><strong>{workspace.target.estimatedPoints.toLocaleString('zh-CN')}</strong><small>销售过程口径 · 目标 {workspace.target.pointTarget.toLocaleString('zh-CN')}</small></div>
+        <div className="is-official"><span>官方确认积分</span><strong>{workspace.target.officialPoints.toLocaleString('zh-CN')}</strong><small>财务确认口径 · 只读</small></div>
+      </section>
+      <article className="sw-quarter-targets"><header><strong>本季度 GMV</strong><span>按月观察</span></header><div className="sw-target-grid"><MetricPair label="新签 GMV" target={money(workspace.target.newGmvTarget)} actual={money(workspace.target.newGmvActual)} /><MetricPair label="续费 GMV" target={money(workspace.target.renewalGmvTarget)} actual={money(workspace.target.renewalGmvActual)} /></div></article>
+      <section className="sw-monthly-observations"><h3>月度确认进展</h3>{workspace.monthlyObservations.map((month) => <article key={month.monthStart}><strong>{month.monthLabel}</strong><div><span>新签<em>{money(month.newGmv)}</em></span><span>续费<em>{money(month.renewalGmv)}</em></span><span>确认积分<em>{month.officialPoints.toLocaleString('zh-CN')}</em></span></div></article>)}</section>
+    </>}
+  </div>
 }
 
 function MetricPair({ label, target, actual }: { label: string; target: string; actual?: string }) {

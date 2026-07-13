@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { SalesWorkbenchDataError, type LeadReadScope, type SalesTodayAction, type SalesWorkbenchDataSource } from './dataSource'
-import type { CustomerBrandSummary, CustomerContactSummary, CustomerStoreSummary, FollowUpDraft, LeadStage, SalesAssessmentSummary, SalesLead } from './types'
+import type { CustomerBrandSummary, CustomerContactSummary, CustomerStoreSummary, FollowUpDraft, LeadStage, PersonalSalesWorkspace, SalesLead } from './types'
 
 type LeadRow = Record<string, unknown>
 
@@ -130,19 +130,24 @@ export function createSupabaseSalesWorkbenchDataSource(client: SupabaseClient): 
         stores: storesByBrand.get(String(row.id)) ?? [],
       }))
     },
-    async listMyAssessments() {
-      const { data: authData, error: authError } = await client.auth.getUser()
-      if (authError || !authData.user) throw new SalesWorkbenchDataError(`读取当前用户失败：${authError?.message ?? '未登录'}`, authError)
-      const { data, error } = await client.from('sales_assessments')
-        .select('id,period_quarter,point_target,new_gmv_target,new_gmv_actual,renewal_gmv_target,renewal_gmv_actual')
-        .contains('salesperson_ids', [authData.user.id])
-        .order('period_quarter', { ascending: false })
-      if (error) throw new SalesWorkbenchDataError(`读取我的目标失败：${error.message}`, error)
-      return (data ?? []).map((row): SalesAssessmentSummary => ({
-        id: String(row.id), periodQuarter: String(row.period_quarter), pointTarget: Number(row.point_target),
-        newGmvTarget: Number(row.new_gmv_target), newGmvActual: Number(row.new_gmv_actual),
-        renewalGmvTarget: Number(row.renewal_gmv_target), renewalGmvActual: Number(row.renewal_gmv_actual),
-      }))
+    async getMySalesWorkspace() {
+      const { data, error } = await client.rpc('get_my_sales_performance_workspace')
+      if (error) throw new SalesWorkbenchDataError(`读取我的销售工作台失败：${error.message}`, error)
+      const row = (data ?? {}) as Record<string, unknown>
+      const target = row.target && typeof row.target === 'object' ? row.target as Record<string, unknown> : undefined
+      const monthly = Array.isArray(row.monthly_observations) ? row.monthly_observations : []
+      return {
+        profileId: String(row.profile_id ?? ''), displayName: String(row.display_name ?? ''),
+        quarterStart: String(row.quarter_start ?? ''), quarterEnd: String(row.quarter_end ?? ''), quarterLabel: String(row.quarter_label ?? ''),
+        target: target ? {
+          id: String(target.id), pointTarget: Number(target.points_target), estimatedPoints: Number(target.estimated_points), officialPoints: Number(target.official_points),
+          newGmvTarget: Number(target.new_gmv_target), newGmvActual: Number(target.new_gmv_actual), renewalGmvTarget: Number(target.renewal_gmv_target), renewalGmvActual: Number(target.renewal_gmv_actual), updatedAt: String(target.updated_at),
+        } : undefined,
+        monthlyObservations: monthly.map((item) => {
+          const month = item as Record<string, unknown>
+          return { monthStart: String(month.month_start), monthLabel: String(month.month_label), newGmv: Number(month.new_gmv), renewalGmv: Number(month.renewal_gmv), officialPoints: Number(month.official_points) }
+        }),
+      } satisfies PersonalSalesWorkspace
     },
     async qualifyLead(leadId) {
       const { data, error } = await client.rpc('qualify_crm_lead', { p_lead_id: leadId })

@@ -1,4 +1,4 @@
-import type { CustomerBrandSummary, SalesAssessmentSummary, SalesLead, WorkbenchSummary } from './types'
+import type { CustomerBrandSummary, PersonalSalesWorkspace, SalesLead, WorkbenchSummary } from './types'
 
 export const mockSummary: WorkbenchSummary = {
   appointments: 2,
@@ -46,8 +46,15 @@ export const mockCustomers: CustomerBrandSummary[] = [
   },
 ]
 
-export const mockAssessments: SalesAssessmentSummary[] = [{
-  id: 'assessment-demo-1', periodQuarter: '2026 Q3', pointTarget: 3600,
-  newGmvTarget: 300000, newGmvActual: 186000,
-  renewalGmvTarget: 120000, renewalGmvActual: 74000,
-}]
+export const mockPersonalWorkspace: PersonalSalesWorkspace = {
+  profileId: 'profile-demo-1', displayName: '销售演示账号', quarterStart: '2026-07-01', quarterEnd: '2026-09-30', quarterLabel: '2026 Q3',
+  target: {
+    id: 'target-demo-1', pointTarget: 3600, estimatedPoints: 2480, officialPoints: 2160,
+    newGmvTarget: 300000, newGmvActual: 186000, renewalGmvTarget: 120000, renewalGmvActual: 74000, updatedAt: '2026-07-13T00:00:00Z',
+  },
+  monthlyObservations: [
+    { monthStart: '2026-07-01', monthLabel: '2026-07', newGmv: 186000, renewalGmv: 74000, officialPoints: 2160 },
+    { monthStart: '2026-08-01', monthLabel: '2026-08', newGmv: 0, renewalGmv: 0, officialPoints: 0 },
+    { monthStart: '2026-09-01', monthLabel: '2026-09', newGmv: 0, renewalGmv: 0, officialPoints: 0 },
+  ],
+}

@@ -1,6 +1,6 @@
 export { SalesWorkbench as default, SalesWorkbench } from './SalesWorkbench'
 export type { SalesWorkbenchProps } from './SalesWorkbench'
-export type { BusinessGrade, CustomerBrandSummary, CustomerContactSummary, CustomerStoreSummary, FollowUpDraft, LeadStage, OpportunityQualification, OrderActionSignal, SalesActionPriority, SalesAssessmentSummary, SalesLead, WorkbenchSummary, WorkbenchTab } from './types'
+export type { BusinessGrade, CustomerBrandSummary, CustomerContactSummary, CustomerStoreSummary, FollowUpDraft, LeadStage, OpportunityQualification, OrderActionSignal, PersonalSalesMonthlyObservation, PersonalSalesTarget, PersonalSalesWorkspace, SalesActionPriority, SalesLead, WorkbenchSummary, WorkbenchTab } from './types'
 export { prioritizeLead } from './actionPriority'
 export { CrmEntityEditor } from './CrmEntityEditor'
 export { QualificationEvidenceEditor } from './QualificationEvidenceEditor'
