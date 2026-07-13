@@ -46,7 +46,7 @@ using (
     where p.id = auth.uid()
       and p.status = 'active'
       and p.team_id = split_part(name, '/', 1)
-      and (owner_id = auth.uid() or public.has_permission(p.team_id, 'access.manage'))
+      and (owner_id = auth.uid()::text or public.has_permission(p.team_id, 'access.manage'))
   )
 )
 with check (
@@ -56,7 +56,7 @@ with check (
     where p.id = auth.uid()
       and p.status = 'active'
       and p.team_id = split_part(name, '/', 1)
-      and (owner_id = auth.uid() or public.has_permission(p.team_id, 'access.manage'))
+      and (owner_id = auth.uid()::text or public.has_permission(p.team_id, 'access.manage'))
   )
 );
 
@@ -69,7 +69,7 @@ using (
     where p.id = auth.uid()
       and p.status = 'active'
       and p.team_id = split_part(name, '/', 1)
-      and (owner_id = auth.uid() or public.has_permission(p.team_id, 'access.manage'))
+      and (owner_id = auth.uid()::text or public.has_permission(p.team_id, 'access.manage'))
   )
 );
 
