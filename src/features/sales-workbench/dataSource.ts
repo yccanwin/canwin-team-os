@@ -11,6 +11,7 @@ export interface SalesWorkbenchDataSource {
   listCustomers(): Promise<CustomerBrandSummary[]>
   listMyAssessments(): Promise<SalesAssessmentSummary[]>
   qualifyLead(leadId: string): Promise<string>
+  getQualificationStatus(leadId: string): Promise<QualificationStatus>
   recordStoreQualificationFacts(input: { storeId: string; areaSqm?: number; privateRoomCount?: number; isLandmark: boolean; isTakeawayOnly: boolean }): Promise<string>
   recordQualificationEvidence(input: { leadId: string; evidenceType: 'annual_fee_viable'|'key_person_contacted'|'key_person_meeting_scheduled'; detail: string; contactId?: string; meetingAt?: string }): Promise<string>
   loadCrmEditorOptions(): Promise<CrmEditorOptions>
@@ -33,6 +34,28 @@ export interface QuickLeadContext {
   regions: Array<{ id: string; name: string }>
   defaultRegionId?: string
   requiresRegionSelection: boolean
+}
+
+export interface QualificationStatus {
+  leadId: string
+  storeId?: string
+  storeName?: string
+  businessType?: string
+  businessTypeLabel?: string
+  areaSqm?: number
+  privateRoomCount?: number
+  isLandmark: boolean
+  isTakeawayOnly: boolean
+  isRealStore: boolean
+  calculatedGrade?: 'A'|'B'|'C'|'D'
+  gradeReason: string
+  annualFeeViable: boolean
+  keyPersonReady: boolean
+  eligible: boolean
+  missingEvidence: string[]
+  nextAction: string
+  opportunityId?: string
+  demoRequiredBeforeDeposit: boolean
 }
 export type ContactAttemptResult = 'reached' | 'no_answer' | 'unreachable'
 export interface LeadActivity {

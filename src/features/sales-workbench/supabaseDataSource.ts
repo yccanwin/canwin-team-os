@@ -169,6 +169,27 @@ export function createSupabaseSalesWorkbenchDataSource(client: SupabaseClient): 
       if (error) throw new SalesWorkbenchDataError(`新增线索失败：${error.message}`, error)
       return String(data)
     },
+    async getQualificationStatus(leadId) {
+      const { data, error } = await client.rpc('get_crm_lead_qualification_status', { p_lead_id: leadId })
+      if (error) throw new SalesWorkbenchDataError(`读取资格状态失败：${error.message}`, error)
+      const value = data as Record<string, unknown>
+      return {
+        leadId: String(value.lead_id), storeId: value.store_id ? String(value.store_id) : undefined,
+        storeName: value.store_name ? String(value.store_name) : undefined,
+        businessType: value.business_type ? String(value.business_type) : undefined,
+        businessTypeLabel: value.business_type_label ? String(value.business_type_label) : undefined,
+        areaSqm: value.area_sqm == null ? undefined : Number(value.area_sqm),
+        privateRoomCount: value.private_room_count == null ? undefined : Number(value.private_room_count),
+        isLandmark: value.is_landmark === true, isTakeawayOnly: value.is_takeaway_only === true,
+        isRealStore: value.is_real_store === true,
+        calculatedGrade: value.calculated_grade ? String(value.calculated_grade) as 'A'|'B'|'C'|'D' : undefined,
+        gradeReason: String(value.grade_reason ?? ''), annualFeeViable: value.annual_fee_viable === true,
+        keyPersonReady: value.key_person_ready === true, eligible: value.eligible === true,
+        missingEvidence: Array.isArray(value.missing_evidence) ? value.missing_evidence.map(String) : [],
+        nextAction: String(value.next_action ?? ''), opportunityId: value.opportunity_id ? String(value.opportunity_id) : undefined,
+        demoRequiredBeforeDeposit: value.demo_required_before_deposit === true,
+      }
+    },
     async precheckLeadConversion(input) {
       const { data, error } = await client.rpc('precheck_crm_lead_conversion', { p_lead_id: input.leadId, p_brand_name: input.brandName.trim(), p_store_name: input.storeName.trim() })
       if (error) throw new SalesWorkbenchDataError(`客户去重预检失败：${error.message}`, error)
