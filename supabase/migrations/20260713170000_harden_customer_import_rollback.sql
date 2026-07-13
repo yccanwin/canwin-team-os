@@ -14,18 +14,18 @@ create table if not exists public.import_rollback_conflicts(
 );
 
 create or replace function public.capture_import_created_entity_image()
-returns trigger language plpgsql security definer set search_path=''as$$declare image jsonb;begin
+returns trigger language plpgsql security definer set search_path = '' as $$ declare image jsonb;begin
  if new.entity_type='subscription'then select to_jsonb(x)into image from public.customer_product_subscriptions x where x.id=new.entity_id and x.team_id=new.team_id;
  elsif new.entity_type='contact'then select to_jsonb(x)into image from public.crm_contacts x where x.id=new.entity_id and x.team_id=new.team_id;
  elsif new.entity_type='store'then select to_jsonb(x)into image from public.crm_stores x where x.id=new.entity_id and x.team_id=new.team_id;
  elsif new.entity_type='brand'then select to_jsonb(x)into image from public.crm_brands x where x.id=new.entity_id and x.team_id=new.team_id;end if;
- if image is null then raise exception'IMPORT_CREATED_ENTITY_NOT_FOUND'using errcode='P0002';end if;new.after_data:=image;return new;end$$;
+ if image is null then raise exception'IMPORT_CREATED_ENTITY_NOT_FOUND'using errcode='P0002';end if;new.after_data:=image;return new;end $$;
 drop trigger if exists import_created_entity_image on public.import_created_entities;
 create trigger import_created_entity_image before insert on public.import_created_entities for each row execute function public.capture_import_created_entity_image();
 
 -- Replace the legacy commit function so upgraded databases also capture updated-record snapshots.
 create or replace function public.commit_customer_import(p_batch_id uuid)
-returns jsonb language plpgsql security definer set search_path=''as$$<<import_commit>>
+returns jsonb language plpgsql security definer set search_path = '' as $$ <<import_commit>>
 declare r public.profiles;b public.import_batches;ir public.import_rows;brand_id uuid;store_id uuid;contact_id uuid;subscription_id uuid;created_any boolean;result jsonb;before_image jsonb;after_image jsonb;begin
  select*into r from public.profiles where id=auth.uid()and status='active';select*into b from public.import_batches where id=p_batch_id for update;
  if b.id is null or r.id is null or b.team_id<>r.team_id then raise exception'BATCH_NOT_FOUND'using errcode='P0002';end if;if not public.has_access_role(r.team_id,array['owner','admin'])or not public.is_feature_enabled(r.team_id,'sales_os_v3')then raise exception'IMPORT_ADMIN_REQUIRED'using errcode='42501';end if;
@@ -53,16 +53,16 @@ declare r public.profiles;b public.import_batches;ir public.import_rows;brand_id
   update public.import_rows set result_status=case when ir.planned_action='created'then'created'else'updated'end,result_data=result,processed_at=now()where id=ir.id;
   exception when others then update public.import_rows set result_status='error',error_message=left(sqlerrm,1000),processed_at=now()where id=ir.id;end;
  end loop;update public.import_batches set status=case when exists(select 1 from public.import_rows where batch_id=b.id and result_status='error')then'committed_with_errors'else'committed'end,committed_at=now()where id=b.id returning*into b;
- insert into public.audit_logs(team_id,actor_id,action,target_type,target_id,after_data)values(b.team_id,r.id,'import.batch_committed','import_batch',b.id,b.dry_run_report);return jsonb_build_object('batch_id',b.id,'status','committed');end$$;
+ insert into public.audit_logs(team_id,actor_id,action,target_type,target_id,after_data)values(b.team_id,r.id,'import.batch_committed','import_batch',b.id,b.dry_run_report);return jsonb_build_object('batch_id',b.id,'status','committed');end $$;
 
 -- Existing legacy rows have no trustworthy import-time image: fail closed.
 update public.import_created_entities set after_data=null where after_data is null;
 
 create or replace function public.record_import_rollback_conflict(p_team text,p_batch uuid,p_type text,p_entity uuid,p_reason text)
-returns void language sql security definer set search_path=''as$$insert into public.import_rollback_conflicts(team_id,batch_id,entity_type,entity_id,reason)values(p_team,p_batch,p_type,p_entity,p_reason)on conflict(batch_id,entity_type,entity_id)do nothing$$;
+returns void language sql security definer set search_path = '' as $$ insert into public.import_rollback_conflicts(team_id,batch_id,entity_type,entity_id,reason)values(p_team,p_batch,p_type,p_entity,p_reason)on conflict(batch_id,entity_type,entity_id)do nothing $$;
 
 create or replace function public.rollback_customer_import(p_batch_id uuid)
-returns jsonb language plpgsql security definer set search_path=''as$$declare r public.profiles;b public.import_batches;ce public.import_created_entities;snap record;cur jsonb;conflicts integer;final_status text;begin
+returns jsonb language plpgsql security definer set search_path = '' as $$ declare r public.profiles;b public.import_batches;ce public.import_created_entities;snap record;cur jsonb;conflicts integer;final_status text;begin
  select*into r from public.profiles where id=auth.uid()and status='active';select*into b from public.import_batches where id=p_batch_id for update;
  if b.id is null or r.id is null or b.team_id<>r.team_id or not public.has_access_role(r.team_id,array['owner','admin'])or not public.is_feature_enabled(r.team_id,'sales_os_v3')then raise exception'ROLLBACK_FORBIDDEN'using errcode='42501';end if;
  if b.status in('rolled_back','rollback_conflict')then return jsonb_build_object('batch_id',b.id,'status',b.status);end if;if b.status not in('committed','committed_with_errors')then raise exception'COMMITTED_BATCH_REQUIRED'using errcode='55000';end if;
@@ -88,7 +88,7 @@ returns jsonb language plpgsql security definer set search_path=''as$$declare r 
    if ce.after_data is not null and cur is not distinct from ce.after_data and not exists(select 1 from public.crm_stores x where x.brand_id=ce.entity_id)and not exists(select 1 from public.crm_contacts x where x.brand_id=ce.entity_id)and not exists(select 1 from public.crm_leads x where x.brand_id=ce.entity_id)and not exists(select 1 from public.crm_opportunities x where x.brand_id=ce.entity_id)then delete from public.crm_brands where id=ce.entity_id;else perform public.record_import_rollback_conflict(ce.team_id,ce.batch_id,ce.entity_type,ce.entity_id,'created_entity_changed_or_referenced');end if;end if;
  end loop;
  select count(*)into conflicts from public.import_rollback_conflicts where batch_id=b.id;final_status:=case when conflicts=0 then'rolled_back'else'rollback_conflict'end;update public.import_batches set status=final_status,rolled_back_at=now()where id=b.id;
- insert into public.audit_logs(team_id,actor_id,action,target_type,target_id,after_data)values(b.team_id,r.id,case when conflicts=0 then'import.batch_rolled_back'else'import.batch_rollback_conflict'end,'import_batch',b.id,jsonb_build_object('status',final_status,'conflicts',conflicts));return jsonb_build_object('batch_id',b.id,'status',final_status,'conflicts',conflicts);end$$;
+ insert into public.audit_logs(team_id,actor_id,action,target_type,target_id,after_data)values(b.team_id,r.id,case when conflicts=0 then'import.batch_rolled_back'else'import.batch_rollback_conflict'end,'import_batch',b.id,jsonb_build_object('status',final_status,'conflicts',conflicts));return jsonb_build_object('batch_id',b.id,'status',final_status,'conflicts',conflicts);end $$;
 
 alter table public.import_rollback_conflicts enable row level security;
 alter table public.import_update_snapshots enable row level security;
