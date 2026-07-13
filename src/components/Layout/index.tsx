@@ -41,6 +41,7 @@ const NAV_GROUPS = [
       { to: '/inventory', icon: Package, label: '仓库' },
       { to: '/finance', icon: BarChart3, label: '财务' },
       { to: '/sales', icon: LineChart, label: '销售中心' },
+      { to: '/sales-v3', icon: LineChart, label: '销售工作台' },
       { to: '/assets', icon: Building2, label: '资产馆' },
     ],
   },
@@ -166,7 +167,7 @@ export default function Layout() {
                 {group.items.map((item) => {
                   const isActive = item.exact
                     ? location.pathname === item.to
-                    : location.pathname.startsWith(item.to)
+                    : location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)
 
                   return (
                     <NavLink
