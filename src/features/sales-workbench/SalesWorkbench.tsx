@@ -17,7 +17,7 @@ import {
   UsersRound,
 } from 'lucide-react'
 import { mockAssessments, mockCustomers, mockLeads, mockSummary } from './mockData'
-import type { ContactAttemptResult, LeadFollowupContext, LeadReadScope, SalesWorkbenchDataSource } from './dataSource'
+import type { ContactAttemptResult, LeadFollowupContext, LeadReadScope, SalesTodayAction, SalesWorkbenchDataSource } from './dataSource'
 import type { CustomerBrandSummary, FollowUpDraft, LeadStage, OpportunityQualification, OrderActionSignal, SalesAssessmentSummary, SalesLead, WorkbenchTab } from './types'
 import { prioritizeLead } from './actionPriority'
 import { CrmEntityEditor } from './CrmEntityEditor'
@@ -96,6 +96,8 @@ export function SalesWorkbench({
   const [showCustomerEditor, setShowCustomerEditor] = useState(false)
   const [followupContext, setFollowupContext] = useState<LeadFollowupContext | null>(null)
   const [historyLoading, setHistoryLoading] = useState(false)
+  const [serverTodayActions, setServerTodayActions] = useState<SalesTodayAction[]>([])
+  const [todayError, setTodayError] = useState('')
   const selected = leads.find((lead) => lead.id === selectedId)
   const activeTabConfig = tabs.find((tab) => tab.id === activeTab) ?? tabs[0]
 
@@ -108,12 +110,20 @@ export function SalesWorkbench({
   const workbenchSummary = useMemo(() => {
     if (demoMode) return mockSummary
     return {
-      appointments: todayTasks.filter((task) => task.priority === 'upcoming_appointment').length,
-      overdue: todayTasks.filter((task) => task.priority === 'overdue_appointment').length,
-      newLeads: leads.filter((lead) => lead.stage === 'new').length,
-      recycleRisks: leads.filter((lead) => lead.recycleRisk && lead.recycleRisk !== 'none' && !lead.recyclePaused).length,
+      appointments: serverTodayActions.filter((task) => task.actionType === 'upcoming_appointment').length,
+      overdue: serverTodayActions.filter((task) => task.label.includes('逾期') || task.supervisorException).length,
+      newLeads: serverTodayActions.filter((task) => task.actionType === 'new_lead').length,
+      recycleRisks: serverTodayActions.filter((task) => task.actionType === 'recycle_24h' || task.actionType === 'recycle_48h').length,
     }
-  }, [demoMode, leads, todayTasks])
+  }, [demoMode, serverTodayActions])
+
+  useEffect(() => {
+    if (demoMode || !dataSource || activeTab !== 'today') return
+    let active = true
+    dataSource.listTodayActions().then(items => { if (active) { setServerTodayActions(items); setTodayError('') } })
+      .catch(error => { if (active) { setServerTodayActions([]); setTodayError(error instanceof Error ? error.message : '读取今日行动队列失败') } })
+    return () => { active = false }
+  }, [activeTab, dataSource, demoMode])
 
   useEffect(() => {
     if (recapStartedAt === null) return
@@ -281,6 +291,16 @@ export function SalesWorkbench({
     const mine = await dataSource.listLeads('mine')
     setCurrentLeadScope('mine'); setLeads(mine); setSelectedId(leadId)
   }
+  const openTodayAction = async (action: SalesTodayAction) => {
+    if (action.entityType !== 'lead') { window.location.assign(action.route); return }
+    if (!dataSource) return
+    setIsLoading(true); setDataError('')
+    try {
+      const mine = await dataSource.listLeads('mine')
+      setCurrentLeadScope('mine'); setLeads(mine); setSelectedId(action.entityId); activateTab('leads')
+    } catch (error) { setDataError(error instanceof Error ? error.message : '打开行动对象失败') }
+    finally { setIsLoading(false) }
+  }
 
   const convertOpportunity = async () => {
     const qualificationPassed = qualification.isRealStore
@@ -340,7 +360,7 @@ export function SalesWorkbench({
             </div>
             <div className="sw-section-title"><span>智能行动队列</span><small>按紧急程度排序</small></div>
             <div className="sw-task-list">
-              {todayTasks.map(({ lead, priority, label, ageHours }) => (
+              {demoMode && todayTasks.map(({ lead, priority, label, ageHours }) => (
                 <button key={lead.id} className="sw-task-card" onClick={() => { setSelectedId(lead.id); activateTab('leads') }}>
                   <span className={`sw-priority is-${priority}`} />
                   <div className="sw-task-copy">
@@ -351,9 +371,14 @@ export function SalesWorkbench({
                   <ChevronRight size={18} />
                 </button>
               ))}
-              {!isLoading && todayTasks.length === 0 && <Placeholder icon={CheckCircle2} title="今日待办已清空" text="当前没有需要处理的线索，可查看客户或已有报价。" />}
+              {!demoMode && serverTodayActions.map(action => <button key={action.id} className="sw-task-card" onClick={() => void openTodayAction(action)}>
+                <span className={`sw-priority is-${action.priorityTone}`} />
+                <div className="sw-task-copy"><strong><em className={`sw-action-label is-${action.priorityTone}`}>{action.label}</em>{action.title}</strong><span>{action.reason}</span>{action.dueAt && <small>服务端时间：{new Date(action.dueAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}</small>}{action.supervisorException && <small className="is-risk">已进入主管异常板</small>}</div><ChevronRight size={18} />
+              </button>)}
+              {todayError && <div className="sw-data-error" role="alert">{todayError}</div>}
+              {!isLoading && (demoMode ? todayTasks.length === 0 : serverTodayActions.length === 0 && !todayError) && <Placeholder icon={CheckCircle2} title="今日待办已清空" text="服务端确认当前没有必须处理的事项。" />}
             </div>
-            {orderSignals.filter((signal) => signal.count > 0).length > 0 && <div className="sw-order-signals">{orderSignals.filter((signal) => signal.count > 0).map((signal) => <a key={signal.kind} href="#/orders-v3"><PackageCheck size={18} /><span><strong>{signal.kind === 'delivery_exception' ? '交付异常' : '续费待办'}</strong><small>{signal.count} 项 · 前往订单履约</small></span><ChevronRight size={18} /></a>)}</div>}
+            {demoMode && orderSignals.filter((signal) => signal.count > 0).length > 0 && <div className="sw-order-signals">{orderSignals.filter((signal) => signal.count > 0).map((signal) => <a key={signal.kind} href="#/orders-v3"><PackageCheck size={18} /><span><strong>{signal.kind === 'delivery_exception' ? '交付异常' : '续费待办'}</strong><small>{signal.count} 项 · 前往订单履约</small></span><ChevronRight size={18} /></a>)}</div>}
           </>
         )}
 

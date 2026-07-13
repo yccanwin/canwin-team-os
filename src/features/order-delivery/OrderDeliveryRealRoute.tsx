@@ -6,7 +6,7 @@ import { createSupabaseOrderDeliveryDataSource } from './supabaseDataSource'
 import AfterSalesLifecyclePanel from './AfterSalesLifecyclePanel'
 
 const dataSource = createSupabaseOrderDeliveryDataSource(supabase)
-const requestedOrderId = new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('order') ?? ''
+const requestedOrderId = () => new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('order') ?? ''
 const money = (value: number) => `¥${value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 const stateLabel: Record<string, string> = { pending: '待处理', opening: '开通中', active: '已开通', failed: '失败', reserved: '已备货', shortage: '缺货', shipped: '已出库', completed: '已完成' }
 
@@ -26,7 +26,7 @@ export default function OrderDeliveryRealRoute() {
     setBusy(true); setError(null)
     try {
       const rows = await dataSource.listOrders(); setOrders(rows)
-      setSelected(current => current ? rows.find(row => row.orderId === current.orderId) ?? null : rows.find(row => row.orderId === requestedOrderId) ?? rows[0] ?? null)
+      setSelected(current => current ? rows.find(row => row.orderId === current.orderId) ?? null : rows.find(row => row.orderId === requestedOrderId()) ?? rows[0] ?? null)
     } catch (caught) { setError(caught instanceof Error ? caught.message : '读取真实订单履约失败') }
     finally { setBusy(false) }
   }, [])

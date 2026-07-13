@@ -4,6 +4,7 @@ export type LeadReadScope = 'mine' | 'region'
 
 export interface SalesWorkbenchDataSource {
   listLeads(scope: LeadReadScope): Promise<SalesLead[]>
+  listTodayActions(): Promise<SalesTodayAction[]>
   claimLead(leadId: string): Promise<SalesLead>
   createFollowUp(leadId: string, followUp: FollowUpDraft): Promise<SalesLead>
   recordContactAttempt(leadId: string, result: ContactAttemptResult, note?: string): Promise<void>
@@ -34,6 +35,21 @@ export interface QuickLeadContext {
   regions: Array<{ id: string; name: string }>
   defaultRegionId?: string
   requiresRegionSelection: boolean
+}
+
+export interface SalesTodayAction {
+  id: string
+  entityId: string
+  entityType: 'lead'|'renewal'|'delivery_exception'
+  actionType: string
+  priority: number
+  priorityTone: 'critical'|'high'|'medium'|'normal'
+  label: string
+  title: string
+  reason: string
+  dueAt?: string
+  route: string
+  supervisorException: boolean
 }
 
 export interface QualificationStatus {

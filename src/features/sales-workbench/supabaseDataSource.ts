@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { SalesWorkbenchDataError, type LeadReadScope, type SalesWorkbenchDataSource } from './dataSource'
+import { SalesWorkbenchDataError, type LeadReadScope, type SalesTodayAction, type SalesWorkbenchDataSource } from './dataSource'
 import type { CustomerBrandSummary, CustomerContactSummary, CustomerStoreSummary, FollowUpDraft, LeadStage, SalesAssessmentSummary, SalesLead } from './types'
 
 type LeadRow = Record<string, unknown>
@@ -36,6 +36,18 @@ function firstRow(data: unknown): SalesLead {
 
 export function createSupabaseSalesWorkbenchDataSource(client: SupabaseClient): SalesWorkbenchDataSource {
   return {
+    async listTodayActions() {
+      const { data, error } = await client.rpc('get_sales_today_action_queue')
+      if (error) throw new SalesWorkbenchDataError(`读取今日行动队列失败：${error.message}`, error)
+      const rows = Array.isArray(data) ? data as Array<Record<string, unknown>> : []
+      return rows.map((row): SalesTodayAction => ({
+        id: String(row.id), entityId: String(row.entity_id), entityType: String(row.entity_type) as SalesTodayAction['entityType'],
+        actionType: String(row.action_type), priority: Number(row.priority),
+        priorityTone: ['critical', 'high', 'medium', 'normal'].includes(String(row.priority_tone)) ? String(row.priority_tone) as SalesTodayAction['priorityTone'] : 'normal',
+        label: String(row.label), title: String(row.title), reason: String(row.reason),
+        dueAt: row.due_at ? String(row.due_at) : undefined, route: String(row.route), supervisorException: row.supervisor_exception === true,
+      }))
+    },
     async listLeads(scope: LeadReadScope) {
       const query = client.from('crm_leads_visible').select('id,read_scope,store_name,contact_name,masked_phone,district_name,business_type,source,created_at,next_action_at,stage,facts,lead_status,owner_display_name,claimable,active_opportunity_id,recycle_risk,recycle_due_at,recycle_paused').eq('read_scope', scope).order('created_at', { ascending: false })
       const { data, error } = await query
