@@ -21,7 +21,7 @@ revoke all on public.fulfillment_inventory_operations from public,anon,authentic
 revoke select on public.fulfillment_inventory_stock,public.fulfillment_inventory_reservations,public.fulfillment_inventory_movements from authenticated;
 
 create or replace function public.get_delivery_hardware_workspace(p_delivery_id uuid)returns jsonb
-language plpgsql security definer stable set search_path=''as$$
+language plpgsql security definer stable set search_path = '' as $$
 declare v_profile public.profiles;v_delivery public.fulfillment_deliveries;v_order public.deal_orders;v_quote public.deal_quotes;v_can_manage boolean;
 begin
  select p.*into v_profile from public.profiles p where p.id=auth.uid()and p.status='active';
@@ -45,7 +45,7 @@ begin
 end$$;
 
 create or replace function public.reserve_delivery_stock(p_delivery_id uuid,p_stock_id uuid,p_quantity numeric,p_expected_on date,p_idempotency_key uuid)
-returns public.fulfillment_inventory_reservations language plpgsql security definer set search_path=''as$$
+returns public.fulfillment_inventory_reservations language plpgsql security definer set search_path = '' as $$
 declare v_delivery public.fulfillment_deliveries;v_stock public.fulfillment_inventory_stock;v_profile public.profiles;v_order public.deal_orders;v_existing public.fulfillment_inventory_operations;v_reservation public.fulfillment_inventory_reservations;v_available numeric;v_name text;v_required numeric;v_allocated numeric;
 begin
  if p_quantity is null or p_quantity<=0 or p_expected_on is null or p_expected_on<current_date or p_idempotency_key is null then raise exception'VALID_STOCK_REQUEST_REQUIRED'using errcode='22023';end if;
@@ -82,7 +82,7 @@ begin
 end$$;
 
 create or replace function public.create_order_delivery(p_order_id uuid,p_store_id uuid,p_service_expires_on date)
-returns public.fulfillment_deliveries language plpgsql security definer set search_path=''as$$
+returns public.fulfillment_deliveries language plpgsql security definer set search_path = '' as $$
 declare v_order public.deal_orders;v_delivery public.fulfillment_deliveries;v_profile public.profiles;v_created boolean:=false;
 begin
  select p.*into v_profile from public.profiles p where p.id=auth.uid()and p.status='active';select o.*into v_order from public.deal_orders o where o.id=p_order_id for update;
@@ -97,7 +97,7 @@ begin
 end$$;
 
 create or replace function public.set_delivery_software_active(p_delivery_id uuid)returns public.fulfillment_states
-language plpgsql security definer set search_path=''as$$
+language plpgsql security definer set search_path = '' as $$
 declare v_state public.fulfillment_states;v_profile public.profiles;v_delivery public.fulfillment_deliveries;v_order public.deal_orders;v_before text;
 begin
  select p.*into v_profile from public.profiles p where p.id=auth.uid()and p.status='active';select s.*into v_state from public.fulfillment_states s where s.delivery_id=p_delivery_id for update;select d.*into v_delivery from public.fulfillment_deliveries d where d.id=v_state.delivery_id;select o.*into v_order from public.deal_orders o where o.id=v_delivery.order_id and o.team_id=v_delivery.team_id for update;
@@ -109,7 +109,7 @@ begin
 end$$;
 
 create or replace function public.audit_fulfillment_hardware_state()returns trigger
-language plpgsql security definer set search_path=''as$$
+language plpgsql security definer set search_path = '' as $$
 begin
  if old.hardware_status is distinct from new.hardware_status then
   insert into public.audit_logs(team_id,actor_id,action,target_type,target_id,before_data,after_data)

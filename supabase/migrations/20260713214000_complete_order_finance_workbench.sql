@@ -41,7 +41,7 @@ begin
 end$$;
 
 create or replace function public.confirm_deal_internal_payment(p_order_id uuid,p_amount numeric,p_external_ref text,p_idempotency_key uuid,p_method text default'cash_remitted')
-returns public.deal_orders language plpgsql security definer set search_path=''as$$
+returns public.deal_orders language plpgsql security definer set search_path = '' as $$
 declare v_order public.deal_orders;v_profile public.profiles;v_existing public.deal_internal_settlements;v_settlement public.deal_internal_settlements;v_paid numeric;
 begin
  if p_amount is null or p_amount<=0 or p_method not in('cash_remitted','withheld_from_company_receipt')or nullif(trim(p_external_ref),'')is null or p_idempotency_key is null then raise exception'VALID_INTERNAL_SETTLEMENT_REQUIRED'using errcode='22023';end if;
@@ -67,7 +67,7 @@ end$$;
 
 drop function if exists public.record_deal_procurement_cost(uuid,numeric,text,uuid);
 create function public.record_deal_procurement_cost(p_order_id uuid,p_amount numeric,p_external_ref text,p_idempotency_key uuid)
-returns uuid language plpgsql security definer set search_path=''as$$
+returns uuid language plpgsql security definer set search_path = '' as $$
 declare v_order public.deal_orders;v_profile public.profiles;v_existing public.deal_procurement_cost_payments;v_payment public.deal_procurement_cost_payments;
 begin
  if p_amount is null or p_amount<=0 or nullif(trim(p_external_ref),'')is null or p_idempotency_key is null then raise exception'VALID_PROCUREMENT_PAYMENT_REQUIRED'using errcode='22023';end if;
@@ -83,7 +83,7 @@ begin
 end$$;
 
 create or replace function public.finalize_order_sales_margin(p_order_id uuid)returns uuid
-language plpgsql security definer set search_path=''as$$
+language plpgsql security definer set search_path = '' as $$
 declare v_order public.deal_orders;v_profile public.profiles;v_paid numeric;v_reversed numeric;v_expenses numeric;v_margin numeric;
 begin
  select p.* into v_profile from public.profiles p where p.id=auth.uid()and p.status='active';select o.* into v_order from public.deal_orders o where o.id=p_order_id for update;
@@ -104,7 +104,7 @@ end$$;
 drop function if exists public.get_internal_payment_workbench();
 create function public.get_internal_payment_workbench()
 returns table(order_id uuid,order_number text,quote_id uuid,store_name text,owner_name text,order_status text,customer_total numeric,customer_paid numeric,customer_remaining numeric,internal_due numeric,internal_paid numeric,internal_remaining numeric,procurement_paid numeric,estimated_margin numeric,final_margin numeric,margin_finalized boolean,fulfillment_unlocked boolean,can_manage boolean,can_view_margin boolean,lock_reason text)
-language sql security definer stable set search_path=''as$$
+language sql security definer stable set search_path = '' as $$
  with me as(select p.id,p.team_id,public.has_permission(p.team_id,'finance.manage')can_manage,public.has_access_role(p.team_id,array['owner'])is_owner from public.profiles p where p.id=auth.uid()and p.status='active'and public.is_feature_enabled(p.team_id,'sales_os_v3')),
  payment as(select p.team_id,p.order_id,sum(p.amount)paid from public.deal_payments p group by p.team_id,p.order_id),reversal as(select p.team_id,p.order_id,sum(r.amount)reversed from public.deal_payment_reversals r join public.deal_payments p on p.id=r.payment_id and p.team_id=r.team_id group by p.team_id,p.order_id),procurement as(select p.team_id,p.order_id,sum(p.amount)paid from public.deal_procurement_cost_payments p group by p.team_id,p.order_id)
  select o.id,o.order_number,o.quote_id,coalesce(s.name,'未命名门店'),coalesce(owner.name,'未命名销售'),o.status,o.customer_total,
