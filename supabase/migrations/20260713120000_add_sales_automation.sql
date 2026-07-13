@@ -39,31 +39,31 @@ create table public.supervisor_exception_resolutions(
 );
 
 create or replace function public.crm_lead_recycle_paused(p_team text,p_lead uuid,p_owner uuid,p_at timestamptz default now())
-returns boolean language sql security definer stable set search_path='' as $$
+returns boolean language sql security definer stable set search_path='' as $function$
  select exists(select 1 from public.crm_recycle_pauses p where p.team_id=p_team and p.lead_id=p_lead and p.revoked_at is null and p_at>=p.starts_at and p_at<p.ends_at)
  or(p_owner is not null and exists(select 1 from public.access_delegations d where d.team_id=p_team and d.delegator_id=p_owner and d.status='active' and p_at>=d.starts_at and p_at<d.ends_at))
-$$;
+$function$;
 
 create or replace function public.record_crm_contact_attempt(p_lead_id uuid,p_result text,p_note text default null,p_occurred_at timestamptz default now())
-returns public.crm_contact_attempts language plpgsql security definer set search_path='' as $$
+returns public.crm_contact_attempts language plpgsql security definer set search_path='' as $function$
 declare l public.crm_leads;r public.profiles;a public.crm_contact_attempts;
 begin if p_result not in('reached','unreachable','no_answer') then raise exception 'INVALID_CONTACT_RESULT' using errcode='22023';end if;
  select * into r from public.profiles where id=auth.uid() and status='active';select * into l from public.crm_leads where id=p_lead_id for update;
  if l.id is null or r.id is null or l.team_id<>r.team_id then raise exception 'LEAD_NOT_FOUND' using errcode='P0002';end if;
  if not public.is_feature_enabled(l.team_id,'sales_os_v3') or not(l.owner_id=r.id or public.can_act_for(l.team_id,l.owner_id) or public.has_permission(l.team_id,'customers.supervise')) then raise exception 'CONTACT_ATTEMPT_FORBIDDEN' using errcode='42501';end if;
  insert into public.crm_contact_attempts(team_id,lead_id,actor_id,result,note,occurred_at)values(l.team_id,l.id,r.id,p_result,p_note,p_occurred_at)returning * into a;
- update public.crm_leads set last_contact_attempt_at=greatest(coalesce(last_contact_attempt_at,p_occurred_at),p_occurred_at),attention_status='normal',updated_at=now() where id=l.id;return a;end$$;
+ update public.crm_leads set last_contact_attempt_at=greatest(coalesce(last_contact_attempt_at,p_occurred_at),p_occurred_at),attention_status='normal',updated_at=now() where id=l.id;return a;end $function$;
 
 create or replace function public.pause_crm_lead_recycle(p_lead_id uuid,p_ends_at timestamptz,p_reason text)
-returns public.crm_recycle_pauses language plpgsql security definer set search_path='' as $$
+returns public.crm_recycle_pauses language plpgsql security definer set search_path='' as $function$
 declare l public.crm_leads;r public.profiles;p public.crm_recycle_pauses;
 begin if p_ends_at<=now() or nullif(trim(p_reason),'')is null then raise exception 'VALID_PAUSE_REQUIRED' using errcode='22023';end if;
  select * into r from public.profiles where id=auth.uid() and status='active';select * into l from public.crm_leads where id=p_lead_id;
  if l.id is null or r.id is null or l.team_id<>r.team_id or not public.is_feature_enabled(l.team_id,'sales_os_v3') or not(l.owner_id=r.id or public.has_permission(l.team_id,'customers.supervise'))then raise exception 'PAUSE_FORBIDDEN' using errcode='42501';end if;
- insert into public.crm_recycle_pauses(team_id,lead_id,ends_at,reason,created_by)values(l.team_id,l.id,p_ends_at,trim(p_reason),r.id)returning * into p;return p;end$$;
+ insert into public.crm_recycle_pauses(team_id,lead_id,ends_at,reason,created_by)values(l.team_id,l.id,p_ends_at,trim(p_reason),r.id)returning * into p;return p;end $function$;
 
 create or replace function public.decide_crm_nurture_review(p_lead_id uuid,p_approved boolean,p_note text default null)
-returns public.crm_leads language plpgsql security definer set search_path='' as $$
+returns public.crm_leads language plpgsql security definer set search_path='' as $function$
 declare l public.crm_leads;r public.profiles;today_cn date:=(now()at time zone'Asia/Shanghai')::date;
 begin select * into r from public.profiles where id=auth.uid()and status='active';select * into l from public.crm_leads where id=p_lead_id for update;
  if l.id is null or r.id is null or l.team_id<>r.team_id then raise exception 'LEAD_NOT_FOUND' using errcode='P0002';end if;
@@ -74,11 +74,11 @@ begin select * into r from public.profiles where id=auth.uid()and status='active
  else insert into public.crm_owner_history(team_id,entity_type,entity_id,previous_owner_id,new_owner_id,reason,changed_by)values(l.team_id,'lead',l.id,l.owner_id,null,'nurture_review_rejected',r.id);
   update public.crm_leads set owner_id=null,status='public',claimed_at=null,nurture_until=null,updated_at=now()where id=l.id returning * into l;
   insert into public.audit_logs(team_id,actor_id,action,target_type,target_id,before_data,after_data)values(l.team_id,r.id,'lead.nurture_review_rejected','crm_lead',l.id,null,jsonb_build_object('note',p_note,'status','public'));
- end if;return l;end$$;
+ end if;return l;end $function$;
 
 create or replace function public.run_sales_automation_batch(p_team_id text,p_now timestamptz default now())
 returns table(marked_24h integer,recycled_48h integer,recycled_15d integer,nurtured_30d integer,review_pending integer,recycled_round2 integer)
-language plpgsql security definer set search_path='' as $$
+language plpgsql security definer set search_path='' as $function$
 declare l public.crm_leads;today_cn date:=(p_now at time zone 'Asia/Shanghai')::date;
 begin
  if current_setting('request.jwt.claim.role',true)<>'service_role' then raise exception 'SERVICE_ROLE_REQUIRED' using errcode='42501';end if;
@@ -114,7 +114,7 @@ begin
   and not public.crm_lead_recycle_paused(team_id,id,owner_id,p_now) for update skip locked loop
   update public.crm_leads set status='nurturing',nurture_round=nurture_round+1,nurture_until=today_cn+30,updated_at=p_now where id=l.id;nurtured_30d:=nurtured_30d+1;
   insert into public.audit_logs(team_id,actor_id,action,target_type,target_id,before_data,after_data)values(l.team_id,l.owner_id,'lead.auto_nurtured_30d','crm_lead',l.id,to_jsonb(l),jsonb_build_object('nurture_until',today_cn+30));
- end loop;return next;end$$;
+ end loop;return next;end $function$;
 
 alter table public.crm_contact_attempts enable row level security;alter table public.crm_recycle_pauses enable row level security;
 create policy "sales os v3 server gate" on public.crm_contact_attempts as restrictive for all to authenticated using(public.is_feature_enabled(team_id,'sales_os_v3'))with check(public.is_feature_enabled(team_id,'sales_os_v3'));
@@ -157,13 +157,13 @@ where public.has_permission(o.team_id,'customers.supervise')and o.decision_at is
  and exists(select 1 from public.deal_quotes q where q.team_id=o.team_id and q.opportunity_id=o.id and q.status in('submitted','approved','frozen'));
 
 create or replace function public.resolve_supervisor_exception(p_item_type text,p_entity_id uuid,p_owner_id uuid,p_resolution_due_at timestamptz,p_resolution_note text)
-returns public.supervisor_exception_resolutions language plpgsql security definer set search_path=''as$$
+returns public.supervisor_exception_resolutions language plpgsql security definer set search_path='' as $function$
 declare r public.profiles;x public.supervisor_exception_resolutions;
 begin if p_item_type not in('action_exception','closing_opportunity')or p_resolution_due_at is null or nullif(trim(p_resolution_note),'')is null then raise exception'VALID_RESOLUTION_REQUIRED'using errcode='22023';end if;
  select*into r from public.profiles where id=auth.uid()and status='active';if r.id is null or not public.is_feature_enabled(r.team_id,'sales_os_v3')or not public.has_permission(r.team_id,'customers.supervise')then raise exception'SUPERVISOR_REQUIRED'using errcode='42501';end if;
  if not exists(select 1 from public.crm_supervisor_board b where b.team_id=r.team_id and b.item_type=p_item_type and b.entity_id=p_entity_id and b.owner_id=p_owner_id)then raise exception'SUPERVISOR_ITEM_NOT_FOUND'using errcode='P0002';end if;
  insert into public.supervisor_exception_resolutions(team_id,item_type,entity_id,owner_id,resolution_due_at,resolution_note,resolved_by)values(r.team_id,p_item_type,p_entity_id,p_owner_id,p_resolution_due_at,trim(p_resolution_note),r.id)returning*into x;
- insert into public.audit_logs(team_id,actor_id,action,target_type,target_id,after_data)values(r.team_id,r.id,'supervisor.exception_resolved','supervisor_exception',x.id,to_jsonb(x));return x;end$$;
+ insert into public.audit_logs(team_id,actor_id,action,target_type,target_id,after_data)values(r.team_id,r.id,'supervisor.exception_resolved','supervisor_exception',x.id,to_jsonb(x));return x;end $function$;
 
 alter table public.supervisor_exception_resolutions enable row level security;
 create policy"sales os v3 server gate"on public.supervisor_exception_resolutions as restrictive for all to authenticated using(public.is_feature_enabled(team_id,'sales_os_v3'))with check(public.is_feature_enabled(team_id,'sales_os_v3'));
