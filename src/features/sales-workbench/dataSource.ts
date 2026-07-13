@@ -6,6 +6,8 @@ export interface SalesWorkbenchDataSource {
   listLeads(scope: LeadReadScope): Promise<SalesLead[]>
   claimLead(leadId: string): Promise<SalesLead>
   createFollowUp(leadId: string, followUp: FollowUpDraft): Promise<SalesLead>
+  recordContactAttempt(leadId: string, result: ContactAttemptResult, note?: string): Promise<void>
+  getLeadFollowupContext(leadId: string): Promise<LeadFollowupContext>
   listCustomers(): Promise<CustomerBrandSummary[]>
   listMyAssessments(): Promise<SalesAssessmentSummary[]>
   qualifyLead(leadId: string): Promise<string>
@@ -29,6 +31,22 @@ export interface QuickLeadContext {
   regions: Array<{ id: string; name: string }>
   defaultRegionId?: string
   requiresRegionSelection: boolean
+}
+export type ContactAttemptResult = 'reached' | 'no_answer' | 'unreachable'
+export interface LeadActivity {
+  id: string
+  activityType: 'attempt' | 'effective_followup'
+  occurredAt: string
+  outcome: string
+  businessFact?: string
+  customerCommitment?: string
+  nextActionAt?: string
+}
+export interface LeadFollowupContext {
+  leadStatus: string
+  nurtureUntil?: string
+  unreachableDays: number
+  activities: LeadActivity[]
 }
 export interface CrmEditorOptions {
   brands: Array<{ id: string; name: string; businessMode: string }>

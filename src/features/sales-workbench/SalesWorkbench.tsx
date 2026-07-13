@@ -17,7 +17,7 @@ import {
   UsersRound,
 } from 'lucide-react'
 import { mockAssessments, mockCustomers, mockLeads, mockSummary } from './mockData'
-import type { LeadReadScope, SalesWorkbenchDataSource } from './dataSource'
+import type { ContactAttemptResult, LeadFollowupContext, LeadReadScope, SalesWorkbenchDataSource } from './dataSource'
 import type { CustomerBrandSummary, FollowUpDraft, LeadStage, OpportunityQualification, OrderActionSignal, SalesAssessmentSummary, SalesLead, WorkbenchTab } from './types'
 import { prioritizeLead } from './actionPriority'
 import { CrmEntityEditor } from './CrmEntityEditor'
@@ -92,6 +92,8 @@ export function SalesWorkbench({
   const [assessmentError, setAssessmentError] = useState('')
   const [currentLeadScope, setCurrentLeadScope] = useState<LeadReadScope>(leadScope)
   const [showCustomerEditor, setShowCustomerEditor] = useState(false)
+  const [followupContext, setFollowupContext] = useState<LeadFollowupContext | null>(null)
+  const [historyLoading, setHistoryLoading] = useState(false)
   const selected = leads.find((lead) => lead.id === selectedId)
   const activeTabConfig = tabs.find((tab) => tab.id === activeTab) ?? tabs[0]
 
@@ -141,6 +143,16 @@ export function SalesWorkbench({
     }).finally(() => { if (active) setIsLoading(false) })
     return () => { active = false }
   }, [dataSource, demoMode, currentLeadScope])
+
+  useEffect(() => {
+    if (demoMode || !dataSource || !selectedId || currentLeadScope !== 'mine') { queueMicrotask(() => setFollowupContext(null)); return }
+    let active = true
+    queueMicrotask(() => setHistoryLoading(true))
+    dataSource.getLeadFollowupContext(selectedId).then((context) => { if (active) setFollowupContext(context) })
+      .catch((error: unknown) => { if (active) setDataError(error instanceof Error ? error.message : '读取跟进历史失败') })
+      .finally(() => { if (active) setHistoryLoading(false) })
+    return () => { active = false }
+  }, [currentLeadScope, dataSource, demoMode, selectedId])
 
   useEffect(() => {
     if (demoMode) return
@@ -199,6 +211,17 @@ export function SalesWorkbench({
     updateLead(selected.id, { stage: 'contacted' })
   }
 
+  const recordContactAttempt = async (result: ContactAttemptResult) => {
+    if (!selected || demoMode || !dataSource || currentLeadScope !== 'mine') return
+    setIsLoading(true); setDataError('')
+    try {
+      await dataSource.recordContactAttempt(selected.id, result)
+      setFollowupContext(await dataSource.getLeadFollowupContext(selected.id))
+      if (result === 'reached') markContacted(Date.now())
+    } catch (error) { setDataError(error instanceof Error ? error.message : '记录联系尝试失败') }
+    finally { setIsLoading(false) }
+  }
+
   const saveQualifiedFollowUp = async () => {
     if (!selected || (!draft.fact.trim() && !draft.commitment.trim()) || !draft.nextActionAt) return
     if (!demoMode) {
@@ -210,6 +233,7 @@ export function SalesWorkbench({
         setLeads((current) => current.map((lead) => lead.id === updated.id ? updated : lead))
         onLeadChange?.(updated)
         setDraft(blankDraft)
+        setFollowupContext(await dataSource.getLeadFollowupContext(selected.id))
       } catch (error) {
         setDataError(error instanceof Error ? error.message : '保存跟进失败')
       } finally {
@@ -359,7 +383,10 @@ export function SalesWorkbench({
                 {!demoMode && currentLeadScope === 'region' && selected.claimable && <button className="sw-secondary" disabled={isLoading} onClick={claimSelectedLead}>通过 RPC 领取该线索</button>}
                 {!demoMode && currentLeadScope === 'region' && !selected.claimable && <div className="sw-owner-notice">已占用 · 负责人：{selected.ownerDisplayName ?? '未显示'} · 不可领取</div>}
 
-                {selected.stage === 'new' && <button className="sw-primary" onClick={() => markContacted(Date.now())}><Phone size={18} />{demoMode ? '模拟电话已接通' : '记录电话已接通'}</button>}
+                {selected.stage === 'new' && (demoMode || (currentLeadScope === 'mine' && followupContext && !['nurturing', 'supervisor_review'].includes(followupContext.leadStatus))) && <div className="sw-attempt-actions">
+                  <button className="sw-primary" disabled={isLoading} onClick={() => demoMode ? markContacted(Date.now()) : void recordContactAttempt('reached')}><Phone size={18} />电话已接通</button>
+                  {!demoMode && <><button className="sw-secondary" disabled={isLoading} onClick={() => void recordContactAttempt('no_answer')}>未接电话</button><button className="sw-secondary" disabled={isLoading} onClick={() => void recordContactAttempt('unreachable')}>无法联系</button></>}
+                </div>}
                 {(selected.stage === 'contacted' || contactedForForm.includes(selected.id)) && (
                   <div className="sw-followup-form">
                     <div className="sw-recap-title"><strong>首次电话 60 秒复盘</strong><span>{recapSeconds > 0 ? `建议剩余 ${recapSeconds} 秒` : '可继续填写，内容完整优先'}</span></div>
@@ -370,6 +397,7 @@ export function SalesWorkbench({
                     <button className="sw-primary" disabled={(!draft.fact.trim() && !draft.commitment.trim()) || !draft.nextActionAt} onClick={saveQualifiedFollowUp}><CheckCircle2 size={18} />保存有效跟进</button>
                   </div>
                 )}
+                {!demoMode && currentLeadScope === 'mine' && <LeadFollowupHistory context={followupContext} loading={historyLoading} />}
                 {selected.stage === 'qualified' && demoMode && (
                   <div className="sw-qualification">
                     <div className="sw-qualification-heading"><strong>有效商机资格门</strong><span>{qualificationPassed ? '4/4 已通过' : '需全部通过'}</span></div>
@@ -430,6 +458,25 @@ function Metric({ value, label, tone }: { value: number; label: string; tone: st
 
 function FlowStep({ done, label }: { done: boolean; label: string }) {
   return <div className={done ? 'is-done' : ''}><span>{done ? '✓' : ''}</span><small>{label}</small></div>
+}
+
+function LeadFollowupHistory({ context, loading }: { context: LeadFollowupContext | null; loading: boolean }) {
+  if (loading) return <div className="sw-history"><strong>跟进历史</strong><p>正在读取服务端记录…</p></div>
+  if (!context) return null
+  const attemptLabels: Record<string, string> = { reached: '电话已接通', no_answer: '未接电话', unreachable: '无法联系', workbench_follow_up: '有效跟进' }
+  return <section className="sw-history">
+    <header><strong>跟进历史</strong><span>{context.activities.length} 条真实记录</span></header>
+    {context.leadStatus === 'nurturing' && <div className="sw-nurture-notice"><strong>已进入首轮30天培育</strong><span>{context.nurtureUntil ? `服务端培育至 ${context.nurtureUntil}` : '培育期限由服务端管理'}</span></div>}
+    {context.leadStatus === 'supervisor_review' && <div className="sw-nurture-notice"><strong>首轮培育已结束，等待主管审核</strong><span>阶段由服务端管理，销售端不可修改</span></div>}
+    {context.unreachableDays >= 3 && context.leadStatus !== 'nurturing' && <div className="sw-nurture-notice is-pending"><strong>已有 {context.unreachableDays} 个不同日期联系不到</strong><span>等待服务端批处理进入培育，浏览器不会修改阶段</span></div>}
+    <div className="sw-history-list">{context.activities.map((item) => <article key={`${item.activityType}-${item.id}`}>
+      <div><strong>{item.activityType === 'effective_followup' ? '有效跟进' : attemptLabels[item.outcome] ?? item.outcome}</strong><time>{new Date(item.occurredAt).toLocaleString('zh-CN')}</time></div>
+      {item.businessFact && <p>新业务事实：{item.businessFact}</p>}
+      {item.customerCommitment && <p>客户承诺：{item.customerCommitment}</p>}
+      {item.nextActionAt && <small>下一步：{new Date(item.nextActionAt).toLocaleString('zh-CN')}</small>}
+    </article>)}</div>
+    {context.activities.length === 0 && <p className="sw-empty-line">暂无联系或有效跟进记录</p>}
+  </section>
 }
 
 function LeadRiskBadge({ lead }: { lead: SalesLead }) {

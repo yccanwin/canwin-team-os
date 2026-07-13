@@ -26,6 +26,10 @@ do$$begin
  if not exists(select 1 from information_schema.columns where table_schema='public'and table_name='crm_opportunities'and column_name='decision_at')
   or to_regclass('public.crm_supervisor_board')is null then raise exception 'Closing opportunity supervisor board missing';end if;
  if position('7' in pg_get_viewdef('public.crm_supervisor_board'::regclass,true))=0 or position('deal_quotes' in pg_get_viewdef('public.crm_supervisor_board'::regclass,true))=0 then raise exception 'Quoted 0-7 day decision rule missing';end if;
+ if to_regprocedure('public.get_crm_lead_followup_context(uuid)')is null then raise exception 'Lead follow-up history RPC missing';end if;
+ if position('count(distinct' in lower(pg_get_functiondef('public.get_crm_lead_followup_context(uuid)'::regprocedure)))=0
+  or position('crm_contact_attempts' in lower(pg_get_functiondef('public.get_crm_lead_followup_context(uuid)'::regprocedure)))=0
+  or position('crm_followups' in lower(pg_get_functiondef('public.get_crm_lead_followup_context(uuid)'::regprocedure)))=0 then raise exception 'Lead follow-up history contract incomplete';end if;
  if to_regclass('public.supervisor_exception_resolutions')is null or to_regprocedure('public.resolve_supervisor_exception(text,uuid,uuid,timestamp with time zone,text)')is null then raise exception 'Supervisor resolution interface missing';end if;
  if position('p_owner_id' in pg_get_function_arguments('public.resolve_supervisor_exception(text,uuid,uuid,timestamp with time zone,text)'::regprocedure))=0
   or position('p_resolution_due_at' in pg_get_function_arguments('public.resolve_supervisor_exception(text,uuid,uuid,timestamp with time zone,text)'::regprocedure))=0

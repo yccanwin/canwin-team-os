@@ -59,6 +59,26 @@ export function createSupabaseSalesWorkbenchDataSource(client: SupabaseClient): 
       if (error) throw new SalesWorkbenchDataError(`保存跟进失败：${error.message}`, error)
       return firstRow(data)
     },
+    async recordContactAttempt(leadId, result, note) {
+      const response = await client.rpc('record_crm_contact_attempt', { p_lead_id: leadId, p_result: result, p_note: note?.trim() || null, p_occurred_at: new Date().toISOString() })
+      if (response.error) throw new SalesWorkbenchDataError(`记录联系尝试失败：${response.error.message}`, response.error)
+    },
+    async getLeadFollowupContext(leadId) {
+      const { data, error } = await client.rpc('get_crm_lead_followup_context', { p_lead_id: leadId })
+      if (error) throw new SalesWorkbenchDataError(`读取跟进历史失败：${error.message}`, error)
+      const value = data as { lead_status?: string; nurture_until?: string | null; unreachable_days?: number; activities?: Array<Record<string, unknown>> } | null
+      return {
+        leadStatus: String(value?.lead_status ?? ''), nurtureUntil: value?.nurture_until ? String(value.nurture_until) : undefined,
+        unreachableDays: Number(value?.unreachable_days ?? 0),
+        activities: (value?.activities ?? []).map((item) => ({
+          id: String(item.id), activityType: item.activity_type === 'effective_followup' ? 'effective_followup' : 'attempt',
+          occurredAt: String(item.occurred_at), outcome: String(item.outcome ?? ''),
+          businessFact: item.business_fact ? String(item.business_fact) : undefined,
+          customerCommitment: item.customer_commitment ? String(item.customer_commitment) : undefined,
+          nextActionAt: item.next_action_at ? String(item.next_action_at) : undefined,
+        })),
+      }
+    },
     async listCustomers() {
       const [brandsResult, storesResult, contactsResult, regionsResult] = await Promise.all([
         client.from('crm_brands').select('id,name').order('name'),
