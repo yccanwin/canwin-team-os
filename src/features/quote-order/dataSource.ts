@@ -68,6 +68,16 @@ export interface InternalPaymentWorkbenchRecord {
   lockReason: string
 }
 
+export interface ReversiblePaymentRecord {
+  paymentId: string
+  paymentType: string
+  originalAmount: number
+  reversedAmount: number
+  reversibleAmount: number
+  confirmedAt: string
+  externalRef: string | null
+}
+
 export interface QuoteOrderDataSource {
   loadDraftOptions(): Promise<{ opportunities: Array<{ id: string; label: string; valueGrade: string; demoCompleted: boolean }>; packages: Array<{ id: string; name: string }>; items: Array<{ id: string; name: string; itemType: string; listPrice: number }> }>
   completeOpportunityDemo(opportunityId: string): Promise<void>
@@ -86,6 +96,9 @@ export interface QuoteOrderDataSource {
   confirmInternalPayment(input: { orderId: string; amount: number; method: InternalPaymentMethod; externalRef: string; idempotencyKey: string }): Promise<DealOrderRecord>
   recordProcurementPayment(input: { orderId: string; amount: number; externalRef: string; idempotencyKey: string }): Promise<void>
   finalizeSalesMargin(orderId: string): Promise<void>
+  listReversiblePayments(orderId: string): Promise<ReversiblePaymentRecord[]>
+  reversePayment(input: { paymentId: string; amount: number; reason: string; idempotencyKey: string }): Promise<void>
+  recordOrderCancellation(input: { orderId: string; reason: string; idempotencyKey: string }): Promise<void>
 }
 
 export class QuoteOrderDataError extends Error {

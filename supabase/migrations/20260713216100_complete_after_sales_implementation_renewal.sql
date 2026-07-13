@@ -171,6 +171,20 @@ begin
 end
 $function$;
 
+create or replace function public.get_order_reversal_workbench(p_order_id uuid)
+returns table(payment_id uuid,payment_type text,original_amount numeric,reversed_amount numeric,reversible_amount numeric,confirmed_at timestamptz,external_ref text)
+language plpgsql security definer stable set search_path='' as $function$
+declare v_order public.deal_orders;v_profile public.profiles;
+begin
+ select p.*into v_profile from public.profiles p where p.id=auth.uid()and p.status='active';
+ select o.*into v_order from public.deal_orders o where o.id=p_order_id;
+ if v_order.id is null or v_profile.id is null or v_order.team_id<>v_profile.team_id or not public.is_feature_enabled(v_order.team_id,'sales_os_v3')or not public.has_permission(v_order.team_id,'finance.manage')then raise exception'FINANCE_FORBIDDEN'using errcode='42501';end if;
+ return query select p.id,p.payment_type,p.amount,coalesce(sum(r.amount),0),p.amount-coalesce(sum(r.amount),0),p.confirmed_at,p.external_ref
+ from public.deal_payments p left join public.deal_payment_reversals r on r.payment_id=p.id and r.team_id=p.team_id
+ where p.order_id=v_order.id and p.team_id=v_order.team_id group by p.id,p.payment_type,p.amount,p.confirmed_at,p.external_ref having p.amount-coalesce(sum(r.amount),0)>0 order by p.confirmed_at desc;
+end
+$function$;
+
 alter table public.fulfillment_after_sales_tasks enable row level security;
 alter table public.deal_order_cancellations enable row level security;
 alter table public.fulfillment_service_expiry_changes enable row level security;
@@ -181,6 +195,6 @@ create policy "cancellations finance read"on public.deal_order_cancellations for
 create policy "service expiry feature gate"on public.fulfillment_service_expiry_changes as restrictive for all to authenticated using(public.is_feature_enabled(team_id,'sales_os_v3'))with check(public.is_feature_enabled(team_id,'sales_os_v3'));
 create policy "service expiry changes read"on public.fulfillment_service_expiry_changes for select to authenticated using(public.can_read_order_delivery(team_id,delivery_id)or public.has_permission(team_id,'customers.supervise')or public.has_permission(team_id,'operations.manage'));
 
-revoke all on function public.submit_after_sales_handoff(uuid,jsonb,uuid),public.confirm_after_sales_handoff(uuid,uuid),public.mark_delivery_implementation(uuid,text,uuid),public.set_delivery_service_expiry(uuid,date,text,uuid),public.get_renewal_action_queue(),public.record_order_cancellation(uuid,text,uuid)from public;
-grant execute on function public.submit_after_sales_handoff(uuid,jsonb,uuid),public.confirm_after_sales_handoff(uuid,uuid),public.mark_delivery_implementation(uuid,text,uuid),public.set_delivery_service_expiry(uuid,date,text,uuid),public.get_renewal_action_queue(),public.record_order_cancellation(uuid,text,uuid)to authenticated;
+revoke all on function public.submit_after_sales_handoff(uuid,jsonb,uuid),public.confirm_after_sales_handoff(uuid,uuid),public.mark_delivery_implementation(uuid,text,uuid),public.set_delivery_service_expiry(uuid,date,text,uuid),public.get_renewal_action_queue(),public.record_order_cancellation(uuid,text,uuid),public.get_order_reversal_workbench(uuid)from public;
+grant execute on function public.submit_after_sales_handoff(uuid,jsonb,uuid),public.confirm_after_sales_handoff(uuid,uuid),public.mark_delivery_implementation(uuid,text,uuid),public.set_delivery_service_expiry(uuid,date,text,uuid),public.get_renewal_action_queue(),public.record_order_cancellation(uuid,text,uuid),public.get_order_reversal_workbench(uuid)to authenticated;
 notify pgrst,'reload schema';

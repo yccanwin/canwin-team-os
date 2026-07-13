@@ -6,6 +6,7 @@ import {
   type DealQuoteDraftLineRecord,
   type DealQuoteRecord,
   type InternalPaymentWorkbenchRecord,
+  type ReversiblePaymentRecord,
   type QuoteOrderDataSource,
 } from './dataSource'
 
@@ -22,6 +23,7 @@ type RawOrder = { id: string; order_number: string | null; quote_id: string; sta
 type RawInternalPayment = { order_id: string; order_number: string; quote_id: string; store_name: string; owner_name: string; order_status: string; customer_total: number | string; customer_paid: number | string; customer_remaining: number | string; internal_due: number | string; internal_paid: number | string; internal_remaining: number | string; procurement_paid: number | string; estimated_margin: number | string | null; final_margin: number | string | null; margin_finalized: boolean; fulfillment_unlocked: boolean; can_manage: boolean; can_view_margin: boolean; lock_reason: string }
 type RawDraftLine = { line_id: string; kind: 'package' | 'hardware' | 'addon'; source_id: string; item_name: string; quantity: number | string; customer_price: number | string }
 type RawApproval = { status: DealQuoteApprovalRecord['status']; note: string | null; decided_at: string | null; can_decide: boolean }
+type RawReversiblePayment = { payment_id: string; payment_type: string; original_amount: number | string; reversed_amount: number | string; reversible_amount: number | string; confirmed_at: string; external_ref: string | null }
 type OptionRow = Record<string, unknown>
 
 const related = (value: unknown): OptionRow | null => Array.isArray(value)
@@ -48,6 +50,7 @@ const mapQuote = (row: RawQuote): DealQuoteRecord => ({
 const mapOrder = (row: RawOrder): DealOrderRecord => ({ id: row.id, orderNumber: row.order_number ?? row.id, quoteId: row.quote_id, status: row.status, createdAt: row.created_at, customerTotal: Number(row.customer_total), internalDue: Number(row.internal_due), internalPaid: Number(row.internal_paid) })
 const mapInternalPayment = (row: RawInternalPayment): InternalPaymentWorkbenchRecord => ({ orderId: row.order_id, orderNumber: row.order_number, quoteId: row.quote_id, storeName: row.store_name, ownerName: row.owner_name, orderStatus: row.order_status, customerTotal: Number(row.customer_total), customerPaid: Number(row.customer_paid), customerRemaining: Number(row.customer_remaining), internalDue: Number(row.internal_due), internalPaid: Number(row.internal_paid), internalRemaining: Number(row.internal_remaining), procurementPaid: Number(row.procurement_paid), estimatedMargin: row.estimated_margin === null ? null : Number(row.estimated_margin), finalMargin: row.final_margin === null ? null : Number(row.final_margin), marginFinalized: row.margin_finalized, fulfillmentUnlocked: row.fulfillment_unlocked, canManage: row.can_manage, canViewMargin: row.can_view_margin, lockReason: row.lock_reason })
 const mapDraftLine = (row: RawDraftLine): DealQuoteDraftLineRecord => ({ lineId: row.line_id, kind: row.kind, sourceId: row.source_id, itemName: row.item_name, quantity: Number(row.quantity), customerPrice: Number(row.customer_price) })
+const mapReversiblePayment = (row: RawReversiblePayment): ReversiblePaymentRecord => ({ paymentId: row.payment_id, paymentType: row.payment_type, originalAmount: Number(row.original_amount), reversedAmount: Number(row.reversed_amount), reversibleAmount: Number(row.reversible_amount), confirmedAt: row.confirmed_at, externalRef: row.external_ref })
 const quoteSelection = 'id,opportunity_id,version_no,status,valid_until,customer_total,internal_total,has_special_content,special_content,submitted_at,frozen_at,crm_opportunities!inner(value_grade,demo_completed_at,crm_stores!inner(name),crm_brands(name))'
 
 const fail = (error: { message: string; code?: string } | null, context: string): never => {
@@ -148,5 +151,18 @@ export const createSupabaseQuoteOrderDataSource = (client: SupabaseClient): Quot
   async finalizeSalesMargin(orderId) {
     const { error } = await client.rpc('finalize_order_sales_margin', { p_order_id: orderId })
     if (error) return fail(error, '确认最终价差失败')
+  },
+  async listReversiblePayments(orderId) {
+    const { data, error } = await client.rpc('get_order_reversal_workbench', { p_order_id: orderId })
+    if (error || !data) return fail(error, '读取可冲销付款失败')
+    return (data as RawReversiblePayment[]).map(mapReversiblePayment)
+  },
+  async reversePayment(input) {
+    const { error } = await client.rpc('reverse_deal_payment', { p_payment_id: input.paymentId, p_amount: input.amount, p_reason: input.reason, p_idempotency_key: input.idempotencyKey })
+    if (error) return fail(error, '追加付款冲销失败')
+  },
+  async recordOrderCancellation(input) {
+    const { error } = await client.rpc('record_order_cancellation', { p_order_id: input.orderId, p_reason: input.reason, p_idempotency_key: input.idempotencyKey })
+    if (error) return fail(error, '追加订单取消记录失败')
   },
 })
