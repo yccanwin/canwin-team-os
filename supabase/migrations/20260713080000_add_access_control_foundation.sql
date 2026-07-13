@@ -398,13 +398,16 @@ on public.sales_regions (team_id, parent_id);
 create unique index if not exists profiles_team_id_key on public.profiles(team_id,id);
 
 create or replace function public.protect_last_team_admin()
-returns trigger language plpgsql security definer set search_path=''as$$
+returns trigger language plpgsql security definer set search_path=''
+as $protect_last_team_admin$
 declare affected_team text:=old.team_id;
-begin if not exists(select 1 from public.profile_access_roles par join public.access_roles ar on ar.id=par.role_id and ar.team_id=par.team_id join public.profiles p on p.id=par.profile_id and p.team_id=par.team_id where par.team_id=affected_team and ar.code='admin'and p.status='active')then raise exception'LAST_ADMIN_REQUIRED'using errcode='23514';end if;return null;end$$;
+begin if not exists(select 1 from public.profile_access_roles par join public.access_roles ar on ar.id=par.role_id and ar.team_id=par.team_id join public.profiles p on p.id=par.profile_id and p.team_id=par.team_id where par.team_id=affected_team and ar.code='admin'and p.status='active')then raise exception'LAST_ADMIN_REQUIRED'using errcode='23514';end if;return null;end
+$protect_last_team_admin$;
 create constraint trigger profile_access_roles_last_admin after delete or update on public.profile_access_roles deferrable initially deferred for each row execute function public.protect_last_team_admin();
 
 create or replace function public.manage_profile_access(p_profile_id uuid,p_role_codes text[],p_region_ids uuid[])
-returns jsonb language plpgsql security definer set search_path=''as$$
+returns jsonb language plpgsql security definer set search_path=''
+as $manage_profile_access$
 declare actor public.profiles;target public.profiles;roles text[]:=coalesce(p_role_codes,array[]::text[]);regions uuid[]:=coalesce(p_region_ids,array[]::uuid[]);before_state jsonb;after_state jsonb;
 begin select*into actor from public.profiles where id=auth.uid()and status='active';select*into target from public.profiles where id=p_profile_id;
  if actor.id is null or target.id is null or actor.team_id<>target.team_id then raise exception'PROFILE_NOT_FOUND'using errcode='P0002';end if;
@@ -419,7 +422,8 @@ begin select*into actor from public.profiles where id=auth.uid()and status='acti
  insert into public.profile_sales_regions(team_id,profile_id,region_id,assigned_by,is_primary)select target.team_id,target.id,selected.region_id,actor.id,row_number()over(order by selected.region_id)=1 from(select distinct unnest(regions)as region_id)selected;
  select jsonb_build_object('roles',to_jsonb(roles),'regions',to_jsonb(regions))into after_state;
  insert into public.audit_logs(team_id,actor_id,action,target_type,target_id,before_data,after_data)values(target.team_id,actor.id,'profile.access_replaced','profile',target.id,before_state,after_state);
- return after_state;end$$;
+ return after_state;end
+$manage_profile_access$;
 revoke all on function public.manage_profile_access(uuid,text[],uuid[])from public;grant execute on function public.manage_profile_access(uuid,text[],uuid[])to authenticated;
 
 notify pgrst, 'reload schema';
