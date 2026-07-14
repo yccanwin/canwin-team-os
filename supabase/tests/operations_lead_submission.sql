@@ -36,8 +36,7 @@ begin
     or position('leads.submit' in submit_def)=0 then
     raise exception 'submission RPC security boundary incomplete';
   end if;
-  if has_function_privilege('public','public.submit_operations_lead(text,text,text,text,text,text,text)','EXECUTE')
-    or has_function_privilege('anon','public.submit_operations_lead(text,text,text,text,text,text,text)','EXECUTE')
+  if has_function_privilege('anon','public.submit_operations_lead(text,text,text,text,text,text,text)','EXECUTE')
     or not has_function_privilege('authenticated','public.submit_operations_lead(text,text,text,text,text,text,text)','EXECUTE')then
     raise exception 'submission RPC grants unsafe';
   end if;
@@ -45,6 +44,24 @@ begin
     or not has_function_privilege('authenticated','public.get_operations_lead_intake_context(text,text)','EXECUTE')then
     raise exception 'preview RPC grants unsafe';
   end if;
+  if has_function_privilege('anon','public.get_my_lead_submissions(integer)','EXECUTE')
+    or not has_function_privilege('authenticated','public.get_my_lead_submissions(integer)','EXECUTE')then
+    raise exception 'submission status RPC grants unsafe';
+  end if;
+  if exists(
+    select 1
+    from pg_proc p
+    join pg_namespace n on n.oid=p.pronamespace
+    cross join lateral aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) acl
+    where n.nspname='public'
+      and p.proname=any(array[
+        'get_operations_lead_intake_context',
+        'submit_operations_lead',
+        'get_my_lead_submissions'
+      ])
+      and acl.grantee=0
+      and acl.privilege_type='EXECUTE'
+  )then raise exception 'PUBLIC retains operations lead RPC execute';end if;
   if not exists(select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace
     where n.nspname='public'and c.relname='crm_lead_submissions'and c.relrowsecurity)then
     raise exception 'submission table RLS missing';
