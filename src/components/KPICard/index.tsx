@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 interface KPICardProps {
   title: string;
@@ -9,7 +10,19 @@ interface KPICardProps {
   color?: string;
   icon?: React.ReactNode;
   sparklineData?: number[]; // 7日迷你趋势线数据
+  tone?: 'growth' | 'progress' | 'pending' | 'risk' | 'memory' | 'photo';
+  comparisonLabel?: string;
+  href?: string;
 }
+
+const TONE_STYLES = {
+  growth: { accent: '#10B981', shell: 'border-emerald-100 bg-gradient-to-br from-white to-emerald-50/80', badge: 'bg-emerald-100 text-emerald-700' },
+  progress: { accent: '#3B82F6', shell: 'border-blue-100 bg-gradient-to-br from-white to-blue-50/80', badge: 'bg-blue-100 text-blue-700' },
+  pending: { accent: '#F59E0B', shell: 'border-amber-100 bg-gradient-to-br from-white to-amber-50/80', badge: 'bg-amber-100 text-amber-700' },
+  risk: { accent: '#EF4444', shell: 'border-red-100 bg-gradient-to-br from-white to-red-50/80', badge: 'bg-red-100 text-red-700' },
+  memory: { accent: '#8B5CF6', shell: 'border-violet-100 bg-gradient-to-br from-white to-violet-50/80', badge: 'bg-violet-100 text-violet-700' },
+  photo: { accent: '#EC4899', shell: 'border-pink-100 bg-gradient-to-br from-white to-pink-50/80', badge: 'bg-pink-100 text-pink-700' },
+} as const;
 
 export const KPICard: React.FC<KPICardProps> = ({
   title,
@@ -17,10 +30,15 @@ export const KPICard: React.FC<KPICardProps> = ({
   suffix,
   trend,
   trendLabel,
-  color = '#6366F1',
+  color,
   icon,
   sparklineData,
+  tone = 'progress',
+  comparisonLabel,
+  href,
 }) => {
+  const toneStyle = TONE_STYLES[tone]
+  const resolvedColor = color || toneStyle.accent
   // 迷你折线颜色：涨绿跌红平灰
   const sparklineColor =
     trend === 'up' ? '#10B981' : trend === 'down' ? '#EF4444' : '#9CA3AF'
@@ -42,14 +60,14 @@ export const KPICard: React.FC<KPICardProps> = ({
       })
       .join(' ')
   })()
-  return (
-    <div className="bg-white rounded-card shadow-card p-4 hover:shadow-md transition-shadow">
+  const card = (
+    <div className={`h-full rounded-card border p-4 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-md ${toneStyle.shell}`}>
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm text-brand-300">{title}</span>
         {icon && (
           <div
             className="w-10 h-10 rounded-lg flex items-center justify-center"
-            style={{ backgroundColor: `${color}15` }}
+            style={{ backgroundColor: `${resolvedColor}18` }}
           >
             {icon}
           </div>
@@ -81,6 +99,12 @@ export const KPICard: React.FC<KPICardProps> = ({
         </div>
       )}
 
+      {comparisonLabel && (
+        <div className={`mt-2 inline-flex rounded-full px-2 py-1 text-[11px] font-medium ${toneStyle.badge}`}>
+          {comparisonLabel}
+        </div>
+      )}
+
       {/* 7日迷你趋势线 */}
       {sparklineData && sparklineData.length >= 2 && (
         <div className="mt-3">
@@ -93,7 +117,7 @@ export const KPICard: React.FC<KPICardProps> = ({
           >
             <polyline
               fill="none"
-              stroke={sparklineColor}
+              stroke={trend ? sparklineColor : resolvedColor}
               strokeWidth="1.5"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -104,4 +128,10 @@ export const KPICard: React.FC<KPICardProps> = ({
       )}
     </div>
   );
+
+  return href ? (
+    <Link to={href} className="block h-full rounded-card focus:outline-none focus:ring-2 focus:ring-cyan-400/50">
+      {card}
+    </Link>
+  ) : card
 };
