@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { AccessAdminDataSource } from './dataSource'
-import type { AccessAdminSnapshot } from './types'
+import { localizeAccessRole, type AccessAdminSnapshot } from './types'
 
 const requestKey = () => crypto.randomUUID()
 
@@ -40,7 +40,15 @@ export function createSupabaseAccessAdminDataSource(client: SupabaseClient): Acc
     async loadSnapshot() {
       const { data, error } = await client.rpc('get_access_admin_snapshot')
       fail('读取权限配置失败', error)
-      return data as AccessAdminSnapshot
+      const snapshot = data as AccessAdminSnapshot
+      return {
+        ...snapshot,
+        roles: snapshot.roles.map(localizeAccessRole),
+        members: snapshot.members.map((member) => ({
+          ...member,
+          roles: member.roles.map(localizeAccessRole),
+        })),
+      }
     },
     async replaceRoles(profileId, roleCodes) {
       const { error } = await client.rpc('admin_replace_profile_roles', { p_profile_id: profileId, p_role_codes: roleCodes, p_idempotency_key: requestKey() })
