@@ -23,3 +23,23 @@ export interface AccessAdminSnapshot {
   featureFlags: FeatureFlagView[]
   currentUserIsAdmin: boolean
 }
+
+const systemRoleLabels: Record<string, { name: string; description: string }> = {
+  owner: { name: '老板（Owner）', description: '拥有团队全部管理权限' },
+  admin: { name: '管理员（Administrator）', description: '管理人员、权限和系统配置' },
+  supervisor: { name: '销售主管（Sales Supervisor）', description: '管理销售团队、下属与销售过程' },
+  sales: { name: '销售（Sales）', description: '负责线索、客户、商机和成交推进' },
+  finance: { name: '财务（Finance）', description: '负责收付款确认、冲销和经营数据' },
+  warehouse: { name: '仓库（Warehouse）', description: '负责库存和硬件履约' },
+  implementation: { name: '实施（Implementation）', description: '负责安装、培训和实施交付' },
+  operations: { name: '运维（Operations）', description: '负责售后承接和持续运营' },
+}
+
+export function localizeAccessRole(role: AccessRoleOption): AccessRoleOption {
+  const localized = systemRoleLabels[role.code]
+  return localized ? { ...role, ...localized } : role
+}
+
+export function accessRoleName(code: string): string {
+  return systemRoleLabels[code]?.name ?? code
+}
