@@ -95,70 +95,66 @@ function App() {
     let cancelled = false
 
     async function loadCloudData() {
-      const [
-        profiles,
-        tasks,
-        records,
-        inventory,
-        votes,
-        goals,
-        personalGoals,
-        events,
-        timelineEvents,
-        achievements,
-        photos,
-        assets,
-        tools,
-        policies,
-        skills,
-        userSkills,
-        salesProducts,
-        salesRecords,
-        salesAssessments,
-      ] = await Promise.all([
-        loadTeamProfiles(),
-        loadTasks(),
-        isFinanceRole(currentUser.role) ? loadFinanceRecords() : loadFinancePublicSummary(),
-        isWarehouseRole(currentUser.role) ? loadInventory() : loadInventoryPublic(),
-        loadVotes(),
-        loadGoals(),
-        loadPersonalGoals(),
-        loadCalendarEvents(),
-        loadTimelineEvents(),
-        loadAchievements(),
-        loadPhotos(),
-        isCaptainRole(currentUser.role) || isFinanceRole(currentUser.role) || isWarehouseRole(currentUser.role)
-          ? loadAssets()
-          : loadPublicAssets(),
-        loadTools(),
-        loadWarRoomPolicies(),
-        loadSkills(),
-        loadUserSkills(),
-        loadSalesProducts(),
-        loadSalesScoreRecords(),
-        loadSalesAssessments(),
+      async function loadModule<T>(name: string, loader: () => Promise<T>, apply: (data: T) => void) {
+        try {
+          const data = await loader()
+          if (!cancelled) apply(data)
+        } catch (error) {
+          console.error(`[bootstrap] Failed to load ${name}.`, error)
+        }
+      }
+
+      await Promise.all([
+        loadModule('profiles', loadTeamProfiles, setUsers),
+        loadModule('tasks', loadTasks, setTasks),
+        loadModule(
+          'finance',
+          () => (isFinanceRole(currentUser.role) ? loadFinanceRecords() : loadFinancePublicSummary()),
+          setRecords
+        ),
+        loadModule(
+          'inventory',
+          () => (isWarehouseRole(currentUser.role) ? loadInventory() : loadInventoryPublic()),
+          setInventoryData
+        ),
+        loadModule('votes', loadVotes, setVotes),
+        loadModule('goals', loadGoals, setGoals),
+        loadModule('personal goals', loadPersonalGoals, setPersonalGoals),
+        loadModule('calendar events', loadCalendarEvents, setEvents),
+        loadModule('timeline events', loadTimelineEvents, setTimelineEvents),
+        loadModule('achievements', loadAchievements, setAchievements),
+        loadModule('photos', loadPhotos, setPhotos),
+        loadModule(
+          'assets',
+          () =>
+            isCaptainRole(currentUser.role) || isFinanceRole(currentUser.role) || isWarehouseRole(currentUser.role)
+              ? loadAssets()
+              : loadPublicAssets(),
+          setAssets
+        ),
+        loadModule('tools', loadTools, setTools),
+        loadModule('war room policies', loadWarRoomPolicies, setPolicies),
+        loadModule(
+          'skills',
+          async () => {
+            const [skills, userSkills] = await Promise.all([loadSkills(), loadUserSkills()])
+            return { skills, userSkills }
+          },
+          setSkillData
+        ),
+        loadModule(
+          'sales data',
+          async () => {
+            const [products, records, assessments] = await Promise.all([
+              loadSalesProducts(),
+              loadSalesScoreRecords(),
+              loadSalesAssessments(),
+            ])
+            return { products, records, assessments }
+          },
+          setSalesData
+        ),
       ])
-      if (cancelled) return
-      setUsers(profiles)
-      setTasks(tasks)
-      setRecords(records)
-      setInventoryData(inventory)
-      setVotes(votes)
-      setGoals(goals)
-      setPersonalGoals(personalGoals)
-      setEvents(events)
-      setTimelineEvents(timelineEvents)
-      setAchievements(achievements)
-      setPhotos(photos)
-      setAssets(assets)
-      setTools(tools)
-      setPolicies(policies)
-      if (skills && userSkills) {
-        setSkillData({ skills, userSkills })
-      }
-      if (salesProducts && salesRecords && salesAssessments) {
-        setSalesData({ products: salesProducts, records: salesRecords, assessments: salesAssessments })
-      }
     }
 
     void loadCloudData()

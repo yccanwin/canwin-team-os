@@ -75,7 +75,13 @@ export async function resolveStoredMediaUrl(value: string | undefined): Promise<
   const path = managedMediaPath(value)
   if (!path) return value
   const { data, error } = await supabase.storage.from(MEDIA_BUCKET).createSignedUrl(path, 3600)
-  if (error) throw new Error(error.message)
+  if (error) {
+    console.warn('[storage] Failed to create a signed media URL; using the stored reference.', {
+      path,
+      message: error.message,
+    })
+    return value
+  }
   return data.signedUrl
 }
 
