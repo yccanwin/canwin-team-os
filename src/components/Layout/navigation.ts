@@ -74,7 +74,7 @@ export const NAVIGATION_GROUPS: NavigationGroup[] = [
         description: '销售、客户、订单与交付',
         children: [
           link('今日工作台', '/sales-v3', Compass, { priority: 'high' }),
-          link('客户与线索', '/sales', ContactRound, { priority: 'high' }),
+          link('客户与线索', '/sales-v3?tab=leads', ContactRound, { priority: 'high' }),
           link('报价与订单', '/quotes-v3', ShoppingBasket),
           link('交付与售后', '/orders-v3', BriefcaseBusiness),
           link('管理看板', '/management-v3', BarChart3),
@@ -120,8 +120,7 @@ export const NAVIGATION_GROUPS: NavigationGroup[] = [
         icon: Users,
         description: '成员、岗位与专业能力',
         children: [
-          link('成员总览', '/members', CircleUserRound, { priority: 'high' }),
-          link('岗位职责', '/members', UserCog),
+          link('成员履历', '/members', CircleUserRound, { priority: 'high' }),
           link('技能与专长', '/skills', Network),
         ],
       },
@@ -132,7 +131,6 @@ export const NAVIGATION_GROUPS: NavigationGroup[] = [
         description: '团队工具与能力资产',
         children: [
           link('工具箱', '/toolbox', Wrench),
-          link('技能树', '/skills', Network),
         ],
       },
     ],
@@ -159,11 +157,17 @@ export const NAVIGATION_GROUPS: NavigationGroup[] = [
           link('人员与权限', '/settings-v3/access', UserCog),
           link('区域配置', '/settings-v3/regions', FolderCog),
           link('商品与套餐', '/settings-v3/catalog', ShoppingBasket),
-          link('旧版设置', '/settings', Settings),
         ],
       },
     ],
   },
+]
+
+export const MOBILE_PRIMARY_LINKS: NavigationLink[] = [
+  link('工作台', '/dashboard', LayoutDashboard, { exact: true }),
+  link('推进', '/work', CheckSquare),
+  link('客如云', '/sales-v3?tab=leads', LineChart),
+  link('财务', '/finance', BarChart3),
 ]
 
 function linkMatches(item: NavigationLink, currentLocation: string): boolean {
@@ -176,7 +180,13 @@ function linkMatches(item: NavigationLink, currentLocation: string): boolean {
   if (!pathMatches) return false
 
   for (const [key, value] of targetUrl.searchParams) {
-    if (currentUrl.searchParams.get(key) !== value) return false
+    const currentValue = currentUrl.searchParams.get(key)
+    const isCenterDefault =
+      currentValue === null &&
+      key === 'view' &&
+      ((targetUrl.pathname === '/asset-center' && value === 'inventory') ||
+        (targetUrl.pathname === '/culture-center' && value === 'overview'))
+    if (currentValue !== value && !isCenterDefault) return false
   }
 
   return true

@@ -3,6 +3,8 @@ import { SalesWorkbench } from './SalesWorkbench'
 import { createSupabaseSalesWorkbenchDataSource } from './supabaseDataSource'
 import type { LeadReadScope } from './dataSource'
 import type { OrderActionSignal } from './types'
+import type { WorkbenchTab } from './types'
+import { useSearchParams } from 'react-router-dom'
 
 const realDataSource = createSupabaseSalesWorkbenchDataSource(supabase)
 
@@ -21,6 +23,12 @@ export default function SalesWorkbenchRealRoute({
   salespersonName = '销售工作台',
   orderSignals = [],
 }: SalesWorkbenchRealRouteProps) {
+  const [searchParams] = useSearchParams()
+  const requestedTab = searchParams.get('tab')
+  const initialTab: WorkbenchTab = requestedTab === 'leads' || requestedTab === 'customers' || requestedTab === 'orders' || requestedTab === 'profile'
+    ? requestedTab
+    : 'today'
+
   return (
     <SalesWorkbench
       dataSource={realDataSource}
@@ -28,6 +36,8 @@ export default function SalesWorkbenchRealRoute({
       leadScope={leadScope}
       salespersonName={salespersonName}
       orderSignals={orderSignals}
+      initialTab={initialTab}
     />
   )
 }
+
