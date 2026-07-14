@@ -57,7 +57,7 @@ export async function resolveMediaUrl(value: string | undefined, folder: string)
 
   const { data: userData, error: userError } = await supabase.auth.getUser()
   if (userError) throw new Error(userError.message)
-  if (!userData.user) throw new Error('未登录，无法上传图片')
+  if (!userData.user) throw new Error('鏈櫥褰曪紝鏃犳硶涓婁紶鍥剧墖')
 
   const { blob, contentType, extension } = dataUrlToBlob(value)
   const path = `${CANWIN_TEAM_ID}/${folder}/${userData.user.id}/${crypto.randomUUID()}.${extension}`
@@ -75,7 +75,13 @@ export async function resolveStoredMediaUrl(value: string | undefined): Promise<
   const path = managedMediaPath(value)
   if (!path) return value
   const { data, error } = await supabase.storage.from(MEDIA_BUCKET).createSignedUrl(path, 3600)
-  if (error) throw new Error(error.message)
+  if (error) {
+    console.warn('[storage] Failed to create a signed media URL; using the stored reference.', {
+      path,
+      message: error.message,
+    })
+    return value
+  }
   return data.signedUrl
 }
 
@@ -120,3 +126,4 @@ export async function resolveStoredAttachments<T extends StorageAttachment>(
     }))
   )
 }
+
