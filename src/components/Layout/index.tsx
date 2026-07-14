@@ -115,6 +115,7 @@ export default function Layout() {
   const dropdownRef = useRef<HTMLDivElement>(null)
   const location = useLocation()
   const currentLocation = `${location.pathname}${location.search}`
+  const usesSalesMobileNavigation = location.pathname === '/sales-v3'
 
   const currentUser = useUserStore((s) => s.currentUser)
   const logout = useUserStore((s) => s.logout)
@@ -307,11 +308,11 @@ export default function Layout() {
         </header>
 
         {/* 内容区域 */}
-        <main className="app-main flex-1 overflow-y-auto p-3 pb-24 sm:p-5 sm:pb-24 lg:pb-5 animate-fade-in-up">
+        <main className={`app-main flex-1 overflow-y-auto p-3 pb-24 sm:p-5 sm:pb-24 lg:pb-5 animate-fade-in-up ${usesSalesMobileNavigation ? 'app-main--sales-fullscreen' : ''}`}>
           <Outlet />
         </main>
 
-        <nav aria-label="移动端主导航" className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-slate-200 bg-white/95 px-1 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-1.5 shadow-[0_-10px_30px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden">
+        {!usesSalesMobileNavigation && <nav aria-label="移动端主导航" className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-slate-200 bg-white/95 px-1 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-1.5 shadow-[0_-10px_30px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden">
           {MOBILE_PRIMARY_LINKS.map((item) => {
             const active = navigationItemMatches(item, currentLocation)
             return (
@@ -334,7 +335,7 @@ export default function Layout() {
             <Menu className="h-5 w-5" />
             <span>更多</span>
           </button>
-        </nav>
+        </nav>}
       </div>
 
     </div>
