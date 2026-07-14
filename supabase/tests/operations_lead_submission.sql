@@ -28,7 +28,10 @@ begin
   select lower(pg_get_functiondef('public.run_sales_automation_batch(text,timestamp with time zone)'::regprocedure))into automation_def;
   automation_compact:=regexp_replace(automation_def,'\s+','','g');
   select lower(pg_get_viewdef('public.crm_today_actions'::regclass,true))into today_def;
-  today_compact:=regexp_replace(today_def,'\s+','','g');
+  -- pg_get_viewdef may add semantically neutral ::text casts around string
+  -- literals depending on the server version. Remove them before matching the
+  -- business predicates so the regression test remains version-stable.
+  today_compact:=replace(regexp_replace(today_def,'\s+','','g'),'::text','');
 
   if position('security definer' in submit_def)=0
     or position('set search_path to ''''' in submit_def)=0
