@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { Navigate, Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
 import AuthGate from './components/AuthGate'
 import { useUserStore } from './stores/useUserStore'
@@ -222,7 +222,7 @@ function App() {
         <Route path="/orders-v3" element={<Suspense fallback={null}><FeatureFlagGate flagKey="sales_os_v3"><OrderDeliveryWorkbenchV3 /></FeatureFlagGate></Suspense>} />
         <Route path="/quotes-v3" element={<Suspense fallback={null}><FeatureFlagGate flagKey="sales_os_v3"><QuoteOrderRealV3 /></FeatureFlagGate></Suspense>} />
         <Route path="/management-v3" element={<Suspense fallback={null}><FeatureFlagGate flagKey="sales_os_v3"><ManagementBoardRealV3 /></FeatureFlagGate></Suspense>} />
-        <Route path="/access-v3" element={<Suspense fallback={null}><FeatureFlagGate flagKey="sales_os_v3"><AccessAdminRealV3 /></FeatureFlagGate></Suspense>} />
+        <Route path="/access-v3" element={<Navigate to="/settings-v3/access" replace />} />
         <Route path="/settings-v3" element={<Suspense fallback={null}><FeatureFlagGate flagKey="sales_os_v3"><SettingsHomeV3 /></FeatureFlagGate></Suspense>} />
         <Route path="/settings-v3/regions" element={<Suspense fallback={null}><FeatureFlagGate flagKey="sales_os_v3"><RegionAdminRealV3 /></FeatureFlagGate></Suspense>} />
         <Route path="/settings-v3/catalog" element={<Suspense fallback={null}><FeatureFlagGate flagKey="sales_os_v3"><CatalogAdminRealV3 /></FeatureFlagGate></Suspense>} />

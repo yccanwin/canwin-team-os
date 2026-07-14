@@ -13,6 +13,7 @@ import { roleLabel, signOut } from '@/services/profile'
 import PersonalReminderTicker from '@/components/PersonalReminderTicker'
 import {
   NAVIGATION_GROUPS,
+  MOBILE_PRIMARY_LINKS,
   navigationItemMatches,
   type NavigationCollection,
   type NavigationLink,
@@ -107,13 +108,11 @@ function SidebarCollection({
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [userDropdownOpen, setUserDropdownOpen] = useState(false)
-  const [expandedCollections, setExpandedCollections] = useState<string[]>(() =>
-    NAVIGATION_GROUPS.flatMap((group) =>
-      group.items
-        .filter((item) => item.type === 'collection' && navigationItemMatches(item, `${window.location.pathname}${window.location.search}`))
-        .map((item) => item.label),
-    ),
-  )
+  const [expandedCollection, setExpandedCollection] = useState<string | null>(() => {
+    const activeItem = NAVIGATION_GROUPS.flatMap((group) => group.items)
+      .find((item) => item.type === 'collection' && navigationItemMatches(item, `${window.location.pathname}${window.location.search}`))
+    return activeItem?.label ?? null
+  })
   const dropdownRef = useRef<HTMLDivElement>(null)
   const location = useLocation()
   const currentLocation = `${location.pathname}${location.search}`
@@ -122,14 +121,9 @@ export default function Layout() {
   const logout = useUserStore((s) => s.logout)
 
   useEffect(() => {
-    const activeCollections = NAVIGATION_GROUPS.flatMap((group) =>
-      group.items
-        .filter((item) => item.type === 'collection' && navigationItemMatches(item, currentLocation))
-        .map((item) => item.label),
-    )
-    if (activeCollections.length > 0) {
-      setExpandedCollections((current) => Array.from(new Set([...current, ...activeCollections])))
-    }
+    const activeItem = NAVIGATION_GROUPS.flatMap((group) => group.items)
+      .find((item) => item.type === 'collection' && navigationItemMatches(item, currentLocation))
+    if (activeItem) setExpandedCollection(activeItem.label)
   }, [currentLocation])
 
   // 点击外部关闭下拉
@@ -218,14 +212,8 @@ export default function Layout() {
                       key={item.label}
                       item={item}
                       currentLocation={currentLocation}
-                      expanded={expandedCollections.includes(item.label)}
-                      onToggle={() =>
-                        setExpandedCollections((current) =>
-                          current.includes(item.label)
-                            ? current.filter((label) => label !== item.label)
-                            : [...current, item.label],
-                        )
-                      }
+                      expanded={expandedCollection === item.label}
+                      onToggle={() => setExpandedCollection((current) => current === item.label ? null : item.label)}
                       onNavigate={() => setSidebarOpen(false)}
                     />
                   ),
@@ -238,7 +226,7 @@ export default function Layout() {
         {/* 底部版本号 */}
         <div className="app-sidebar-footer px-5 py-3 border-t border-cyan-300/15 flex items-center gap-2">
           <span className="w-2 h-2 bg-emerald-300 rounded-full shrink-0 shadow-[0_0_12px_rgba(52,211,153,.7)]" />
-          <span className="bg-cyan-300/10 text-cyan-100/60 px-2 py-0.5 rounded-full text-[10px]">v2.0</span>
+          <span className="bg-cyan-300/10 text-cyan-100/60 px-2 py-0.5 rounded-full text-[10px]">v3.0</span>
         </div>
       </aside>
 
@@ -314,9 +302,34 @@ export default function Layout() {
         </header>
 
         {/* 内容区域 */}
-        <main className="app-main flex-1 overflow-y-auto p-3 sm:p-5 animate-fade-in-up">
+        <main className="app-main flex-1 overflow-y-auto p-3 pb-24 sm:p-5 sm:pb-24 lg:pb-5 animate-fade-in-up">
           <Outlet />
         </main>
+
+        <nav aria-label="移动端主导航" className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-slate-200 bg-white/95 px-1 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-1.5 shadow-[0_-10px_30px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden">
+          {MOBILE_PRIMARY_LINKS.map((item) => {
+            const active = navigationItemMatches(item, currentLocation)
+            return (
+              <NavLink
+                key={item.label}
+                to={item.to}
+                onClick={() => setSidebarOpen(false)}
+                className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg text-[10px] font-medium ${active ? 'bg-cyan-50 text-cyan-700' : 'text-slate-500'}`}
+              >
+                <item.icon className="h-5 w-5" />
+                <span>{item.label}</span>
+              </NavLink>
+            )
+          })}
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg text-[10px] font-medium text-slate-500"
+          >
+            <Menu className="h-5 w-5" />
+            <span>更多</span>
+          </button>
+        </nav>
       </div>
 
     </div>

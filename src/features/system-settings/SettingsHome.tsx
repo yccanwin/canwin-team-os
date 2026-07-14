@@ -1,4 +1,4 @@
-import { ArrowRight, Boxes, FileSpreadsheet, MapPinned, Settings2, ShieldCheck } from 'lucide-react'
+import { ArrowRight, Boxes, MapPinned, Settings2, ShieldCheck } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 const modules = [
@@ -26,14 +26,6 @@ const modules = [
     status: '可用',
     accent: 'bg-emerald-50 text-emerald-700',
   },
-  {
-    title: '旧客户导入',
-    description: '下载标准模板，预检 Excel 或 CSV，并在零错误后确认写入客户档案。',
-    to: '/settings-v3/customer-import',
-    icon: FileSpreadsheet,
-    status: '可用',
-    accent: 'bg-indigo-50 text-indigo-700',
-  },
 ] as const
 
 export default function SettingsHome() {
@@ -47,19 +39,19 @@ export default function SettingsHome() {
             </span>
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/75">CanWin Team OS 3.0</p>
-              <h1 className="mt-1 text-2xl font-semibold tracking-tight">系统配置</h1>
+              <h1 className="mt-1 text-2xl font-semibold tracking-tight">设置中心</h1>
             </div>
           </div>
           <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300">
-            集中维护销售工作台使用的基础资料。未完成的模块会明确标注，不会产生假保存或演示数据。
+            集中维护人员权限、销售区域与商品套餐，日常业务录入回到对应业务中心完成。
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 px-5 py-3 text-xs text-slate-500 sm:px-8">
           <span>3 个配置模块</span>
           <span className="h-1 w-1 rounded-full bg-slate-300" />
-          <span>沿用销售 3.0 功能开关</span>
+          <span>统一使用 Team OS 3.0 权限校验</span>
           <span className="h-1 w-1 rounded-full bg-slate-300" />
-          <span>2.0 设置中心保持不变</span>
+          <span>不包含财务录入和目标管理</span>
         </div>
       </header>
 

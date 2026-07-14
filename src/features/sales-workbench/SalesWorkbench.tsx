@@ -65,6 +65,7 @@ export interface SalesWorkbenchProps {
   dataSource?: SalesWorkbenchDataSource
   leadScope?: LeadReadScope
   orderSignals?: OrderActionSignal[]
+  initialTab?: WorkbenchTab
 }
 
 export function SalesWorkbench({
@@ -75,8 +76,9 @@ export function SalesWorkbench({
   dataSource,
   leadScope = 'mine',
   orderSignals = [],
+  initialTab = 'today',
 }: SalesWorkbenchProps) {
-  const [activeTab, setActiveTab] = useState<WorkbenchTab>('today')
+  const [activeTab, setActiveTab] = useState<WorkbenchTab>(initialTab)
   const [leads, setLeads] = useState(() => demoMode ? initialLeads : [])
   const [selectedId, setSelectedId] = useState(() => demoMode ? (initialLeads[0]?.id ?? '') : '')
   const [draft, setDraft] = useState<FollowUpDraft>(blankDraft)
@@ -101,6 +103,10 @@ export function SalesWorkbench({
   const [todayError, setTodayError] = useState('')
   const selected = leads.find((lead) => lead.id === selectedId)
   const activeTabConfig = tabs.find((tab) => tab.id === activeTab) ?? tabs[0]
+
+  useEffect(() => {
+    setActiveTab(initialTab)
+  }, [initialTab])
 
   const activateTab = (tab: WorkbenchTab) => {
     setActiveTab(tab)

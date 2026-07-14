@@ -6,6 +6,7 @@ import AchievementDetailModal from './AchievementDetailModal'
 import AchievementFormModal from './AchievementFormModal'
 import EmptyStateIllustration from '@/components/EmptyStateIllustration'
 import type { Achievement } from '@/types'
+import { isCaptainRole } from '@/services/profile'
 
 // 分类筛选配置
 const CATEGORY_TABS = [
@@ -35,6 +36,9 @@ export default function AchievementsPage() {
   // 弹窗状态
   const [detailAch, setDetailAch] = useState<Achievement | null>(null)
   const [formAch, setFormAch] = useState<Achievement | null | 'new'>(null)
+  const canManageSelectedAchievement = detailAch
+    ? isCaptainRole(currentUser?.role) || currentUser?.id === detailAch.createdBy
+    : false
 
   // 筛选逻辑
   const filtered = useMemo(() => {
@@ -193,7 +197,7 @@ export default function AchievementsPage() {
             setFormAch(ach)
           }}
           onDelete={handleDelete}
-          isCaptain={true}
+          isCaptain={canManageSelectedAchievement}
         />
       )}
 

@@ -5,6 +5,7 @@ import { usePhotoStore } from '@/stores/usePhotoStore'
 import { useUserStore } from '@/stores/useUserStore'
 import PhotoUploadModal from '@/pages/Photos/PhotoUploadModal'
 import PhotoDetailModal from '@/pages/Photos/PhotoDetailModal'
+import { isCaptainRole } from '@/services/profile'
 import type { Photo } from '@/types'
 
 // ============================================================
@@ -43,6 +44,9 @@ export default function PhotosPage() {
   const [showUpload, setShowUpload] = useState(false)
   const [editingPhoto, setEditingPhoto] = useState<Photo | null>(null)
   const [detailPhoto, setDetailPhoto] = useState<Photo | null>(null)
+  const canManagePhoto = detailPhoto
+    ? isCaptainRole(currentUser?.role) || currentUser?.id === detailPhoto.uploadedBy
+    : false
 
   const grouped = useMemo(() => groupPhotosByYearMonth(photos), [photos])
 
@@ -181,8 +185,8 @@ export default function PhotosPage() {
           onClose={() => setDetailPhoto(null)}
           onEdit={handleEdit}
           onDelete={handleDelete}
-          canEdit={true}
-          canDelete={true}
+          canEdit={canManagePhoto}
+          canDelete={canManagePhoto}
         />
       )}
     </div>
