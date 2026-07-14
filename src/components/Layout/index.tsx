@@ -6,7 +6,6 @@ import {
   ChevronDown,
   ChevronRight,
   LogOut,
-  User,
 } from 'lucide-react'
 import { useUserStore } from '@/stores/useUserStore'
 import { roleLabel, signOut } from '@/services/profile'
@@ -123,7 +122,13 @@ export default function Layout() {
   useEffect(() => {
     const activeItem = NAVIGATION_GROUPS.flatMap((group) => group.items)
       .find((item) => item.type === 'collection' && navigationItemMatches(item, currentLocation))
-    if (activeItem) setExpandedCollection(activeItem.label)
+    let active = true
+    if (activeItem) {
+      queueMicrotask(() => {
+        if (active) setExpandedCollection(activeItem.label)
+      })
+    }
+    return () => { active = false }
   }, [currentLocation])
 
   // 点击外部关闭下拉

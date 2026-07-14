@@ -105,7 +105,11 @@ export function SalesWorkbench({
   const activeTabConfig = tabs.find((tab) => tab.id === activeTab) ?? tabs[0]
 
   useEffect(() => {
-    setActiveTab(initialTab)
+    let active = true
+    queueMicrotask(() => {
+      if (active) setActiveTab(initialTab)
+    })
+    return () => { active = false }
   }, [initialTab])
 
   const activateTab = (tab: WorkbenchTab) => {
