@@ -8,6 +8,33 @@ function fail(message: string, error: { message: string } | null) {
   if (error) throw new Error(`${message}：${error.message}`)
 }
 
+const adminErrorMessages: Record<string, string> = {
+  ACCESS_ADMIN_REQUIRED: '当前账号没有人员与权限管理权限。',
+  LAST_ADMIN_REQUIRED: '团队必须保留至少一名启用中的管理员。',
+  INVALID_INVITATION: '邀请信息无效，请检查姓名和邮箱。',
+  INVALID_ROLE_SET: '所选角色无效，请重新选择。',
+  IDEMPOTENCY_KEY_CONFLICT: '本次请求与已提交的操作冲突，请刷新后重试。',
+  Unauthorized: '登录状态已失效，请重新登录。',
+}
+
+async function failFunction(message: string, error: { message: string; context?: unknown } | null) {
+  if (!error) return
+  let serverError = ''
+  if (error.context instanceof Response) {
+    try {
+      const payload = await error.context.clone().json() as { error?: string; message?: string; code?: string }
+      serverError = payload.error || payload.message || payload.code || ''
+    } catch {
+      try { serverError = await error.context.clone().text() } catch { /* keep the generic fallback */ }
+    }
+  }
+  const code = serverError.trim()
+  const explanation = adminErrorMessages[code]
+  if (explanation) throw new Error(`${explanation}（服务端：${code}）`)
+  if (code) throw new Error(`${message}：${code}`)
+  throw new Error(`${message}：${error.message}`)
+}
+
 export function createSupabaseAccessAdminDataSource(client: SupabaseClient): AccessAdminDataSource {
   return {
     async loadSnapshot() {
@@ -26,13 +53,13 @@ export function createSupabaseAccessAdminDataSource(client: SupabaseClient): Acc
           idempotencyKey: requestKey(),
         },
       })
-      fail('登记邀请失败', error)
+      await failFunction('登记邀请失败', error)
     },
     async setProfileStatus(profileId, status) {
       const { error } = await client.functions.invoke('admin-members', {
         body: { action: 'set-status', id: profileId, status, idempotencyKey: requestKey() },
       })
-      fail('修改账号状态失败', error)
+      await failFunction('修改账号状态失败', error)
     },
     async createDelegation(input) {
       const { error } = await client.rpc('admin_create_delegation', {
