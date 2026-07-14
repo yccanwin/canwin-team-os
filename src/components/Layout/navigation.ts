@@ -75,6 +75,7 @@ export const NAVIGATION_GROUPS: NavigationGroup[] = [
         children: [
           link('今日工作台', '/sales-v3', Compass, { priority: 'high' }),
           link('客户与线索', '/sales-v3?tab=leads', ContactRound, { priority: 'high' }),
+          link('线索录入', '/operations/lead-intake', ContactRound, { priority: 'high' }),
           link('业绩与积分（原客如云）', '/sales', Trophy),
           link('报价与订单', '/quotes-v3', ShoppingBasket),
           link('交付与售后', '/orders-v3', BriefcaseBusiness),
