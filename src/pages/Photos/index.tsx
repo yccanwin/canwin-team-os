@@ -6,6 +6,7 @@ import { useUserStore } from '@/stores/useUserStore'
 import PhotoUploadModal from '@/pages/Photos/PhotoUploadModal'
 import PhotoDetailModal from '@/pages/Photos/PhotoDetailModal'
 import { isCaptainRole } from '@/services/profile'
+import { loadPhotos } from '@/services/photos'
 import type { Photo } from '@/types'
 
 // ============================================================
@@ -39,6 +40,7 @@ export default function PhotosPage() {
   const addPhoto = usePhotoStore((s) => s.addPhoto)
   const updatePhoto = usePhotoStore((s) => s.updatePhoto)
   const deletePhoto = usePhotoStore((s) => s.deletePhoto)
+  const setPhotos = usePhotoStore((s) => s.setPhotos)
   const currentUser = useUserStore((s) => s.currentUser)
 
   const [showUpload, setShowUpload] = useState(false)
@@ -54,7 +56,12 @@ export default function PhotosPage() {
   const handleUploadSubmit = async (
     data: Omit<Photo, 'id' | 'uploadedAt' | 'year' | 'month' | 'uploadedBy'>
   ) => {
-    addPhoto({ ...data, uploadedBy: currentUser!.id })
+    const savedPhoto = await addPhoto({ ...data, uploadedBy: currentUser!.id })
+    const refreshedPhotos = await loadPhotos()
+    if (!refreshedPhotos.some((photo) => photo.id === savedPhoto.id)) {
+      throw new Error('照片已提交，但刷新验证失败，请刷新页面确认')
+    }
+    setPhotos(refreshedPhotos)
   }
 
   const handleEditSubmit = async (

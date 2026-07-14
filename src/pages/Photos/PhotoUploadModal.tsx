@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Upload, Loader2, Camera, X, Plus } from 'lucide-react'
+import { Upload, Loader2, X, Plus } from 'lucide-react'
 import Modal from '@/components/Modal'
 import { useUserStore } from '@/stores/useUserStore'
 import { compressPhoto } from '@/utils/imageCompressor'
@@ -8,7 +8,7 @@ import type { Photo } from '@/types'
 interface Props {
   photo?: Photo | null // null = 新建模式，非 null = 编辑模式
   onClose: () => void
-  onSubmit: (data: Omit<Photo, 'id' | 'uploadedAt' | 'year' | 'month' | 'uploadedBy'>) => void
+  onSubmit: (data: Omit<Photo, 'id' | 'uploadedAt' | 'year' | 'month' | 'uploadedBy'>) => Promise<void>
 }
 
 interface FormData {
@@ -51,6 +51,8 @@ export default function PhotoUploadModal({
       : { ...EMPTY_FORM }
   )
   const [compressing, setCompressing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [submitError, setSubmitError] = useState('')
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({})
 
   const set = (patch: Partial<FormData>) => {
@@ -112,10 +114,18 @@ export default function PhotoUploadModal({
     return Object.keys(errs).length === 0
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validate()) return
-    onSubmit(form)
-    onClose()
+    setSaving(true)
+    setSubmitError('')
+    try {
+      await onSubmit(form)
+      onClose()
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : '上传失败，请稍后重试')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -274,17 +284,20 @@ export default function PhotoUploadModal({
 
       {/* ============ 按钮 ============ */}
       <div className="flex justify-end gap-3 pt-3 border-t border-brand-100">
+        {submitError && <p className="mr-auto self-center text-sm text-red-600" role="alert">{submitError}</p>}
         <button
           onClick={onClose}
+          disabled={saving}
           className="px-4 py-2 bg-gray-100 text-brand-400 rounded-lg text-sm hover:bg-gray-200 transition-colors"
         >
           取消
         </button>
         <button
-          onClick={handleSubmit}
+          onClick={() => void handleSubmit()}
+          disabled={saving || compressing}
           className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
         >
-          {isEdit ? '保存' : '上传'}
+          {saving ? <span className="inline-flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />上传中…</span> : (isEdit ? '保存' : '上传')}
         </button>
       </div>
     </Modal>
