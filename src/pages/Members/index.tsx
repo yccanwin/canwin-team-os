@@ -86,11 +86,18 @@ export default function MembersPage() {
                   <span>{user.learningNotes ? `成长关注：${user.learningNotes}` : '兴趣爱好待补充'}</span>
                 </div>
 
-                <Link to={`/profile?id=${user.id}`} className="mt-5 inline-flex min-h-10 w-full items-center justify-center rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-cyan-700">查看成员档案</Link>
+                <Link to={`/profile?id=${user.id}`} className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-cyan-700">查看成员档案</Link>
               </div>
             </article>
           )
         })}
+        {users.length === 0 && (
+          <div className="col-span-full flex min-h-56 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white/80 px-5 text-center">
+            <Network size={30} className="text-cyan-600" aria-hidden="true" />
+            <h2 className="mt-3 text-base font-semibold text-slate-800">暂无成员资料</h2>
+            <p className="mt-1 max-w-sm text-sm leading-6 text-slate-500">成员加入团队并完善档案后，这里会展示职能、技能与协作信息。</p>
+          </div>
+        )}
       </section>
 
       <section className="mt-7 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -99,7 +106,7 @@ export default function MembersPage() {
             <p className="flex items-center gap-2 text-sm font-semibold text-slate-900"><Camera size={17} className="text-fuchsia-500" />团队影像</p>
             <p className="mt-1 text-xs text-slate-500">回看一起完成的事和共同经历的瞬间。</p>
           </div>
-          <Link to="/photos" className="text-sm font-semibold text-cyan-700">查看全部</Link>
+          <Link to="/culture-center?view=photos" className="inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-semibold text-cyan-700 transition hover:bg-cyan-50">查看全部照片</Link>
         </div>
         {recentPhotos.length ? (
           <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
