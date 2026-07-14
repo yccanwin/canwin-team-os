@@ -460,7 +460,7 @@ export function SalesWorkbench({
         {activeTab === 'customers' && (
           <div className="sw-customer-page">
             <div className="sw-page-actions">
-              <div><strong>{showCustomerEditor ? '维护客户资料' : '客户档案'}</strong><span>{showCustomerEditor ? '品牌、门店、联系人与线索资料维护' : `${customers.length} 个可见品牌客户`}</span></div>
+              <div><strong>{showCustomerEditor ? '维护客户资料' : '客户档案'}</strong><span>{showCustomerEditor ? '品牌、门店与联系人资料维护；新线索请在线索页创建' : `${customers.length} 个可见品牌客户`}</span></div>
               {!demoMode && dataSource && <button className="sw-compact-action" onClick={() => setShowCustomerEditor((current) => !current)}>{showCustomerEditor ? <><UsersRound size={17} />返回客户列表</> : <><Plus size={17} />新建或维护</>}</button>}
             </div>
             {showCustomerEditor && !demoMode && dataSource
