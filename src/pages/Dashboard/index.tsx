@@ -1,4 +1,6 @@
 import { useMemo } from 'react'
+import { Link } from 'react-router-dom'
+import { AlertTriangle, ArrowRight, Boxes, History } from 'lucide-react'
 import { useFinanceStore } from '@/stores/useFinanceStore'
 import { useTaskStore } from '@/stores/useTaskStore'
 import { useGoalStore } from '@/stores/useGoalStore'
@@ -62,9 +64,14 @@ export default function Dashboard() {
   const restUsers = users.filter((user) =>
     (user.restDays ?? []).some((day) => restDayIndex[day] === todayWeekday)
   )
+  const todayKey = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' })
+  const overdueTasks = tasks.filter(
+    (task) => task.status !== 'done' && Boolean(task.deadline) && task.deadline!.slice(0, 10) < todayKey,
+  )
   const todayTasks = tasks
     .filter((task) => task.status !== 'done')
-    .filter((task) => !task.deadline || task.deadline.slice(0, 10) <= new Date().toISOString().slice(0, 10))
+    .filter((task) => !task.deadline || task.deadline.slice(0, 10) <= todayKey)
+    .sort((a, b) => (a.deadline || '9999').localeCompare(b.deadline || '9999'))
     .slice(0, 4)
   const lowStockItems = inventoryItems.filter((item) => item.quantity <= 3).slice(0, 4)
   const latestMemory = [...timelineEvents]
@@ -118,22 +125,40 @@ export default function Dashboard() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <section className="rounded-card bg-white p-5 shadow-card">
-          <h3 className="mb-3 font-heading text-base font-semibold text-brand-400">今天要处理</h3>
+        <Link to="/tasks" className={`group rounded-card border p-5 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-md ${overdueTasks.length ? 'border-red-200 bg-gradient-to-br from-white to-red-50' : 'border-blue-100 bg-gradient-to-br from-white to-blue-50'}`}>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className={`h-5 w-5 ${overdueTasks.length ? 'text-red-500' : 'text-blue-500'}`} />
+              <h3 className="font-heading text-base font-semibold text-brand-400">今天要处理</h3>
+            </div>
+            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${overdueTasks.length ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+              {overdueTasks.length ? `${overdueTasks.length} 项逾期` : `${todayTasks.length} 项待办`}
+            </span>
+          </div>
           {todayTasks.length ? (
             <div className="space-y-2">
               {todayTasks.map((task) => (
-                <div key={task.id} className="rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-400">
-                  {task.title}
+                <div key={task.id} className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm ${task.deadline && task.deadline.slice(0, 10) < todayKey ? 'bg-red-100/80 text-red-900' : 'bg-blue-100/70 text-blue-900'}`}>
+                  <span className="truncate">{task.title}</span>
+                  {task.deadline && task.deadline.slice(0, 10) < todayKey && <span className="shrink-0 text-[11px] font-semibold">已逾期</span>}
                 </div>
               ))}
             </div>
           ) : (
             <p className="text-sm text-brand-200">暂无紧急事项</p>
           )}
-        </section>
-        <section className="rounded-card bg-white p-5 shadow-card">
-          <h3 className="mb-3 font-heading text-base font-semibold text-brand-400">库存提醒</h3>
+          <div className="mt-3 flex items-center justify-end gap-1 text-xs font-medium text-blue-700">进入任务中心 <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" /></div>
+        </Link>
+        <Link to="/asset-center?view=inventory" className={`group rounded-card border p-5 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-md ${lowStockItems.length ? 'border-amber-200 bg-gradient-to-br from-white to-amber-50' : 'border-emerald-100 bg-gradient-to-br from-white to-emerald-50'}`}>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Boxes className={`h-5 w-5 ${lowStockItems.length ? 'text-amber-500' : 'text-emerald-500'}`} />
+              <h3 className="font-heading text-base font-semibold text-brand-400">库存提醒</h3>
+            </div>
+            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${lowStockItems.length ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+              {lowStockItems.length ? `${lowStockItems.length} 项偏低` : '库存正常'}
+            </span>
+          </div>
           {lowStockItems.length ? (
             <div className="space-y-2">
               {lowStockItems.map((item) => (
@@ -146,9 +171,13 @@ export default function Dashboard() {
           ) : (
             <p className="text-sm text-brand-200">暂无低库存提醒</p>
           )}
-        </section>
-        <section className="rounded-card bg-white p-5 shadow-card">
-          <h3 className="mb-3 font-heading text-base font-semibold text-brand-400">最近团队记忆</h3>
+          <div className="mt-3 flex items-center justify-end gap-1 text-xs font-medium text-amber-700">进入资产中心 <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" /></div>
+        </Link>
+        <Link to="/culture-center" className="group rounded-card border border-violet-100 bg-gradient-to-br from-white via-violet-50/70 to-pink-50/70 p-5 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-md">
+          <div className="mb-3 flex items-center gap-2">
+            <History className="h-5 w-5 text-violet-500" />
+            <h3 className="font-heading text-base font-semibold text-brand-400">最近团队记忆</h3>
+          </div>
           {latestMemory.length ? (
             <div className="space-y-2">
               {latestMemory.map((event) => (
@@ -162,7 +191,8 @@ export default function Dashboard() {
           ) : (
             <p className="text-sm text-brand-200">等待记录第一条团队时刻</p>
           )}
-        </section>
+          <div className="mt-3 flex items-center justify-end gap-1 text-xs font-medium text-violet-700">进入团队文化 <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" /></div>
+        </Link>
       </div>
 
       <KPISection />
@@ -197,3 +227,4 @@ export default function Dashboard() {
     </div>
   )
 }
+

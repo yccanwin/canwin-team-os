@@ -1,10 +1,20 @@
 import { useMemo } from 'react'
 import { KPICard } from '@/components/KPICard'
-import { DollarSign, CheckSquare, Target, Wallet, HeartPulse } from 'lucide-react'
+import { DollarSign, CheckSquare, Target, Wallet, AlertTriangle } from 'lucide-react'
 import { useTaskStore } from '@/stores/useTaskStore'
 import { useFinanceStore } from '@/stores/useFinanceStore'
+import { useInventoryStore } from '@/stores/useInventoryStore'
 import { useCountUp } from '@/hooks/useCountUp'
 
+function shanghaiDateKey(date: Date) {
+  return date.toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' })
+}
+
+function recordDateKey(value?: string) {
+  if (!value) return ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
+  return shanghaiDateKey(new Date(value))
+}
 
 export function KPISection() {
   // ================================================================
@@ -31,6 +41,7 @@ export function KPISection() {
 
   // —— 任务 ——
   const allTasks = useTaskStore((s) => s.tasks)
+  const inventoryItems = useInventoryStore((s) => s.items)
   const inProgressCount = useMemo(
     () => allTasks.filter((t) => t.status === 'in_progress').length,
     [allTasks]
@@ -50,13 +61,11 @@ export function KPISection() {
 
   // —— 本月营收环比 ——
   const momChange = useMemo(() => {
-    if (lastMonthIncome === 0) return 0
+    if (lastMonthIncome === 0) return null
     return Math.round(((thisMonthIncome - lastMonthIncome) / lastMonthIncome) * 100)
   }, [thisMonthIncome, lastMonthIncome])
   const revenueTrend: 'up' | 'down' | 'flat' =
-    momChange > 0 ? 'up' : momChange < 0 ? 'down' : 'flat'
-
-  const teamState = inProgressCount > 8 ? '偏忙' : goalRate >= 70 ? '稳定' : '推进中'
+    momChange === null ? 'flat' : momChange > 0 ? 'up' : momChange < 0 ? 'down' : 'flat'
 
   // —— 7 日迷你趋势数据 ——
   const last7Days = useMemo(() => {
@@ -64,7 +73,7 @@ export function KPISection() {
     for (let i = 6; i >= 0; i--) {
       const d = new Date()
       d.setDate(d.getDate() - i)
-      days.push(d.toISOString().slice(0, 10))
+      days.push(shanghaiDateKey(d))
     }
     return days
   }, [])
@@ -92,6 +101,34 @@ export function KPISection() {
     [allRecords, last7Days]
   )
 
+  const today = last7Days[last7Days.length - 1]
+  const yesterday = last7Days[last7Days.length - 2]
+  const todayIncome = last7DaysIncome[last7DaysIncome.length - 1] ?? 0
+  const yesterdayIncome = last7DaysIncome[last7DaysIncome.length - 2] ?? 0
+  const todayNet = last7DaysNet[last7DaysNet.length - 1] ?? 0
+  const yesterdayNet = last7DaysNet[last7DaysNet.length - 2] ?? 0
+
+  const last7DaysCreatedTasks = useMemo(
+    () => last7Days.map((date) => allTasks.filter((task) => recordDateKey(task.createdAt) === date).length),
+    [allTasks, last7Days],
+  )
+  const last7DaysCompletedTasks = useMemo(
+    () => last7Days.map((date) => allTasks.filter((task) => recordDateKey(task.completedAt) === date).length),
+    [allTasks, last7Days],
+  )
+  const todayCreated = last7DaysCreatedTasks[last7DaysCreatedTasks.length - 1] ?? 0
+  const yesterdayCreated = last7DaysCreatedTasks[last7DaysCreatedTasks.length - 2] ?? 0
+  const todayCompleted = last7DaysCompletedTasks[last7DaysCompletedTasks.length - 1] ?? 0
+  const yesterdayCompleted = last7DaysCompletedTasks[last7DaysCompletedTasks.length - 2] ?? 0
+  const overdueCount = useMemo(
+    () => allTasks.filter((task) => task.status !== 'done' && Boolean(task.deadline) && recordDateKey(task.deadline) < today).length,
+    [allTasks, today],
+  )
+  const lowStockCount = useMemo(
+    () => inventoryItems.filter((item) => item.quantity <= 3).length,
+    [inventoryItems],
+  )
+
   // —— 动画数值（数字滚动） ——
   const animatedIncome = useCountUp(thisMonthIncome)
   const animatedInProgress = useCountUp(inProgressCount)
@@ -108,9 +145,11 @@ export function KPISection() {
         title="本月收入"
         value={`¥${animatedIncome.toLocaleString()}`}
         trend={revenueTrend}
-        trendLabel={`环比 ${momChange >= 0 ? '+' : ''}${momChange}%`}
+        trendLabel={momChange === null ? '上月无收入，暂不计算环比' : `环比 ${momChange >= 0 ? '+' : ''}${momChange}%`}
+        comparisonLabel={`今日 ¥${todayIncome.toLocaleString()} · 昨日 ¥${yesterdayIncome.toLocaleString()}`}
         sparklineData={last7DaysIncome}
-        color="#10B981"
+        tone="growth"
+        href="/finance"
         icon={<DollarSign className="w-6 h-6 text-income" />}
       />
 
@@ -118,7 +157,10 @@ export function KPISection() {
       <KPICard
         title="进行中协作"
         value={animatedInProgress}
-        color="#3B82F6"
+        comparisonLabel={`今日新建 ${todayCreated} · 昨日 ${yesterdayCreated}`}
+        sparklineData={last7DaysCreatedTasks}
+        tone="progress"
+        href="/tasks"
         icon={<CheckSquare className="w-6 h-6 text-profit" />}
       />
 
@@ -127,7 +169,10 @@ export function KPISection() {
         title="任务完成"
         value={animatedGoalRate}
         suffix="%"
-        color="#6366F1"
+        comparisonLabel={`今日完成 ${todayCompleted} · 昨日 ${yesterdayCompleted}`}
+        sparklineData={last7DaysCompletedTasks}
+        tone="growth"
+        href="/tasks"
         icon={<Target className="w-6 h-6 text-primary" />}
       />
 
@@ -144,16 +189,21 @@ export function KPISection() {
           return 'flat' as const
         })()}
         sparklineData={last7DaysNet}
-        color="#F59E0B"
+        comparisonLabel={`今日净流 ${todayNet >= 0 ? '+' : ''}¥${todayNet.toLocaleString()} · 昨日 ${yesterdayNet >= 0 ? '+' : ''}¥${yesterdayNet.toLocaleString()}`}
+        tone={todayNet < 0 ? 'risk' : 'pending'}
+        href="/finance"
         icon={<Wallet className="w-6 h-6 text-amber-500" />}
       />
 
       <KPICard
-        title="协作节奏"
-        value={teamState}
-        color="#8B5CF6"
-        icon={<HeartPulse className="w-6 h-6 text-cash" />}
+        title="当前风险"
+        value={overdueCount + lowStockCount}
+        comparisonLabel={`逾期 ${overdueCount} · 低库存 ${lowStockCount}`}
+        tone={overdueCount + lowStockCount > 0 ? 'risk' : 'growth'}
+        href={overdueCount > 0 ? '/tasks' : '/asset-center?view=inventory'}
+        icon={<AlertTriangle className="w-6 h-6 text-expense" />}
       />
     </div>
   )
 }
+
