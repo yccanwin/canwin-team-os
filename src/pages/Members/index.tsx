@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
-import { BriefcaseBusiness, Camera, Heart, Network, Sparkles } from 'lucide-react'
-import { roleLabel } from '@/services/profile'
+import { BriefcaseBusiness, Camera, Heart, Network, ShieldCheck, Sparkles } from 'lucide-react'
+import { isAdminRole, roleLabel } from '@/services/profile'
 import { usePhotoStore } from '@/stores/usePhotoStore'
 import { useSkillStore } from '@/stores/useSkillStore'
 import { useUserStore } from '@/stores/useUserStore'
@@ -14,6 +14,7 @@ const palette = [
 
 export default function MembersPage() {
   const users = useUserStore((state) => state.users)
+  const currentUser = useUserStore((state) => state.currentUser)
   const skills = useSkillStore((state) => state.skills)
   const userSkills = useSkillStore((state) => state.userSkills)
   const photos = usePhotoStore((state) => state.photos)
@@ -33,6 +34,7 @@ export default function MembersPage() {
           </div>
           <h1 className="mt-3 text-2xl font-semibold sm:text-3xl">职能中心</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">看见每个人负责什么、擅长什么，以及团队如何互补协作。</p>
+          {isAdminRole(currentUser?.role) && <Link to="/settings-v3/access" className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-4 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-300/20"><ShieldCheck size={17} />编辑团队角色</Link>}
           <div className="mt-6 grid grid-cols-3 gap-3 sm:max-w-lg">
             <Metric label="团队成员" value={users.length} />
             <Metric label="岗位职能" value={positions} />

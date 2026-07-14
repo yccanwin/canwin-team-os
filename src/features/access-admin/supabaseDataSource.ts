@@ -17,6 +17,13 @@ const adminErrorMessages: Record<string, string> = {
   Unauthorized: '登录状态已失效，请重新登录。',
 }
 
+function failAdminOperation(message: string, error: { message: string } | null) {
+  if (!error) return
+  const code = Object.keys(adminErrorMessages).find((candidate) => error.message.includes(candidate))
+  if (code) throw new Error(`${adminErrorMessages[code]}（服务端：${code}）`)
+  throw new Error(`${message}：${error.message}`)
+}
+
 async function failFunction(message: string, error: { message: string; context?: unknown } | null) {
   if (!error) return
   let serverError = ''
@@ -38,11 +45,15 @@ async function failFunction(message: string, error: { message: string; context?:
 export function createSupabaseAccessAdminDataSource(client: SupabaseClient): AccessAdminDataSource {
   return {
     async loadSnapshot() {
-      const { data, error } = await client.rpc('get_access_admin_snapshot')
+      const [{ data, error }, { data: authData }] = await Promise.all([
+        client.rpc('get_access_admin_snapshot'),
+        client.auth.getUser(),
+      ])
       fail('读取权限配置失败', error)
       const snapshot = data as AccessAdminSnapshot
       return {
         ...snapshot,
+        currentUserId: authData.user?.id ?? '',
         roles: snapshot.roles.map(localizeAccessRole),
         members: snapshot.members.map((member) => ({
           ...member,
@@ -52,7 +63,7 @@ export function createSupabaseAccessAdminDataSource(client: SupabaseClient): Acc
     },
     async replaceRoles(profileId, roleCodes) {
       const { error } = await client.rpc('admin_replace_profile_roles', { p_profile_id: profileId, p_role_codes: roleCodes, p_idempotency_key: requestKey() })
-      fail('保存角色失败', error)
+      failAdminOperation('保存角色失败', error)
     },
     async createInvitation(email, displayName, roleCodes) {
       const { error } = await client.functions.invoke('admin-members', {
