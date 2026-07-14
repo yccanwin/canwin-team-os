@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "test:lead-parser": "node --experimental-strip-types scripts/test-lead-paste-parser.ts",
     "lint": "eslint .",
     "preview": "vite preview"
   },
