@@ -15,15 +15,13 @@ export default function EmptyState({
   action,
 }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 px-4">
-      <div className="text-neutral-tertiary mb-4">
-        {icon || <Inbox className="w-16 h-16" />}
+    <div className="ui-empty-state" role="status">
+      <div className="ui-empty-state__icon">
+        {icon || <Inbox className="h-8 w-8" aria-hidden="true" />}
       </div>
-      <h3 className="font-heading text-lg font-medium text-brand-400 mb-1">{title}</h3>
-      <p className="text-sm text-brand-200 mb-4 text-center max-w-xs">
-        {description}
-      </p>
-      {action && <div>{action}</div>}
+      <h3 className="font-heading text-base font-semibold text-slate-800">{title}</h3>
+      <p className="mt-1 max-w-sm text-center text-sm leading-6 text-slate-500">{description}</p>
+      {action && <div className="mt-4">{action}</div>}
     </div>
   )
 }

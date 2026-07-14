@@ -672,6 +672,135 @@ body {
   .fanshon-login-footer { display: none; }
 }
 
+/* Shared product language: readable business surfaces with restrained tech accents. */
+:root {
+  --ui-radius: 16px;
+  --ui-border: rgba(148, 163, 184, 0.28);
+  --ui-shadow: 0 12px 30px rgba(15, 23, 42, 0.065);
+  --ui-focus: rgba(6, 182, 212, 0.34);
+  --ui-success: #059669;
+  --ui-warning: #d97706;
+  --ui-danger: #dc2626;
+  --ui-info: #2563eb;
+}
+
+.rounded-card {
+  border-radius: var(--ui-radius);
+}
+
+.shadow-card {
+  box-shadow: var(--ui-shadow);
+}
+
+.ui-card {
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: var(--ui-shadow);
+}
+
+.ui-status {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ui-status--success { background: #ecfdf5; color: var(--ui-success); }
+.ui-status--warning { background: #fffbeb; color: var(--ui-warning); }
+.ui-status--danger { background: #fef2f2; color: var(--ui-danger); }
+.ui-status--info { background: #eff6ff; color: var(--ui-info); }
+
+.ui-empty-state {
+  display: flex;
+  min-height: 220px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed rgba(148, 163, 184, 0.52);
+  border-radius: var(--ui-radius);
+  background: linear-gradient(145deg, rgba(248, 250, 252, 0.9), rgba(236, 254, 255, 0.44));
+  padding: 32px 20px;
+}
+
+.ui-empty-state__icon {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 14px;
+  place-items: center;
+  border: 1px solid rgba(34, 211, 238, 0.2);
+  border-radius: 16px;
+  background: white;
+  color: #0891b2;
+  box-shadow: 0 10px 24px rgba(8, 145, 178, 0.1);
+}
+
+input:not([type='checkbox']):not([type='radio']),
+select,
+textarea {
+  min-height: 44px;
+  border-radius: 12px;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid var(--ui-focus);
+  outline-offset: 2px;
+}
+
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+.app-main {
+  padding-bottom: max(0px, env(safe-area-inset-bottom));
+}
+
+@media (max-width: 640px) {
+  .ui-empty-state {
+    min-height: 180px;
+    padding: 26px 16px;
+  }
+
+  .app-main {
+    overflow-wrap: anywhere;
+  }
+
+  .app-main table {
+    font-size: 0.8125rem;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  button,
+  [role='button'],
+  a.inline-flex,
+  a.flex {
+    min-height: 44px;
+  }
+
+  button,
+  [role='button'] {
+    touch-action: manipulation;
+  }
+}
+
 @media (max-height: 640px) {
   .fanshon-brand { top: 0.75rem; }
   .fanshon-brand h1 { font-size: clamp(1.65rem, 7vh, 2.35rem); }
@@ -698,6 +827,15 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
   .fanshon-scanline,
   .data-globe,
   .globe-grid-lines,
