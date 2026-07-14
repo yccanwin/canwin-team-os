@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { CANWIN_TEAM_ID } from '@/config/team'
 import type { Photo } from '@/types'
-import { resolveMediaUrl, resolveStoredMediaUrl } from '@/services/storage'
+import { removeManagedMedia, resolveMediaUrl, resolveStoredMediaUrl } from '@/services/storage'
 
 type PhotoRow = {
   id: string
@@ -93,12 +93,14 @@ export async function createPhotoRecord(
   const { data: userData, error: userError } = await supabase.auth.getUser()
   if (userError) throw new Error(userError.message)
 
+  const storedUrl = (await resolveMediaUrl(photo.url, 'photos')) || photo.url
+  const uploadedForThisRecord = photo.url.startsWith('data:')
   const { data, error } = await supabase
     .from('photos')
     .insert({
       ...photoToRow({
         ...photo,
-        url: (await resolveMediaUrl(photo.url, 'photos')) || photo.url,
+        url: storedUrl,
       }),
       team_id: CANWIN_TEAM_ID,
       uploaded_by: userData.user.id,
@@ -106,7 +108,16 @@ export async function createPhotoRecord(
     .select(PHOTO_SELECT)
     .single()
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    if (uploadedForThisRecord) {
+      try {
+        await removeManagedMedia(storedUrl)
+      } catch (cleanupError) {
+        console.warn('[photos] Failed to remove an orphaned upload.', cleanupError)
+      }
+    }
+    throw new Error(error.message)
+  }
   return rowToPhoto(data as PhotoRow)
 }
 

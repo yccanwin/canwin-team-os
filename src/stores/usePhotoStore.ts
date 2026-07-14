@@ -12,7 +12,7 @@ interface PhotoState {
   photos: Photo[]
 
   setPhotos:   (photos: Photo[]) => void
-  addPhoto:    (data: Omit<Photo, 'id' | 'uploadedAt' | 'year' | 'month'>) => void
+  addPhoto:    (data: Omit<Photo, 'id' | 'uploadedAt' | 'year' | 'month'>) => Promise<Photo>
   updatePhoto: (id: string, updates: Partial<Photo>) => void
   deletePhoto: (id: string) => void
 }
@@ -32,37 +32,13 @@ export const usePhotoStore = create<PhotoState>()(
 
       setPhotos: (photos) => set({ photos }),
 
-      addPhoto: (data) => {
-        let optimisticPhoto: Photo
-        set((s) => {
-          const { year, month } = parseYearMonth(data.date)
-          const newPhoto: Photo = {
-            ...data,
-            id: crypto.randomUUID(),
-            uploadedAt: new Date().toISOString(),
-            year,
-            month,
-          }
-          optimisticPhoto = newPhoto
-          return {
-            photos: [...s.photos, newPhoto].sort(
-              (a, b) => b.date.localeCompare(a.date)
-            ),
-          }
-        })
-        void createPhotoRecord(data)
-          .then((savedPhoto) =>
-            set((state) => ({
-              photos: state.photos
-                .map((p) => (p.id === optimisticPhoto.id ? savedPhoto : p))
-                .sort((a, b) => b.date.localeCompare(a.date)),
-            }))
-          )
-          .catch(() =>
-            set((state) => ({
-              photos: state.photos.filter((p) => p.id !== optimisticPhoto.id),
-            }))
-          )
+      addPhoto: async (data) => {
+        const savedPhoto = await createPhotoRecord(data)
+        set((state) => ({
+          photos: [...state.photos.filter((p) => p.id !== savedPhoto.id), savedPhoto]
+            .sort((a, b) => b.date.localeCompare(a.date)),
+        }))
+        return savedPhoto
       },
 
       updatePhoto: (id, updates) => {

@@ -85,6 +85,14 @@ export async function resolveStoredMediaUrl(value: string | undefined): Promise<
   return data.signedUrl
 }
 
+export async function removeManagedMedia(value: string | undefined): Promise<void> {
+  const path = managedMediaPath(value)
+  if (!path) return
+
+  const { error } = await supabase.storage.from(MEDIA_BUCKET).remove([path])
+  if (error) throw new Error(error.message)
+}
+
 export async function resolveStoredMediaUrls(values: string[] | undefined): Promise<string[] | undefined> {
   if (!values) return values
   return Promise.all(values.map((value) => resolveStoredMediaUrl(value).then((url) => url || value)))
