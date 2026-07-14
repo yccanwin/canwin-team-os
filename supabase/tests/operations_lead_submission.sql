@@ -5,6 +5,9 @@ declare
   submit_def text;
   list_def text;
   automation_def text;
+  automation_compact text;
+  today_def text;
+  today_compact text;
   policy_count integer;
 begin
   if to_regclass('public.crm_lead_submissions')is null then
@@ -23,6 +26,9 @@ begin
   select lower(pg_get_functiondef('public.submit_operations_lead(text,text,text,text,text,text,text)'::regprocedure))into submit_def;
   select lower(pg_get_functiondef('public.get_my_lead_submissions(integer)'::regprocedure))into list_def;
   select lower(pg_get_functiondef('public.run_sales_automation_batch(text,timestamp with time zone)'::regprocedure))into automation_def;
+  automation_compact:=regexp_replace(automation_def,'\s+','','g');
+  select lower(pg_get_viewdef('public.crm_today_actions'::regclass,true))into today_def;
+  today_compact:=regexp_replace(today_def,'\s+','','g');
 
   if position('security definer' in submit_def)=0
     or position('set search_path to ''''' in submit_def)=0
@@ -93,10 +99,19 @@ begin
     or position('security definer' in list_def)=0 then
     raise exception 'own submission status boundary incomplete';
   end if;
-  if position('claimed_at is not null' in automation_def)=0
-    or position('(claimed_at at time zone ''asia/shanghai'')::date<=today_cn-1' in automation_def)=0
-    or position('(claimed_at at time zone ''asia/shanghai'')::date<=today_cn-2' in automation_def)=0 then
+  if position('owner_idisnotnullandclaimed_atisnotnullandlast_contact_attempt_atisnull' in automation_compact)=0
+    or position('(claimed_atattimezone''asia/shanghai'')::date<=today_cn-1' in automation_compact)=0
+    or position('(claimed_atattimezone''asia/shanghai'')::date<=today_cn-2' in automation_compact)=0
+    or position('last_contact_attempt_atisnulland(created_atattimezone' in automation_compact)>0 then
     raise exception 'public-pool claim clock does not start at claimed_at';
+  end if;
+  if position('l.claimed_at,l.title' in today_compact)=0
+    or position('l.owner_idisnotnullandl.claimed_atisnotnull' in today_compact)=0
+    or position('l.last_contact_attempt_atisnulland((l.claimed_atattimezone' in today_compact)=0
+    or position('l.last_contact_attempt_atisnullthen((l.claimed_atattimezone' in today_compact)=0
+    or position('l.last_contact_attempt_atisnulland((l.created_atattimezone' in today_compact)>0
+    or position('l.last_contact_attempt_atisnullthen((l.created_atattimezone' in today_compact)>0 then
+    raise exception 'today action first-contact clock still uses created_at';
   end if;
 
   if not exists(select 1 from information_schema.columns where table_schema='public'

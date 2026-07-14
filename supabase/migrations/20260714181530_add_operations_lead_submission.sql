@@ -361,31 +361,74 @@ grant execute on function public.submit_operations_lead(text,text,text,text,text
 grant execute on function public.get_operations_lead_intake_context(text,text) to authenticated;
 grant execute on function public.get_my_lead_submissions(integer) to authenticated;
 
--- Existing automation used lead creation time for the first-contact clock.
--- A public-pool lead may be claimed days later, so the 24/48-hour clock must
--- explicitly require claimed_at and start from that handoff timestamp.
-do $repair_claim_clock$
-declare function_sql text;
+-- Public-pool leads start their first-contact clock only when claimed. This is
+-- the complete prior definition; only the 24/48-hour predicates use claimed_at.
+create or replace function public.run_sales_automation_batch(p_team_id text,p_now timestamptz default now())
+returns table(marked_24h integer,recycled_48h integer,recycled_15d integer,nurtured_30d integer,review_pending integer,recycled_round2 integer)
+language plpgsql security definer set search_path='' as $function$
+declare l public.crm_leads;today_cn date:=(p_now at time zone 'Asia/Shanghai')::date;
 begin
-  function_sql:=pg_catalog.pg_get_functiondef(
-    'public.run_sales_automation_batch(text,timestamp with time zone)'::regprocedure
-  );
-  function_sql:=pg_catalog.replace(
-    function_sql,
-    'and(created_at at time zone ''Asia/Shanghai'')::date<=today_cn-1',
-    'and claimed_at is not null and(claimed_at at time zone ''Asia/Shanghai'')::date<=today_cn-1'
-  );
-  function_sql:=pg_catalog.replace(
-    function_sql,
-    'and(created_at at time zone ''Asia/Shanghai'')::date<=today_cn-2',
-    'and claimed_at is not null and(claimed_at at time zone ''Asia/Shanghai'')::date<=today_cn-2'
-  );
-  if position('and claimed_at is not null and(claimed_at at time zone ''Asia/Shanghai'')::date<=today_cn-1' in function_sql)=0
-    or position('and claimed_at is not null and(claimed_at at time zone ''Asia/Shanghai'')::date<=today_cn-2' in function_sql)=0 then
-    raise exception 'CLAIM_CLOCK_REPAIR_FAILED';
-  end if;
-  execute function_sql;
-end
-$repair_claim_clock$;
+ if current_setting('request.jwt.claim.role',true)<>'service_role' then raise exception 'SERVICE_ROLE_REQUIRED' using errcode='42501';end if;
+ if not public.is_feature_enabled(p_team_id,'sales_os_v3') then raise exception 'SALES_OS_V3_DISABLED' using errcode='42501';end if;
+ marked_24h:=0;recycled_48h:=0;recycled_15d:=0;nurtured_30d:=0;review_pending:=0;recycled_round2:=0;
+ for l in select * from public.crm_leads where team_id=p_team_id and owner_id is not null and status='nurturing'and nurture_round=1 and nurture_until<=today_cn for update skip locked loop
+  update public.crm_leads set status='supervisor_review',nurture_until=null,updated_at=p_now where id=l.id;review_pending:=review_pending+1;
+  insert into public.audit_logs(team_id,actor_id,action,target_type,target_id,before_data,after_data)values(l.team_id,l.owner_id,'lead.nurture_round1_review','crm_lead',l.id,to_jsonb(l),jsonb_build_object('status','supervisor_review'));
+ end loop;
+ for l in select * from public.crm_leads where team_id=p_team_id and owner_id is not null and status='nurturing'and nurture_round=2 and nurture_until<=today_cn for update skip locked loop
+  insert into public.crm_owner_history(team_id,entity_type,entity_id,previous_owner_id,new_owner_id,reason,changed_by)values(l.team_id,'lead',l.id,l.owner_id,null,'nurture_round2_expired',l.owner_id);
+  update public.crm_leads set owner_id=null,status='public',claimed_at=null,nurture_until=null,updated_at=p_now where id=l.id;recycled_round2:=recycled_round2+1;
+  insert into public.audit_logs(team_id,actor_id,action,target_type,target_id,before_data,after_data)values(l.team_id,l.owner_id,'lead.nurture_round2_expired','crm_lead',l.id,to_jsonb(l),jsonb_build_object('status','public'));
+ end loop;
+ update public.crm_leads set attention_status='uncontacted_24h',updated_at=p_now where team_id=p_team_id and owner_id is not null and claimed_at is not null and last_contact_attempt_at is null
+  and(claimed_at at time zone 'Asia/Shanghai')::date<=today_cn-1 and attention_status<>'uncontacted_24h';get diagnostics marked_24h=row_count;
+ for l in select * from public.crm_leads where team_id=p_team_id and owner_id is not null and claimed_at is not null and last_contact_attempt_at is null
+   and(claimed_at at time zone 'Asia/Shanghai')::date<=today_cn-2 and not public.crm_lead_recycle_paused(team_id,id,owner_id,p_now) for update skip locked loop
+  insert into public.crm_owner_history(team_id,entity_type,entity_id,previous_owner_id,new_owner_id,reason,changed_by)values(l.team_id,'lead',l.id,l.owner_id,null,'auto_recycle_48h',l.owner_id);
+  update public.crm_leads set owner_id=null,status='public',claimed_at=null,attention_status='normal',updated_at=p_now where id=l.id;recycled_48h:=recycled_48h+1;
+  insert into public.audit_logs(team_id,actor_id,action,target_type,target_id,before_data,after_data)values(l.team_id,l.owner_id,'lead.auto_recycled_48h','crm_lead',l.id,to_jsonb(l),jsonb_build_object('status','public'));
+ end loop;
+ for l in select * from public.crm_leads where team_id=p_team_id and owner_id is not null and status in('claimed','qualified')
+   and(coalesce(last_effective_followup_at,claimed_at,created_at) at time zone 'Asia/Shanghai')::date<=today_cn-15
+   and(select count(distinct(a.occurred_at at time zone 'Asia/Shanghai')::date)from public.crm_contact_attempts a where a.lead_id=crm_leads.id and a.team_id=crm_leads.team_id and a.result in('unreachable','no_answer'))<3
+   and not public.crm_lead_recycle_paused(team_id,id,owner_id,p_now) for update skip locked loop
+  insert into public.crm_owner_history(team_id,entity_type,entity_id,previous_owner_id,new_owner_id,reason,changed_by)values(l.team_id,'lead',l.id,l.owner_id,null,'auto_recycle_15d',l.owner_id);
+  update public.crm_leads set owner_id=null,status='public',claimed_at=null,attention_status='normal',updated_at=p_now where id=l.id;recycled_15d:=recycled_15d+1;
+  insert into public.audit_logs(team_id,actor_id,action,target_type,target_id,before_data,after_data)values(l.team_id,l.owner_id,'lead.auto_recycled_15d','crm_lead',l.id,to_jsonb(l),jsonb_build_object('status','public'));
+ end loop;
+ for l in select * from public.crm_leads where team_id=p_team_id and owner_id is not null and status not in('nurturing','supervisor_review','closed')and nurture_round<1
+  and(select count(distinct(a.occurred_at at time zone 'Asia/Shanghai')::date)from public.crm_contact_attempts a where a.lead_id=crm_leads.id and a.team_id=crm_leads.team_id and a.result in('unreachable','no_answer'))>=3
+  and not public.crm_lead_recycle_paused(team_id,id,owner_id,p_now) for update skip locked loop
+  update public.crm_leads set status='nurturing',nurture_round=nurture_round+1,nurture_until=today_cn+30,updated_at=p_now where id=l.id;nurtured_30d:=nurtured_30d+1;
+  insert into public.audit_logs(team_id,actor_id,action,target_type,target_id,before_data,after_data)values(l.team_id,l.owner_id,'lead.auto_nurtured_30d','crm_lead',l.id,to_jsonb(l),jsonb_build_object('nurture_until',today_cn+30));
+ end loop;return next;end $function$;
+
+revoke all on function public.run_sales_automation_batch(text,timestamptz)from public,anon,authenticated;
+grant execute on function public.run_sales_automation_batch(text,timestamptz)to service_role;
+
+create or replace view public.crm_today_actions with(security_invoker=true)as
+select l.team_id,l.owner_id,l.id entity_id,'lead'::text entity_type,
+ case when l.next_action_kind='appointment'then'appointment'else'follow_up'end action_type,l.next_action_at due_at,l.title,
+ case when l.next_action_at<now()then'overdue'else'today'end urgency
+from public.crm_leads l where public.is_feature_enabled(l.team_id,'sales_os_v3')and l.owner_id is not null and(l.owner_id=auth.uid()or public.can_act_for(l.team_id,l.owner_id)or public.has_permission(l.team_id,'customers.supervise'))
+ and l.next_action_at is not null and(l.next_action_at at time zone'Asia/Shanghai')::date<=(now()at time zone'Asia/Shanghai')::date
+union all select l.team_id,l.owner_id,l.id,'lead',case when l.attention_status='uncontacted_24h'then'uncontacted_24h'else'new_lead'end,
+ l.claimed_at,l.title,case when l.attention_status='uncontacted_24h'then'overdue'else'today'end
+from public.crm_leads l where public.is_feature_enabled(l.team_id,'sales_os_v3')and l.owner_id is not null and l.claimed_at is not null and(l.owner_id=auth.uid()or public.can_act_for(l.team_id,l.owner_id)or public.has_permission(l.team_id,'customers.supervise'))
+ and l.last_contact_attempt_at is null and((l.claimed_at at time zone'Asia/Shanghai')::date=(now()at time zone'Asia/Shanghai')::date or l.attention_status='uncontacted_24h')
+union all select l.team_id,l.owner_id,l.id,'lead','recycle_risk',
+ (case when l.last_contact_attempt_at is null then((l.claimed_at at time zone'Asia/Shanghai')::date+2)else((coalesce(l.last_effective_followup_at,l.claimed_at,l.created_at)at time zone'Asia/Shanghai')::date+15)end::timestamp at time zone'Asia/Shanghai'),l.title,'today'
+from public.crm_leads l where public.is_feature_enabled(l.team_id,'sales_os_v3')and l.owner_id is not null and l.claimed_at is not null and(l.owner_id=auth.uid()or public.can_act_for(l.team_id,l.owner_id)or public.has_permission(l.team_id,'customers.supervise'))
+ and not public.crm_lead_recycle_paused(l.team_id,l.id,l.owner_id,now())and(case when l.last_contact_attempt_at is null then(l.claimed_at at time zone'Asia/Shanghai')::date+2 else(coalesce(l.last_effective_followup_at,l.claimed_at,l.created_at)at time zone'Asia/Shanghai')::date+15 end)<=(now()at time zone'Asia/Shanghai')::date+1
+union all select e.team_id,q.owner_id,e.id,'delivery_exception','delivery_exception',e.created_at,e.details,'overdue'
+from public.fulfillment_exceptions e join public.fulfillment_deliveries d on d.id=e.delivery_id and d.team_id=e.team_id join public.deal_orders o on o.id=d.order_id and o.team_id=d.team_id join public.deal_quotes q on q.id=o.quote_id and q.team_id=o.team_id
+where e.status='open'and(q.owner_id=auth.uid()or public.can_act_for(e.team_id,q.owner_id)or public.has_permission(e.team_id,'customers.supervise'))
+union all select rm.team_id,q.owner_id,rm.id,'renewal','renewal_'||rm.days_before,(rm.due_on::timestamp at time zone'Asia/Shanghai'),s.name,
+ case when rm.due_on<(now()at time zone'Asia/Shanghai')::date then'overdue'else'today'end
+from public.fulfillment_renewal_milestones rm join public.fulfillment_deliveries d on d.id=rm.delivery_id and d.team_id=rm.team_id join public.deal_orders o on o.id=d.order_id and o.team_id=d.team_id join public.deal_quotes q on q.id=o.quote_id and q.team_id=o.team_id join public.crm_stores s on s.id=d.store_id and s.team_id=d.team_id
+where rm.status='pending'and rm.due_on<=(now()at time zone'Asia/Shanghai')::date and(q.owner_id=auth.uid()or public.can_act_for(rm.team_id,q.owner_id)or public.has_permission(rm.team_id,'customers.supervise'));
+
+revoke all on public.crm_today_actions from public,anon;
+grant select on public.crm_today_actions to authenticated;
 
 notify pgrst,'reload schema';
