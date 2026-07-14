@@ -20,16 +20,16 @@ import {
 
 function SidebarLink({
   item,
-  pathname,
+  currentLocation,
   nested = false,
   onNavigate,
 }: {
   item: NavigationLink
-  pathname: string
+  currentLocation: string
   nested?: boolean
   onNavigate: () => void
 }) {
-  const isActive = navigationItemMatches(item, pathname)
+  const isActive = navigationItemMatches(item, currentLocation)
 
   return (
     <NavLink
@@ -53,18 +53,18 @@ function SidebarLink({
 
 function SidebarCollection({
   item,
-  pathname,
+  currentLocation,
   expanded,
   onToggle,
   onNavigate,
 }: {
   item: NavigationCollection
-  pathname: string
+  currentLocation: string
   expanded: boolean
   onToggle: () => void
   onNavigate: () => void
 }) {
-  const isActive = navigationItemMatches(item, pathname)
+  const isActive = navigationItemMatches(item, currentLocation)
 
   return (
     <div>
@@ -88,7 +88,7 @@ function SidebarCollection({
             <SidebarLink
               key={`${item.label}-${child.label}`}
               item={child}
-              pathname={pathname}
+              currentLocation={currentLocation}
               nested
               onNavigate={onNavigate}
             />
@@ -110,12 +110,13 @@ export default function Layout() {
   const [expandedCollections, setExpandedCollections] = useState<string[]>(() =>
     NAVIGATION_GROUPS.flatMap((group) =>
       group.items
-        .filter((item) => item.type === 'collection' && navigationItemMatches(item, window.location.pathname))
+        .filter((item) => item.type === 'collection' && navigationItemMatches(item, `${window.location.pathname}${window.location.search}`))
         .map((item) => item.label),
     ),
   )
   const dropdownRef = useRef<HTMLDivElement>(null)
   const location = useLocation()
+  const currentLocation = `${location.pathname}${location.search}`
 
   const currentUser = useUserStore((s) => s.currentUser)
   const logout = useUserStore((s) => s.logout)
@@ -123,13 +124,13 @@ export default function Layout() {
   useEffect(() => {
     const activeCollections = NAVIGATION_GROUPS.flatMap((group) =>
       group.items
-        .filter((item) => item.type === 'collection' && navigationItemMatches(item, location.pathname))
+        .filter((item) => item.type === 'collection' && navigationItemMatches(item, currentLocation))
         .map((item) => item.label),
     )
     if (activeCollections.length > 0) {
       setExpandedCollections((current) => Array.from(new Set([...current, ...activeCollections])))
     }
-  }, [location.pathname])
+  }, [currentLocation])
 
   // 点击外部关闭下拉
   useEffect(() => {
@@ -209,14 +210,14 @@ export default function Layout() {
                     <SidebarLink
                       key={item.label}
                       item={item}
-                      pathname={location.pathname}
+                      currentLocation={currentLocation}
                       onNavigate={() => setSidebarOpen(false)}
                     />
                   ) : (
                     <SidebarCollection
                       key={item.label}
                       item={item}
-                      pathname={location.pathname}
+                      currentLocation={currentLocation}
                       expanded={expandedCollections.includes(item.label)}
                       onToggle={() =>
                         setExpandedCollections((current) =>

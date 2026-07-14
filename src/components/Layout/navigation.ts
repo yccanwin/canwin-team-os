@@ -92,9 +92,9 @@ export const NAVIGATION_GROUPS: NavigationGroup[] = [
         icon: Building2,
         description: '库存、资产与流转记录',
         children: [
-          link('库存物品', '/inventory', Warehouse, { priority: 'high' }),
-          link('固定资产', '/assets', Package),
-          link('出入库记录', '/inventory', History),
+          link('库存物品', '/asset-center?view=inventory', Warehouse, { priority: 'high' }),
+          link('固定资产', '/asset-center?view=assets', Package),
+          link('出入库记录', '/asset-center?view=logs', History),
         ],
       },
     ],
@@ -108,9 +108,10 @@ export const NAVIGATION_GROUPS: NavigationGroup[] = [
         icon: Sparkles,
         description: '历史、案例与团队影像',
         children: [
-          link('编年史', '/timeline', Clock),
-          link('案例馆', '/achievements', Trophy),
-          link('团队相册', '/photos', Camera),
+          link('文化首页', '/culture-center?view=overview', Sparkles, { priority: 'high' }),
+          link('编年史', '/culture-center?view=timeline', Clock),
+          link('案例馆', '/culture-center?view=achievements', Trophy),
+          link('团队相册', '/culture-center?view=photos', Camera),
         ],
       },
       {
@@ -165,12 +166,26 @@ export const NAVIGATION_GROUPS: NavigationGroup[] = [
   },
 ]
 
-export function navigationItemMatches(item: NavigationItem, pathname: string): boolean {
-  if (item.type === 'link') {
-    return item.exact
-      ? pathname === item.to || (item.to === '/dashboard' && pathname === '/')
-      : pathname === item.to || pathname.startsWith(`${item.to}/`)
+function linkMatches(item: NavigationLink, currentLocation: string): boolean {
+  const currentUrl = new URL(currentLocation, 'https://navigation.local')
+  const targetUrl = new URL(item.to, 'https://navigation.local')
+  const pathMatches = item.exact
+    ? currentUrl.pathname === targetUrl.pathname || (targetUrl.pathname === '/dashboard' && currentUrl.pathname === '/')
+    : currentUrl.pathname === targetUrl.pathname || currentUrl.pathname.startsWith(`${targetUrl.pathname}/`)
+
+  if (!pathMatches) return false
+
+  for (const [key, value] of targetUrl.searchParams) {
+    if (currentUrl.searchParams.get(key) !== value) return false
   }
 
-  return item.children.some((child) => navigationItemMatches(child, pathname))
+  return true
+}
+
+export function navigationItemMatches(item: NavigationItem, currentLocation: string): boolean {
+  if (item.type === 'link') {
+    return linkMatches(item, currentLocation)
+  }
+
+  return item.children.some((child): boolean => navigationItemMatches(child, currentLocation))
 }

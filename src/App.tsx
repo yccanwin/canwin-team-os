@@ -56,6 +56,8 @@ const Toolbox = lazy(() => import('./pages/Toolbox'))
 const WarRoom = lazy(() => import('./pages/WarRoom'))
 const Skills = lazy(() => import('./pages/Skills'))
 const Settings = lazy(() => import('./pages/Settings'))
+const AssetCenter = lazy(() => import('./pages/AssetCenter'))
+const CultureCenter = lazy(() => import('./pages/CultureCenter'))
 const FeatureFlagGate = lazy(() => import('./features/v3'))
 const SalesWorkbenchV3 = lazy(() => import('./features/sales-workbench/SalesWorkbenchRealRoute'))
 const OrderDeliveryWorkbenchV3 = lazy(() => import('./features/order-delivery/OrderDeliveryRealRoute'))
@@ -214,6 +216,8 @@ function App() {
         <Route path="/members" element={<Suspense fallback={null}><Members /></Suspense>} />
         <Route path="/profile" element={<Suspense fallback={null}><Profile /></Suspense>} />
         <Route path="/settings" element={<Suspense fallback={null}><Settings /></Suspense>} />
+        <Route path="/asset-center" element={<Suspense fallback={null}><AssetCenter /></Suspense>} />
+        <Route path="/culture-center" element={<Suspense fallback={null}><CultureCenter /></Suspense>} />
         <Route path="/sales-v3" element={<Suspense fallback={null}><FeatureFlagGate flagKey="sales_os_v3"><SalesWorkbenchV3 /></FeatureFlagGate></Suspense>} />
         <Route path="/orders-v3" element={<Suspense fallback={null}><FeatureFlagGate flagKey="sales_os_v3"><OrderDeliveryWorkbenchV3 /></FeatureFlagGate></Suspense>} />
         <Route path="/quotes-v3" element={<Suspense fallback={null}><FeatureFlagGate flagKey="sales_os_v3"><QuoteOrderRealV3 /></FeatureFlagGate></Suspense>} />
