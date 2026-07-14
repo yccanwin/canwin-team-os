@@ -138,7 +138,7 @@ function App() {
           'skills',
           async () => {
             const [skills, userSkills] = await Promise.all([loadSkills(), loadUserSkills()])
-            return { skills, userSkills }
+            return { skills: skills ?? [], userSkills: userSkills ?? [] }
           },
           setSkillData
         ),
@@ -150,7 +150,11 @@ function App() {
               loadSalesScoreRecords(),
               loadSalesAssessments(),
             ])
-            return { products, records, assessments }
+            return {
+              products: products ?? [],
+              records: records ?? [],
+              assessments: assessments ?? [],
+            }
           },
           setSalesData
         ),
