@@ -22,6 +22,7 @@ export interface AccessAdminSnapshot {
   sensitiveRules: SensitiveRuleView[]
   featureFlags: FeatureFlagView[]
   currentUserIsAdmin: boolean
+  currentUserId: string
 }
 
 const systemRoleLabels: Record<string, { name: string; description: string }> = {
