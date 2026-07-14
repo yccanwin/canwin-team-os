@@ -417,9 +417,12 @@ export function SalesWorkbench({
                 {currentLeadScope === 'mine' && <div className="sw-risk-panel"><LeadRiskBadge lead={selected} /><span>{selected.recyclePaused ? '服务端已暂停自动回收' : selected.recycleDueAt ? `服务端回收节点：${new Date(selected.recycleDueAt).toLocaleString('zh-CN')}` : '当前没有回收风险'}</span></div>}
 
                 {selected.facts.length > 0 && <div className="sw-known-facts"><strong>已获得的新事实</strong>{selected.facts.map((fact) => <p key={fact}><CheckCircle2 size={15} />{fact}</p>)}</div>}
-                {!demoMode && currentLeadScope === 'mine' && dataSource && selected.facts.length > 0 && <LeadConversionForm leadId={selected.id} defaultContactName={selected.contactName} dataSource={dataSource} onConverted={refreshCrm} />}
+                {!demoMode && currentLeadScope === 'mine' && dataSource && selected.facts.length > 0 && <div id="lead-customer-profile"><LeadConversionForm leadId={selected.id} defaultContactName={selected.contactName} dataSource={dataSource} onConverted={refreshCrm} /></div>}
 
-                <div className="sw-flow"><FlowStep done label="线索" /><FlowStep done={selected.stage !== 'new'} label="联系" /><FlowStep done={['qualified', 'opportunity'].includes(selected.stage)} label="有效跟进" /><FlowStep done={selected.stage === 'opportunity'} label="商机" /></div>
+                <SalesJourney completedThrough={selected.stage === 'opportunity' ? 2 : 0} />
+                {selected.stage === 'new' && <div className="sw-next-step"><strong>下一步：先联系客户</strong><span>普通线索不能直接创建订单。电话接通并保存有效跟进后，才能完善客户档案和资格。</span></div>}
+                {selected.stage === 'contacted' && <div className="sw-next-step"><strong>下一步：保存有效跟进</strong><span>至少记录一项新业务事实或客户承诺，并设置下一步时间。</span><button onClick={() => document.getElementById('lead-followup-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>去填写跟进</button></div>}
+                {selected.stage === 'qualified' && <div className="sw-next-step"><strong>下一步：完善客户并转商机</strong><span>先创建或关联品牌、门店和联系人，再补齐真实门店、价值等级、年费与关键人资格。</span><div><button onClick={() => document.getElementById('lead-customer-profile')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>去完善客户</button><button onClick={() => document.getElementById('lead-qualification')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>去转商机</button></div></div>}
 
                 {!demoMode && currentLeadScope === 'region' && selected.claimable && <button className="sw-secondary" disabled={isLoading} onClick={claimSelectedLead}>通过 RPC 领取该线索</button>}
                 {!demoMode && currentLeadScope === 'region' && !selected.claimable && <div className="sw-owner-notice">已占用 · 负责人：{selected.ownerDisplayName ?? '未显示'} · 不可领取</div>}
@@ -429,7 +432,7 @@ export function SalesWorkbench({
                   {!demoMode && <><button className="sw-secondary" disabled={isLoading} onClick={() => void recordContactAttempt('no_answer')}>未接电话</button><button className="sw-secondary" disabled={isLoading} onClick={() => void recordContactAttempt('unreachable')}>无法联系</button></>}
                 </div>}
                 {(selected.stage === 'contacted' || contactedForForm.includes(selected.id)) && (
-                  <div className="sw-followup-form">
+                  <div className="sw-followup-form" id="lead-followup-form">
                     <div className="sw-recap-title"><strong>{recapIsFirst ? '首次电话 60 秒复盘' : '本次沟通记录'}</strong><span>{recapIsFirst ? (recapSeconds > 0 ? `建议剩余 ${recapSeconds} 秒` : '可继续填写，内容完整优先') : '记录新的业务事实或客户承诺'}</span></div>
                     <p className="sw-either-hint">新业务事实 / 客户承诺：二选一至少填写一项</p>
                     <label>获得的新业务事实（二选一）<textarea value={draft.fact} onChange={(event) => setDraft({ ...draft, fact: event.target.value })} placeholder="例如：新店计划8月18日开业，目前使用竞品收银系统" /></label>
@@ -460,7 +463,7 @@ export function SalesWorkbench({
         {activeTab === 'customers' && (
           <div className="sw-customer-page">
             <div className="sw-page-actions">
-              <div><strong>{showCustomerEditor ? '维护客户资料' : '客户档案'}</strong><span>{showCustomerEditor ? '品牌、门店、联系人与线索资料维护' : `${customers.length} 个可见品牌客户`}</span></div>
+              <div><strong>{showCustomerEditor ? '维护客户资料' : '客户档案'}</strong><span>{showCustomerEditor ? '品牌、门店与联系人资料维护；新线索请在线索页创建' : `${customers.length} 个可见品牌客户`}</span></div>
               {!demoMode && dataSource && <button className="sw-compact-action" onClick={() => setShowCustomerEditor((current) => !current)}>{showCustomerEditor ? <><UsersRound size={17} />返回客户列表</> : <><Plus size={17} />新建或维护</>}</button>}
             </div>
             {showCustomerEditor && !demoMode && dataSource
@@ -471,7 +474,7 @@ export function SalesWorkbench({
         {activeTab === 'orders' && <OrderEntry />}
         {activeTab === 'profile' && <MySalesWorkspace name={salespersonName} workspace={personalWorkspace} error={assessmentError} loading={assessmentLoading} />}
         {activeTab === 'leads' && selected && ['contacted', 'qualified'].includes(selected.stage) && !demoMode && dataSource && (
-          <div className="sw-floating-evidence">
+          <div className="sw-floating-evidence" id="lead-qualification">
             <QualificationEvidenceEditor
               leadId={selected.id}
               dataSource={dataSource}
@@ -499,6 +502,12 @@ function Metric({ value, label, tone }: { value: number; label: string; tone: st
 
 function FlowStep({ done, label }: { done: boolean; label: string }) {
   return <div className={done ? 'is-done' : ''}><span>{done ? '✓' : ''}</span><small>{label}</small></div>
+}
+
+const salesJourneySteps = ['线索', '客户档案与资格', '商机', '报价', '定金', '订单']
+
+function SalesJourney({ completedThrough }: { completedThrough: number }) {
+  return <div className="sw-journey" aria-label="销售成交链路">{salesJourneySteps.map((label, index) => <FlowStep key={label} done={index <= completedThrough} label={label} />)}</div>
 }
 
 function LeadFollowupHistory({ context, loading }: { context: LeadFollowupContext | null; loading: boolean }) {
@@ -567,6 +576,7 @@ function MetricPair({ label, target, actual }: { label: string; target: string; 
 
 function OrderEntry() {
   return <div className="sw-order-hub">
+    <section className="sw-order-guide"><strong>订单从哪里来</strong><SalesJourney completedThrough={-1} /><p>普通线索不能直接创建订单。请先完成客户档案与资格、转为有效商机、生成报价；财务确认定金后，系统才会生成订单。</p><a href="#/sales-v3?tab=leads">去完善客户或转商机</a></section>
     <a href="#/quotes-v3"><BriefcaseBusiness size={30} /><span><strong>报价与定金</strong><small>新建报价、查看报价状态与定金进度</small></span><ChevronRight size={20} /></a>
     <a href="#/orders-v3"><PackageCheck size={30} /><span><strong>订单与履约</strong><small>查看软件、硬件履约、交付异常和续费进度</small></span><ChevronRight size={20} /></a>
   </div>

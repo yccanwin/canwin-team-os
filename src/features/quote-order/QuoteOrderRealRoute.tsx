@@ -157,11 +157,14 @@ export default function QuoteOrderRealRoute() {
   const aDemoBlocked = Boolean(quote?.valueGrade === 'A' && !quote.demoCompleted)
   const canConfirmDeposit = Boolean(quote && ['submitted', 'approved'].includes(quote.status))
   const draftTotal = useMemo(() => lines.reduce((sum, line) => sum + Number(line.quantity || 0) * Number(line.customerPrice || 0), 0), [lines])
+  const journeyCompletedThrough = order || quote?.status === 'frozen' ? 5 : quote ? 3 : opportunityId ? 2 : -1
 
   return <main className="qo-shell">
     <header className="qo-header"><div><a href="#/sales-v3" className="qo-back"><ArrowLeft size={16} />返回销售工作台</a><span className="qo-eyebrow">成交工作区</span><h1>报价与定金</h1><p>A类先演示，特殊报价由主管审批；财务确认定金后才生成订单。</p></div><div className="qo-rule"><ShieldCheck size={20} /><span><b>库存规则</b>报价不占用库存</span></div></header>
     <section className="qo-summary"><article><ReceiptText /><span><b>{quotes.length}</b>全部报价</span></article><article><FilePlus2 /><span><b>{quotes.filter(item => item.status === 'draft').length}</b>草稿待处理</span></article><article><ShieldAlert /><span><b>{quotes.filter(item => item.status === 'approval_pending').length}</b>待主管审批</span></article></section>
     {error && <p role="alert" className="qo-message is-error">{error}</p>}{notice && <p role="status" className="qo-message is-success"><CheckCircle2 size={17} />{notice}</p>}
+    <DealJourney completedThrough={journeyCompletedThrough} />
+    {!busy && options && options.opportunities.length === 0 && <section className="qo-prerequisite"><ShieldAlert size={20} /><div><b>当前没有可报价的有效商机</b><p>普通线索不能直接创建报价或订单。请先在线索页完善客户档案与资格，并由服务端确认转为有效商机。</p></div><a href="#/sales-v3?tab=leads">去完善客户或转商机</a></section>}
 
     <div className="qo-grid"><aside className="qo-sidebar">
       <section className="qo-card qo-create"><div className="qo-title"><span>01</span><div><h2>创建报价</h2><p>选择已转为有效商机的客户</p></div></div>
@@ -169,7 +172,7 @@ export default function QuoteOrderRealRoute() {
         {selectedOpportunity?.valueGrade === 'A' && <div className={`qo-demo ${selectedOpportunity.demoCompleted ? 'is-complete' : ''}`}><div><b>{selectedOpportunity.demoCompleted ? 'A类演示已完成' : 'A类报价提交前必须演示'}</b><small>{selectedOpportunity.demoCompleted ? '服务端已记录完成时间' : '未完成时，系统将阻止提交报价'}</small></div><button disabled={busy || selectedOpportunity.demoCompleted} onClick={() => void completeDemo()}>{selectedOpportunity.demoCompleted ? '已完成' : '确认演示完成'}</button></div>}
         <button className="qo-primary" disabled={busy || !opportunityId} onClick={() => void createDraft()}><FilePlus2 size={17} />创建或打开草稿</button>
       </section>
-      <section className="qo-card qo-list"><div className="qo-title"><span>02</span><div><h2>报价列表</h2><p>点击查看明细和审批进度</p></div><button className="qo-icon-button" disabled={busy} onClick={() => void load()} title="刷新"><RefreshCw size={16} /></button></div><div className="qo-list-items">{quotes.map(item => <button key={item.id} onClick={() => void openQuote(item)} className={quote?.id === item.id ? 'is-selected' : ''}><span><strong>{item.brandName ? `${item.brandName} · ` : ''}{item.storeName}</strong><small>V{item.versionNo} · {item.valueGrade}类 · 有效至 {item.validUntil}</small></span><span className="qo-list-meta"><em className={`is-${item.status}`}>{statusLabel[item.status] ?? item.status}</em><b>{money(item.customerTotal)}</b></span></button>)}</div>{!busy && quotes.length === 0 && <p className="qo-empty">暂无报价，请从上方商机创建。</p>}</section>
+      <section className="qo-card qo-list"><div className="qo-title"><span>02</span><div><h2>报价列表</h2><p>点击查看明细和审批进度</p></div><button className="qo-icon-button" disabled={busy} onClick={() => void load()} title="刷新"><RefreshCw size={16} /></button></div><div className="qo-list-items">{quotes.map(item => <button key={item.id} onClick={() => void openQuote(item)} className={quote?.id === item.id ? 'is-selected' : ''}><span><strong>{item.brandName ? `${item.brandName} · ` : ''}{item.storeName}</strong><small>V{item.versionNo} · {item.valueGrade}类 · 有效至 {item.validUntil}</small></span><span className="qo-list-meta"><em className={`is-${item.status}`}>{statusLabel[item.status] ?? item.status}</em><b>{money(item.customerTotal)}</b></span></button>)}</div>{!busy && quotes.length === 0 && <p className="qo-empty">暂无报价。请先选择有效商机创建报价；普通线索不能直接建订单。</p>}</section>
     </aside>
 
     <section className="qo-content"><article className="qo-card qo-detail"><div className="qo-title"><span>03</span><div><h2>报价明细</h2><p>编辑套餐、硬件、加购和特殊内容</p></div></div>
@@ -189,4 +192,10 @@ export default function QuoteOrderRealRoute() {
     </section></div>
     <InternalPaymentPanel dataSource={dataSource} />
   </main>
+}
+
+const dealJourneySteps = ['线索', '客户档案与资格', '商机', '报价', '定金', '订单']
+
+function DealJourney({ completedThrough }: { completedThrough: number }) {
+  return <section className="qo-journey" aria-label="销售成交链路"><header><b>成交链路</b><span>系统按顺序校验，不能跳过资格、报价或定金</span></header><div>{dealJourneySteps.map((label, index) => <span className={index <= completedThrough ? 'is-done' : ''} key={label}><i>{index <= completedThrough ? '✓' : index + 1}</i><small>{label}</small></span>)}</div></section>
 }
