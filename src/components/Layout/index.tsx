@@ -1,82 +1,103 @@
 import { useState, useEffect, useRef } from 'react'
 import { Outlet, NavLink, useLocation } from 'react-router-dom'
 import {
-  LayoutDashboard,
-  CheckSquare,
-  Vote,
-  Package,
-  Trophy,
-  Camera,
-  Building2,
-  Clock,
-  Settings,
   Menu,
   BarChart3,
   ChevronDown,
+  ChevronRight,
   LogOut,
   User,
-  Users,
-  CalendarDays,
-  Wrench,
-  Shield,
-  Network,
-  LineChart,
 } from 'lucide-react'
 import { useUserStore } from '@/stores/useUserStore'
 import { roleLabel, signOut } from '@/services/profile'
 import PersonalReminderTicker from '@/components/PersonalReminderTicker'
+import {
+  NAVIGATION_GROUPS,
+  navigationItemMatches,
+  type NavigationCollection,
+  type NavigationLink,
+} from './navigation'
 
-const NAV_GROUPS = [
-  {
-    label: '今日协作',
-    items: [
-      { to: '/dashboard', icon: LayoutDashboard, label: '首页', exact: true },
-      { to: '/calendar', icon: CalendarDays, label: '日历' },
-      { to: '/work', icon: CheckSquare, label: '推进中心' },
-    ],
-  },
-  {
-    label: '经营记录',
-    items: [
-      { to: '/inventory', icon: Package, label: '仓库' },
-      { to: '/finance', icon: BarChart3, label: '财务' },
-      { to: '/sales', icon: LineChart, label: '销售中心' },
-      { to: '/sales-v3', icon: LineChart, label: '销售工作台' },
-      { to: '/assets', icon: Building2, label: '资产馆' },
-    ],
-  },
-  {
-    label: '团队文化',
-    items: [
-      { to: '/timeline', icon: Clock, label: '编年史' },
-      { to: '/achievements', icon: Trophy, label: '案例馆' },
-      { to: '/photos', icon: Camera, label: '相册' },
-    ],
-  },
-  {
-    label: '共同决策',
-    items: [
-      { to: '/votes', icon: Vote, label: '一起决定' },
-      { to: '/warroom', icon: Shield, label: '军机处' },
-    ],
-  },
-  {
-    label: '资源与成员',
-    items: [
-      { to: '/toolbox', icon: Wrench, label: '工具箱' },
-      { to: '/skills', icon: Network, label: '技能树' },
-      { to: '/members', icon: Users, label: '团队成员' },
-      { to: '/profile', icon: User, label: '个人主页' },
-    ],
-  },
-  {
-    label: '设置',
-    items: [
-      { to: '/settings', icon: Settings, label: '设置' },
-      { to: '/settings-v3', icon: Settings, label: '系统配置' },
-    ],
-  },
-]
+function SidebarLink({
+  item,
+  pathname,
+  nested = false,
+  onNavigate,
+}: {
+  item: NavigationLink
+  pathname: string
+  nested?: boolean
+  onNavigate: () => void
+}) {
+  const isActive = navigationItemMatches(item, pathname)
+
+  return (
+    <NavLink
+      to={item.to}
+      onClick={onNavigate}
+      className={`
+        app-nav-item flex items-center gap-3 rounded-lg text-sm transition-colors duration-150
+        ${nested ? 'py-2 pl-9 pr-3 text-[13px]' : 'px-3 py-2.5'}
+        ${
+          isActive
+            ? 'is-active bg-cyan-300/12 text-cyan-50 font-medium border-l-[3px] border-cyan-300 ml-[-12px] pl-[9px] rounded-l-none'
+            : 'text-cyan-100/58 hover:bg-cyan-300/10 hover:text-cyan-50'
+        }
+      `}
+    >
+      <item.icon className={`h-5 w-5 shrink-0 ${nested ? 'h-4 w-4' : ''} ${isActive ? 'text-cyan-200' : ''}`} />
+      <span className="truncate">{item.label}</span>
+    </NavLink>
+  )
+}
+
+function SidebarCollection({
+  item,
+  pathname,
+  expanded,
+  onToggle,
+  onNavigate,
+}: {
+  item: NavigationCollection
+  pathname: string
+  expanded: boolean
+  onToggle: () => void
+  onNavigate: () => void
+}) {
+  const isActive = navigationItemMatches(item, pathname)
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={expanded}
+        className={`app-nav-item flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors duration-150 ${
+          isActive
+            ? 'is-active bg-cyan-300/12 font-medium text-cyan-50'
+            : 'text-cyan-100/58 hover:bg-cyan-300/10 hover:text-cyan-50'
+        }`}
+      >
+        <item.icon className={`h-5 w-5 shrink-0 ${isActive ? 'text-cyan-200' : ''}`} />
+        <span className="min-w-0 flex-1 truncate">{item.label}</span>
+        <ChevronRight className={`h-4 w-4 shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`} />
+      </button>
+      {expanded && (
+        <div className="mt-1 space-y-0.5 border-l border-cyan-200/10">
+          {item.children.map((child) => (
+            <SidebarLink
+              key={`${item.label}-${child.label}`}
+              item={child}
+              pathname={pathname}
+              nested
+              onNavigate={onNavigate}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 
 // ============================================================
@@ -86,11 +107,29 @@ const NAV_GROUPS = [
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [userDropdownOpen, setUserDropdownOpen] = useState(false)
+  const [expandedCollections, setExpandedCollections] = useState<string[]>(() =>
+    NAVIGATION_GROUPS.flatMap((group) =>
+      group.items
+        .filter((item) => item.type === 'collection' && navigationItemMatches(item, window.location.pathname))
+        .map((item) => item.label),
+    ),
+  )
   const dropdownRef = useRef<HTMLDivElement>(null)
   const location = useLocation()
 
   const currentUser = useUserStore((s) => s.currentUser)
   const logout = useUserStore((s) => s.logout)
+
+  useEffect(() => {
+    const activeCollections = NAVIGATION_GROUPS.flatMap((group) =>
+      group.items
+        .filter((item) => item.type === 'collection' && navigationItemMatches(item, location.pathname))
+        .map((item) => item.label),
+    )
+    if (activeCollections.length > 0) {
+      setExpandedCollections((current) => Array.from(new Set([...current, ...activeCollections])))
+    }
+  }, [location.pathname])
 
   // 点击外部关闭下拉
   useEffect(() => {
@@ -149,14 +188,14 @@ export default function Layout() {
             <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-300/25 bg-cyan-300/10 shadow-[0_0_24px_rgba(34,211,238,.18)]">
               <BarChart3 className="w-5 h-5 text-cyan-200 animate-soft-pulse" />
             </span>
-            <span className="text-lg font-semibold tracking-wide text-cyan-50">翻身小队</span>
+            <span className="text-lg font-semibold tracking-wide text-cyan-50">fanshon team</span>
           </div>
-          <p className="text-xs text-cyan-100/55 mt-1 ml-11">赢在未来</p>
+          <p className="mt-1 ml-11 text-[10px] uppercase tracking-[0.22em] text-cyan-100/55">team operating system</p>
         </div>
 
         {/* 导航菜单 */}
         <nav className="flex-1 overflow-y-auto px-3 py-2">
-          {NAV_GROUPS.map((group, groupIdx) => (
+          {NAVIGATION_GROUPS.map((group, groupIdx) => (
             <div key={group.label}>
               {groupIdx > 0 && (
                 <div className="mx-3 my-2 border-t border-white/10" />
@@ -165,33 +204,31 @@ export default function Layout() {
                 {group.label}
               </p>
               <div className="space-y-0.5">
-                {group.items.map((item) => {
-                  const isActive = item.exact
-                    ? location.pathname === item.to
-                    : location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)
-
-                  return (
-                    <NavLink
-                      key={item.to}
-                      to={item.to}
-                      onClick={() => setSidebarOpen(false)}
-                      className={`
-                        app-nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm
-                        transition-colors duration-150
-                        ${
-                          isActive
-                            ? 'is-active bg-cyan-300/12 text-cyan-50 font-medium border-l-[3px] border-cyan-300 ml-[-12px] pl-[9px] rounded-l-none'
-                            : 'text-cyan-100/58 hover:bg-cyan-300/10 hover:text-cyan-50'
-                        }
-                      `}
-                    >
-                      <item.icon
-                        className={`w-5 h-5 shrink-0 ${isActive ? 'text-cyan-200' : ''}`}
-                      />
-                      <span className="truncate">{item.label}</span>
-                    </NavLink>
-                  )
-                })}
+                {group.items.map((item) =>
+                  item.type === 'link' ? (
+                    <SidebarLink
+                      key={item.label}
+                      item={item}
+                      pathname={location.pathname}
+                      onNavigate={() => setSidebarOpen(false)}
+                    />
+                  ) : (
+                    <SidebarCollection
+                      key={item.label}
+                      item={item}
+                      pathname={location.pathname}
+                      expanded={expandedCollections.includes(item.label)}
+                      onToggle={() =>
+                        setExpandedCollections((current) =>
+                          current.includes(item.label)
+                            ? current.filter((label) => label !== item.label)
+                            : [...current, item.label],
+                        )
+                      }
+                      onNavigate={() => setSidebarOpen(false)}
+                    />
+                  ),
+                )}
               </div>
             </div>
           ))}
