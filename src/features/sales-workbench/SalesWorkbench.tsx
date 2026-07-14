@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
+  ArrowLeft,
   BriefcaseBusiness,
   CheckCircle2,
   ChevronRight,
@@ -101,6 +102,7 @@ export function SalesWorkbench({
   const [historyLoading, setHistoryLoading] = useState(false)
   const [serverTodayActions, setServerTodayActions] = useState<SalesTodayAction[]>([])
   const [todayError, setTodayError] = useState('')
+  const [mobileLeadDetailOpen, setMobileLeadDetailOpen] = useState(false)
   const selected = leads.find((lead) => lead.id === selectedId)
   const activeTabConfig = tabs.find((tab) => tab.id === activeTab) ?? tabs[0]
 
@@ -114,6 +116,7 @@ export function SalesWorkbench({
 
   const activateTab = (tab: WorkbenchTab) => {
     setActiveTab(tab)
+    if (tab === 'leads') setMobileLeadDetailOpen(false)
     if (tab !== 'customers') setShowCustomerEditor(false)
   }
 
@@ -158,6 +161,7 @@ export function SalesWorkbench({
       if (!active) return
       setLeads(items)
       setSelectedId(items[0]?.id ?? '')
+      setMobileLeadDetailOpen(false)
     }).catch((error: unknown) => {
       if (!active) return
       setLeads([])
@@ -300,7 +304,7 @@ export function SalesWorkbench({
   const handleQuickLeadCreated = async (leadId: string) => {
     if (!dataSource) return
     const mine = await dataSource.listLeads('mine')
-    setCurrentLeadScope('mine'); setLeads(mine); setSelectedId(leadId)
+    setCurrentLeadScope('mine'); setLeads(mine); setSelectedId(leadId); setMobileLeadDetailOpen(true)
   }
   const openTodayAction = async (action: SalesTodayAction) => {
     if (action.entityType !== 'lead') { window.location.assign(action.route); return }
@@ -308,7 +312,7 @@ export function SalesWorkbench({
     setIsLoading(true); setDataError('')
     try {
       const mine = await dataSource.listLeads('mine')
-      setCurrentLeadScope('mine'); setLeads(mine); setSelectedId(action.entityId); activateTab('leads')
+      setCurrentLeadScope('mine'); setLeads(mine); setSelectedId(action.entityId); activateTab('leads'); setMobileLeadDetailOpen(true)
     } catch (error) { setDataError(error instanceof Error ? error.message : '打开行动对象失败') }
     finally { setIsLoading(false) }
   }
@@ -372,7 +376,7 @@ export function SalesWorkbench({
             <div className="sw-section-title"><span>智能行动队列</span><small>按紧急程度排序</small></div>
             <div className="sw-task-list">
               {demoMode && todayTasks.map(({ lead, priority, label, ageHours }) => (
-                <button key={lead.id} className="sw-task-card" onClick={() => { setSelectedId(lead.id); activateTab('leads') }}>
+                <button key={lead.id} className="sw-task-card" onClick={() => { setSelectedId(lead.id); activateTab('leads'); setMobileLeadDetailOpen(true) }}>
                   <span className={`sw-priority is-${priority}`} />
                   <div className="sw-task-copy">
                     <strong><em className={`sw-action-label is-${priority}`}>{label}</em>{lead.storeName}</strong>
@@ -394,21 +398,24 @@ export function SalesWorkbench({
         )}
 
         {activeTab === 'leads' && (
-          <><div className="sw-lead-actions">{!demoMode && dataSource && <QuickLeadForm dataSource={dataSource} onCreated={handleQuickLeadCreated} />}</div><div className="sw-lead-layout">
-            <aside className="sw-lead-list">
-              {!demoMode && <><div className="sw-scope-switch"><button className={currentLeadScope === 'mine' ? 'is-active' : ''} onClick={() => setCurrentLeadScope('mine')}>我的线索</button><button className={currentLeadScope === 'region' ? 'is-active' : ''} onClick={() => setCurrentLeadScope('region')}>区域公海</button></div><p className="sw-scope-note">{currentLeadScope === 'mine' ? '仅显示由我负责、可以继续跟进的线索' : '可领取线索由服务端确认；已占用线索仅显示负责人'}</p></>}
+          <><div className="sw-lead-actions">{!demoMode && dataSource && <QuickLeadForm dataSource={dataSource} onCreated={handleQuickLeadCreated} />}</div><div className={`sw-lead-layout ${mobileLeadDetailOpen ? 'is-mobile-detail' : ''}`}>
+            <aside className="sw-lead-list-panel">
+              {!demoMode && <><div className="sw-scope-switch"><button className={currentLeadScope === 'mine' ? 'is-active' : ''} onClick={() => { setCurrentLeadScope('mine'); setMobileLeadDetailOpen(false) }}>我的线索</button><button className={currentLeadScope === 'region' ? 'is-active' : ''} onClick={() => { setCurrentLeadScope('region'); setMobileLeadDetailOpen(false) }}>区域公海</button></div><p className="sw-scope-note">{currentLeadScope === 'mine' ? '仅显示由我负责、可以继续跟进的线索' : '可领取线索由服务端确认；已占用线索仅显示负责人'}</p></>}
+              <div className="sw-lead-list">
               {leads.map((lead) => (
-                <button key={lead.id} className={`${lead.id === selectedId ? 'is-selected ' : ''}${currentLeadScope === 'region' && !lead.claimable ? 'is-occupied' : ''}`} onClick={() => { setSelectedId(lead.id); setDraft(blankDraft) }}>
+                <button key={lead.id} className={`${lead.id === selectedId ? 'is-selected ' : ''}${currentLeadScope === 'region' && !lead.claimable ? 'is-occupied' : ''}`} onClick={() => { setSelectedId(lead.id); setDraft(blankDraft); setMobileLeadDetailOpen(true) }}>
                   {currentLeadScope === 'region' && !lead.claimable
                     ? <><span><strong>已占用线索</strong><small>业务信息不可查看</small></span><em>负责人：{lead.ownerDisplayName ?? '未显示'}</em></>
                     : <><span><strong>{lead.storeName}</strong><small>{lead.contactName} · {lead.businessType}</small>{currentLeadScope === 'mine' && <LeadRiskBadge lead={lead} />}</span><em>{currentLeadScope === 'region' ? '可领取' : stageLabel[lead.stage]}</em></>}
                 </button>
               ))}
               {!isLoading && leads.length === 0 && <div className="sw-scope-empty">{currentLeadScope === 'mine' ? '暂无我的线索' : '当前区域公海暂无可见线索'}</div>}
+              </div>
             </aside>
-            {selected && currentLeadScope === 'region' && !selected.claimable && <article className="sw-lead-detail sw-occupied-detail"><ContactRound size={30} /><h2>该线索已有负责人</h2><p>负责人：{selected.ownerDisplayName ?? '未显示'}</p><span>为保护客户信息，公海列表不展示已占用线索的业务详情，也不可领取。</span></article>}
+            {selected && currentLeadScope === 'region' && !selected.claimable && <article className="sw-lead-detail sw-occupied-detail"><button className="sw-mobile-detail-back" onClick={() => setMobileLeadDetailOpen(false)}><ArrowLeft size={18} />返回线索列表</button><ContactRound size={30} /><h2>该线索已有负责人</h2><p>负责人：{selected.ownerDisplayName ?? '未显示'}</p><span>为保护客户信息，公海列表不展示已占用线索的业务详情，也不可领取。</span></article>}
             {selected && !(currentLeadScope === 'region' && !selected.claimable) && (
               <article className="sw-lead-detail">
+                <button className="sw-mobile-detail-back" onClick={() => setMobileLeadDetailOpen(false)}><ArrowLeft size={18} />返回线索列表</button>
                 <div className="sw-detail-heading">
                   <div><span className="sw-status">{stageLabel[selected.stage]}</span><h2>{selected.storeName}</h2><p>{selected.contactName} · {selected.phone} · {selected.district}</p></div>
                   <ContactRound size={28} />
@@ -427,18 +434,15 @@ export function SalesWorkbench({
                 {!demoMode && currentLeadScope === 'region' && selected.claimable && <button className="sw-secondary" disabled={isLoading} onClick={claimSelectedLead}>通过 RPC 领取该线索</button>}
                 {!demoMode && currentLeadScope === 'region' && !selected.claimable && <div className="sw-owner-notice">已占用 · 负责人：{selected.ownerDisplayName ?? '未显示'} · 不可领取</div>}
 
-                {(demoMode ? selected.stage === 'new' : currentLeadScope === 'mine' && followupContext && !['nurturing', 'supervisor_review'].includes(followupContext.leadStatus)) && <div className="sw-attempt-actions">
+                {(demoMode ? selected.stage === 'new' : currentLeadScope === 'mine' && followupContext && !['nurturing', 'supervisor_review'].includes(followupContext.leadStatus)) && <section className="sw-followup-stage"><header><span>01</span><div><strong>联系情况</strong><small>先记录本次电话结果</small></div></header><div className="sw-attempt-actions">
                   <button className="sw-primary" disabled={isLoading} onClick={() => demoMode ? markContacted(Date.now()) : void recordContactAttempt('reached')}><Phone size={18} />电话已接通</button>
                   {!demoMode && <><button className="sw-secondary" disabled={isLoading} onClick={() => void recordContactAttempt('no_answer')}>未接电话</button><button className="sw-secondary" disabled={isLoading} onClick={() => void recordContactAttempt('unreachable')}>无法联系</button></>}
-                </div>}
+                </div></section>}
                 {(selected.stage === 'contacted' || contactedForForm.includes(selected.id)) && (
                   <div className="sw-followup-form" id="lead-followup-form">
-                    <div className="sw-recap-title"><strong>{recapIsFirst ? '首次电话 60 秒复盘' : '本次沟通记录'}</strong><span>{recapIsFirst ? (recapSeconds > 0 ? `建议剩余 ${recapSeconds} 秒` : '可继续填写，内容完整优先') : '记录新的业务事实或客户承诺'}</span></div>
-                    <p className="sw-either-hint">新业务事实 / 客户承诺：二选一至少填写一项</p>
-                    <label>获得的新业务事实（二选一）<textarea value={draft.fact} onChange={(event) => setDraft({ ...draft, fact: event.target.value })} placeholder="例如：新店计划8月18日开业，目前使用竞品收银系统" /></label>
-                    <label>客户承诺（二选一）<input value={draft.commitment} onChange={(event) => setDraft({ ...draft, commitment: event.target.value })} placeholder="例如：周五安排老板参加演示" /></label>
-                    <label>下一步时间（必填）<input type="datetime-local" value={draft.nextActionAt} onChange={(event) => setDraft({ ...draft, nextActionAt: event.target.value })} /></label>
-                    <button className="sw-primary" disabled={(!draft.fact.trim() && !draft.commitment.trim()) || !draft.nextActionAt} onClick={saveQualifiedFollowUp}><CheckCircle2 size={18} />保存有效跟进</button>
+                    <section className="sw-followup-stage"><header><span>02</span><div><strong>{recapIsFirst ? '60 秒复盘' : '本次沟通记录'}</strong><small>{recapIsFirst ? (recapSeconds > 0 ? `建议剩余 ${recapSeconds} 秒` : '可继续填写，内容完整优先') : '记录新的业务事实或客户承诺'}</small></div></header><p className="sw-either-hint">新业务事实 / 客户承诺：二选一至少填写一项</p><label>获得的新业务事实（二选一）<textarea value={draft.fact} onChange={(event) => setDraft({ ...draft, fact: event.target.value })} placeholder="例如：新店计划8月18日开业，目前使用竞品收银系统" /></label><label>客户承诺（二选一）<input value={draft.commitment} onChange={(event) => setDraft({ ...draft, commitment: event.target.value })} placeholder="例如：周五安排老板参加演示" /></label></section>
+                    <section className="sw-followup-stage"><header><span>03</span><div><strong>下一步</strong><small>明确下一次推进时间</small></div></header><label>下一步时间（必填）<input type="datetime-local" value={draft.nextActionAt} onChange={(event) => setDraft({ ...draft, nextActionAt: event.target.value })} /></label></section>
+                    <div className="sw-followup-save"><button className="sw-primary" disabled={(!draft.fact.trim() && !draft.commitment.trim()) || !draft.nextActionAt} onClick={saveQualifiedFollowUp}><CheckCircle2 size={18} />保存有效跟进</button></div>
                   </div>
                 )}
                 {!demoMode && currentLeadScope === 'mine' && <LeadFollowupHistory context={followupContext} loading={historyLoading} />}
@@ -474,7 +478,7 @@ export function SalesWorkbench({
         {activeTab === 'orders' && <OrderEntry />}
         {activeTab === 'profile' && <MySalesWorkspace name={salespersonName} workspace={personalWorkspace} error={assessmentError} loading={assessmentLoading} />}
         {activeTab === 'leads' && selected && ['contacted', 'qualified'].includes(selected.stage) && !demoMode && dataSource && (
-          <div className="sw-floating-evidence" id="lead-qualification">
+          <div className={`sw-floating-evidence ${mobileLeadDetailOpen ? '' : 'is-mobile-hidden'}`} id="lead-qualification">
             <QualificationEvidenceEditor
               leadId={selected.id}
               dataSource={dataSource}
