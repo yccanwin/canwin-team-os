@@ -16,6 +16,7 @@ export interface CatalogSnapshot {
   draftVersionId: string | null
   draftVersionNo: number | null
   publishedVersionNo: number | null
+  currentVersionStatus?: 'draft' | 'published'
   items: CatalogItem[]
 }
 
