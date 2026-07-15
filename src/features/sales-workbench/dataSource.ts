@@ -21,6 +21,7 @@ export interface SalesWorkbenchDataSource {
   upsertContact(input: ContactMutation): Promise<string>
   loadQuickLeadContext(): Promise<QuickLeadContext>
   createQuickLead(input: QuickLeadMutation): Promise<string>
+  submitFieldLead(input: FieldLeadMutation): Promise<string>
   precheckLeadConversion(input: { leadId: string; brandName: string; storeName: string }): Promise<LeadConversionPrecheck>
   convertLeadToCustomer(input: LeadConversionMutation): Promise<{ brandId: string; storeId: string; contactId: string; idempotent: boolean }>
 }
@@ -29,6 +30,8 @@ export interface BrandMutation { id?: string; name: string; businessMode: string
 export interface StoreMutation { id?: string; brandId: string; regionId: string; name: string; businessType: string; address: string }
 export interface ContactMutation { id?: string; brandId?: string; storeId?: string; name: string; title: string; isKeyPerson: boolean }
 export interface QuickLeadMutation { title: string; phone: string; source: string; regionId?: string }
+export type FieldLeadSource = 'field_visit' | 'site_hoarding'
+export interface FieldLeadMutation { title: string; contactName?: string; phone?: string; source: FieldLeadSource; regionText?: string; address?: string }
 export interface QuickLeadContext {
   regions: Array<{ id: string; name: string }>
   defaultRegionId?: string

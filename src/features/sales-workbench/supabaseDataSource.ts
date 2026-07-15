@@ -185,6 +185,16 @@ export function createSupabaseSalesWorkbenchDataSource(client: SupabaseClient): 
       if (error) throw new SalesWorkbenchDataError(`新增线索失败：${error.message}`, error)
       return String(data)
     },
+    async submitFieldLead(input) {
+      const { data, error } = await client.rpc('submit_operations_lead', {
+        p_customer_name: input.title.trim(), p_contact_name: input.contactName?.trim() || null,
+        p_phone: input.phone?.trim() || null, p_region_text: input.regionText?.trim() || null,
+        p_address: input.address?.trim() || null, p_notes: null, p_raw_text: null,
+        p_intake_source: input.source,
+      })
+      if (error || !data) throw new SalesWorkbenchDataError(`新增现场线索失败：${error?.message ?? '服务器未返回数据'}`, error)
+      return String((data as { leadId?: string }).leadId ?? '')
+    },
     async getQualificationStatus(leadId) {
       const { data, error } = await client.rpc('get_crm_lead_qualification_status', { p_lead_id: leadId })
       if (error) throw new SalesWorkbenchDataError(`读取资格状态失败：${error.message}`, error)
