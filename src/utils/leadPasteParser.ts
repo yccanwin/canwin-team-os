@@ -45,6 +45,47 @@ const sanitizePhone = (value: string) => {
   return mobile?.[1] ?? ''
 }
 
+const STRUCTURED_PHONE = /(?<!\d)(?:\+?86[\s-]*)?(1[3-9]\d(?:[\s-]*\d){8})(?!\d)/
+const ADMIN_REGION = /^(?:[\u4e00-\u9fa5]{2,}(?:省|自治区))?(?:[\u4e00-\u9fa5]{2,}(?:市|州|盟))?[\u4e00-\u9fa5]{1,8}(?:区|县|旗|市)$/
+const CONTACT_TOKEN = /^[\u4e00-\u9fa5·]{2,6}$/
+const ADDRESS_ENDING = /(?:省|市|区|县|旗|街道|镇|乡|路|街|大道|巷|村|社区|号)$/
+
+/**
+ * 运维固定格式：客户名称 门店地址 联系人 手机号 行政区域。
+ * 手机号作为锚点；只有五段信息都可安全确认时才采用，避免覆盖旧 Excel 和自然语言规则。
+ */
+const parseStructuredWhitespace = (rawText: string) => {
+  const normalized = rawText.replace(/\u3000/g, ' ').replace(/\s+/g, ' ').trim()
+  const phoneMatch = STRUCTURED_PHONE.exec(normalized)
+  if (!phoneMatch || phoneMatch.index === undefined) return null
+
+  const beforePhone = normalized.slice(0, phoneMatch.index).trim()
+  const afterPhone = normalized.slice(phoneMatch.index + phoneMatch[0].length).trim()
+  const prefixTokens = beforePhone.split(/\s+/).filter(Boolean)
+  const suffixTokens = afterPhone.split(/\s+/).filter(Boolean)
+  if (prefixTokens.length < 3 || suffixTokens.length !== 1) return null
+
+  const customerName = cleanValue(prefixTokens[0])
+  const contactName = cleanValue(prefixTokens.at(-1) ?? '')
+  const address = cleanValue(prefixTokens.slice(1, -1).join(' '))
+  const regionText = cleanValue(suffixTokens[0])
+  if (
+    !customerName
+    || !address
+    || !CONTACT_TOKEN.test(contactName)
+    || ADDRESS_ENDING.test(contactName)
+    || !ADMIN_REGION.test(regionText)
+  ) return null
+
+  return {
+    customerName,
+    contactName,
+    phone: sanitizePhone(phoneMatch[0]),
+    regionText,
+    address,
+  }
+}
+
 const inferRegion = (text: string) => {
   const matches = text.match(/(?:[\u4e00-\u9fa5]{2,}(?:省|自治区))?(?:[\u4e00-\u9fa5]{2,}(?:市|州|盟))?([\u4e00-\u9fa5]{1,8}(?:区|县|旗))/)
   return cleanValue(matches?.[0] ?? '')
@@ -104,6 +145,15 @@ export function parseLeadPaste(input: unknown): LeadPasteResult {
     confidenceHints: { ...EMPTY_CONFIDENCE },
   }
   if (!rawText) return result
+
+  const structured = parseStructuredWhitespace(rawText)
+  if (structured) {
+    Object.assign(result, structured)
+    for (const field of ['customerName', 'contactName', 'phone', 'regionText', 'address'] as const) {
+      result.confidenceHints[field] = 'high'
+    }
+    return result
+  }
 
   const lines = rawText.split(/\r?\n/).map(cleanValue).filter(Boolean)
   for (const line of lines) {

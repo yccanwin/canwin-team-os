@@ -22,6 +22,42 @@ const cases = [
   { input: '店名：一碗香\n区县：射阳县\n联系人：周总', expected: { customerName: '一碗香', regionText: '射阳县', contactName: '周总' } },
   { input: '线索标题：新港咖啡\n联系方式：13499998888\n情况：朋友介绍', expected: { customerName: '新港咖啡', phone: '13499998888', notes: '朋友介绍' } },
   { input: '只有一些无法判断归属的描述', expected: { phone: '', regionText: '', address: '' } },
+  {
+    input: '老王火锅店 盐城市亭湖区人民路88号 王老板 13812345678 亭湖区',
+    expected: { customerName: '老王火锅店', address: '盐城市亭湖区人民路88号', contactName: '王老板', phone: '13812345678', regionText: '亭湖区', notes: '' },
+  },
+  {
+    input: '海风餐厅   大丰区幸福东路8号   李经理   13912345678   大丰区',
+    expected: { customerName: '海风餐厅', address: '大丰区幸福东路8号', contactName: '李经理', phone: '13912345678', regionText: '大丰区' },
+  },
+  {
+    input: '云端咖啡　盐都区世纪大道18号　周店长　13700001111　盐都区',
+    expected: { customerName: '云端咖啡', address: '盐都区世纪大道18号', contactName: '周店长', phone: '13700001111', regionText: '盐都区' },
+  },
+  {
+    input: '星光酒楼\t建湖县湖中南路99号\t陈老板\t13611112222\t建湖县',
+    expected: { customerName: '星光酒楼', address: '建湖县湖中南路99号', contactName: '陈老板', phone: '13611112222', regionText: '建湖县' },
+  },
+  {
+    input: '一品烧烤 盐城市 亭湖区 青年路 20号 赵老板 13512345678 亭湖区',
+    expected: { customerName: '一品烧烤', address: '盐城市 亭湖区 青年路 20号', contactName: '赵老板', phone: '13512345678', regionText: '亭湖区' },
+  },
+  {
+    input: '小城故事（盐城店） 射阳县幸福大道6号 孙经理 13499998888 射阳县',
+    expected: { customerName: '小城故事（盐城店）', address: '射阳县幸福大道6号', contactName: '孙经理', phone: '13499998888', regionText: '射阳县' },
+  },
+  {
+    input: '湖畔餐厅 东台市海陵路3号 吴店长 138-1234-5678 东台市',
+    expected: { customerName: '湖畔餐厅', address: '东台市海陵路3号', contactName: '吴店长', phone: '13812345678', regionText: '东台市' },
+  },
+  {
+    input: '新桥饭店 响水县黄海路18号 15851057688 响水县',
+    expected: { phone: '15851057688', contactName: '' },
+  },
+  {
+    input: '田园食堂\n阜宁县香港路 12号\t钱老板 133 1234 5678　阜宁县',
+    expected: { customerName: '田园食堂', address: '阜宁县香港路 12号', contactName: '钱老板', phone: '13312345678', regionText: '阜宁县' },
+  },
 ]
 
 for (const [index, testCase] of cases.entries()) {
