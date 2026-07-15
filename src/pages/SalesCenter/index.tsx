@@ -24,7 +24,7 @@ export default function SalesCenterPage() {
   const currentUser = useUserStore((state) => state.currentUser)
   const assessments = useSalesStore((state) => state.assessments)
   const upsertAssessment = useSalesStore((state) => state.upsertAssessment)
-  const quarter = useMemo(currentQuarter, [])
+  const quarter = useMemo(() => currentQuarter(), [])
   const canManage = isCaptainRole(currentUser?.role)
   const assessment = assessments.find((item) => item.periodQuarter === quarter.key)
   const [scope, setScope] = useState<'personal' | 'team'>(canManage ? 'team' : 'personal')
