@@ -58,6 +58,25 @@ const cases = [
     input: '田园食堂\n阜宁县香港路 12号\t钱老板 133 1234 5678　阜宁县',
     expected: { customerName: '田园食堂', address: '阜宁县香港路 12号', contactName: '钱老板', phone: '13312345678', regionText: '阜宁县' },
   },
+  {
+    input: '盐南高新区胖吨吨餐饮\t盐都区盐南高新区科城街道人民南路88号盐城M轻享店商业中心10267-F1-21号商铺\t潘  13813436716\t盐都区',
+    expected: {
+      customerName: '盐南高新区胖吨吨餐饮',
+      address: '盐都区盐南高新区科城街道人民南路88号盐城M轻享店商业中心10267-F1-21号商铺',
+      contactName: '潘',
+      phone: '13813436716',
+      regionText: '盐都区',
+      notes: '',
+    },
+  },
+  {
+    input: '湖畔餐厅 建湖县湖中南路19号 陈 13611112222 建湖县',
+    expected: { customerName: '湖畔餐厅', address: '建湖县湖中南路19号', contactName: '陈', phone: '13611112222', regionText: '建湖县', notes: '' },
+  },
+  {
+    input: '新桥小馆 响水县幸福路8号 15851057689 响水县',
+    expected: { phone: '15851057689', contactName: '' },
+  },
 ]
 
 for (const [index, testCase] of cases.entries()) {

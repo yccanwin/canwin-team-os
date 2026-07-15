@@ -47,7 +47,7 @@ const sanitizePhone = (value: string) => {
 
 const STRUCTURED_PHONE = /(?<!\d)(?:\+?86[\s-]*)?(1[3-9]\d(?:[\s-]*\d){8})(?!\d)/
 const ADMIN_REGION = /^(?:[\u4e00-\u9fa5]{2,}(?:省|自治区))?(?:[\u4e00-\u9fa5]{2,}(?:市|州|盟))?[\u4e00-\u9fa5]{1,8}(?:区|县|旗|市)$/
-const CONTACT_TOKEN = /^[\u4e00-\u9fa5·]{2,6}$/
+const CONTACT_TOKEN = /^[\u4e00-\u9fa5·]{1,6}$/
 const ADDRESS_ENDING = /(?:省|市|区|县|旗|街道|镇|乡|路|街|大道|巷|村|社区|号)$/
 
 /**
