@@ -90,7 +90,7 @@ export const createSupabaseQuoteOrderDataSource = (client: SupabaseClient): Quot
     return (data as RawDraftLine[]).map(mapDraftLine)
   },
   async replaceDraftLines(quoteId, lines) {
-    const { data, error } = await client.rpc('replace_deal_quote_lines', { p_quote_id: quoteId, p_lines: lines.map(x => ({ kind: x.kind, source_id: x.sourceId, quantity: x.quantity, customer_price: x.customerPrice })) })
+    const { data, error } = await client.rpc('replace_deal_quote_lines', { p_quote_id: quoteId, p_lines: lines.map(x => ({ kind: x.kind === 'software' ? 'addon' : x.kind, source_id: x.sourceId, quantity: x.quantity, customer_price: x.customerPrice })) })
     if (error || !data) return fail(error, '保存报价明细失败')
     return this.getQuote(String(data))
   },

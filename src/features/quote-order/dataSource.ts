@@ -83,7 +83,7 @@ export interface QuoteOrderDataSource {
   completeOpportunityDemo(opportunityId: string): Promise<void>
   createDraft(opportunityId: string): Promise<DealQuoteRecord>
   getDraftLines(quoteId: string): Promise<DealQuoteDraftLineRecord[]>
-  replaceDraftLines(quoteId: string, lines: Array<{ kind: 'package' | 'hardware' | 'addon'; sourceId: string; quantity: number; customerPrice: number }>): Promise<DealQuoteRecord>
+  replaceDraftLines(quoteId: string, lines: Array<{ kind: 'package' | 'software' | 'hardware' | 'addon'; sourceId: string; quantity: number; customerPrice: number }>): Promise<DealQuoteRecord>
   setSpecialContent(quoteId: string, specialContent: string): Promise<DealQuoteRecord>
   listQuotes(): Promise<DealQuoteRecord[]>
   getQuote(quoteId: string): Promise<DealQuoteRecord>
