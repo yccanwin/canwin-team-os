@@ -20,6 +20,7 @@ import { useSalesStore } from '@/stores/useSalesStore'
 import { useUserStore } from '@/stores/useUserStore'
 import { isCaptainRole } from '@/services/profile'
 import type { SalesAssessment, SalesProduct, SalesScoreRecord, User } from '@/types'
+import { SalesMeetingPanel } from '@/features/management-board/SalesMeetingPanel'
 
 type MedalLevel = {
   key: 'none' | 'bronze' | 'silver' | 'gold' | 'diamond'
@@ -569,6 +570,8 @@ export default function SalesCenterPage() {
           ))}
         </div>
       </section>
+
+      <SalesMeetingPanel className="mt-4" />
     </div>
   )
 }

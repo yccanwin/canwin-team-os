@@ -79,7 +79,6 @@ export const NAVIGATION_GROUPS: NavigationGroup[] = [
           link('业绩与积分（原客如云）', '/sales', Trophy),
           link('报价与订单', '/quotes-v3', ShoppingBasket),
           link('交付与售后', '/orders-v3', BriefcaseBusiness),
-          link('管理看板', '/management-v3', BarChart3),
         ],
       },
     ],

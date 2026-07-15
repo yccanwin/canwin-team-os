@@ -50,7 +50,7 @@ export default function NotificationAdminRealRoute() {
 
   return <section className="min-h-screen bg-slate-50 p-4 md:p-6">
     <header className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-      <div><a href="#/management-v3" className="mb-2 inline-flex items-center gap-1 text-sm text-indigo-700"><ArrowLeft size={16}/>返回主管工作台</a><p className="text-sm font-medium text-indigo-600">后台运营状态</p><h1 className="text-2xl font-bold text-slate-900">企业微信提醒</h1><p className="mt-1 text-sm text-slate-500">仅显示发送状态和必要错误，不展示客户电话、金额或利润。</p></div>
+      <div><a href="#/sales#sales-meeting" className="mb-2 inline-flex items-center gap-1 text-sm text-indigo-700"><ArrowLeft size={16}/>返回销售会议</a><p className="text-sm font-medium text-indigo-600">后台运营状态</p><h1 className="text-2xl font-bold text-slate-900">企业微信提醒</h1><p className="mt-1 text-sm text-slate-500">仅显示发送状态和必要错误，不展示客户电话、金额或利润。</p></div>
       <button type="button" onClick={() => void load()} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 disabled:opacity-50"><RefreshCw size={16}/>刷新</button>
     </header>
 
