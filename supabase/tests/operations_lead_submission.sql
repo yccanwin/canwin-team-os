@@ -8,6 +8,7 @@ declare
   automation_compact text;
   today_def text;
   today_compact text;
+  first_contact_claimed_clock_count integer;
   policy_count integer;
 begin
   if to_regclass('public.crm_lead_submissions')is null then
@@ -125,12 +126,23 @@ begin
     or position('last_contact_attempt_atisnulland(created_atattimezone' in automation_compact)>0 then
     raise exception 'public-pool claim clock does not start at claimed_at';
   end if;
+  -- The recycle-risk CASE legitimately keeps created_at as the final fallback
+  -- for the 15-day effective-follow-up clock. Match only the expression that
+  -- immediately follows the no-contact THEN, otherwise a whole-view substring
+  -- can incorrectly associate that legal ELSE fallback with the no-contact
+  -- branch. Both recycle-risk CASE expressions (due_at and WHERE) must use
+  -- claimed_at for their no-contact clock.
+  select count(*)into first_contact_claimed_clock_count
+  from regexp_matches(
+    today_compact,
+    'last_contact_attempt_atisnull\)*then\(*l\.claimed_atattimezone',
+    'g'
+  );
   if position('l.claimed_at,l.title' in today_compact)=0
     or position('l.owner_idisnotnullandl.claimed_atisnotnull' in today_compact)=0
     or position('l.last_contact_attempt_atisnulland((l.claimed_atattimezone' in today_compact)=0
-    or position('l.last_contact_attempt_atisnullthen((l.claimed_atattimezone' in today_compact)=0
-    or position('l.last_contact_attempt_atisnulland((l.created_atattimezone' in today_compact)>0
-    or position('l.last_contact_attempt_atisnullthen((l.created_atattimezone' in today_compact)>0 then
+    or first_contact_claimed_clock_count<>2
+    or today_compact~'last_contact_attempt_atisnull\)*then\(*l\.created_atattimezone' then
     raise exception 'today action first-contact clock still uses created_at';
   end if;
 
