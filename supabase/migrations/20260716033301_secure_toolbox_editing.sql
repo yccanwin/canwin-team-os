@@ -198,6 +198,30 @@ as $function$
   order by c.sort_order,c.created_at
 $function$;
 
+create or replace function public.toolbox_list_tools()
+returns table(
+  id uuid,
+  title text,
+  url text,
+  description text,
+  category text,
+  created_by uuid,
+  created_at timestamptz,
+  can_manage boolean
+)
+language sql
+security definer
+set search_path=''
+stable
+as $function$
+  select t.id,t.title,t.url,t.description,t.category,t.created_by,t.created_at,
+    (t.created_by=p.id or public.toolbox_is_admin(p.team_id))as can_manage
+  from public.profiles p
+  join public.tools t on t.team_id=p.team_id
+  where p.id=auth.uid()and p.status='active'
+  order by t.created_at desc
+$function$;
+
 create or replace function public.toolbox_create_category(p_name text)
 returns public.toolbox_categories
 language plpgsql
@@ -299,6 +323,7 @@ revoke all on function public.toolbox_update_tool(uuid,text,text,text,text)from 
 revoke all on function public.toolbox_delete_tool(uuid)from public,anon;
 revoke all on function public.toolbox_toggle_tool_like(uuid)from public,anon;
 revoke all on function public.toolbox_list_categories()from public,anon;
+revoke all on function public.toolbox_list_tools()from public,anon;
 revoke all on function public.toolbox_create_category(text)from public,anon;
 revoke all on function public.toolbox_update_category(uuid,text,integer)from public,anon;
 revoke all on function public.toolbox_reorder_categories(uuid[])from public,anon;
@@ -309,6 +334,7 @@ grant execute on function public.toolbox_update_tool(uuid,text,text,text,text)to
 grant execute on function public.toolbox_delete_tool(uuid)to authenticated;
 grant execute on function public.toolbox_toggle_tool_like(uuid)to authenticated;
 grant execute on function public.toolbox_list_categories()to authenticated;
+grant execute on function public.toolbox_list_tools()to authenticated;
 grant execute on function public.toolbox_create_category(text)to authenticated;
 grant execute on function public.toolbox_update_category(uuid,text,integer)to authenticated;
 grant execute on function public.toolbox_reorder_categories(uuid[])to authenticated;
