@@ -31,7 +31,7 @@ export const createSupabaseOrderDeliveryDataSource = (client: SupabaseClient): O
   }
   return {
     async listOrders() {
-      const selection = 'id,order_number,status,fulfillment_allowed_at,internal_due,internal_paid,fulfillment_after_sales_tasks(due_at,status,group_created_at,submitted_at,accepted_at),deal_quotes!inner(crm_opportunities!inner(crm_stores!inner(id,name,crm_brands(name)))),fulfillment_deliveries(id,store_id,status,service_expires_on,fulfillment_states(software_status,hardware_status),fulfillment_exceptions(exception_type,status,details,expected_resolution_on),fulfillment_implementation(installed_at,trained_at,completed_at),fulfillment_handoffs(id,status),fulfillment_renewal_milestones(days_before,due_on,status))'
+      const selection = 'id,order_number,status,fulfillment_allowed_at,internal_due,internal_paid,fulfillment_after_sales_tasks(due_at,status,group_created_at,submitted_at,accepted_at),deal_quotes!deal_orders_team_id_quote_id_fkey!inner(crm_opportunities!inner(crm_stores!inner(id,name,crm_brands(name)))),fulfillment_deliveries(id,store_id,status,service_expires_on,fulfillment_states(software_status,hardware_status),fulfillment_exceptions(exception_type,status,details,expected_resolution_on),fulfillment_implementation(installed_at,trained_at,completed_at),fulfillment_handoffs(id,status),fulfillment_renewal_milestones(days_before,due_on,status))'
       const { data, error } = await client.from('deal_orders').select(selection).order('created_at', { ascending: false })
       if (error || !data) return fail(error, '读取订单履约失败')
       return (data as unknown as AnyRow[]).map(mapOrder)
