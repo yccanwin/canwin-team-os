@@ -284,6 +284,9 @@ Deno.serve(async (req) => {
 
     const { error: passwordError } = await adminClient.auth.admin.updateUserById(payload.id, {
       password: payload.password,
+      // An administrator-issued password completes the internal invitation flow.
+      // Without this, invited users remain blocked by "Email not confirmed".
+      email_confirm: true,
     })
     if (passwordError) return jsonResponse({ error: passwordError.message }, 400)
 
