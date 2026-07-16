@@ -1,28 +1,34 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { ToolItem, ToolCategory } from '@/types/toolbox'
+import type { ToolCategory, ToolCategoryItem, ToolDraft, ToolItem } from '@/types/toolbox'
+import {
+  createToolCategory,
+  createToolRecord,
+  deleteToolCategory,
+  deleteToolRecord,
+  loadToolCategories,
+  reorderToolCategories,
+  toggleToolLikeRecord,
+  updateToolCategory,
+  updateToolRecord,
+} from '@/services/toolbox'
 import { useUserStore } from '@/stores/useUserStore'
-import { createToolRecord, deleteToolRecord, updateToolRecord } from '@/services/toolbox'
 import { safeStorage } from '@/utils/safeStorage'
 
 interface ToolboxState {
   tools: ToolItem[]
-
+  categories: ToolCategoryItem[]
   setTools: (tools: ToolItem[]) => void
-
-  addTool: (data: {
-    title: string
-    description: string
-    url: string
-    category: ToolCategory
-  }) => void
-
-  deleteTool: (id: string) => void
-
-  toggleLike: (toolId: string) => void
-
+  refreshCategories: () => Promise<void>
+  addTool: (data: ToolDraft) => Promise<void>
+  updateTool: (id: string, data: ToolDraft) => Promise<void>
+  deleteTool: (id: string) => Promise<void>
+  toggleLike: (toolId: string) => Promise<void>
+  createCategory: (name: string) => Promise<void>
+  renameCategory: (categoryId: string, name: string) => Promise<void>
+  reorderCategories: (categoryIds: string[]) => Promise<void>
+  deleteCategory: (categoryId: string, moveToCategoryId?: string) => Promise<void>
   hasLiked: (toolId: string, userId: string) => boolean
-
   getToolsByCategory: (category: ToolCategory | 'all') => ToolItem[]
 }
 
@@ -30,95 +36,85 @@ export const useToolboxStore = create<ToolboxState>()(
   persist(
     (set, get) => ({
       tools: [],
-
+      categories: [],
       setTools: (tools) => set({ tools }),
 
-      addTool: (data) => {
-        const currentUser = useUserStore.getState().currentUser
-        if (!currentUser) return
-
-        const newTool: ToolItem = {
-          id: `tool_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-          title: data.title,
-          description: data.description,
-          url: data.url,
-          category: data.category,
-          creatorId: currentUser.id,
-          creatorName: currentUser.name,
-          likedBy: [],
-          createdAt: new Date().toISOString(),
-        }
-
-        set((s) => ({ tools: [newTool, ...s.tools] }))
-        void createToolRecord(newTool)
-          .then((savedTool) =>
-            set((s) => ({
-              tools: s.tools.map((t) => (t.id === newTool.id ? savedTool : t)),
-            }))
-          )
-          .catch(() =>
-            set((s) => ({
-              tools: s.tools.filter((t) => t.id !== newTool.id),
-            }))
-          )
+      refreshCategories: async () => {
+        const categories = await loadToolCategories()
+        set({ categories })
       },
 
-      deleteTool: (id) => {
-        const previous = get().tools
-        set((s) => ({ tools: s.tools.filter((t) => t.id !== id) }))
-        void deleteToolRecord(id).catch(() => set({ tools: previous }))
+      addTool: async (data) => {
+        const savedTool = await createToolRecord(data)
+        set((state) => ({ tools: [savedTool, ...state.tools] }))
       },
 
-      toggleLike: (toolId) => {
+      updateTool: async (id, data) => {
+        const savedTool = await updateToolRecord(id, data)
+        set((state) => ({
+          tools: state.tools.map((tool) => (tool.id === id ? savedTool : tool)),
+        }))
+      },
+
+      deleteTool: async (id) => {
+        await deleteToolRecord(id)
+        set((state) => ({ tools: state.tools.filter((tool) => tool.id !== id) }))
+      },
+
+      toggleLike: async (toolId) => {
         const currentUser = useUserStore.getState().currentUser
         if (!currentUser) return
-
-        const previous = get().tools
-        let changedTool: ToolItem | undefined
-        set((s) => {
-          const tools = s.tools.map((t) => {
-            if (t.id !== toolId) return t
-
-            const alreadyLiked = t.likedBy.includes(currentUser.id)
-
-            if (alreadyLiked) {
-              changedTool = {
-                ...t,
-                likedBy: t.likedBy.filter((uid) => uid !== currentUser.id),
-              }
-              return changedTool
-            } else {
-              changedTool = {
-                ...t,
-                likedBy: [...t.likedBy, currentUser.id],
-              }
-              return changedTool
+        const liked = await toggleToolLikeRecord(toolId)
+        set((state) => ({
+          tools: state.tools.map((tool) => {
+            if (tool.id !== toolId) return tool
+            const withoutCurrentUser = tool.likedBy.filter((id) => id !== currentUser.id)
+            return {
+              ...tool,
+              likedBy: liked ? [...withoutCurrentUser, currentUser.id] : withoutCurrentUser,
             }
-          })
+          }),
+        }))
+      },
 
-          return { tools }
-        })
-        if (changedTool) {
-          void updateToolRecord(changedTool).catch(() => set({ tools: previous }))
-        }
+      createCategory: async (name) => {
+        await createToolCategory(name)
+        await get().refreshCategories()
+      },
+
+      renameCategory: async (categoryId, name) => {
+        const category = get().categories.find((item) => item.id === categoryId)
+        if (!category) throw new Error('分类不存在')
+        await updateToolCategory(categoryId, name, category.sortOrder)
+        await get().refreshCategories()
+      },
+
+      reorderCategories: async (categoryIds) => {
+        await reorderToolCategories(categoryIds)
+        await get().refreshCategories()
+      },
+
+      deleteCategory: async (categoryId, moveToCategoryId) => {
+        await deleteToolCategory(categoryId, moveToCategoryId ?? null)
+        await get().refreshCategories()
       },
 
       hasLiked: (toolId, userId) => {
-        const tool = get().tools.find((t) => t.id === toolId)
+        const tool = get().tools.find((item) => item.id === toolId)
         return tool ? tool.likedBy.includes(userId) : false
       },
 
       getToolsByCategory: (category) => {
         const { tools } = get()
-        if (category === 'all') return tools
-        return tools.filter((t) => t.category === category)
+        return category === 'all' ? tools : tools.filter((tool) => tool.category === category)
       },
     }),
     {
       name: 'canwin-toolbox',
-      version: 2,
+      version: 3,
       storage: safeStorage,
-      migrate: () => ({ tools: [] }),
+      partialize: (state) => ({ tools: state.tools }),
+      migrate: () => ({ tools: [], categories: [] }),
     }
   )
 )

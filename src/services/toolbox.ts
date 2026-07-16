@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { CANWIN_TEAM_ID } from '@/config/team'
-import type { ToolCategory, ToolItem } from '@/types/toolbox'
+import type { ToolCategory, ToolCategoryItem, ToolDraft, ToolItem } from '@/types/toolbox'
 
 type ToolRow = {
   id: string
@@ -41,17 +41,10 @@ function rowToTool(row: ToolRow): ToolItem {
   }
 }
 
-function toolToRow(tool: Pick<ToolItem, 'title' | 'description' | 'url' | 'category' | 'creatorName' | 'likedBy'>) {
-  return {
-    title: tool.title,
-    url: tool.url,
-    category: tool.category,
-    description: JSON.stringify({
-      description: tool.description,
-      creatorName: tool.creatorName,
-      likedBy: tool.likedBy,
-    }),
-  }
+function singleRpcRow<T>(data: T | T[] | null): T {
+  const row = Array.isArray(data) ? data[0] : data
+  if (!row) throw new Error('服务器未返回工具数据')
+  return row
 }
 
 export async function loadTools(): Promise<ToolItem[]> {
@@ -65,34 +58,91 @@ export async function loadTools(): Promise<ToolItem[]> {
   return (data ?? []).map((row) => rowToTool(row as ToolRow))
 }
 
-export async function createToolRecord(tool: Omit<ToolItem, 'id' | 'createdAt'>): Promise<ToolItem> {
-  const { data, error } = await supabase
-    .from('tools')
-    .insert({
-      ...toolToRow(tool),
-      team_id: CANWIN_TEAM_ID,
-      created_by: tool.creatorId,
-    })
-    .select(TOOL_SELECT)
-    .single()
+export async function createToolRecord(tool: ToolDraft): Promise<ToolItem> {
+  const { data, error } = await supabase.rpc('toolbox_create_tool', {
+    p_title: tool.title,
+    p_url: tool.url,
+    p_description: tool.description,
+    p_category_code: tool.category,
+  })
 
   if (error) throw new Error(error.message)
-  return rowToTool(data as ToolRow)
+  return rowToTool(singleRpcRow(data) as ToolRow)
 }
 
-export async function updateToolRecord(tool: ToolItem): Promise<ToolItem> {
-  const { data, error } = await supabase
-    .from('tools')
-    .update(toolToRow(tool))
-    .eq('id', tool.id)
-    .select(TOOL_SELECT)
-    .single()
+export async function updateToolRecord(toolId: string, patch: ToolDraft): Promise<ToolItem> {
+  const { data, error } = await supabase.rpc('toolbox_update_tool', {
+    p_tool_id: toolId,
+    p_title: patch.title,
+    p_url: patch.url,
+    p_description: patch.description,
+    p_category_code: patch.category,
+  })
 
   if (error) throw new Error(error.message)
-  return rowToTool(data as ToolRow)
+  return rowToTool(singleRpcRow(data) as ToolRow)
 }
 
 export async function deleteToolRecord(id: string): Promise<void> {
-  const { error } = await supabase.from('tools').delete().eq('id', id)
+  const { error } = await supabase.rpc('toolbox_delete_tool', { p_tool_id: id })
+  if (error) throw new Error(error.message)
+}
+
+export async function toggleToolLikeRecord(toolId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('toolbox_toggle_tool_like', { p_tool_id: toolId })
+  if (error) throw new Error(error.message)
+  return Boolean(data)
+}
+
+type CategoryRow = {
+  id: string
+  code: string
+  name: string
+  sort_order: number
+  is_system: boolean
+  tool_count: number | string
+}
+
+function rowToCategory(row: CategoryRow): ToolCategoryItem {
+  return {
+    id: row.id,
+    code: row.code,
+    name: row.name,
+    sortOrder: Number(row.sort_order),
+    isSystem: row.is_system,
+    toolCount: Number(row.tool_count),
+  }
+}
+
+export async function loadToolCategories(): Promise<ToolCategoryItem[]> {
+  const { data, error } = await supabase.rpc('toolbox_list_categories')
+  if (error) throw new Error(error.message)
+  return ((data ?? []) as CategoryRow[]).map(rowToCategory)
+}
+
+export async function createToolCategory(name: string): Promise<void> {
+  const { error } = await supabase.rpc('toolbox_create_category', { p_name: name })
+  if (error) throw new Error(error.message)
+}
+
+export async function updateToolCategory(categoryId: string, name: string, sortOrder: number): Promise<void> {
+  const { error } = await supabase.rpc('toolbox_update_category', {
+    p_category_id: categoryId,
+    p_name: name,
+    p_sort_order: sortOrder,
+  })
+  if (error) throw new Error(error.message)
+}
+
+export async function reorderToolCategories(categoryIds: string[]): Promise<void> {
+  const { error } = await supabase.rpc('toolbox_reorder_categories', { p_category_ids: categoryIds })
+  if (error) throw new Error(error.message)
+}
+
+export async function deleteToolCategory(categoryId: string, moveToCategoryId: string | null): Promise<void> {
+  const { error } = await supabase.rpc('toolbox_delete_category', {
+    p_category_id: categoryId,
+    p_move_to_category_id: moveToCategoryId,
+  })
   if (error) throw new Error(error.message)
 }
