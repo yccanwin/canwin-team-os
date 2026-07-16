@@ -61,7 +61,7 @@ export const createSupabaseQuoteOrderDataSource = (client: SupabaseClient): Quot
   async loadDraftOptions() {
     const [opportunities, packages, items] = await Promise.all([
       client.from('crm_opportunities').select('id,value_grade,demo_completed_at,crm_stores!inner(name),crm_brands(name)').is('qualification_superseded_at', null).order('created_at', { ascending: false }),
-      client.from('deal_packages').select('id,name,deal_catalog_versions!inner(status)').eq('is_active', true).eq('deal_catalog_versions.status', 'published').order('name'),
+      client.from('deal_packages').select('id,name,standard_price,deal_catalog_versions!inner(status)').eq('is_active', true).eq('deal_catalog_versions.status', 'published').order('name'),
       client.from('deal_catalog_items').select('id,name,item_type,customer_list_price,deal_catalog_versions!inner(status)').eq('is_active', true).eq('deal_catalog_versions.status', 'published').order('name'),
     ])
     const error = opportunities.error ?? packages.error ?? items.error
@@ -71,7 +71,7 @@ export const createSupabaseQuoteOrderDataSource = (client: SupabaseClient): Quot
         const brand = related(x.crm_brands); const store = related(x.crm_stores)
         return { id: String(x.id), label: `${brand?.name ? `${String(brand.name)} · ` : ''}${store?.name ? String(store.name) : '门店'}`, valueGrade: String(x.value_grade), demoCompleted: Boolean(x.demo_completed_at) }
       }),
-      packages: ((packages.data ?? []) as OptionRow[]).map(x => ({ id: String(x.id), name: String(x.name) })),
+      packages: ((packages.data ?? []) as OptionRow[]).map(x => ({ id: String(x.id), name: String(x.name), standardPrice: Number(x.standard_price) })),
       items: ((items.data ?? []) as OptionRow[]).map(x => ({ id: String(x.id), name: String(x.name), itemType: String(x.item_type), listPrice: Number(x.customer_list_price) })),
     }
   },

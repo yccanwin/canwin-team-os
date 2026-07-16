@@ -154,13 +154,18 @@ export function createSupabaseSalesWorkbenchDataSource(client: SupabaseClient): 
       if (error) throw new SalesWorkbenchDataError(`转有效商机失败：${error.message}`, error)
       return String(data)
     },
+    async completeLeadContact(leadId, contactName, phone) {
+      const { data, error } = await client.rpc('complete_lead_contact', { p_lead_id: leadId, p_contact_name: contactName.trim() || null, p_phone: phone.trim() })
+      if (error) throw new SalesWorkbenchDataError(`保存联系电话失败：${error.message}`, error)
+      return String(data)
+    },
     async recordStoreQualificationFacts(x){const{data,error}=await client.rpc('record_crm_store_qualification_facts',{p_store_id:x.storeId,p_area_sqm:x.areaSqm??null,p_private_room_count:x.privateRoomCount??null,p_is_landmark:x.isLandmark,p_is_takeaway_only:x.isTakeawayOnly});if(error)throw new SalesWorkbenchDataError(`保存门店资格事实失败：${error.message}`,error);return String(data)},
     async recordQualificationEvidence(x){const{data,error}=await client.rpc('record_crm_qualification_evidence',{p_lead_id:x.leadId,p_evidence_type:x.evidenceType,p_detail:x.detail,p_contact_id:x.contactId??null,p_meeting_at:x.meetingAt??null});if(error)throw new SalesWorkbenchDataError(`保存资格证据失败：${error.message}`,error);return String(data)},
     async loadCrmEditorOptions() {
       const [brands, regions, stores, contacts, leads] = await Promise.all([
         client.from('crm_brands').select('id,name,business_mode').order('name'), client.from('sales_regions').select('id,name').order('name'),
         client.from('crm_stores').select('id,brand_id,region_id,name,business_type,address').order('name'), client.from('crm_contacts').select('id,brand_id,store_id,name,title,is_key_person').order('name'),
-        client.from('crm_leads').select('id,region_id,brand_id,store_id,title,source').order('created_at', { ascending: false }),
+        client.from('crm_leads').select('id,region_id,brand_id,store_id,title,contact_name,source').order('created_at', { ascending: false }),
       ])
       const error = brands.error ?? regions.error ?? stores.error ?? contacts.error ?? leads.error
       if (error) throw new SalesWorkbenchDataError(`读取编辑数据失败：${error.message}`, error)
@@ -168,7 +173,7 @@ export function createSupabaseSalesWorkbenchDataSource(client: SupabaseClient): 
         brands: (brands.data ?? []).map(x => ({ id:String(x.id),name:String(x.name),businessMode:String(x.business_mode) })), regions:(regions.data??[]).map(x=>({id:String(x.id),name:String(x.name)})),
         stores:(stores.data??[]).map(x=>({id:String(x.id),brandId:x.brand_id?String(x.brand_id):undefined,regionId:String(x.region_id),name:String(x.name),businessType:String(x.business_type??''),address:String(x.address??'')})),
         contacts:(contacts.data??[]).map(x=>({id:String(x.id),brandId:x.brand_id?String(x.brand_id):undefined,storeId:x.store_id?String(x.store_id):undefined,name:String(x.name),title:String(x.title??''),isKeyPerson:x.is_key_person===true})),
-        leads:(leads.data??[]).map(x=>({id:String(x.id),regionId:String(x.region_id),brandId:x.brand_id?String(x.brand_id):undefined,storeId:x.store_id?String(x.store_id):undefined,title:String(x.title),source:String(x.source??'')})),
+        leads:(leads.data??[]).map(x=>({id:String(x.id),regionId:String(x.region_id),brandId:x.brand_id?String(x.brand_id):undefined,storeId:x.store_id?String(x.store_id):undefined,title:String(x.title),contactName:x.contact_name?String(x.contact_name):undefined,source:String(x.source??'')})),
       }
     },
     async upsertBrand(x){const{data,error}=await client.rpc('upsert_crm_brand',{p_id:x.id??null,p_name:x.name,p_business_mode:x.businessMode});if(error)throw new SalesWorkbenchDataError(`保存品牌失败：${error.message}`,error);return String(data)},
@@ -200,7 +205,8 @@ export function createSupabaseSalesWorkbenchDataSource(client: SupabaseClient): 
       if (error) throw new SalesWorkbenchDataError(`读取资格状态失败：${error.message}`, error)
       const value = data as Record<string, unknown>
       return {
-        leadId: String(value.lead_id), storeId: value.store_id ? String(value.store_id) : undefined,
+        leadId: String(value.lead_id), contactName: value.contact_name ? String(value.contact_name) : undefined,
+        contactabilityReady: value.contactability_ready === true, storeId: value.store_id ? String(value.store_id) : undefined,
         storeName: value.store_name ? String(value.store_name) : undefined,
         businessType: value.business_type ? String(value.business_type) : undefined,
         businessTypeLabel: value.business_type_label ? String(value.business_type_label) : undefined,

@@ -79,7 +79,7 @@ export interface ReversiblePaymentRecord {
 }
 
 export interface QuoteOrderDataSource {
-  loadDraftOptions(): Promise<{ opportunities: Array<{ id: string; label: string; valueGrade: string; demoCompleted: boolean }>; packages: Array<{ id: string; name: string }>; items: Array<{ id: string; name: string; itemType: string; listPrice: number }> }>
+  loadDraftOptions(): Promise<{ opportunities: Array<{ id: string; label: string; valueGrade: string; demoCompleted: boolean }>; packages: Array<{ id: string; name: string; standardPrice: number }>; items: Array<{ id: string; name: string; itemType: string; listPrice: number }> }>
   completeOpportunityDemo(opportunityId: string): Promise<void>
   createDraft(opportunityId: string): Promise<DealQuoteRecord>
   getDraftLines(quoteId: string): Promise<DealQuoteDraftLineRecord[]>

@@ -12,6 +12,7 @@ export interface SalesWorkbenchDataSource {
   listCustomers(): Promise<CustomerBrandSummary[]>
   getMySalesWorkspace(): Promise<PersonalSalesWorkspace>
   qualifyLead(leadId: string): Promise<string>
+  completeLeadContact(leadId: string, contactName: string, phone: string): Promise<string>
   getQualificationStatus(leadId: string): Promise<QualificationStatus>
   recordStoreQualificationFacts(input: { storeId: string; areaSqm?: number; privateRoomCount?: number; isLandmark: boolean; isTakeawayOnly: boolean }): Promise<string>
   recordQualificationEvidence(input: { leadId: string; evidenceType: 'annual_fee_viable'|'key_person_contacted'|'key_person_meeting_scheduled'; detail: string; contactId?: string; meetingAt?: string }): Promise<string>
@@ -55,6 +56,8 @@ export interface SalesTodayAction {
 
 export interface QualificationStatus {
   leadId: string
+  contactName?: string
+  contactabilityReady: boolean
   storeId?: string
   storeName?: string
   businessType?: string
@@ -101,7 +104,7 @@ export interface CrmEditorOptions {
   regions: Array<{ id: string; name: string }>
   stores: Array<{ id: string; brandId?: string; regionId: string; name: string; businessType: string; address: string }>
   contacts: Array<{ id: string; brandId?: string; storeId?: string; name: string; title: string; isKeyPerson: boolean }>
-  leads: Array<{ id: string; regionId: string; brandId?: string; storeId?: string; title: string; source: string }>
+  leads: Array<{ id: string; regionId: string; brandId?: string; storeId?: string; title: string; contactName?: string; source: string }>
 }
 
 export class SalesWorkbenchDataError extends Error {
