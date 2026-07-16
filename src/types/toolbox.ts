@@ -30,6 +30,8 @@ export interface ToolItem {
   creatorName: string
   likedBy: string[]
   createdAt: string
+  /** 服务端按创建人、legacy admin、access owner/admin、access.manage 计算。 */
+  canManage?: boolean
 }
 
 export interface ToolDraft {

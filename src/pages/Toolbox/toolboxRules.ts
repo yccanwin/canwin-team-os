@@ -1,8 +1,7 @@
-import type { User } from '@/types'
 import type { ToolCategoryItem, ToolItem } from '@/types/toolbox'
 
-export function canManageTool(user: User | null | undefined, tool: ToolItem): boolean {
-  return Boolean(user && (user.role === 'admin' || user.id === tool.creatorId))
+export function canManageTool(tool: ToolItem): boolean {
+  return tool.canManage === true
 }
 
 export function canEditCategory(category: ToolCategoryItem): boolean {

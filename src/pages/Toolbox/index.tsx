@@ -168,7 +168,7 @@ export default function Toolbox() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredTools.map((tool) => {
             const liked = Boolean(currentUser && tool.likedBy.includes(currentUser.id))
-            const manageable = canManageTool(currentUser, tool)
+            const manageable = canManageTool(tool)
             return <article key={tool.id} className="bg-white rounded-xl border border-brand-100 p-5 hover:border-violet-300 hover:shadow-md transition-all flex flex-col">
               <div className="flex items-center justify-between mb-2"><span className="px-2 py-0.5 text-[10px] rounded-full bg-violet-50 text-violet-600">{categoryName(tool.category)}</span>{manageable && <div className="flex items-center gap-1"><button data-testid={`tool-edit-${tool.id}`} onClick={() => openEdit(tool)} className="p-1.5 rounded hover:bg-violet-50 text-brand-300 hover:text-violet-600" title="编辑"><Edit3 className="w-3.5 h-3.5" /></button><button data-testid={`tool-delete-${tool.id}`} onClick={() => void confirmDeleteTool(tool)} className="p-1.5 rounded hover:bg-red-50 text-brand-300 hover:text-red-500" title="删除"><Trash2 className="w-3.5 h-3.5" /></button></div>}</div>
               <h3 className="font-heading font-semibold text-brand-400 mb-1.5">{tool.title}</h3><p className="text-sm text-brand-300 mb-3 flex-1 line-clamp-2">{tool.description || '暂无描述'}</p>

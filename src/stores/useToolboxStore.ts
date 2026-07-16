@@ -52,7 +52,9 @@ export const useToolboxStore = create<ToolboxState>()(
       updateTool: async (id, data) => {
         const savedTool = await updateToolRecord(id, data)
         set((state) => ({
-          tools: state.tools.map((tool) => (tool.id === id ? savedTool : tool)),
+          tools: state.tools.map((tool) => (
+            tool.id === id ? { ...savedTool, canManage: tool.canManage } : tool
+          )),
         }))
       },
 

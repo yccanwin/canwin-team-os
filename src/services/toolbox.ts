@@ -1,5 +1,4 @@
 import { supabase } from '@/lib/supabase'
-import { CANWIN_TEAM_ID } from '@/config/team'
 import type { ToolCategory, ToolCategoryItem, ToolDraft, ToolItem } from '@/types/toolbox'
 
 type ToolRow = {
@@ -10,11 +9,21 @@ type ToolRow = {
   category: ToolCategory | null
   created_by: string | null
   created_at: string
+  can_manage?: boolean
+}
+
+type ToolboxToolRow = {
+  id: string
+  title: string
+  url: string
+  description: string | null
+  category: ToolCategory | null
+  created_by: string | null
+  created_at: string
+  can_manage: boolean
 }
 
 type ToolMeta = Pick<ToolItem, 'description' | 'creatorName' | 'likedBy'>
-
-const TOOL_SELECT = 'id, title, url, description, category, created_by, created_at'
 
 function parseMeta(description: string | null): Partial<ToolMeta> {
   if (!description) return {}
@@ -38,6 +47,7 @@ function rowToTool(row: ToolRow): ToolItem {
     creatorName: meta.creatorName || '',
     likedBy: meta.likedBy ?? [],
     createdAt: row.created_at,
+    canManage: row.can_manage ?? false,
   }
 }
 
@@ -48,14 +58,10 @@ function singleRpcRow<T>(data: T | T[] | null): T {
 }
 
 export async function loadTools(): Promise<ToolItem[]> {
-  const { data, error } = await supabase
-    .from('tools')
-    .select(TOOL_SELECT)
-    .eq('team_id', CANWIN_TEAM_ID)
-    .order('created_at', { ascending: false })
+  const { data, error } = await supabase.rpc('toolbox_list_tools')
 
   if (error) throw new Error(error.message)
-  return (data ?? []).map((row) => rowToTool(row as ToolRow))
+  return (data ?? []).map((row: ToolboxToolRow) => rowToTool(row))
 }
 
 export async function createToolRecord(tool: ToolDraft): Promise<ToolItem> {
