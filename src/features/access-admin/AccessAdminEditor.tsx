@@ -12,6 +12,9 @@ export function AccessAdminEditor({ dataSource }: { dataSource: AccessAdminDataS
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
   const [editingId, setEditingId] = useState('')
+  const [passwordMemberId, setPasswordMemberId] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [roleCodes, setRoleCodes] = useState<string[]>([])
   const [invite, setInvite] = useState({ email: '', displayName: '', roleCodes: ['sales'] })
   const [delegation, setDelegation] = useState({ delegatorId: '', delegateId: '', startsAt: '', endsAt: '', reason: '' })
@@ -36,6 +39,31 @@ export function AccessAdminEditor({ dataSource }: { dataSource: AccessAdminDataS
   const startRoleEdit = (id: string) => {
     const member = snapshot?.members.find((item) => item.id === id)
     setEditingId(id); setRoleCodes(member?.roles.map((role) => role.code) ?? [])
+  }
+  const startPasswordReset = (id: string) => {
+    setPasswordMemberId(id)
+    setNewPassword('')
+    setConfirmPassword('')
+    setError('')
+    setNotice('')
+  }
+  const submitPasswordReset = async () => {
+    if (newPassword.length < 8 || newPassword.length > 72) {
+      setError('新密码长度必须为 8 至 72 位。')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setError('两次输入的密码不一致。')
+      return
+    }
+    const memberName = nameOf(passwordMemberId)
+    await run(
+      () => dataSource.resetPassword(passwordMemberId, newPassword),
+      `${memberName}的登录密码已重置`,
+    )
+    setPasswordMemberId('')
+    setNewPassword('')
+    setConfirmPassword('')
   }
   const toggleRole = (roleCode: string) => {
     const removingLastSelfAdmin = roleCode === 'admin'
@@ -64,8 +92,8 @@ export function AccessAdminEditor({ dataSource }: { dataSource: AccessAdminDataS
     {notice && <div className="aae-notice" role="status">{notice}</div>}{error && <div className="aae-error" role="alert">{error}</div>}
 
     {tab === 'members' && <div className="aae-grid">
-      <div className="aae-panel"><div className="aae-panel-title"><h3>成员账号</h3><span>{activeMembers.length} 个启用</span></div><div className="aae-members">{snapshot.members.map((member) => <article key={member.id}><div className="aae-person"><span>{member.name.slice(0, 1)}</span><div><strong>{member.name}</strong><small>{member.position || '未填写职位'} · {member.status === 'active' ? '启用' : '已停用'}</small></div></div><div className="aae-chips">{member.roles.map((role) => <span key={role.code}>{role.name}</span>)}</div><div className="aae-row-actions"><button onClick={() => startRoleEdit(member.id)}>配置角色</button><button className={member.status === 'active' ? 'danger' : ''} disabled={busy} onClick={() => run(() => dataSource.setProfileStatus(member.id, member.status === 'active' ? 'disabled' : 'active'), member.status === 'active' ? '账号已停用' : '账号已启用')}>{member.status === 'active' ? '停用' : '启用'}</button></div></article>)}</div></div>
-      <div className="aae-stack"><div className="aae-panel"><h3>角色组合</h3>{editingId ? <><p className="aae-hint">正在配置：{nameOf(editingId)}</p><div className="aae-options">{snapshot.roles.map((role) => <label key={role.code}><input type="checkbox" checked={roleCodes.includes(role.code)} onChange={() => toggleRole(role.code)} /><span><strong>{role.name}</strong><small>{role.description}</small></span></label>)}</div>{editingId === snapshot.currentUserId && activeAdmins.length === 1 && roleCodes.includes('admin') && <p className="aae-hint">你是当前唯一启用中的管理员。需要先添加另一名管理员，才能取消自己的管理员角色。</p>}<button className="primary wide" disabled={busy || roleCodes.length === 0 || !snapshot.currentUserIsAdmin} onClick={() => run(() => dataSource.replaceRoles(editingId, roleCodes), '角色已保存')}>保存角色</button></> : <p className="aae-empty">从左侧选择一名成员。</p>}</div>
+      <div className="aae-panel"><div className="aae-panel-title"><h3>成员账号</h3><span>{activeMembers.length} 个启用</span></div><div className="aae-members">{snapshot.members.map((member) => <article key={member.id}><div className="aae-person"><span>{member.name.slice(0, 1)}</span><div><strong>{member.name}</strong><small>{member.position || '未填写职位'} · {member.status === 'active' ? '启用' : '已停用'}</small></div></div><div className="aae-chips">{member.roles.map((role) => <span key={role.code}>{role.name}</span>)}</div><div className="aae-row-actions"><button onClick={() => startRoleEdit(member.id)}>配置角色</button>{snapshot.currentUserIsAdmin && <button onClick={() => startPasswordReset(member.id)}>重置密码</button>}<button className={member.status === 'active' ? 'danger' : ''} disabled={busy} onClick={() => run(() => dataSource.setProfileStatus(member.id, member.status === 'active' ? 'disabled' : 'active'), member.status === 'active' ? '账号已停用' : '账号已启用')}>{member.status === 'active' ? '停用' : '启用'}</button></div></article>)}</div></div>
+      <div className="aae-stack">{passwordMemberId && <div className="aae-panel"><h3>重置登录密码</h3><p className="aae-hint">正在重置：{nameOf(passwordMemberId)}。管理员无法查看原密码，新密码不会写入业务数据库或审计日志。</p><label className="aae-field">新密码<input type="password" minLength={8} maxLength={72} autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /></label><label className="aae-field">再次输入<input type="password" minLength={8} maxLength={72} autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label><div className="aae-row-actions"><button disabled={busy} onClick={() => setPasswordMemberId('')}>取消</button><button className="primary" disabled={busy || !newPassword || !confirmPassword} onClick={() => void submitPasswordReset()}>确认重置</button></div></div>}<div className="aae-panel"><h3>角色组合</h3>{editingId ? <><p className="aae-hint">正在配置：{nameOf(editingId)}</p><div className="aae-options">{snapshot.roles.map((role) => <label key={role.code}><input type="checkbox" checked={roleCodes.includes(role.code)} onChange={() => toggleRole(role.code)} /><span><strong>{role.name}</strong><small>{role.description}</small></span></label>)}</div>{editingId === snapshot.currentUserId && activeAdmins.length === 1 && roleCodes.includes('admin') && <p className="aae-hint">你是当前唯一启用中的管理员。需要先添加另一名管理员，才能取消自己的管理员角色。</p>}<button className="primary wide" disabled={busy || roleCodes.length === 0 || !snapshot.currentUserIsAdmin} onClick={() => run(() => dataSource.replaceRoles(editingId, roleCodes), '角色已保存')}>保存角色</button></> : <p className="aae-empty">从左侧选择一名成员。</p>}</div>
       <div className="aae-panel"><h3>主管与下属</h3><select value={supervisorId} onChange={(event) => startSupervisorEdit(event.target.value)}><option value="">选择主管</option>{activeMembers.filter((member) => member.roles.some((role) => role.code === 'supervisor')).map((member) => <option value={member.id} key={member.id}>{member.name}</option>)}</select>{supervisorId && <><div className="aae-options compact">{activeMembers.filter((member) => member.id !== supervisorId).map((member) => <label key={member.id}><input type="checkbox" checked={subordinateIds.includes(member.id)} onChange={() => toggle(member.id, subordinateIds, setSubordinateIds)} /><span><strong>{member.name}</strong></span></label>)}</div><button className="primary wide" disabled={busy} onClick={() => run(() => dataSource.replaceSupervisorSubordinates(supervisorId, subordinateIds), '主管关系已保存')}>保存下属范围</button></>}</div></div>
     </div>}
 

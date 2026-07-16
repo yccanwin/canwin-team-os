@@ -15,6 +15,8 @@ const adminErrorMessages: Record<string, string> = {
   INVALID_ROLE_SET: '所选角色无效，请重新选择。',
   IDEMPOTENCY_KEY_CONFLICT: '本次请求与已提交的操作冲突，请刷新后重试。',
   Unauthorized: '登录状态已失效，请重新登录。',
+  PASSWORD_LENGTH_INVALID: '新密码长度必须为 8 至 72 位。',
+  MEMBER_NOT_FOUND: '没有找到该团队成员。',
 }
 
 function failAdminOperation(message: string, error: { message: string } | null) {
@@ -79,6 +81,12 @@ export function createSupabaseAccessAdminDataSource(client: SupabaseClient): Acc
         body: { action: 'set-status', id: profileId, status, idempotencyKey: requestKey() },
       })
       await failFunction('修改账号状态失败', error)
+    },
+    async resetPassword(profileId, password) {
+      const { error } = await client.functions.invoke('admin-members', {
+        body: { action: 'reset-password', id: profileId, password },
+      })
+      await failFunction('重置成员密码失败', error)
     },
     async createDelegation(input) {
       const { error } = await client.rpc('admin_create_delegation', {

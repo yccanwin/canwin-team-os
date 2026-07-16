@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 type MemberPayload = {
-  action: 'invite' | 'update' | 'set-status'
+  action: 'invite' | 'update' | 'set-status' | 'reset-password'
   id?: string
   email?: string
   name?: string
@@ -12,6 +12,7 @@ type MemberPayload = {
   position?: string
   avatarUrl?: string
   joinDate?: string
+  password?: string
 }
 
 const corsHeaders = {
@@ -261,6 +262,43 @@ Deno.serve(async (req) => {
     })
     if (authStatusError) return jsonResponse({ error: authStatusError.message }, 400)
     return jsonResponse({ ok: true })
+  }
+
+  if (payload.action === 'reset-password') {
+    if (!payload.id || !payload.password) {
+      return jsonResponse({ error: 'Missing password reset fields' }, 400)
+    }
+    if (payload.password.length < 8 || payload.password.length > 72) {
+      return jsonResponse({ error: 'PASSWORD_LENGTH_INVALID' }, 400)
+    }
+
+    const { data: targetProfile, error: targetError } = await adminClient
+      .from('profiles')
+      .select('id, team_id, status')
+      .eq('id', payload.id)
+      .eq('team_id', teamId)
+      .single()
+    if (targetError || !targetProfile) {
+      return jsonResponse({ error: 'MEMBER_NOT_FOUND' }, 404)
+    }
+
+    const { error: passwordError } = await adminClient.auth.admin.updateUserById(payload.id, {
+      password: payload.password,
+    })
+    if (passwordError) return jsonResponse({ error: passwordError.message }, 400)
+
+    const { error: auditError } = await adminClient.from('audit_logs').insert({
+      team_id: teamId,
+      actor_id: authData.user.id,
+      action: 'profile.password_reset',
+      target_type: 'profile',
+      target_id: payload.id,
+      after_data: { reset_at: new Date().toISOString() },
+    })
+    if (auditError) {
+      console.error('[admin-members] Password reset succeeded but audit logging failed.', auditError.message)
+    }
+    return jsonResponse({ ok: true, ...(auditError ? { auditWarning: true } : {}) })
   }
 
   return jsonResponse({ error: 'Unsupported action' }, 400)
