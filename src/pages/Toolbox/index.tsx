@@ -41,6 +41,7 @@ export default function Toolbox() {
   const currentUser = useUserStore((state) => state.currentUser)
 
   const categories = storedCategories.length > 0 ? storedCategories : TOOL_CATEGORIES
+  const assignableCategories = categories.filter((category) => category.code !== 'all')
   const [activeCategory, setActiveCategory] = useState('all')
   const [search, setSearch] = useState('')
   const [editingTool, setEditingTool] = useState<ToolItem | null>(null)
@@ -73,7 +74,7 @@ export default function Toolbox() {
 
   const openCreate = () => {
     setEditingTool(null)
-    setForm({ ...EMPTY_FORM, category: categories[0]?.code ?? 'other' })
+    setForm({ ...EMPTY_FORM, category: assignableCategories[0]?.code ?? 'other' })
     setShowToolModal(true)
     setError('')
   }
@@ -156,8 +157,7 @@ export default function Toolbox() {
       <div className="flex items-center gap-3 mb-5 flex-wrap">
         <div className="relative flex-1 min-w-[200px] max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-200" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索工具..." className="w-full pl-9 pr-3 py-2 text-sm border border-brand-100 rounded-lg outline-none bg-white" /></div>
         <div className="flex gap-1.5 flex-wrap">
-          <button onClick={() => setActiveCategory('all')} className={`px-3 py-1.5 text-xs rounded-full ${activeCategory === 'all' ? 'bg-violet-600 text-white' : 'bg-white border border-brand-100'}`}>全部 <span className="opacity-60">{tools.length}</span></button>
-          {categories.map((category) => <button key={category.id} onClick={() => setActiveCategory(category.code)} className={`px-3 py-1.5 text-xs rounded-full ${activeCategory === category.code ? 'bg-violet-600 text-white' : 'bg-white border border-brand-100'}`}>{category.name} <span className="opacity-60">{tools.filter((tool) => tool.category === category.code).length}</span></button>)}
+          {categories.map((category) => <button key={category.id} onClick={() => setActiveCategory(category.code)} className={`px-3 py-1.5 text-xs rounded-full ${activeCategory === category.code ? 'bg-violet-600 text-white' : 'bg-white border border-brand-100'}`}>{category.name} <span className="opacity-60">{category.code === 'all' ? tools.length : tools.filter((tool) => tool.category === category.code).length}</span></button>)}
           <button data-testid="category-manage" onClick={() => setShowCategoryModal(true)} className="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded-full border border-violet-200 text-violet-700 bg-violet-50"><FolderCog className="w-3.5 h-3.5" />管理分类</button>
         </div>
       </div>
@@ -182,7 +182,7 @@ export default function Toolbox() {
       {showToolModal && <Modal title={editingTool ? '编辑分享' : '分享新工具'} onClose={() => setShowToolModal(false)}>
         <div className="space-y-4">
           <Field label="工具名称 *"><input autoFocus value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} maxLength={40} className="w-full px-3 py-2 text-sm border border-brand-100 rounded-lg outline-none focus:border-violet-400" /></Field>
-          <Field label="分类"><select value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} className="w-full px-3 py-2 text-sm border border-brand-100 rounded-lg outline-none focus:border-violet-400 bg-white">{categories.map((category) => <option key={category.id} value={category.code}>{category.name}</option>)}</select></Field>
+          <Field label="分类"><select value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} className="w-full px-3 py-2 text-sm border border-brand-100 rounded-lg outline-none focus:border-violet-400 bg-white">{assignableCategories.map((category) => <option key={category.id} value={category.code}>{category.name}</option>)}</select></Field>
           <Field label="工具链接 *"><input type="url" value={form.url} onChange={(event) => setForm({ ...form, url: event.target.value })} placeholder="https://..." className="w-full px-3 py-2 text-sm border border-brand-100 rounded-lg outline-none focus:border-violet-400" /></Field>
           <Field label="描述"><textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} maxLength={200} rows={3} className="w-full px-3 py-2 text-sm border border-brand-100 rounded-lg outline-none focus:border-violet-400 resize-none" /></Field>
         </div>
