@@ -7,6 +7,7 @@ import {
   Camera,
   CheckSquare,
   CircleUserRound,
+  ClipboardPaste,
   Clock,
   Compass,
   ContactRound,
@@ -71,14 +72,14 @@ export const NAVIGATION_GROUPS: NavigationGroup[] = [
         type: 'collection',
         label: '客如云中心',
         icon: LineChart,
-        description: '销售、客户、订单与交付',
+        description: '从线索跟进到成交、交付与复购',
         children: [
-          link('今日工作台', '/sales-v3', Compass, { priority: 'high' }),
+          link('今日工作台', '/sales-v3', Compass, { exact: true, priority: 'high' }),
           link('客户与线索', '/sales-v3?tab=leads', ContactRound, { priority: 'high' }),
-          link('线索录入', '/operations/lead-intake', ContactRound, { priority: 'high' }),
-          link('业绩与积分（原客如云）', '/sales', Trophy),
+          link('线索录入', '/operations/lead-intake', ClipboardPaste, { priority: 'high' }),
           link('报价与订单', '/quotes-v3', ShoppingBasket),
           link('交付与售后', '/orders-v3', BriefcaseBusiness),
+          link('业绩与积分', '/sales', Trophy),
         ],
       },
     ],
@@ -167,7 +168,7 @@ export const NAVIGATION_GROUPS: NavigationGroup[] = [
 export const MOBILE_PRIMARY_LINKS: NavigationLink[] = [
   link('工作台', '/dashboard', LayoutDashboard, { exact: true }),
   link('推进', '/work', CheckSquare),
-  link('客如云', '/sales-v3?tab=leads', LineChart),
+  link('客如云中心', '/sales-v3', LineChart),
   link('财务', '/finance', BarChart3),
 ]
 
@@ -179,6 +180,10 @@ function linkMatches(item: NavigationLink, currentLocation: string): boolean {
     : currentUrl.pathname === targetUrl.pathname || currentUrl.pathname.startsWith(`${targetUrl.pathname}/`)
 
   if (!pathMatches) return false
+
+  if (item.exact && currentUrl.searchParams.size !== targetUrl.searchParams.size) {
+    return false
+  }
 
   for (const [key, value] of targetUrl.searchParams) {
     const currentValue = currentUrl.searchParams.get(key)

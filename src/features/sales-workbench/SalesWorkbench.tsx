@@ -25,6 +25,8 @@ import { CrmEntityEditor } from './CrmEntityEditor'
 import { QualificationEvidenceEditor } from './QualificationEvidenceEditor'
 import { QuickLeadForm } from './QuickLeadForm'
 import { LeadConversionForm } from './LeadConversionForm'
+import { CrmCommandCenter } from './CrmCommandCenter'
+import type { CommandActionBucket, CommandCenterAction } from './CrmCommandCenter'
 import './sales-workbench.css'
 
 const tabs: Array<{ id: WorkbenchTab; label: string; icon: typeof House }> = [
@@ -36,7 +38,7 @@ const tabs: Array<{ id: WorkbenchTab; label: string; icon: typeof House }> = [
 ]
 
 const tabDescriptions: Record<WorkbenchTab, string> = {
-  today: '只看今天必须推进的事项',
+  today: '先处理今天，再推进成交',
   leads: '联系、跟进并推进有效商机',
   customers: '查看品牌、门店与联系人档案',
   orders: '进入报价、订单与交付流程',
@@ -116,6 +118,7 @@ export function SalesWorkbench({
 
   const activateTab = (tab: WorkbenchTab) => {
     setActiveTab(tab)
+    if (tab === 'today' && currentLeadScope !== 'mine') setCurrentLeadScope('mine')
     if (tab === 'leads') setMobileLeadDetailOpen(false)
     if (tab !== 'customers') setShowCustomerEditor(false)
   }
@@ -130,6 +133,36 @@ export function SalesWorkbench({
       recycleRisks: serverTodayActions.filter((task) => task.actionType === 'recycle_24h' || task.actionType === 'recycle_48h').length,
     }
   }, [demoMode, serverTodayActions])
+  const commandActions = useMemo<CommandCenterAction[]>(() => {
+    if (!demoMode) return serverTodayActions.map((action) => ({
+      id: action.id,
+      entityId: action.entityId,
+      entityType: action.entityType,
+      title: action.title,
+      label: action.label,
+      reason: action.reason,
+      dueAt: action.dueAt,
+      owner: action.entityType === 'lead' ? salespersonName : undefined,
+      bucket: actionBucket(action.dueAt, action.supervisorException || action.label.includes('逾期')),
+      tone: action.priorityTone,
+    }))
+    return todayTasks.map(({ lead, priority, label }) => {
+      const overdue = priority === 'overdue_appointment' || priority === 'recycle_risk'
+      const tone: CommandCenterAction['tone'] = overdue ? 'critical' : priority === 'upcoming_appointment' ? 'high' : priority === 'today_followup' ? 'medium' : 'normal'
+      return {
+        id: `demo-${lead.id}`,
+        entityId: lead.id,
+        entityType: 'lead',
+        title: lead.storeName,
+        label,
+        reason: lead.nextActionAt ? '按计划继续推进客户' : '尽快完成首次联系',
+        dueAt: lead.nextActionAt,
+        owner: lead.ownerDisplayName || salespersonName,
+        bucket: actionBucket(lead.nextActionAt, overdue),
+        tone,
+      }
+    })
+  }, [demoMode, salespersonName, serverTodayActions, todayTasks])
 
   useEffect(() => {
     if (demoMode || !dataSource || activeTab !== 'today') return
@@ -227,9 +260,9 @@ export function SalesWorkbench({
     }))
   }
 
-  const markContacted = (startedAt: number, isFirst = true) => {
+  const markContacted = (isFirst = true) => {
     if (!selected) return
-    setRecapStartedAt(isFirst ? startedAt : null)
+    setRecapStartedAt(null)
     setRecapSeconds(60)
     setRecapIsFirst(isFirst)
     if (!demoMode) {
@@ -246,7 +279,7 @@ export function SalesWorkbench({
       const isFirstReached = !followupContext?.activities.some((item) => item.outcome === 'reached' || item.activityType === 'effective_followup')
       await dataSource.recordContactAttempt(selected.id, result)
       setFollowupContext(await dataSource.getLeadFollowupContext(selected.id))
-      if (result === 'reached') markContacted(Date.now(), isFirstReached)
+      if (result === 'reached') markContacted(isFirstReached)
     } catch (error) { setDataError(error instanceof Error ? error.message : '记录联系尝试失败') }
     finally { setIsLoading(false) }
   }
@@ -341,6 +374,7 @@ export function SalesWorkbench({
     && ['A', 'B', 'C'].includes(qualification.grade)
     && qualification.fitsAnnualProduct
     && qualification.keyPersonReached
+  const leadAllowsActivity = demoMode || Boolean(followupContext && !['nurturing', 'supervisor_review'].includes(followupContext.leadStatus))
 
   return (
     <section className="sales-workbench" aria-label={`CanWin 3.0 销售工作台${demoMode ? '演示' : ''}`}>
@@ -356,7 +390,7 @@ export function SalesWorkbench({
         <header className="sw-header">
           <div>
             <span className="sw-eyebrow">销售工作台 / {activeTabConfig.label}</span>
-            <h1>{activeTab === 'today' ? '今天先做什么' : activeTabConfig.label}</h1>
+            <h1>{activeTab === 'today' ? '客如云中心' : activeTabConfig.label}</h1>
             <p>{tabDescriptions[activeTab]}</p>
           </div>
           <div className="sw-mobile-account"><div className="sw-avatar" title={salespersonName}>销</div></div>
@@ -364,37 +398,41 @@ export function SalesWorkbench({
 
         <main className="sw-main">
         {dataError && <div className="sw-data-error" role="alert">{dataError}</div>}
-        {isLoading && <div className="sw-loading" role="status">正在处理，请稍候…</div>}
+        {isLoading && activeTab !== 'today' && <div className="sw-loading" role="status">正在处理，请稍候…</div>}
         {activeTab === 'today' && (
-          <>
-            <div className="sw-metrics" aria-label="今日概览">
-              <Metric value={workbenchSummary.appointments} label="临近预约" tone="blue" />
-              <Metric value={workbenchSummary.overdue} label="已逾期" tone="red" />
-              <Metric value={workbenchSummary.newLeads} label="新线索" tone="green" />
-              <Metric value={workbenchSummary.recycleRisks} label="回收风险" tone="amber" />
-            </div>
-            <div className="sw-section-title"><span>智能行动队列</span><small>按紧急程度排序</small></div>
-            <div className="sw-task-list">
-              {demoMode && todayTasks.map(({ lead, priority, label, ageHours }) => (
-                <button key={lead.id} className="sw-task-card" onClick={() => { setSelectedId(lead.id); activateTab('leads'); setMobileLeadDetailOpen(true) }}>
-                  <span className={`sw-priority is-${priority}`} />
-                  <div className="sw-task-copy">
-                    <strong><em className={`sw-action-label is-${priority}`}>{label}</em>{lead.storeName}</strong>
-                    <span>{lead.contactName} · {lead.district} · {lead.createdAt}</span>
-                    {lead.stage === 'new' && ageHours !== undefined && ageHours >= 24 && <small className={ageHours >= 48 ? 'is-risk' : 'is-warning'}>{ageHours >= 48 ? '已超过48小时，存在服务端回收风险' : '已超过24小时，需尽快首次联系'}</small>}
-                  </div>
-                  <ChevronRight size={18} />
-                </button>
-              ))}
-              {!demoMode && serverTodayActions.map(action => <button key={action.id} className="sw-task-card" onClick={() => void openTodayAction(action)}>
-                <span className={`sw-priority is-${action.priorityTone}`} />
-                <div className="sw-task-copy"><strong><em className={`sw-action-label is-${action.priorityTone}`}>{action.label}</em>{action.title}</strong><span>{action.reason}</span>{action.dueAt && <small>服务端时间：{new Date(action.dueAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}</small>}{action.supervisorException && <small className="is-risk">已进入主管异常板</small>}</div><ChevronRight size={18} />
-              </button>)}
-              {todayError && <div className="sw-data-error" role="alert">{todayError}</div>}
-              {!isLoading && (demoMode ? todayTasks.length === 0 : serverTodayActions.length === 0 && !todayError) && <Placeholder icon={CheckCircle2} title="今日待办已清空" text="服务端确认当前没有必须处理的事项。" />}
-            </div>
-            {demoMode && orderSignals.filter((signal) => signal.count > 0).length > 0 && <div className="sw-order-signals">{orderSignals.filter((signal) => signal.count > 0).map((signal) => <a key={signal.kind} href="#/orders-v3"><PackageCheck size={18} /><span><strong>{signal.kind === 'delivery_exception' ? '交付异常' : '续费待办'}</strong><small>{signal.count} 项 · 前往订单履约</small></span><ChevronRight size={18} /></a>)}</div>}
-          </>
+          <CrmCommandCenter
+            summary={workbenchSummary}
+            deliveryExceptions={demoMode
+              ? orderSignals.find((signal) => signal.kind === 'delivery_exception')?.count ?? 0
+              : serverTodayActions.filter((action) => action.entityType === 'delivery_exception').length}
+            actions={commandActions}
+            leads={leads}
+            selected={selected}
+            loading={isLoading}
+            error={todayError}
+            historyLoading={historyLoading}
+            followupContext={followupContext}
+            draft={draft}
+            canRecordFollowup={Boolean(selected && leadAllowsActivity)}
+            canContactLead={leadAllowsActivity}
+            showAttemptOutcomes={!demoMode}
+            onDraftChange={setDraft}
+            onSelectLead={(id) => { setSelectedId(id); setDraft(blankDraft) }}
+            onOpenAction={(action) => {
+              if (action.entityType === 'lead') { setSelectedId(action.entityId); setDraft(blankDraft); return }
+              const serverAction = serverTodayActions.find((item) => item.id === action.id)
+              if (serverAction) void openTodayAction(serverAction)
+            }}
+            onOpenLeadWorkspace={(id) => { setSelectedId(id); activateTab('leads'); setMobileLeadDetailOpen(true) }}
+            onContactReached={() => {
+              if (!selected) return
+              if (demoMode) markContacted()
+              else void recordContactAttempt('reached')
+            }}
+            onContactMissed={() => { if (!demoMode) void recordContactAttempt('no_answer') }}
+            onContactUnreachable={() => { if (!demoMode) void recordContactAttempt('unreachable') }}
+            onSaveFollowup={() => void saveQualifiedFollowUp()}
+          />
         )}
 
         {activeTab === 'leads' && (
@@ -435,7 +473,7 @@ export function SalesWorkbench({
                 {!demoMode && currentLeadScope === 'region' && !selected.claimable && <div className="sw-owner-notice">已占用 · 负责人：{selected.ownerDisplayName ?? '未显示'} · 不可领取</div>}
 
                 {(demoMode ? selected.stage === 'new' : currentLeadScope === 'mine' && followupContext && !['nurturing', 'supervisor_review'].includes(followupContext.leadStatus)) && <section className="sw-followup-stage"><header><span>01</span><div><strong>联系情况</strong><small>先记录本次电话结果</small></div></header><div className="sw-attempt-actions">
-                  <button className="sw-primary" disabled={isLoading} onClick={() => demoMode ? markContacted(Date.now()) : void recordContactAttempt('reached')}><Phone size={18} />电话已接通</button>
+                  <button className="sw-primary" disabled={isLoading} onClick={() => demoMode ? markContacted() : void recordContactAttempt('reached')}><Phone size={18} />电话已接通</button>
                   {!demoMode && <><button className="sw-secondary" disabled={isLoading} onClick={() => void recordContactAttempt('no_answer')}>未接电话</button><button className="sw-secondary" disabled={isLoading} onClick={() => void recordContactAttempt('unreachable')}>无法联系</button></>}
                 </div></section>}
                 {(selected.stage === 'contacted' || contactedForForm.includes(selected.id)) && (
@@ -500,12 +538,20 @@ export function SalesWorkbench({
   )
 }
 
-function Metric({ value, label, tone }: { value: number; label: string; tone: string }) {
-  return <div className={`sw-metric is-${tone}`}><strong>{value}</strong><span>{label}</span></div>
-}
-
 function FlowStep({ done, label }: { done: boolean; label: string }) {
   return <div className={done ? 'is-done' : ''}><span>{done ? '✓' : ''}</span><small>{label}</small></div>
+}
+
+function actionBucket(dueAt?: string, isOverdue = false): CommandActionBucket {
+  if (isOverdue) return 'overdue'
+  if (!dueAt) return 'today'
+  const due = new Date(dueAt)
+  if (Number.isNaN(due.getTime())) return 'today'
+  const now = new Date()
+  if (due.getTime() < now.getTime()) return 'overdue'
+  const endOfToday = new Date(now)
+  endOfToday.setHours(23, 59, 59, 999)
+  return due.getTime() <= endOfToday.getTime() ? 'today' : 'week'
 }
 
 const salesJourneySteps = ['线索', '客户档案与资格', '商机', '报价', '定金', '订单']
