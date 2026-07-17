@@ -39,7 +39,7 @@ export function QuickLeadForm({ dataSource, onCreated }: { dataSource: SalesWork
       const region = context?.regions.find((item) => item.id === regionId)
       const leadId = fieldSource
         ? await dataSource.submitFieldLead({ title, contactName, phone, source, regionText: region?.name, address })
-        : await dataSource.createQuickLead({ title, phone, source, regionId: regionId || undefined })
+        : await dataSource.createQuickLead({ title, phone, source, regionId: regionId || undefined, address })
       setTitle(''); setContactName(''); setPhone(''); setAddress(''); setSource(''); setOpen(false)
       await onCreated(leadId)
     } catch (reason) { setError(reason instanceof Error ? reason.message : '新增线索失败') }
@@ -54,12 +54,12 @@ export function QuickLeadForm({ dataSource, onCreated }: { dataSource: SalesWork
       {fieldSource && <label>联系人（选填）<input value={contactName} onChange={(event) => setContactName(event.target.value)} placeholder="待确认可留空" /></label>}
       <label>联系电话{fieldSource ? '（选填）' : ''}<input type="tel" inputMode="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder={fieldSource ? '待确认可留空' : '用于后续联系'} /></label>
       <label>来源<select value={source} onChange={(event) => setSource(event.target.value)}><option value="">请选择来源</option>{sources.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
-      {fieldSource && <label>现场地址<input value={address} onChange={(event) => { const value = event.target.value; setAddress(value); const matches = context?.regions.filter((region) => value.includes(region.name)) ?? []; if (matches.length === 1) setRegionId(matches[0].id) }} placeholder="粘贴地址可自动匹配区域" /></label>}
+      <label className="is-wide">门店地址（选填）<input value={address} onChange={(event) => { const value = event.target.value; setAddress(value); const matches = context?.regions.filter((region) => value.includes(region.name)) ?? []; if (matches.length === 1) setRegionId(matches[0].id) }} placeholder="例如：盐都区人民南路88号；粘贴地址可自动匹配区域" /></label>
       {(fieldSource || context?.requiresRegionSelection) && <label>所属区域<select value={regionId} onChange={(event) => setRegionId(event.target.value)}><option value="">未匹配 / 进入公海待确认</option>{context?.regions.map((region) => <option key={region.id} value={region.id}>{region.name}</option>)}</select></label>}
     </div>
     {!context && !error && <p className="sw-loading">正在确认默认区域…</p>}
     {context && !fieldSource && !context.requiresRegionSelection && <p className="sw-region-hint">区域已按当前销售的主区域自动填写</p>}
-    {fieldSource && regionId && <p className="sw-region-hint">已确认区域：{context?.regions.find((region) => region.id === regionId)?.name}</p>}
+    {address.trim() && regionId && <p className="sw-region-hint">地址已匹配区域：{context?.regions.find((region) => region.id === regionId)?.name}</p>}
     {fieldSource && !regionId && <p className="sw-data-error">地址未匹配已启用区域，提交后进入待分区公海。</p>}
     {fieldSource && !phone.trim() && <p className="sw-region-hint">待补关键人：下一步由接收销售确认联系人和联系电话。</p>}
     {error && <div className="sw-data-error" role="alert">{error}</div>}

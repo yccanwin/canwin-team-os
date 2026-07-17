@@ -8,6 +8,7 @@ export interface SalesLead {
   storeName: string
   contactName: string
   phone: string
+  address?: string
   district: string
   businessType: string
   source: string

@@ -30,7 +30,7 @@ export interface SalesWorkbenchDataSource {
 export interface BrandMutation { id?: string; name: string; businessMode: string }
 export interface StoreMutation { id?: string; brandId: string; regionId: string; name: string; businessType: string; address: string }
 export interface ContactMutation { id?: string; brandId?: string; storeId?: string; name: string; title: string; isKeyPerson: boolean }
-export interface QuickLeadMutation { title: string; phone: string; source: string; regionId?: string }
+export interface QuickLeadMutation { title: string; phone: string; source: string; regionId?: string; address?: string }
 export type FieldLeadSource = 'field_visit' | 'site_hoarding'
 export interface FieldLeadMutation { title: string; contactName?: string; phone?: string; source: FieldLeadSource; regionText?: string; address?: string }
 export interface QuickLeadContext {

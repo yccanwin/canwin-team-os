@@ -12,6 +12,7 @@ function toLead(row: LeadRow): SalesLead {
     storeName: String(row.store_name),
     contactName: row.contact_name === null ? '待补充' : String(row.contact_name),
     phone: row.masked_phone === null ? '未授权' : String(row.masked_phone),
+    address: row.address ? String(row.address) : undefined,
     district: String(row.district_name),
     businessType: row.business_type === null ? '待判断' : String(row.business_type),
     source: row.source === null ? '未知来源' : String(row.source),
@@ -49,7 +50,7 @@ export function createSupabaseSalesWorkbenchDataSource(client: SupabaseClient): 
       }))
     },
     async listLeads(scope: LeadReadScope) {
-      const query = client.from('crm_leads_visible').select('id,read_scope,store_name,contact_name,masked_phone,district_name,business_type,source,created_at,next_action_at,stage,facts,lead_status,owner_display_name,claimable,active_opportunity_id,recycle_risk,recycle_due_at,recycle_paused').eq('read_scope', scope).order('created_at', { ascending: false })
+      const query = client.from('crm_leads_visible').select('id,read_scope,store_name,contact_name,masked_phone,district_name,business_type,source,created_at,next_action_at,stage,facts,lead_status,owner_display_name,claimable,active_opportunity_id,recycle_risk,recycle_due_at,recycle_paused,address').eq('read_scope', scope).order('created_at', { ascending: false })
       const { data, error } = await query
       if (error) throw new SalesWorkbenchDataError(`读取${scope === 'mine' ? '本人' : '区域'}线索失败：${error.message}`, error)
       return (data ?? []).map((row) => toLead(row as LeadRow))
@@ -57,7 +58,7 @@ export function createSupabaseSalesWorkbenchDataSource(client: SupabaseClient): 
     async claimLead(leadId: string) {
       const { error } = await client.rpc('claim_crm_lead', { p_lead_id: leadId })
       if (error) throw new SalesWorkbenchDataError(`领取线索失败：${error.message}`, error)
-      const result = await client.from('crm_leads_visible').select('id,read_scope,store_name,contact_name,masked_phone,district_name,business_type,source,created_at,next_action_at,stage,facts,lead_status,owner_display_name,claimable,active_opportunity_id,recycle_risk,recycle_due_at,recycle_paused').eq('id', leadId).eq('read_scope', 'mine').single()
+      const result = await client.from('crm_leads_visible').select('id,read_scope,store_name,contact_name,masked_phone,district_name,business_type,source,created_at,next_action_at,stage,facts,lead_status,owner_display_name,claimable,active_opportunity_id,recycle_risk,recycle_due_at,recycle_paused,address').eq('id', leadId).eq('read_scope', 'mine').single()
       if (result.error) throw new SalesWorkbenchDataError(`领取成功但刷新线索失败：${result.error.message}`, result.error)
       return toLead(result.data as LeadRow)
     },
@@ -186,7 +187,7 @@ export function createSupabaseSalesWorkbenchDataSource(client: SupabaseClient): 
       return { regions: (value?.regions ?? []).map((region) => ({ id: String(region.id), name: String(region.name) })), defaultRegionId: value?.default_region_id ? String(value.default_region_id) : undefined, requiresRegionSelection: value?.requires_region_selection === true }
     },
     async createQuickLead(input) {
-      const { data, error } = await client.rpc('create_crm_lead_quick', { p_title: input.title.trim(), p_phone: input.phone.trim(), p_source: input.source.trim(), p_region_id: input.regionId ?? null })
+      const { data, error } = await client.rpc('create_crm_lead_quick_v2', { p_title: input.title.trim(), p_phone: input.phone.trim(), p_source: input.source.trim(), p_region_id: input.regionId ?? null, p_address: input.address?.trim() || null })
       if (error) throw new SalesWorkbenchDataError(`新增线索失败：${error.message}`, error)
       return String(data)
     },

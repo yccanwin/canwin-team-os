@@ -455,14 +455,14 @@ export function SalesWorkbench({
               <article className="sw-lead-detail">
                 <button className="sw-mobile-detail-back" onClick={() => setMobileLeadDetailOpen(false)}><ArrowLeft size={18} />返回线索列表</button>
                 <div className="sw-detail-heading">
-                  <div><span className="sw-status">{stageLabel[selected.stage]}</span><h2>{selected.storeName}</h2><p>{selected.contactName} · {selected.phone} · {selected.district}</p></div>
+                  <div><span className="sw-status">{stageLabel[selected.stage]}</span><h2>{selected.storeName}</h2><p>{selected.contactName} · {selected.phone} · {selected.district}</p>{selected.address && <p>地址：{selected.address}</p>}</div>
                   <ContactRound size={28} />
                 </div>
                 <dl className="sw-facts"><div><dt>业态</dt><dd>{selected.businessType}</dd></div><div><dt>来源</dt><dd>{selected.source}</dd></div><div><dt>创建</dt><dd>{selected.createdAt}</dd></div></dl>
                 {currentLeadScope === 'mine' && <div className="sw-risk-panel"><LeadRiskBadge lead={selected} /><span>{selected.recyclePaused ? '服务端已暂停自动回收' : selected.recycleDueAt ? `服务端回收节点：${new Date(selected.recycleDueAt).toLocaleString('zh-CN')}` : '当前没有回收风险'}</span></div>}
 
                 {selected.facts.length > 0 && <div className="sw-known-facts"><strong>已获得的新事实</strong>{selected.facts.map((fact) => <p key={fact}><CheckCircle2 size={15} />{fact}</p>)}</div>}
-                {!demoMode && currentLeadScope === 'mine' && dataSource && selected.facts.length > 0 && <div id="lead-customer-profile"><LeadConversionForm leadId={selected.id} defaultContactName={selected.contactName} dataSource={dataSource} onConverted={refreshCrm} /></div>}
+                {!demoMode && currentLeadScope === 'mine' && dataSource && selected.facts.length > 0 && <div id="lead-customer-profile"><LeadConversionForm leadId={selected.id} defaultContactName={selected.contactName} defaultAddress={selected.address} dataSource={dataSource} onConverted={refreshCrm} /></div>}
 
                 <SalesJourney completedThrough={selected.stage === 'opportunity' ? 2 : 0} />
                 {selected.stage === 'new' && <div className="sw-next-step"><strong>下一步：先联系客户</strong><span>普通线索不能直接创建订单。电话接通并保存有效跟进后，才能完善客户档案和资格。</span></div>}

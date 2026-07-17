@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { Building2, X } from 'lucide-react'
 import type { LeadConversionPrecheck, SalesWorkbenchDataSource } from './dataSource'
 
-export function LeadConversionForm({ leadId, defaultContactName, dataSource, onConverted }: { leadId: string; defaultContactName: string; dataSource: SalesWorkbenchDataSource; onConverted: () => Promise<void> }) {
+export function LeadConversionForm({ leadId, defaultContactName, defaultAddress, dataSource, onConverted }: { leadId: string; defaultContactName: string; defaultAddress?: string; dataSource: SalesWorkbenchDataSource; onConverted: () => Promise<void> }) {
   const [open, setOpen] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('')
   const [brandName, setBrandName] = useState(''), [brandId, setBrandId] = useState(''), [businessMode, setBusinessMode] = useState('independent')
-  const [storeName, setStoreName] = useState(''), [storeId, setStoreId] = useState(''), [businessType, setBusinessType] = useState('chinese'), [address, setAddress] = useState('')
+  const [storeName, setStoreName] = useState(''), [storeId, setStoreId] = useState(''), [businessType, setBusinessType] = useState('chinese'), [address, setAddress] = useState(defaultAddress ?? '')
   const [contactName, setContactName] = useState(defaultContactName), [contactId, setContactId] = useState(''), [contactTitle, setContactTitle] = useState(''), [isKeyPerson, setIsKeyPerson] = useState(false)
   const [precheck, setPrecheck] = useState<LeadConversionPrecheck | null>(null)
   const invalidate = () => { setPrecheck(null); setBrandId(''); setStoreId(''); setContactId(''); setNotice('') }
