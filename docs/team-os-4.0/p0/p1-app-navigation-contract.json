@@ -1,0 +1,187 @@
+{
+  "schemaVersion": 1,
+  "contractStatus": "p0_machine_contract_pending_g0_acceptance",
+  "scope": "P1 app shell and navigation contract only; this file does not prove P1 UI implementation or authorize production changes.",
+  "sources": {
+    "plan": "docs/CanWin-Team-OS-4.0-最终施工总方案.md",
+    "frontendInventory": "docs/team-os-4.0/p0/frontend-inventory.json",
+    "p1WorkOrders": "docs/team-os-4.0/p0/07-p1-work-orders-and-frozen-interfaces.md"
+  },
+  "expectedCounts": {
+    "primaryRoles": 5,
+    "additionalFunctions": 2,
+    "appContextFields": 13,
+    "desktopBaseItems": 4,
+    "desktopConditionalItems": 2,
+    "mobileItems": 5,
+    "legacyRoutes": 36
+  },
+  "planAssertions": [
+    "4.0 首版只设以上五个主岗位。",
+    "仓库/采购是附加职能能力",
+    "主管也是叠加在主岗位上的治理角色",
+    "默认关闭：所有需要主管确认的地方显示“待管理员确认”",
+    "找不到主管、主管离职或主管停用时，事项自动回退管理员。",
+    "桌面端菜单顺序固定为：我的工作台、推进中心、日历、当前岗位业务",
+    "消息固定在顶栏，个人主页和工作视图切换固定在右上角账户菜单。",
+    "移动端底栏固定为：工作台、推进、日历、岗位业务、我的。"
+  ],
+  "roleModel": {
+    "onePrimaryRolePerUser": true,
+    "primaryRoles": [
+      { "id": "sales", "label": "销售", "defaultResponsibility": "线索、客户、商机、报价、订单、回款协作、续费", "defaultVisibleScope": "自己负责及被授权区域的数据" },
+      { "id": "implementation", "label": "实施", "defaultResponsibility": "排期、安装、培训、验收、交接", "defaultVisibleScope": "分配给自己的订单和门店" },
+      { "id": "operations", "label": "运维", "defaultResponsibility": "售后、客户维护、异常、续费协作、服务交付", "defaultVisibleScope": "分配给自己的客户和服务任务" },
+      { "id": "finance", "label": "财务", "defaultResponsibility": "收付款确认、内部应付、冲销、利润和收益结算", "defaultVisibleScope": "全部财务记录及必要订单摘要" },
+      { "id": "admin", "label": "管理员", "defaultResponsibility": "所有主管职责、人员权限、经营配置、异常处理", "defaultVisibleScope": "全局数据和审计记录" }
+    ],
+    "additionalFunctions": [
+      {
+        "id": "warehouse",
+        "label": "仓库处理",
+        "isPrimaryRole": false,
+        "defaultHolderPrimaryRole": "admin",
+        "assignablePrimaryRoles": ["admin", "implementation"],
+        "createsIndependentHome": false
+      },
+      {
+        "id": "supervisor",
+        "label": "团队审批",
+        "isPrimaryRole": false,
+        "defaultHolderPrimaryRole": "admin",
+        "assignablePrimaryRoles": ["sales", "implementation", "operations", "finance", "admin"],
+        "requiresSupervisorEnabled": true,
+        "createsIndependentHome": false
+      }
+    ]
+  },
+  "supervisorSystem": {
+    "switchField": "supervisorEnabled",
+    "defaultEnabled": false,
+    "whenDisabled": {
+      "teamApprovalVisible": false,
+      "pendingLabel": "待管理员确认",
+      "routeAllSupervisorActionsToPrimaryRole": "admin"
+    },
+    "whenEnabled": {
+      "teamApprovalVisibleRequiresAdditionalFunction": "supervisor",
+      "routeByAssignedRegionPeopleAndBusinessScope": true
+    },
+    "fallbacks": [
+      { "condition": "no_matching_supervisor", "routeToPrimaryRole": "admin" },
+      { "condition": "supervisor_departed", "routeToPrimaryRole": "admin" },
+      { "condition": "supervisor_disabled", "routeToPrimaryRole": "admin" }
+    ],
+    "adminAlwaysCan": ["view", "take_over", "reassign"],
+    "switchChangesHistoricalOrders": false,
+    "switchChangesHistoricalApprovers": false,
+    "switchChangesHistoricalOperationLogs": false
+  },
+  "appContext": {
+    "authority": "server",
+    "frontendMayDeriveAuthorization": false,
+    "fields": [
+      { "name": "company", "type": "{id:string,name:string,logoAssetRef:string|null}", "required": true, "purpose": "Deployment company identity; logo is configuration, not an employee upload." },
+      { "name": "user", "type": "{id:string,name:string,status:'active'|'disabled'}", "required": true, "purpose": "Authenticated member identity and status." },
+      { "name": "primaryRole", "type": "PrimaryRoleId", "required": true, "purpose": "Selects the default home and default work view." },
+      { "name": "additionalFunctions", "type": "AdditionalFunctionId[]", "required": true, "purpose": "Warehouse and supervisor capabilities only." },
+      { "name": "skills", "type": "string[]", "required": true, "purpose": "Display and assignment metadata; not an authorization substitute." },
+      { "name": "regionScopeIds", "type": "string[]", "required": true, "purpose": "Server-authoritative regional visibility scope." },
+      { "name": "warehouseScopeIds", "type": "string[]", "required": true, "purpose": "Server-authoritative warehouse scope when warehouse capability is present." },
+      { "name": "supervisorScope", "type": "{regionIds:string[],userIds:string[],businessScopes:string[]}|null", "required": true, "purpose": "Server-authoritative supervisor assignment scope." },
+      { "name": "supervisorEnabled", "type": "boolean", "required": true, "purpose": "Company-wide supervisor system switch." },
+      { "name": "permissions", "type": "string[]", "required": true, "purpose": "UI capability hints returned by the server; database authorization remains authoritative." },
+      { "name": "availableWorkViews", "type": "WorkView[]", "required": true, "purpose": "Business views available in the account-menu switcher." },
+      { "name": "currentWorkView", "type": "WorkViewId", "required": true, "purpose": "Drives the one shared workbench and role-business group." },
+      { "name": "navigationRevision", "type": "string", "required": true, "purpose": "Detects a stale navigation contract without embedding permission logic in the client." }
+    ]
+  },
+  "navigation": {
+    "roleBusinessTargets": [
+      { "primaryRole": "sales", "label": "销售客户", "target": "/sales-v3?tab=leads" },
+      { "primaryRole": "implementation", "label": "实施任务", "target": "/orders-v3?view=implementation" },
+      { "primaryRole": "operations", "label": "运维服务", "target": "/orders-v3?view=operations" },
+      { "primaryRole": "finance", "label": "财务收款", "target": "/finance?view=receipts" },
+      { "primaryRole": "admin", "label": "管理员审批", "target": "/management-v3?view=approvals" }
+    ],
+    "desktop": {
+      "fixedBaseOrder": [
+        { "id": "my-workbench", "label": "我的工作台", "target": "/dashboard" },
+        { "id": "progress", "label": "推进中心", "target": "/work" },
+        { "id": "calendar", "label": "日历", "target": "/calendar" },
+        { "id": "role-business", "label": "当前岗位业务", "targetSource": "navigation.roleBusinessTargets" }
+      ],
+      "conditionalAppendOrder": [
+        { "id": "warehouse-processing", "label": "仓库处理", "target": "/asset-center?view=inventory", "visibleWhen": "additionalFunctions includes warehouse" },
+        { "id": "team-approval", "label": "团队审批", "target": "/management-v3?view=approvals", "visibleWhen": "additionalFunctions includes supervisor AND supervisorEnabled is true" }
+      ],
+      "topBar": {
+        "messages": { "id": "messages", "label": "消息", "target": "/notifications-v3", "required": true, "eventTypes": ["approval_result", "exception", "due", "work_item_change"] }
+      },
+      "accountMenuOrder": [
+        { "id": "work-view-switch", "label": "切换工作视图", "source": "appContext.availableWorkViews" },
+        { "id": "profile", "label": "个人主页", "target": "/profile" },
+        { "id": "sign-out", "label": "退出登录", "action": "sign_out" }
+      ]
+    },
+    "mobile": {
+      "fixedOrder": [
+        { "id": "workbench", "label": "工作台", "target": "/dashboard" },
+        { "id": "progress", "label": "推进", "target": "/work" },
+        { "id": "calendar", "label": "日历", "target": "/calendar" },
+        { "id": "role-business", "label": "岗位业务", "targetSource": "navigation.roleBusinessTargets" },
+        { "id": "my", "label": "我的", "target": "/profile" }
+      ],
+      "messagesPlacement": "top_bar",
+      "desktopOnlyCapabilities": ["catalog_maintenance", "general_ledger", "permission_configuration", "bulk_import", "complex_reports"]
+    }
+  },
+  "allowedCompatibilityStates": [
+    "retain_rebuild",
+    "retain_compatibility",
+    "retain_restrict_admin",
+    "retain_topbar_compatibility",
+    "merge_compatibility",
+    "redirect",
+    "hide_read_only",
+    "retire_disable_write"
+  ],
+  "legacyRouteCompatibility": [
+    { "path": "/", "inventoryMappingId": "dashboard", "compatibilityState": "redirect", "canonicalTarget": "/dashboard", "hiddenFromDefaultNavigation": true, "readOnly": false, "reason": "Root remains a compatibility alias for the single role-generated workbench." },
+    { "path": "/dashboard", "inventoryMappingId": "dashboard", "compatibilityState": "retain_rebuild", "canonicalTarget": "/dashboard", "hiddenFromDefaultNavigation": false, "readOnly": false, "reason": "Canonical address for the one shared role-generated personal workbench." },
+    { "path": "/work", "inventoryMappingId": "work", "compatibilityState": "retain_rebuild", "canonicalTarget": "/work", "hiddenFromDefaultNavigation": false, "readOnly": false, "reason": "Canonical unified progression center." },
+    { "path": "/tasks", "inventoryMappingId": "tasks", "compatibilityState": "redirect", "canonicalTarget": "/work", "hiddenFromDefaultNavigation": true, "readOnly": false, "reason": "Old task address merges into the progression center without breaking saved links." },
+    { "path": "/goals", "inventoryMappingId": "goals", "compatibilityState": "redirect", "canonicalTarget": "/profile?view=goals", "hiddenFromDefaultNavigation": true, "readOnly": false, "reason": "Personal goals move to profile; team goals are permission-scoped." },
+    { "path": "/votes", "inventoryMappingId": "deferred-tools", "compatibilityState": "hide_read_only", "canonicalTarget": "/votes", "hiddenFromDefaultNavigation": true, "readOnly": true, "reason": "Deferred first-release feature retained read-only for compatibility." },
+    { "path": "/votes/:voteId", "inventoryMappingId": "deferred-tools", "compatibilityState": "hide_read_only", "canonicalTarget": "/votes/:voteId", "hiddenFromDefaultNavigation": true, "readOnly": true, "reason": "Historical vote deep links remain readable during the compatibility window." },
+    { "path": "/inventory", "inventoryMappingId": "inventory-assets", "compatibilityState": "redirect", "canonicalTarget": "/asset-center?view=inventory", "hiddenFromDefaultNavigation": true, "readOnly": false, "reason": "Legacy inventory address moves to the admin asset-center inventory tab." },
+    { "path": "/finance", "inventoryMappingId": "finance", "compatibilityState": "retain_rebuild", "canonicalTarget": "/finance", "hiddenFromDefaultNavigation": false, "readOnly": false, "reason": "Canonical finance role workspace address." },
+    { "path": "/sales", "inventoryMappingId": "sales", "compatibilityState": "redirect", "canonicalTarget": "/profile?view=earnings", "hiddenFromDefaultNavigation": true, "readOnly": false, "reason": "Legacy performance page merges into personal sales earnings and profile." },
+    { "path": "/timeline", "inventoryMappingId": "timeline", "compatibilityState": "hide_read_only", "canonicalTarget": "/timeline", "hiddenFromDefaultNavigation": true, "readOnly": true, "reason": "Hidden legacy history remains readable until facts are mapped to customer timelines or audit history." },
+    { "path": "/achievements", "inventoryMappingId": "achievements", "compatibilityState": "redirect", "canonicalTarget": "/management-v3?view=case-candidates", "hiddenFromDefaultNavigation": true, "readOnly": false, "reason": "Verified reusable records move to admin case candidates." },
+    { "path": "/photos", "inventoryMappingId": "photos", "compatibilityState": "retire_disable_write", "canonicalTarget": "/photos", "hiddenFromDefaultNavigation": true, "readOnly": true, "writeMode": "disabled", "reason": "Team album is retired in 4.0; historical reads may remain while new uploads are disabled." },
+    { "path": "/assets", "inventoryMappingId": "inventory-assets", "compatibilityState": "redirect", "canonicalTarget": "/asset-center?view=assets", "hiddenFromDefaultNavigation": true, "readOnly": false, "reason": "Legacy assets address moves to the admin asset-center assets tab." },
+    { "path": "/calendar", "inventoryMappingId": "calendar", "compatibilityState": "retain_rebuild", "canonicalTarget": "/calendar", "hiddenFromDefaultNavigation": false, "readOnly": false, "reason": "Canonical time projection for unified work items and schedule events." },
+    { "path": "/toolbox", "inventoryMappingId": "deferred-tools", "compatibilityState": "hide_read_only", "canonicalTarget": "/toolbox", "hiddenFromDefaultNavigation": true, "readOnly": true, "reason": "Deferred first-release feature retained read-only for 30 days." },
+    { "path": "/skills", "inventoryMappingId": "members-skills", "compatibilityState": "redirect", "canonicalTarget": "/settings-v3/access?view=skills", "hiddenFromDefaultNavigation": true, "readOnly": false, "reason": "Skills merge into admin organization, roles and permissions." },
+    { "path": "/warroom", "inventoryMappingId": "deferred-tools", "compatibilityState": "hide_read_only", "canonicalTarget": "/warroom", "hiddenFromDefaultNavigation": true, "readOnly": true, "reason": "Deferred first-release feature retained read-only for 30 days." },
+    { "path": "/members", "inventoryMappingId": "members-skills", "compatibilityState": "redirect", "canonicalTarget": "/settings-v3/access?view=members", "hiddenFromDefaultNavigation": true, "readOnly": false, "reason": "Members merge into admin organization, roles and permissions." },
+    { "path": "/profile", "inventoryMappingId": "profile", "compatibilityState": "retain_rebuild", "canonicalTarget": "/profile", "hiddenFromDefaultNavigation": true, "readOnly": false, "reason": "Canonical profile opened from the account menu; avatar writes are removed separately." },
+    { "path": "/settings", "inventoryMappingId": "settings", "compatibilityState": "redirect", "canonicalTarget": "/settings-v3", "hiddenFromDefaultNavigation": true, "readOnly": false, "reason": "Legacy settings entry redirects into the unified admin settings shell." },
+    { "path": "/asset-center", "inventoryMappingId": "asset-center", "compatibilityState": "retain_restrict_admin", "canonicalTarget": "/asset-center", "hiddenFromDefaultNavigation": false, "readOnly": false, "reason": "Canonical admin product, inventory and asset management entry." },
+    { "path": "/culture-center", "inventoryMappingId": "culture-center", "compatibilityState": "hide_read_only", "canonicalTarget": "/culture-center", "hiddenFromDefaultNavigation": true, "readOnly": true, "reason": "Removed from daily navigation while legacy mixed content is separated and archived." },
+    { "path": "/sales-v3", "inventoryMappingId": "sales-v3", "compatibilityState": "retain_compatibility", "canonicalTarget": "/sales-v3", "hiddenFromDefaultNavigation": true, "readOnly": false, "reason": "Sales capability remains compatible while its second internal navigation is removed." },
+    { "path": "/operations/lead-intake", "inventoryMappingId": "operations-lead-intake", "compatibilityState": "retain_compatibility", "canonicalTarget": "/operations/lead-intake", "hiddenFromDefaultNavigation": true, "readOnly": false, "reason": "Old address remains while the action is embedded in implementation and operations workbenches." },
+    { "path": "/orders-v3", "inventoryMappingId": "orders-v3", "compatibilityState": "retain_compatibility", "canonicalTarget": "/orders-v3", "hiddenFromDefaultNavigation": true, "readOnly": false, "reason": "Order capability remains while role-specific delivery and after-sales projections are added." },
+    { "path": "/quotes-v3", "inventoryMappingId": "quotes-v3", "compatibilityState": "retain_compatibility", "canonicalTarget": "/quotes-v3", "hiddenFromDefaultNavigation": true, "readOnly": false, "reason": "Quote capability remains inside the future unified role shell." },
+    { "path": "/management-v3", "inventoryMappingId": "management-v3", "compatibilityState": "merge_compatibility", "canonicalTarget": "/management-v3", "hiddenFromDefaultNavigation": true, "readOnly": false, "reason": "Compatibility address becomes the admin operating cockpit instead of a second personal workbench." },
+    { "path": "/access-v3", "inventoryMappingId": "settings", "compatibilityState": "redirect", "canonicalTarget": "/settings-v3/access", "hiddenFromDefaultNavigation": true, "readOnly": false, "reason": "Existing compatibility redirect is preserved as the settings deep-link pattern." },
+    { "path": "/settings-v3", "inventoryMappingId": "settings", "compatibilityState": "retain_compatibility", "canonicalTarget": "/settings-v3", "hiddenFromDefaultNavigation": true, "readOnly": false, "reason": "Canonical admin system-settings shell." },
+    { "path": "/settings-v3/regions", "inventoryMappingId": "settings", "compatibilityState": "retain_compatibility", "canonicalTarget": "/settings-v3/regions", "hiddenFromDefaultNavigation": true, "readOnly": false, "reason": "Preserved admin region deep link." },
+    { "path": "/settings-v3/catalog", "inventoryMappingId": "settings", "compatibilityState": "retain_compatibility", "canonicalTarget": "/settings-v3/catalog", "hiddenFromDefaultNavigation": true, "readOnly": false, "reason": "Preserved desktop admin catalog deep link." },
+    { "path": "/settings-v3/catalog/packages", "inventoryMappingId": "settings", "compatibilityState": "retain_compatibility", "canonicalTarget": "/settings-v3/catalog/packages", "hiddenFromDefaultNavigation": true, "readOnly": false, "reason": "Preserved desktop admin package deep link." },
+    { "path": "/settings-v3/access", "inventoryMappingId": "settings", "compatibilityState": "retain_compatibility", "canonicalTarget": "/settings-v3/access", "hiddenFromDefaultNavigation": true, "readOnly": false, "reason": "Preserved admin organization, roles and permissions deep link." },
+    { "path": "/settings-v3/customer-import", "inventoryMappingId": "settings", "compatibilityState": "retain_compatibility", "canonicalTarget": "/settings-v3/customer-import", "hiddenFromDefaultNavigation": true, "readOnly": false, "reason": "Preserved desktop admin bulk-import deep link; it is not a media upload." },
+    { "path": "/notifications-v3", "inventoryMappingId": null, "compatibilityState": "retain_topbar_compatibility", "canonicalTarget": "/notifications-v3", "hiddenFromDefaultNavigation": true, "readOnly": false, "additionalReason": "Section 4.8 does not list this route, but section 4.1 requires messages in the top bar.", "reason": "Retained as the top-bar message destination until a later canonical message path is frozen." }
+  ]
+}
