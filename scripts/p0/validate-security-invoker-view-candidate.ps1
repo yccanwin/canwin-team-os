@@ -29,7 +29,7 @@ function Remove-SqlComments {
   )
   return [regex]::Replace(
     $withoutBlock,
-    '(?m)--[^\r\n]*$',
+    '(?m)--[^\r\n]*(?=\r?$)',
     ''
   )
 }
@@ -175,6 +175,32 @@ if (-not $candidateFullPath.StartsWith($expectedCandidateRoot, [System.StringCom
 
 $candidateSql = Get-Content -LiteralPath $candidateFullPath -Raw -Encoding UTF8
 
+# Pure in-memory newline tests prove line comments are removed consistently on
+# Windows and Unix checkouts, including comments whose semicolons must not be
+# interpreted as SQL statement separators.
+$lfCandidateSql = [regex]::Replace($candidateSql, "`r`n?", "`n")
+$crlfCandidateSql = $lfCandidateSql.Replace("`n", "`r`n")
+$mixedCandidateSql = $lfCandidateSql.Replace(
+  "`ncreate or replace view public.inventory_public_items",
+  "`r`ncreate or replace view public.inventory_public_items"
+)
+$commentSemicolonSql = "-- regression comment contains ; a statement separator`r`n$crlfCandidateSql"
+
+if (-not $mixedCandidateSql.Contains("`r`n") -or -not [regex]::IsMatch($mixedCandidateSql, '(?<!\r)\n')) {
+  throw 'Validator self-test fixture is not mixed LF/CRLF text.'
+}
+
+$commentRegressionCases = @(
+  @{ Name = 'lf'; Text = $lfCandidateSql },
+  @{ Name = 'crlf'; Text = $crlfCandidateSql },
+  @{ Name = 'mixed'; Text = $mixedCandidateSql },
+  @{ Name = 'comment-semicolon'; Text = $commentSemicolonSql }
+)
+
+foreach ($case in $commentRegressionCases) {
+  Test-CandidateSql -Sql $case.Text
+}
+
 # Pure in-memory mutation tests prove the validator rejects scope and contract drift.
 $negativeCases = @(
   @{ Name = 'out-of-scope-view'; Text = $candidateSql.Replace('public.assets_public', 'public.assets_private') },
@@ -208,5 +234,6 @@ if (@($migrationStatus).Count -gt 0) {
   throw "Historical migrations have worktree changes; candidate validation stops:`n$($migrationStatus -join [Environment]::NewLine)"
 }
 
-Write-Output "P0_SECURITY_INVOKER_CANDIDATE_STATIC_SELFTEST_OK cases=$($negativeCases.Count)"
+Write-Output "P0_SECURITY_INVOKER_COMMENT_REGRESSION_OK cases=$($commentRegressionCases.Count) formats=lf,crlf,mixed,comment-semicolon"
+Write-Output "P0_SECURITY_INVOKER_CANDIDATE_STATIC_SELFTEST_OK cases=$($commentRegressionCases.Count + $negativeCases.Count) positive=$($commentRegressionCases.Count) negative=$($negativeCases.Count)"
 Write-Output 'P0_SECURITY_INVOKER_CANDIDATE_OK views=3 callers=3 migrations=clean database_calls=0'
