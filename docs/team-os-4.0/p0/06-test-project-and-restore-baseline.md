@@ -8,6 +8,7 @@
 | 检查项 | 当前结果 |
 | --- | --- |
 | 可见 Supabase 项目 | 仅 `canwinos` 1 个 |
+| 当前组织/方案 | `yccanwin's Org` / Free |
 | 当前项目 ref | `agygfhmkazcbqaqwmljb` |
 | 区域 | `ap-northeast-1` |
 | 数据库版本 | PostgreSQL 17.6.1 |
@@ -23,6 +24,8 @@
 | 空库安装预检 | 未执行 |
 
 因此，“项目健康”和“迁移版本/名称相同”都不能证明远端 SQL 正文一致、备份可恢复，也不能证明测试与生产隔离。
+
+当前组织为 Free。Supabase 官方备份说明只承诺 Pro、Team、Enterprise 的每日平台备份，并建议 Free 项目自行定期导出；平台数据库备份也不包含 Storage 文件对象本体。因此 P0 必须同时建设离线数据库导出和独立文件备份，不能只依赖平台状态或数据库元数据。
 
 ## Q01/Q03/Q04/Q06/Q09 当前灯号
 
