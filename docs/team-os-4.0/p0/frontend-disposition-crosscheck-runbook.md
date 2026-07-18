@@ -18,6 +18,7 @@
 ## 路由兼容与访问边界
 
 - 36 条路由逐条保存 P1 导航合同的完整 `compatibilityState`、`hiddenFromDefaultNavigation`、`readOnly`、`writeMode` 和 canonical target；`retain_rebuild`、`retain_compatibility`、`retain_restrict_admin`、`retain_topbar_compatibility` 不得压成一个不可追溯状态。
+- 校验器另有不可从合同 JSON 推导的 22 项 `mappingId + sourceTreatment + candidateAction` 锁和 36 项 `route + accessBoundary` 锁；例如把 `photos` 改成 `retain`、把 `/quotes-v3` 或 `/management-v3` 换成更宽访问 profile，必须失败。
 - 全部路由候选都要求登录并拒绝匿名访问，实际授权仍由服务器和数据库负责。
 - `/finance` 仅财务和管理员；系统设置与客户导入的主岗位仅管理员；客户导入、目录和权限配置仅桌面端。
 - `/asset-center` 的主岗位边界是管理员；仓库附加职能只能进入分配范围内的 inventory 视图，不能获得商品、资产或系统设置管理权。
@@ -35,6 +36,7 @@
 - `achievement-logo` 是唯一可核对后迁移到 `case.logo` 的旧入口。
 - `achievement-images` 不得映射或改名为 `case.miniprogram_code`；小程序码当前没有旧入口迁移来源。
 - 7 个旧命名空间候选均为 `newWrite=deny`、`anonymous=deny`，但生产策略没有在本工单修改，运行时策略状态保持 `pending`。
+- 两槽数量和字节上限还由校验器独立硬常量锁定，不能通过同时修改清单 JSON 和 `frontend-inventory.json` 绕过。
 
 ## 孤儿项处理
 
@@ -58,6 +60,8 @@ P0_FRONTEND_DISPOSITION_CROSSCHECK_OK assertions=<动态计数> routes=36 sectio
 ```
 
 校验器会同时读取总方案、03/04 清单、`frontend-inventory.json`、P1 导航合同及当前源码。任何数量、路径、动作、列举关系或源码入口漂移都会失败。
+
+运行时证据 ID 也固定为 8 个精确集合，不能增删、改名或静态标记为通过；全部必须保持 `pending`，直到对应隔离环境证据单独验收。
 
 ## 尚未完成
 

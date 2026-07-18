@@ -112,6 +112,197 @@ function compatibilityAction(state) {
   }[state] ?? null
 }
 
+function canonicalize(value) {
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => canonicalize(entry))
+      .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right), 'en'))
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value)
+        .sort(([left], [right]) => left.localeCompare(right, 'en'))
+        .map(([key, entry]) => [key, canonicalize(entry)]),
+    )
+  }
+  return value
+}
+
+function assertDeepExact(label, actual, expected) {
+  assert(
+    JSON.stringify(canonicalize(actual)) === JSON.stringify(canonicalize(expected)),
+    `${label} drifted from the locked contract.`,
+  )
+}
+
+const expectedSectionDispositionContract = {
+  dashboard: { sourceTreatment: 'retain_rebuild', candidateAction: 'retain' },
+  work: { sourceTreatment: 'retain_rebuild', candidateAction: 'retain' },
+  tasks: { sourceTreatment: 'merge_redirect', candidateAction: 'merge' },
+  calendar: { sourceTreatment: 'retain_rebuild', candidateAction: 'retain' },
+  profile: { sourceTreatment: 'retain_rebuild', candidateAction: 'retain' },
+  goals: { sourceTreatment: 'merge_redirect', candidateAction: 'merge' },
+  'sales-v3': { sourceTreatment: 'retain_compatibility', candidateAction: 'retain' },
+  'quotes-v3': { sourceTreatment: 'retain_capability', candidateAction: 'retain' },
+  'orders-v3': { sourceTreatment: 'retain_split_views', candidateAction: 'retain' },
+  sales: { sourceTreatment: 'merge_redirect', candidateAction: 'merge' },
+  'operations-lead-intake': { sourceTreatment: 'merge_capability', candidateAction: 'merge' },
+  finance: { sourceTreatment: 'retain_rebuild', candidateAction: 'retain' },
+  'asset-center': { sourceTreatment: 'retain_restrict', candidateAction: 'retain' },
+  'inventory-assets': { sourceTreatment: 'redirect', candidateAction: 'redirect' },
+  'members-skills': { sourceTreatment: 'merge_redirect', candidateAction: 'merge' },
+  achievements: { sourceTreatment: 'audit_merge_redirect', candidateAction: 'merge' },
+  'culture-center': { sourceTreatment: 'hide_split', candidateAction: 'hide_read_only' },
+  photos: { sourceTreatment: 'retire_disable_write', candidateAction: 'retire' },
+  timeline: { sourceTreatment: 'hide_migrate_read', candidateAction: 'merge' },
+  'management-v3': { sourceTreatment: 'merge_compatibility', candidateAction: 'merge' },
+  settings: { sourceTreatment: 'merge_preserve_deep_links', candidateAction: 'merge' },
+  'deferred-tools': { sourceTreatment: 'hide_read_only_30_days', candidateAction: 'hide_read_only' },
+}
+
+const expectedRouteAccessBoundaries = {
+  '/': 'authenticated_all_primary_roles',
+  '/dashboard': 'authenticated_all_primary_roles',
+  '/work': 'authenticated_all_primary_roles',
+  '/tasks': 'authenticated_all_primary_roles',
+  '/goals': 'authenticated_all_primary_roles',
+  '/votes': 'authenticated_all_primary_roles',
+  '/votes/:voteId': 'authenticated_all_primary_roles',
+  '/inventory': 'admin_primary_with_warehouse_inventory_exception',
+  '/finance': 'finance_admin',
+  '/sales': 'sales_admin',
+  '/timeline': 'authenticated_all_primary_roles',
+  '/achievements': 'admin_only',
+  '/photos': 'authenticated_all_primary_roles',
+  '/assets': 'admin_only',
+  '/calendar': 'authenticated_all_primary_roles',
+  '/toolbox': 'authenticated_all_primary_roles',
+  '/skills': 'admin_desktop_only',
+  '/warroom': 'authenticated_all_primary_roles',
+  '/members': 'admin_desktop_only',
+  '/profile': 'authenticated_all_primary_roles',
+  '/settings': 'admin_only',
+  '/asset-center': 'admin_primary_with_warehouse_inventory_exception',
+  '/culture-center': 'authenticated_all_primary_roles',
+  '/sales-v3': 'sales_admin',
+  '/operations/lead-intake': 'implementation_operations_admin',
+  '/orders-v3': 'sales_delivery_admin',
+  '/quotes-v3': 'sales_admin',
+  '/management-v3': 'admin_primary_with_enabled_supervisor_scope_exception',
+  '/access-v3': 'admin_desktop_only',
+  '/settings-v3': 'admin_only',
+  '/settings-v3/regions': 'admin_only',
+  '/settings-v3/catalog': 'admin_desktop_only',
+  '/settings-v3/catalog/packages': 'admin_desktop_only',
+  '/settings-v3/access': 'admin_desktop_only',
+  '/settings-v3/customer-import': 'admin_desktop_only',
+  '/notifications-v3': 'authenticated_all_primary_roles',
+}
+
+const expectedAccessBoundaryProfiles = {
+  authenticated_all_primary_roles: {
+    anonymous: 'deny',
+    defaultDecision: 'deny',
+    authentication: 'required',
+    allowedPrimaryRoles: ['sales', 'implementation', 'operations', 'finance', 'admin'],
+    additionalFunctionExceptions: [],
+    desktopOnly: false,
+    authority: 'server',
+  },
+  sales_admin: {
+    anonymous: 'deny',
+    defaultDecision: 'deny',
+    authentication: 'required',
+    allowedPrimaryRoles: ['sales', 'admin'],
+    additionalFunctionExceptions: [],
+    desktopOnly: false,
+    authority: 'server',
+  },
+  implementation_operations_admin: {
+    anonymous: 'deny',
+    defaultDecision: 'deny',
+    authentication: 'required',
+    allowedPrimaryRoles: ['implementation', 'operations', 'admin'],
+    additionalFunctionExceptions: [],
+    desktopOnly: false,
+    authority: 'server',
+  },
+  sales_delivery_admin: {
+    anonymous: 'deny',
+    defaultDecision: 'deny',
+    authentication: 'required',
+    allowedPrimaryRoles: ['sales', 'implementation', 'operations', 'admin'],
+    additionalFunctionExceptions: [],
+    desktopOnly: false,
+    authority: 'server',
+  },
+  finance_admin: {
+    anonymous: 'deny',
+    defaultDecision: 'deny',
+    authentication: 'required',
+    allowedPrimaryRoles: ['finance', 'admin'],
+    additionalFunctionExceptions: [],
+    desktopOnly: false,
+    authority: 'server',
+  },
+  admin_only: {
+    anonymous: 'deny',
+    defaultDecision: 'deny',
+    authentication: 'required',
+    allowedPrimaryRoles: ['admin'],
+    additionalFunctionExceptions: [],
+    desktopOnly: false,
+    authority: 'server',
+  },
+  admin_desktop_only: {
+    anonymous: 'deny',
+    defaultDecision: 'deny',
+    authentication: 'required',
+    allowedPrimaryRoles: ['admin'],
+    additionalFunctionExceptions: [],
+    desktopOnly: true,
+    authority: 'server',
+  },
+  admin_primary_with_warehouse_inventory_exception: {
+    anonymous: 'deny',
+    defaultDecision: 'deny',
+    authentication: 'required',
+    allowedPrimaryRoles: ['admin'],
+    additionalFunctionExceptions: [
+      { function: 'warehouse', allowedViews: ['inventory'], requiresAssignedWarehouseScope: true },
+    ],
+    desktopOnly: false,
+    authority: 'server',
+  },
+  admin_primary_with_enabled_supervisor_scope_exception: {
+    anonymous: 'deny',
+    defaultDecision: 'deny',
+    authentication: 'required',
+    allowedPrimaryRoles: ['admin'],
+    additionalFunctionExceptions: [
+      { function: 'supervisor', allowedViews: ['approvals'], requiresSupervisorEnabled: true, requiresAssignedSupervisorScope: true },
+    ],
+    desktopOnly: false,
+    authority: 'server',
+  },
+}
+
+const expectedMediaSlotLimits = {
+  'case.logo': { maxCount: 1, maxBytes: 204800 },
+  'case.miniprogram_code': { maxCount: 1, maxBytes: 307200 },
+}
+
+const expectedRuntimeEvidenceIds = [
+  'route403Matrix',
+  'anonymousRouteDenial',
+  'storagePolicyInspection',
+  'legacyNamespaceWriteDenial',
+  'legacyReadOnlyRegression',
+  'isolatedStorageBackupRestore',
+  'twoSlotAllowDenyAttackMatrix',
+  'authorizedPublishCopyAndWithdrawal',
+]
+
 function basePath(target) {
   return target.split(/[?#]/, 1)[0]
 }
@@ -148,7 +339,9 @@ compareExactSet('Allowed Storage actions', storageActions, ['close', 'close_migr
 const primaryRoleIds = navigation.roleModel.primaryRoles.map((role) => role.id)
 const additionalFunctionIds = new Set(navigation.roleModel.additionalFunctions.map((entry) => entry.id))
 const accessProfiles = contract.accessBoundaryProfiles ?? {}
+compareExactSet('Access profile IDs', Object.keys(accessProfiles), Object.keys(expectedAccessBoundaryProfiles))
 for (const [profileId, profile] of Object.entries(accessProfiles)) {
+  assertDeepExact(`Access profile ${profileId}`, profile, expectedAccessBoundaryProfiles[profileId])
   assert(profile.anonymous === 'deny', `Access profile ${profileId} must deny anonymous access.`)
   assert(profile.defaultDecision === 'deny', `Access profile ${profileId} must default to deny.`)
   assert(profile.authentication === 'required', `Access profile ${profileId} must require authentication.`)
@@ -193,8 +386,13 @@ const sectionDispositions = new Map(contract.section48Dispositions.map((entry) =
 assertUnique('section48Dispositions.mappingId', contract.section48Dispositions.map((entry) => entry.mappingId))
 assert(contract.section48Dispositions.length === counts.section48Items, `Expected ${counts.section48Items} section 4.8 dispositions, got ${contract.section48Dispositions.length}.`)
 compareExactSet('Section 4.8 mapping IDs', sectionDispositions.keys(), inventoryMappings.keys())
+compareExactSet('Locked section 4.8 mapping IDs', sectionDispositions.keys(), Object.keys(expectedSectionDispositionContract))
 for (const disposition of contract.section48Dispositions) {
   const inventoryMapping = inventoryMappings.get(disposition.mappingId)
+  const lockedDisposition = expectedSectionDispositionContract[disposition.mappingId]
+  assert(Boolean(lockedDisposition), `Section 4.8 item ${disposition.mappingId} is not in the locked treatment/action contract.`)
+  assert(disposition.sourceTreatment === lockedDisposition?.sourceTreatment, `Section 4.8 item ${disposition.mappingId} sourceTreatment changed from the locked contract.`)
+  assert(disposition.candidateAction === lockedDisposition?.candidateAction, `Section 4.8 item ${disposition.mappingId} candidateAction changed from the locked contract.`)
   assert(pageActions.has(disposition.candidateAction), `Section 4.8 item ${disposition.mappingId} has unknown action ${disposition.candidateAction}.`)
   assert(disposition.sourceTreatment === inventoryMapping?.treatment, `Section 4.8 item ${disposition.mappingId} treatment differs from frontend inventory.`)
   compareExactSet(
@@ -222,6 +420,7 @@ assertUnique('routeDispositions.path', contract.routeDispositions.map((route) =>
 assert(contract.routeDispositions.length === counts.routes, `Expected ${counts.routes} route dispositions, got ${contract.routeDispositions.length}.`)
 compareExactSet('Route disposition paths', routeDispositions.keys(), inventoryRoutes.keys())
 compareExactSet('Navigation compatibility paths', navigationRoutes.keys(), inventoryRoutes.keys())
+compareExactSet('Locked route access paths', routeDispositions.keys(), Object.keys(expectedRouteAccessBoundaries))
 compareExactSet(
   'Exact route compatibility states',
   contract.routeDispositions.map((route) => route.compatibilityState),
@@ -232,6 +431,7 @@ for (const route of contract.routeDispositions) {
   const inventoryRoute = inventoryRoutes.get(route.path)
   const navigationRoute = navigationRoutes.get(route.path)
   const accessProfile = accessProfiles[route.accessBoundary]
+  assert(route.accessBoundary === expectedRouteAccessBoundaries[route.path], `Route ${route.path} accessBoundary changed from the locked contract.`)
   assert(routeActions.has(route.candidateAction), `Route ${route.path} has unknown action ${route.candidateAction}.`)
   assert(route.mappingId === inventoryRoute?.section48MappingId, `Route ${route.path} mapping differs from frontend inventory.`)
   assert(route.compatibilityState === navigationRoute?.compatibilityState, `Route ${route.path} compatibilityState differs from the P1 navigation contract.`)
@@ -415,6 +615,7 @@ const inventoryMediaSlots = new Map(inventory.targetMediaSlots.map((entry) => [e
 assertUnique('mediaSlotPolicies.slot', contract.mediaSlotPolicies.map((entry) => entry.slot))
 assert(contract.mediaSlotPolicies.length === counts.mediaSlots, `Expected ${counts.mediaSlots} media-slot policies, got ${contract.mediaSlotPolicies.length}.`)
 compareExactSet('Media-slot policies', mediaSlots.keys(), inventoryMediaSlots.keys())
+compareExactSet('Locked media-slot IDs', mediaSlots.keys(), Object.keys(expectedMediaSlotLimits))
 for (const marker of [
   '| `case.logo` | 1 | 压缩后 ≤ 200KB | PNG/JPEG/WebP | 仅管理员 | 私有草稿；授权+审核后复制公开副本 |',
   '| `case.miniprogram_code` | 1 | ≤ 300KB | PNG/JPEG/WebP | 仅管理员 | 私有草稿；授权+审核后复制公开副本 |',
@@ -433,6 +634,9 @@ for (const marker of [
 }
 for (const slot of contract.mediaSlotPolicies) {
   const inventorySlot = inventoryMediaSlots.get(slot.slot)
+  const lockedLimit = expectedMediaSlotLimits[slot.slot]
+  assert(slot.maxCount === lockedLimit?.maxCount, `Media slot ${slot.slot} maxCount changed from the locked policy.`)
+  assert(slot.maxBytes === lockedLimit?.maxBytes, `Media slot ${slot.slot} maxBytes changed from the locked policy.`)
   assert(slot.maxCount === inventorySlot?.maxCount, `Media slot ${slot.slot} maxCount differs from frontend inventory.`)
   assert(slot.maxBytes === inventorySlot?.maxBytes, `Media slot ${slot.slot} maxBytes differs from frontend inventory.`)
   compareExactSet(`Media slot ${slot.slot} MIME types`, slot.mimeTypes, ['image/png', 'image/jpeg', 'image/webp'])
@@ -473,6 +677,7 @@ assert(namespaceDispositions.get('achievements/images')?.targetSlot === null, 'a
 const runtimeEvidence = contract.acceptanceBoundary?.runtimeEvidence ?? {}
 const runtimeEvidenceEntries = Object.entries(runtimeEvidence)
 assert(runtimeEvidenceEntries.length > 0, 'Runtime evidence gaps must remain explicit.')
+compareExactSet('Runtime evidence IDs', Object.keys(runtimeEvidence), expectedRuntimeEvidenceIds)
 for (const [evidenceId, status] of runtimeEvidenceEntries) {
   assert(status === 'pending', `Runtime evidence ${evidenceId} must remain pending, got ${status}.`)
 }
