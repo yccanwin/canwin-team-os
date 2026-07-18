@@ -9,6 +9,8 @@
 - scripts/p0/verify-migration-manifest.mjs：验证迁移数量、14 位版本唯一、文件名集合、清单顺序和每个文件 SHA256。
 - scripts/p0/project-ref-contract.json：登记已知生产 ref，并明确测试项目尚未配置。
 - scripts/p0/verify-project-ref-contract.mjs：验证 supabase/config.toml 与生产合同一致；测试 ref 存在时必须与生产不同。
+- backup-restore-manifest.template.json：冻结数据库、Auth、Storage、Functions、Cron、运行配置和恢复证据的机器合同，不含密钥值。
+- scripts/p0/verify-backup-manifest-contract.mjs：验证备份恢复合同结构、敏感值禁令和 not-run 恢复状态。
 - scripts/p0/run-static-gates.mjs：统一运行以上纯静态检查并输出发现、运行、通过、失败和跳过数量。
 
 ## 命令
@@ -16,10 +18,11 @@
 ~~~powershell
 npm.cmd run test:p0:migrations
 npm.cmd run test:p0:project-ref
+npm.cmd run test:p0:backup-contract
 npm.cmd run test:p0:static
 ~~~
 
-统一入口只运行两个本地静态门禁，不调用 Supabase CLI、MCP、网络、数据库或会写数据的 SQL 测试。
+统一入口只运行三个本地静态门禁，不调用 Supabase CLI、MCP、网络、数据库或会写数据的 SQL 测试。
 
 ## 项目 ref 合同
 
@@ -49,7 +52,7 @@ readiness=BLOCKED reason=test-project-not-provisioned。这只证明本地声明
 成功输出必须同时包含：
 
 - 迁移文件：discovered=69 run=69 passed=69 failed=0；
-- 静态门禁：discovered=2 run=2 passed=2 failed=0 skipped=0；
+- 静态门禁：discovered=3 run=3 passed=3 failed=0 skipped=0；
 - 测试环境就绪状态仍为 BLOCKED。
 
 本门禁不证明远端迁移 SQL 正文一致，不证明生产安全顾问已清零，也不证明数据库、Auth 或 Storage 已在独立项目恢复成功。

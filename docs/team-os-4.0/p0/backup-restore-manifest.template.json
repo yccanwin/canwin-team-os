@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 1,
+  "manifestType": "canwin-team-os-backup-restore",
+  "template": true,
+  "package": {
+    "packageId": null,
+    "createdAt": null,
+    "sourceEnvironment": "production",
+    "sourceProjectRef": null,
+    "gitCommit": null
+  },
+  "database": {
+    "dump": {
+      "status": "pending",
+      "path": null,
+      "sha256": null,
+      "format": null,
+      "tool": null,
+      "toolVersion": null,
+      "createdAt": null
+    },
+    "schemaInventory": {
+      "status": "pending",
+      "path": null,
+      "sha256": null
+    }
+  },
+  "auth": {
+    "identityRoleMapping": {
+      "status": "pending",
+      "path": null,
+      "sha256": null
+    },
+    "counts": {
+      "authUsers": null,
+      "profiles": null,
+      "roleAssignments": null
+    }
+  },
+  "storage": {
+    "bucketsManifest": {
+      "status": "pending",
+      "path": null,
+      "sha256": null
+    },
+    "objectsManifest": {
+      "status": "pending",
+      "path": null,
+      "sha256": null
+    },
+    "objectsArchive": {
+      "status": "pending",
+      "path": null,
+      "sha256": null
+    },
+    "counts": {
+      "buckets": null,
+      "objects": null,
+      "bytes": null
+    }
+  },
+  "functions": {
+    "manifest": {
+      "status": "pending",
+      "path": null,
+      "sha256": null
+    },
+    "sourceArchive": {
+      "status": "pending",
+      "path": null,
+      "sha256": null
+    },
+    "count": null
+  },
+  "cron": {
+    "manifest": {
+      "status": "pending",
+      "path": null,
+      "sha256": null
+    },
+    "count": null,
+    "timezone": "Asia/Shanghai"
+  },
+  "featureFlags": {
+    "manifest": {
+      "status": "pending",
+      "path": null,
+      "sha256": null
+    },
+    "count": null
+  },
+  "environment": {
+    "variableNames": [
+      "SUPABASE_ANON_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL",
+      "VITE_SUPABASE_ANON_KEY",
+      "VITE_SUPABASE_URL",
+      "WECOM_WEBHOOK_URL"
+    ],
+    "valuesIncluded": false
+  },
+  "release": {
+    "gitCommit": null,
+    "frontendArtifact": {
+      "status": "pending",
+      "path": null,
+      "sha256": null
+    },
+    "buildToolVersion": null
+  },
+  "reconciliation": {
+    "tableRowCounts": {
+      "status": "pending",
+      "path": null,
+      "sha256": null
+    },
+    "keyAmounts": {
+      "status": "pending",
+      "path": null,
+      "sha256": null,
+      "currency": "CNY",
+      "customerPayments": null,
+      "internalPayables": null,
+      "salesProfit": null,
+      "laborEarnings": null
+    },
+    "inventory": {
+      "status": "pending",
+      "path": null,
+      "sha256": null,
+      "onHand": null,
+      "reserved": null,
+      "shipped": null
+    }
+  },
+  "restoreEvidence": {
+    "status": "not-run",
+    "targetEnvironment": "not-provisioned",
+    "targetProjectRef": null,
+    "startedAt": null,
+    "finishedAt": null,
+    "evidenceId": null,
+    "componentResults": {
+      "database": "not-run",
+      "auth": "not-run",
+      "storage": "not-run",
+      "functions": "not-run",
+      "cron": "not-run",
+      "featureFlags": "not-run",
+      "frontendArtifact": "not-run",
+      "reconciliation": "not-run"
+    }
+  }
+}
