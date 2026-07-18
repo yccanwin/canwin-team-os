@@ -1,0 +1,122 @@
+{
+  "schemaVersion": 1,
+  "scope": "P0 static frontend inventory only; this file does not authorize P1 UI or production changes.",
+  "sources": {
+    "plan": "docs/CanWin-Team-OS-4.0-最终施工总方案.md",
+    "routes": "src/App.tsx",
+    "pageInventory": "docs/team-os-4.0/p0/03-page-retain-merge-retire-inventory.md",
+    "mediaInventory": "docs/team-os-4.0/p0/04-media-and-storage-cleanup-inventory.md"
+  },
+  "expectedCounts": {
+    "currentRoutes": 36,
+    "section48Mappings": 22,
+    "fileInputs": 7,
+    "storageNamespaces": 7,
+    "avatarUrlWriteEntrances": 1,
+    "bulkImportExemptions": 1
+  },
+  "currentRoutes": [
+    { "path": "/", "elementToken": "Dashboard", "section48MappingId": "dashboard", "kind": "compatibility_alias" },
+    { "path": "/dashboard", "elementToken": "Dashboard", "section48MappingId": "dashboard", "kind": "page" },
+    { "path": "/work", "elementToken": "Work", "section48MappingId": "work", "kind": "page" },
+    { "path": "/tasks", "elementToken": "Tasks", "section48MappingId": "tasks", "kind": "legacy_page" },
+    { "path": "/goals", "elementToken": "Goals", "section48MappingId": "goals", "kind": "legacy_page" },
+    { "path": "/votes", "elementToken": "Votes", "section48MappingId": "deferred-tools", "kind": "legacy_page" },
+    { "path": "/votes/:voteId", "elementToken": "VoteDetail", "section48MappingId": "deferred-tools", "kind": "legacy_detail" },
+    { "path": "/inventory", "elementToken": "Inventory", "section48MappingId": "inventory-assets", "kind": "legacy_page" },
+    { "path": "/finance", "elementToken": "Finance", "section48MappingId": "finance", "kind": "page" },
+    { "path": "/sales", "elementToken": "SalesCenter", "section48MappingId": "sales", "kind": "legacy_page" },
+    { "path": "/timeline", "elementToken": "Timeline", "section48MappingId": "timeline", "kind": "legacy_page" },
+    { "path": "/achievements", "elementToken": "Achievements", "section48MappingId": "achievements", "kind": "legacy_page" },
+    { "path": "/photos", "elementToken": "Photos", "section48MappingId": "photos", "kind": "legacy_page" },
+    { "path": "/assets", "elementToken": "Assets", "section48MappingId": "inventory-assets", "kind": "legacy_page" },
+    { "path": "/calendar", "elementToken": "Calendar", "section48MappingId": "calendar", "kind": "page" },
+    { "path": "/toolbox", "elementToken": "Toolbox", "section48MappingId": "deferred-tools", "kind": "legacy_page" },
+    { "path": "/skills", "elementToken": "Skills", "section48MappingId": "members-skills", "kind": "legacy_page" },
+    { "path": "/warroom", "elementToken": "WarRoom", "section48MappingId": "deferred-tools", "kind": "legacy_page" },
+    { "path": "/members", "elementToken": "Members", "section48MappingId": "members-skills", "kind": "legacy_page" },
+    { "path": "/profile", "elementToken": "Profile", "section48MappingId": "profile", "kind": "page" },
+    { "path": "/settings", "elementToken": "Settings", "section48MappingId": "settings", "kind": "legacy_page" },
+    { "path": "/asset-center", "elementToken": "AssetCenter", "section48MappingId": "asset-center", "kind": "page" },
+    { "path": "/culture-center", "elementToken": "CultureCenter", "section48MappingId": "culture-center", "kind": "legacy_page" },
+    { "path": "/sales-v3", "elementToken": "SalesWorkbenchV3", "section48MappingId": "sales-v3", "kind": "compatibility_page" },
+    { "path": "/operations/lead-intake", "elementToken": "OperationsLeadIntake", "section48MappingId": "operations-lead-intake", "kind": "compatibility_page" },
+    { "path": "/orders-v3", "elementToken": "OrderDeliveryWorkbenchV3", "section48MappingId": "orders-v3", "kind": "compatibility_page" },
+    { "path": "/quotes-v3", "elementToken": "QuoteOrderRealV3", "section48MappingId": "quotes-v3", "kind": "compatibility_page" },
+    { "path": "/management-v3", "elementToken": "ManagementBoardRealV3", "section48MappingId": "management-v3", "kind": "compatibility_page" },
+    { "path": "/access-v3", "elementToken": "Navigate", "section48MappingId": "settings", "kind": "redirect" },
+    { "path": "/settings-v3", "elementToken": "SettingsHomeV3", "section48MappingId": "settings", "kind": "compatibility_page" },
+    { "path": "/settings-v3/regions", "elementToken": "RegionAdminRealV3", "section48MappingId": "settings", "kind": "compatibility_page" },
+    { "path": "/settings-v3/catalog", "elementToken": "CatalogAdminRealV3", "section48MappingId": "settings", "kind": "compatibility_page" },
+    { "path": "/settings-v3/catalog/packages", "elementToken": "PackageAdminRealV3", "section48MappingId": "settings", "kind": "compatibility_page" },
+    { "path": "/settings-v3/access", "elementToken": "AccessAdminRealV3", "section48MappingId": "settings", "kind": "compatibility_page" },
+    { "path": "/settings-v3/customer-import", "elementToken": "CustomerImportRealV3", "section48MappingId": "settings", "kind": "compatibility_page" },
+    { "path": "/notifications-v3", "elementToken": "NotificationAdminRealV3", "section48MappingId": null, "kind": "additional_compatibility_page", "additionalReason": "Section 4.8 does not list this route; section 4.1 requires messages in the top bar." }
+  ],
+  "section48Mappings": [
+    { "id": "dashboard", "planKey": "/dashboard", "planRoutes": ["/dashboard"], "currentRoutes": ["/", "/dashboard"], "treatment": "retain_rebuild", "target": "Role-generated personal workbench." },
+    { "id": "work", "planKey": "/work", "planRoutes": ["/work"], "currentRoutes": ["/work"], "treatment": "retain_rebuild", "target": "Unified work-item progression center." },
+    { "id": "tasks", "planKey": "/tasks", "planRoutes": ["/tasks"], "currentRoutes": ["/tasks"], "treatment": "merge_redirect", "target": "Merge into /work and preserve the old address as a redirect." },
+    { "id": "calendar", "planKey": "/calendar", "planRoutes": ["/calendar"], "currentRoutes": ["/calendar"], "treatment": "retain_rebuild", "target": "Time projection of unified work items plus schedule events." },
+    { "id": "profile", "planKey": "/profile", "planRoutes": ["/profile"], "currentRoutes": ["/profile"], "treatment": "retain_rebuild", "target": "Remove avatar writes and add role, skills and personal earnings." },
+    { "id": "goals", "planKey": "/goals", "planRoutes": ["/goals"], "currentRoutes": ["/goals"], "treatment": "merge_redirect", "target": "Move personal goals to profile and restrict team goals to admin or enabled supervisors." },
+    { "id": "sales-v3", "planKey": "/sales-v3", "planRoutes": ["/sales-v3"], "currentRoutes": ["/sales-v3"], "treatment": "retain_compatibility", "target": "Remove its second internal navigation and split features into the sales role navigation." },
+    { "id": "quotes-v3", "planKey": "/quotes-v3", "planRoutes": ["/quotes-v3"], "currentRoutes": ["/quotes-v3"], "treatment": "retain_capability", "target": "Keep quoting inside the unified role shell." },
+    { "id": "orders-v3", "planKey": "/orders-v3", "planRoutes": ["/orders-v3"], "currentRoutes": ["/orders-v3"], "treatment": "retain_split_views", "target": "Keep orders and split delivery and after-sales by role." },
+    { "id": "sales", "planKey": "/sales", "planRoutes": ["/sales"], "currentRoutes": ["/sales"], "treatment": "merge_redirect", "target": "Merge into sales earnings and profile." },
+    { "id": "operations-lead-intake", "planKey": "/operations/lead-intake", "planRoutes": ["/operations/lead-intake"], "currentRoutes": ["/operations/lead-intake"], "treatment": "merge_capability", "target": "Expose as an implementation or operations workbench quick action." },
+    { "id": "finance", "planKey": "/finance", "planRoutes": ["/finance"], "currentRoutes": ["/finance"], "treatment": "retain_rebuild", "target": "Finance role workspace." },
+    { "id": "asset-center", "planKey": "/asset-center", "planRoutes": ["/asset-center"], "currentRoutes": ["/asset-center"], "treatment": "retain_restrict", "target": "Admin product, inventory and asset management entry." },
+    { "id": "inventory-assets", "planKey": "/inventory、/assets", "planRoutes": ["/inventory", "/assets"], "currentRoutes": ["/inventory", "/assets"], "treatment": "redirect", "target": "Redirect to the corresponding asset-center product-management tabs." },
+    { "id": "members-skills", "planKey": "/members、/skills", "planRoutes": ["/members", "/skills"], "currentRoutes": ["/members", "/skills"], "treatment": "merge_redirect", "target": "Merge into admin organization, roles and permissions." },
+    { "id": "achievements", "planKey": "/achievements", "planRoutes": ["/achievements"], "currentRoutes": ["/achievements"], "treatment": "audit_merge_redirect", "target": "Move verified reusable data into case candidates." },
+    { "id": "culture-center", "planKey": "/culture-center", "planRoutes": ["/culture-center"], "currentRoutes": ["/culture-center"], "treatment": "hide_split", "target": "Remove from daily navigation and stop mixing the album with sales cases." },
+    { "id": "photos", "planKey": "/photos", "planRoutes": ["/photos"], "currentRoutes": ["/photos"], "treatment": "retire_disable_write", "target": "Retire in 4.0 and revoke new uploads." },
+    { "id": "timeline", "planKey": "/timeline", "planRoutes": ["/timeline"], "currentRoutes": ["/timeline"], "treatment": "hide_migrate_read", "target": "Move retained facts to customer timelines or audit history." },
+    { "id": "management-v3", "planKey": "/management-v3", "planRoutes": ["/management-v3"], "currentRoutes": ["/management-v3"], "treatment": "merge_compatibility", "target": "Merge into the admin operating cockpit." },
+    { "id": "settings", "planKey": "/settings*", "planRoutes": ["/settings*"], "currentRoutes": ["/settings", "/access-v3", "/settings-v3", "/settings-v3/regions", "/settings-v3/catalog", "/settings-v3/catalog/packages", "/settings-v3/access", "/settings-v3/customer-import"], "treatment": "merge_preserve_deep_links", "target": "One admin system-settings shell with compatible deep links." },
+    { "id": "deferred-tools", "planKey": "/votes、/warroom、/toolbox", "planRoutes": ["/votes", "/warroom", "/toolbox"], "currentRoutes": ["/votes", "/votes/:voteId", "/warroom", "/toolbox"], "treatment": "hide_read_only_30_days", "target": "Do not expand in 4.0 first release; hide from default navigation and retain read-only for 30 days." }
+  ],
+  "fileInputs": [
+    { "id": "timeline-images", "source": "src/components/Timeline/ImageUploader.tsx", "ordinalInFile": 1, "accept": "image/*", "classification": "legacy_media", "storageNamespace": "timeline", "p0Disposition": "disable_new_write_preserve_read" },
+    { "id": "timeline-attachments", "source": "src/components/Timeline/FileUploader.tsx", "ordinalInFile": 1, "accept": ".pdf,.doc,.docx", "classification": "legacy_attachment", "storageNamespace": "timeline/attachments", "p0Disposition": "disable_new_write_preserve_read" },
+    { "id": "customer-bulk-import", "source": "src/features/system-settings/CustomerImportRealRoute.tsx", "ordinalInFile": 1, "accept": ".xlsx,.csv", "classification": "bulk_import", "storageNamespace": null, "p0Disposition": "explicit_admin_desktop_exemption" },
+    { "id": "asset-images", "source": "src/pages/Assets/AssetFormModal.tsx", "ordinalInFile": 1, "accept": "image/*", "classification": "legacy_media", "storageNamespace": "assets", "p0Disposition": "disable_new_write_preserve_read" },
+    { "id": "achievement-logo", "source": "src/pages/Achievements/AchievementFormModal.tsx", "ordinalInFile": 1, "accept": "image/*", "classification": "legacy_media_candidate", "storageNamespace": "achievements/icons", "p0Disposition": "candidate_for_case_logo_not_yet_compliant" },
+    { "id": "achievement-images", "source": "src/pages/Achievements/AchievementFormModal.tsx", "ordinalInFile": 2, "accept": "image/*", "classification": "legacy_media", "storageNamespace": "achievements/images", "p0Disposition": "disable_new_write_preserve_read" },
+    { "id": "team-photo", "source": "src/pages/Photos/PhotoUploadModal.tsx", "ordinalInFile": 1, "accept": "image/jpeg,image/png", "classification": "legacy_media", "storageNamespace": "photos", "p0Disposition": "disable_new_write_preserve_read" }
+  ],
+  "storageNamespaces": [
+    { "namespace": "photos", "sources": ["src/services/photos.ts"], "classification": "legacy_media", "p0Disposition": "read_only_after_test_cutover" },
+    { "namespace": "achievements/icons", "sources": ["src/services/achievements.ts"], "classification": "legacy_media_candidate", "p0Disposition": "candidate_for_case_logo_not_yet_compliant" },
+    { "namespace": "achievements/images", "sources": ["src/services/achievements.ts"], "classification": "legacy_media", "p0Disposition": "read_only_after_test_cutover" },
+    { "namespace": "assets", "sources": ["src/services/assets.ts"], "classification": "legacy_media", "p0Disposition": "read_only_after_test_cutover" },
+    { "namespace": "timeline", "sources": ["src/services/timeline.ts"], "classification": "legacy_media", "p0Disposition": "read_only_after_test_cutover" },
+    { "namespace": "timeline/attachments", "sources": ["src/services/timeline.ts"], "classification": "legacy_attachment", "p0Disposition": "read_only_after_test_cutover" },
+    { "namespace": "personal-goals/updates", "sources": ["src/services/personalGoals.ts"], "classification": "latent_legacy_media", "p0Disposition": "remove_latent_write_preserve_read" }
+  ],
+  "avatarUrlWriteEntrances": [
+    {
+      "id": "member-avatar-url",
+      "source": "src/pages/Settings/MemberFormModal.tsx",
+      "serviceSource": "src/services/profile.ts",
+      "field": "profiles.avatar_url",
+      "requiredMarkers": ["头像 URL", "avatarUrl: avatar.trim() || undefined"],
+      "p0Disposition": "remove_write_preserve_historical_read"
+    }
+  ],
+  "bulkImportExemptions": [
+    {
+      "id": "bulk_import",
+      "fileInputId": "customer-bulk-import",
+      "source": "src/features/system-settings/CustomerImportRealRoute.tsx",
+      "requiredMarker": "parseCustomerImportFile",
+      "usesMediaStorage": false,
+      "boundary": "Structured XLSX/CSV admin desktop import only; not a media or attachment upload."
+    }
+  ],
+  "targetMediaSlots": [
+    { "slot": "case.logo", "maxCount": 1, "maxBytes": 204800, "mimeTypes": ["image/png", "image/jpeg", "image/webp"], "writer": "admin_only", "implemented": false },
+    { "slot": "case.miniprogram_code", "maxCount": 1, "maxBytes": 307200, "mimeTypes": ["image/png", "image/jpeg", "image/webp"], "writer": "admin_only", "implemented": false }
+  ]
+}
