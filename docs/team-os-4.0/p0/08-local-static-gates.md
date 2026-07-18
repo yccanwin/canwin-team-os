@@ -1,7 +1,7 @@
 # P0-08 本地静态门禁与统一集成入口
 
 > 状态：本地资产已建立；G0 仍未通过。
-> 范围：只读取仓库文件并执行本地前端构建，不连接数据库，不访问网络，不运行 SQL 夹具，不部署，不发布。
+> 范围：统一校验入口只读取仓库文件并执行本地前端构建，不连接数据库或业务网络，不运行 SQL 夹具，不部署，不发布。GitHub Actions 的 checkout、Node 设置和 `npm ci` 依赖安装仍会访问 GitHub/npm 包源。
 
 ## 资产
 
@@ -29,7 +29,7 @@ npm.cmd run test:p0:local
 
 统一入口固定运行：三个 static gates、前端 inventory、P1 导航合同、catalog 只读自检、安全视图候选校验、103 表分类合同、前端处置交叉核验和前端 build。runner 发现八个检查点；其中 static gates 在第一个检查点内部按 3/3 单独计数。任一子命令首次返回非零，runner 立即停止，不运行后续检查点，并如实输出 skipped 数量。
 
-该入口不调用 Supabase CLI、MCP、网络、数据库或会写数据的 SQL，不部署、不发布，也不修改历史迁移。catalog 和安全视图脚本只解析仓库内 SQL；build 只生成本地产物。
+该入口不调用 Supabase CLI、MCP、业务网络、数据库或会写数据的 SQL，不部署、不发布，也不修改历史迁移。catalog 和安全视图脚本只解析仓库内 SQL；build 只生成本地产物。CI 包装层仅为 checkout、运行时准备和依赖安装访问 GitHub/npm，不访问 Supabase 项目。
 
 ## 项目 ref 合同
 
