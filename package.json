@@ -12,6 +12,7 @@
     "test:p0:project-ref": "node scripts/p0/verify-project-ref-contract.mjs",
     "test:p0:backup-contract": "node scripts/p0/verify-backup-manifest-contract.mjs",
     "test:p0:static": "node scripts/p0/run-static-gates.mjs",
+    "test:p0:local": "node scripts/p0/run-local-integration.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },

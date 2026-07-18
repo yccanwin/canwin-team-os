@@ -1,4 +1,4 @@
-name: P0 Static Gates
+name: P0 Local Integration
 
 on:
   pull_request:
@@ -8,8 +8,8 @@ permissions:
   contents: read
 
 jobs:
-  p0-static:
-    name: Local-only P0 validation
+  p0-local:
+    name: Windows local-only P0 validation
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
@@ -25,16 +25,5 @@ jobs:
       - name: Install dependencies
         run: npm.cmd ci
 
-      - name: Run local P0 static gates
-        run: npm.cmd run test:p0:static
-
-      - name: Verify frontend inventory
-        run: node.exe scripts/p0/verify-frontend-inventory.mjs
-
-      - name: Run backend read-only SQL validator self-test
-        shell: powershell
-        run: |
-          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:GITHUB_WORKSPACE\scripts\p0\validate-catalog-snapshot-readonly.ps1" -SelfTest
-
-      - name: Build frontend
-        run: npm.cmd run build
+      - name: Run unified local P0 integration
+        run: npm.cmd run test:p0:local

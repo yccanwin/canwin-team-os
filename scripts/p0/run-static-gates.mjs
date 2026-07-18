@@ -11,6 +11,7 @@ const gates = [
 
 let run = 0
 let passed = 0
+let failed = 0
 for (const [name, script] of gates) {
   run += 1
   console.log('[p0:static] RUN ' + name)
@@ -25,13 +26,15 @@ for (const [name, script] of gates) {
     passed += 1
     console.log('[p0:static] PASS ' + name)
   } else {
+    failed = 1
     console.error('[p0:static] FAIL ' + name + ' exit=' + String(result.status))
+    break
   }
 }
 
 console.log(
   '[p0:static] summary discovered=' + gates.length + ' run=' + run +
-    ' passed=' + passed + ' failed=' + (run - passed) +
+    ' passed=' + passed + ' failed=' + failed +
     ' skipped=' + (gates.length - run),
 )
-if (passed !== gates.length) process.exit(1)
+if (failed > 0) process.exit(1)

@@ -1,7 +1,7 @@
-# P0-08 本地静态门禁
+# P0-08 本地静态门禁与统一集成入口
 
 > 状态：本地资产已建立；G0 仍未通过。
-> 范围：只读取仓库文件，不连接数据库，不运行 SQL 夹具，不部署，不发布。
+> 范围：只读取仓库文件并执行本地前端构建，不连接数据库，不访问网络，不运行 SQL 夹具，不部署，不发布。
 
 ## 资产
 
@@ -16,23 +16,20 @@
 - scripts/p0/verify-p1-app-navigation-contract.mjs：验证五主岗位、两个附加职能、桌面/移动导航和旧路由映射合同。
 - scripts/p0/validate-catalog-snapshot-readonly.ps1：验证 catalog 快照 SQL 只能执行只读语句。
 - scripts/p0/validate-security-invoker-view-candidate.ps1：验证三视图候选的范围、列、ACL、调用方和 LF/CRLF 注释解析，不执行 SQL。
-- .github/workflows/p0-static.yml：PR/手动触发的 Windows 本地静态 CI 候选；当前未包含数据库、权限和业务测试，也没有远端执行证据。
+- scripts/p0/verify-table-classification-register.mjs：验证 103 张 public 表分类合同及开放审计缺口。
+- scripts/p0/verify-frontend-disposition-crosscheck.mjs：交叉核验前端路由、总方案 4.8、上传入口、Storage 命名空间和处置状态。
+- scripts/p0/run-local-integration.mjs：按固定顺序运行八个本地检查点，首个非零即退出并输出发现、运行、通过、失败和跳过数量。
+- .github/workflows/p0-static.yml：PR/手动触发的 Windows 本地集成 CI 候选；`npm ci` 后只调用统一入口。
 
 ## 命令
 
 ~~~powershell
-npm.cmd run test:p0:migrations
-npm.cmd run test:p0:project-ref
-npm.cmd run test:p0:backup-contract
-npm.cmd run test:p0:static
-node.exe scripts/p0/verify-frontend-inventory.mjs
-node.exe scripts/p0/verify-p1-app-navigation-contract.mjs
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\p0\validate-catalog-snapshot-readonly.ps1 -SelfTest
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\p0\validate-security-invoker-view-candidate.ps1
-npm.cmd run build
+npm.cmd run test:p0:local
 ~~~
 
-`test:p0:static` 统一入口只运行三个本地静态门禁。其余命令构成本地集成检查点；它们也不调用 Supabase CLI、MCP、网络、数据库或会写数据的 SQL 测试。
+统一入口固定运行：三个 static gates、前端 inventory、P1 导航合同、catalog 只读自检、安全视图候选校验、103 表分类合同、前端处置交叉核验和前端 build。runner 发现八个检查点；其中 static gates 在第一个检查点内部按 3/3 单独计数。任一子命令首次返回非零，runner 立即停止，不运行后续检查点，并如实输出 skipped 数量。
+
+该入口不调用 Supabase CLI、MCP、网络、数据库或会写数据的 SQL，不部署、不发布，也不修改历史迁移。catalog 和安全视图脚本只解析仓库内 SQL；build 只生成本地产物。
 
 ## 项目 ref 合同
 
@@ -63,9 +60,11 @@ readiness=BLOCKED reason=test-project-not-provisioned。这只证明本地声明
 
 - 迁移文件：discovered=69 run=69 passed=69 failed=0；
 - 静态门禁：discovered=3 run=3 passed=3 failed=0 skipped=0；
+- 统一入口：discovered=8 run=8 passed=8 failed=0 skipped=0；
 - 安全候选换行回归：cases=4，覆盖 lf、crlf、mixed、comment-semicolon；
 - 安全候选自检：cases=9 positive=4 negative=5；候选结果为 views=3 callers=3 migrations=clean database_calls=0；
+- 103 表分类合同与前端处置交叉核验均成功；
 - 前端清单、P1 导航合同、catalog 只读校验和前端构建全部成功；
 - 测试环境就绪状态仍为 BLOCKED。
 
-本门禁不证明远端迁移 SQL 正文一致，不证明生产安全顾问已清零，也不证明数据库、Auth 或 Storage 已在独立项目恢复成功。
+本地命令或 CI 绿色只证明仓库静态合同和前端 build 通过。它不包含数据库执行、真实岗位权限、业务流程、页面运行时或远端测试，不证明远端迁移 SQL 正文一致，不证明生产安全顾问已清零，也不证明数据库、Auth 或 Storage 已在独立项目恢复成功，因此不能声称 G0 通过。

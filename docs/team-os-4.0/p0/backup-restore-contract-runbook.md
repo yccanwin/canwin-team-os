@@ -56,16 +56,13 @@ npm.cmd run test:p0:static
 工作流 .github/workflows/p0-static.yml 只允许 pull_request 和 workflow_dispatch 触发，权限仅 contents: read。步骤固定为：
 
 1. npm ci；
-2. 本地 P0 静态门禁；
-3. 前端 inventory 静态核验；
-4. 后端 catalog SQL 只读验证器自检；
-5. 前端 build。
+2. `npm.cmd run test:p0:local` 统一运行 static gates、前端 inventory、P1 导航合同、catalog 只读自检、安全视图候选校验、103 表分类、前端处置交叉核验和前端 build。
 
 工作流不读取 Supabase secrets，不连接 Supabase，不执行 SQL，不 deploy，不发布 Pages，不修改分支、PR 或外部资源。
 
 ## 5. 绿灯不等于 G0
 
-CI 绿色只证明当前提交的本地静态合同、前后端 inventory 和构建通过。G0 仍必须另行取得并验收：
+CI 绿色只证明当前提交的本地静态合同和前端构建通过；它没有运行数据库、真实岗位权限、业务流程、页面运行时或任何远端测试。G0 仍必须另行取得并验收：
 
 - 已获授权且与生产隔离的测试项目；
 - 数据库和 Storage 的真实完整备份；
