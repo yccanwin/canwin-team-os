@@ -41,68 +41,68 @@ begin
   core_compact:=replace(replace(replace(core_def,' ',''),chr(10),''),chr(13),'');
 
   if position('security definer' in snapshot_def)=0
-    or position("set search_path to ''" in snapshot_def)=0 then
+    or position($needle$set search_path to ''$needle$ in snapshot_def)=0 then
     raise exception 'Snapshot RPC security boundary missing';
   end if;
-  if position("v_scopenotin('personal','team')" in snapshot_compact)=0
+  if position($needle$v_scopenotin('personal','team')$needle$ in snapshot_compact)=0
     or position('team_performance_forbidden' in snapshot_def)=0
     or position('performance_profile_not_found' in snapshot_def)=0 then
     raise exception 'Snapshot scope authorization missing';
   end if;
   if position('p_profile_idisnullandnotv_actor_is_sales' in snapshot_compact)=0
-    or position("v_effective_scope:='team'" in snapshot_compact)=0
+    or position($needle$v_effective_scope:='team'$needle$ in snapshot_compact)=0
     or position('ifv_can_read_allorv_has_active_subordinates' in snapshot_compact)=0
-    or position("'effectivescope',v_effective_scope" in snapshot_compact)=0
-    or position("'selectedprofileid',v_selected_profile_id" in snapshot_compact)=0 then
+    or position($needle$'effectivescope',v_effective_scope$needle$ in snapshot_compact)=0
+    or position($needle$'selectedprofileid',v_selected_profile_id$needle$ in snapshot_compact)=0 then
     raise exception 'Non-sales management landing fallback missing';
   end if;
-  if position("s.status='qualified'" in snapshot_compact)=0
-    or position("s.statusin('qualified','revoked')" in snapshot_compact)=0
-    or position("e.event_type='restored'" in snapshot_compact)=0
-    or position("then'reversed'" in snapshot_compact)=0 then
+  if position($needle$s.status='qualified'$needle$ in snapshot_compact)=0
+    or position($needle$s.statusin('qualified','revoked')$needle$ in snapshot_compact)=0
+    or position($needle$e.event_type='restored'$needle$ in snapshot_compact)=0
+    or position($needle$then'reversed'$needle$ in snapshot_compact)=0 then
     raise exception 'Qualified/revoked/restored snapshot semantics missing';
   end if;
   if position('order_performance_events' in snapshot_def)=0
     or position('deal_quote_lines' in snapshot_def)=0
-    or position("'members'" in snapshot_def)=0
-    or position("'products'" in snapshot_def)=0
-    or position("'orders'" in snapshot_def)=0 then
+    or position($needle$'members'$needle$ in snapshot_def)=0
+    or position($needle$'products'$needle$ in snapshot_def)=0
+    or position($needle$'orders'$needle$ in snapshot_def)=0 then
     raise exception 'Snapshot response contract incomplete';
   end if;
 
-  if position("ar.code='sales'" in target_compact)=0
-    or position("p.status='active'" in target_compact)=0
+  if position($needle$ar.code='sales'$needle$ in target_compact)=0
+    or position($needle$p.status='active'$needle$ in target_compact)=0
     or position('can_supervise_performance' in target_def)=0
     or position('has_access_role' in target_def)=0
-    or position("'owner'" in target_def)=0
-    or position("'admin'" in target_def)=0 then
+    or position($needle$'owner'$needle$ in target_def)=0
+    or position($needle$'admin'$needle$ in target_def)=0 then
     raise exception 'Target manager/active-sales restriction missing';
   end if;
   if position('performance_target_events' in target_def)=0
-    or position("'before'" in target_def)=0
-    or position("'after'" in target_def)=0
+    or position($needle$'before'$needle$ in target_def)=0
+    or position($needle$'after'$needle$ in target_def)=0
     or position('before_data' in target_def)=0
     or position('after_data' in target_def)=0 then
     raise exception 'Target event/audit history missing';
   end if;
 
   if position('order_performance_states' in dashboard_def)=0
-    or position("s.status='qualified'" in dashboard_compact)=0 then
+    or position($needle$s.status='qualified'$needle$ in dashboard_compact)=0 then
     raise exception 'Legacy dashboard is not order-backed';
   end if;
 
   if position('security definer' in core_def)=0
-    or position("set search_path to ''" in core_def)=0
+    or position($needle$set search_path to ''$needle$ in core_def)=0
     or position('deal_payments' in core_def)=0
     or position('deal_payment_reversals' in core_def)=0
     or position('deal_order_cancellations' in core_def)=0
-    or position("v_order.status='cancelled'" in core_compact)=0
-    or position("v_event_type:='revoked'" in core_compact)=0
-    or position("then'qualified'" in core_compact)=0
-    or position("else'restored'" in core_compact)=0 then
+    or position($needle$v_order.status='cancelled'$needle$ in core_compact)=0
+    or position($needle$v_event_type:='revoked'$needle$ in core_compact)=0
+    or position($needle$then'qualified'$needle$ in core_compact)=0
+    or position($needle$else'restored'$needle$ in core_compact)=0 then
     raise exception 'Private order transition semantics incomplete';
   end if;
-  if position("'order-performance:'||p_trigger_type||':'||p_trigger_id::text" in core_compact)=0
+  if position($needle$'order-performance:'||p_trigger_type||':'||p_trigger_id::text$needle$ in core_compact)=0
     or position('performance_trigger_idempotency_conflict' in core_def)=0
     or position('order_performance_events' in core_def)=0
     or position('ifp_actor_idisnotnullthen' in core_compact)=0 then
