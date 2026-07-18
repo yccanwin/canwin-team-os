@@ -20,6 +20,19 @@ export interface PerformanceMember {
   points: number
   newGmv: number
   renewalGmv: number
+  pointsTarget: number
+  newGmvTarget: number
+  renewalGmvTarget: number
+  canSetTarget: boolean
+}
+
+export interface PerformanceViewer {
+  profileId: string
+  teamId: string
+  requestedScope: PerformanceScope
+  effectiveScope: PerformanceScope
+  selectedProfileId: string | null
+  canManageTargets: boolean
 }
 
 export interface ProductContribution {
@@ -35,6 +48,7 @@ export interface ContributionOrder {
   orderId: string
   orderNumber: string
   customerName: string
+  salespersonId: string
   salespersonName: string
   saleType: PerformanceSaleType
   points: number
@@ -44,6 +58,7 @@ export interface ContributionOrder {
 }
 
 export interface PerformanceCenterSnapshot {
+  viewer: PerformanceViewer
   summary: PerformanceSummary
   members: PerformanceMember[]
   products: ProductContribution[]
