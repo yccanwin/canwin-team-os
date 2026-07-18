@@ -8,6 +8,9 @@
     "build": "tsc -b && vite build",
     "test:lead-parser": "node --experimental-strip-types scripts/test-lead-paste-parser.ts",
     "test:crm-ui": "node --experimental-strip-types scripts/test-crm-command-center-ui.ts",
+    "test:p0:migrations": "node scripts/p0/verify-migration-manifest.mjs",
+    "test:p0:project-ref": "node scripts/p0/verify-project-ref-contract.mjs",
+    "test:p0:static": "node scripts/p0/run-static-gates.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },
