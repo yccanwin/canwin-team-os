@@ -72,15 +72,19 @@ begin
   if exists (select 1 from information_schema.columns where table_schema='public'
       and table_name='crm_leads_visible' and column_name='phone')
     or not exists (select 1 from information_schema.columns where table_schema='public'
-      and table_name='crm_leads_visible' and column_name='masked_phone') then
-    raise exception 'Visible lead contract leaks phone or lacks masked_phone';
+      and table_name='crm_leads_visible' and column_name='masked_phone')
+    or not exists (select 1 from information_schema.columns where table_schema='public'
+      and table_name='crm_leads_visible' and column_name='address') then
+    raise exception 'Visible lead contract leaks phone or lacks final columns';
   end if;
 
+  -- 20260717184206 appends address as the twentieth, privacy-filtered column.
   if (select array_agg(column_name::text order by ordinal_position)
       from information_schema.columns where table_schema='public' and table_name='crm_leads_visible')
     is distinct from array['id','read_scope','store_name','contact_name','masked_phone','district_name',
       'business_type','source','created_at','next_action_at','stage','facts','lead_status',
-      'owner_display_name','claimable','active_opportunity_id','recycle_risk','recycle_due_at','recycle_paused'] then
+      'owner_display_name','claimable','active_opportunity_id','recycle_risk','recycle_due_at','recycle_paused',
+      'address'] then
     raise exception 'crm_leads_visible column contract changed';
   end if;
 

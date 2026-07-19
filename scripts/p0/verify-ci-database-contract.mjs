@@ -120,6 +120,21 @@ function validate(candidate) {
   check(crmCoreTestSql.includes('20260716114824') && crmCoreTestSql.includes("crm_is_valid_opportunity('D',false,false,null) is distinct from true"), 'post-chain qualification test semantics drift')
   check(crmCoreTestSql.includes("crm_is_valid_opportunity('E',true,true,null) is distinct from false"), 'post-chain invalid-grade test missing')
   check(!crmCoreTestSql.includes('Qualification rule skeleton failed'), 'obsolete strict qualification assertion returned')
+  const leadsView = candidate.historicalChainExpectations?.crmLeadsVisible ?? {}
+  const expectedLeadColumns = [
+    'id', 'read_scope', 'store_name', 'contact_name', 'masked_phone', 'district_name',
+    'business_type', 'source', 'created_at', 'next_action_at', 'stage', 'facts',
+    'lead_status', 'owner_display_name', 'claimable', 'active_opportunity_id',
+    'recycle_risk', 'recycle_due_at', 'recycle_paused', 'address',
+  ]
+  check(leadsView.finalMigration === 'supabase/migrations/20260717184206_add_quick_lead_address.sql', 'lead view final migration drift')
+  check(JSON.stringify(leadsView.after69Columns) === JSON.stringify(expectedLeadColumns), 'lead view final column order drift')
+  check(leadsView.addressHiddenFromOtherOwner === true, 'lead view address privacy drift')
+  check(leadsView.rawPhoneColumnForbidden === true, 'lead view raw phone boundary drift')
+  const finalLeadViewSql = normalizeLf(readFileSync(resolve(repoRoot, leadsView.finalMigration ?? 'missing'), 'utf8')).replace(/\s+/g, '').toLowerCase()
+  check(finalLeadViewSql.includes("casewhenl.owner_idisnotnullandl.owner_id<>auth.uid()thennullelsel.addressendaddress"), 'lead view address privacy evidence missing')
+  check(crmCoreTestSql.includes('20260717184206') && crmCoreTestSql.includes("'recycle_paused',\n      'address']"), 'lead view final column test drift')
+  check(!/array\[[^\]]*'recycle_paused'\s*\]\s*then/.test(crmCoreTestSql), 'obsolete pre-address column contract returned')
   check(runtime.engine === 'supabase-cli-local-postgres', 'runtime engine drift')
   check(runtime.supabaseCliVersion === '2.109.1', 'Supabase CLI pin drift')
   check(runtime.postgresMajor === 17, 'Postgres major drift')
@@ -169,7 +184,7 @@ function validate(candidate) {
   check(boundary.repositorySecretsRequired === false, 'repository secrets must not be required')
 
   const attempts = candidate.formalAttemptHistory ?? []
-  check(attempts.length === 3, 'formal attempt history count drift')
+  check(attempts.length === 4, 'formal attempt history count drift')
   const failedAttempt = attempts[0] ?? {}
   check(failedAttempt.runId === '29680934378', 'failed run id drift')
   check(failedAttempt.jobId === '88176860842', 'failed job id drift')
@@ -214,6 +229,23 @@ function validate(candidate) {
   check(qualificationAttempt.productionReadPerformed === false, 'qualification run production read must remain false')
   check(qualificationAttempt.productionWritePerformed === false, 'qualification run production write must remain false')
   check(qualificationAttempt.rerunOfFailedRun === false, 'qualification run must remain a new candidate')
+  const addressAttempt = attempts[3] ?? {}
+  check(addressAttempt.runId === '29681529637', 'address run id drift')
+  check(addressAttempt.jobId === '88178429672', 'address job id drift')
+  check(addressAttempt.headSha === '93383912475c643707c6896e9e630a0a96cdb351', 'address run head SHA drift')
+  check(addressAttempt.conclusion === 'failure', 'address run conclusion drift')
+  check(addressAttempt.failedStep === 'Run database permission and business gates', 'address run failed step drift')
+  check(addressAttempt.rootCauseCode === 'post_chain_test_missing_final_address_column', 'address run root cause drift')
+  check(addressAttempt.databaseStartupPassed === true, 'address run database startup evidence missing')
+  check(addressAttempt.baselinePassed === true, 'address run baseline evidence missing')
+  check(addressAttempt.migrationsPassed === 69, 'address run migration count drift')
+  check(addressAttempt.sqlTestsStarted === 2 && addressAttempt.sqlTestsPassed === 1, 'address run test count drift')
+  check(addressAttempt.firstFailedTest === 'supabase/tests/crm_core.sql', 'address first failed test drift')
+  check(addressAttempt.qualificationAssertionPassed === true, 'address run prior qualification assertion evidence missing')
+  check(addressAttempt.cleanupPassed === true, 'address run cleanup evidence missing')
+  check(addressAttempt.productionReadPerformed === false, 'address run production read must remain false')
+  check(addressAttempt.productionWritePerformed === false, 'address run production write must remain false')
+  check(addressAttempt.rerunOfFailedRun === false, 'address run must remain a new candidate')
   return failures
 }
 
@@ -233,6 +265,7 @@ const negativeCases = [
   ['full stack startup', (value) => { value.runtime.startup = 'supabase start' }],
   ['pre-pilot final state', (value) => { value.historicalChainExpectations.salesOsV3.after69MigrationsEnabled = false }],
   ['pre-relaxation final qualification', (value) => { value.historicalChainExpectations.crmOpportunityQualification.after69RequiredAdvisoryFacts = true }],
+  ['pre-address lead view', (value) => { value.historicalChainExpectations.crmLeadsVisible.after69Columns.pop() }],
   ['repository secret', (value) => { value.acceptanceBoundary.repositorySecretsRequired = true }],
   ['production write', (value) => { value.acceptanceBoundary.productionWritePerformed = true }],
   ['G0 falsely claimed', (value) => { value.acceptanceBoundary.g0OverallClaim = true }],
