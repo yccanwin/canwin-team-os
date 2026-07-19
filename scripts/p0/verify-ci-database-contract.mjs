@@ -23,6 +23,7 @@ const expectedRollbackFixtures = new Set([
 ])
 const allowedModes = new Set(['read_only', 'rollback_fixture'])
 const forbiddenSqlBoundary = /(?:^|\W)(?:dblink_connect|postgres_fdw|postgresql_fdw|http_get|http_post|net\.http_)(?:\W|$)/i
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 function findPolicyPresenceWriteAssertions(sql) {
   const compact = sql.replace(/\s+/g, '')
@@ -37,6 +38,47 @@ function findFormattingSensitiveDefinitionAssertions(sql) {
   return [...sql.matchAll(directDefinitionAssertion)]
     .map((match) => match[1])
     .filter((fragment) => /\s(?:=|<>|>=|<=|>|<|\+|-)\s/.test(fragment) || fragment.includes('count(DISTINCT'))
+}
+
+function findMatchingSqlParen(sql, openIndex) {
+  let depth = 0
+  let inString = false
+  for (let index = openIndex; index < sql.length; index += 1) {
+    const character = sql[index]
+    if (inString) {
+      if (character === "'" && sql[index + 1] === "'") index += 1
+      else if (character === "'") inString = false
+      continue
+    }
+    if (character === "'") inString = true
+    else if (character === '(') depth += 1
+    else if (character === ')') {
+      depth -= 1
+      if (depth === 0) return index
+    }
+  }
+  return -1
+}
+
+function findRequiredDirectDefinitionAssertions(sql) {
+  const assertions = []
+  for (const match of sql.matchAll(/\bposition\s*\(/gi)) {
+    const openIndex = sql.indexOf('(', match.index)
+    const closeIndex = findMatchingSqlParen(sql, openIndex)
+    if (closeIndex < 0) continue
+    const inner = sql.slice(openIndex + 1, closeIndex)
+    const fragmentMatch = inner.match(/^\s*'((?:''|[^'])*)'\s+in\b/i)
+    const targetMatch = inner.match(/pg_get_(function|view)def\s*\(\s*'public\.([a-z0-9_]+)/i)
+    const comparatorMatch = sql.slice(closeIndex + 1, closeIndex + 20).match(/^\s*([=<>]+)\s*0/)
+    if (fragmentMatch && targetMatch && comparatorMatch?.[1] === '=') {
+      assertions.push({
+        fragment: fragmentMatch[1].replace(/''/g, "'"),
+        kind: targetMatch[1].toLowerCase(),
+        name: targetMatch[2].toLowerCase(),
+      })
+    }
+  }
+  return assertions
 }
 
 function validate(candidate) {
@@ -62,6 +104,10 @@ function validate(candidate) {
   const migrationFiles = readdirSync(resolve(repoRoot, candidate.migrations?.directory ?? 'missing'))
     .filter((name) => name.endsWith('.sql'))
     .sort()
+  const migrationSources = migrationFiles.map((file) => ({
+    file,
+    sql: normalizeLf(readFileSync(resolve(repoRoot, candidate.migrations.directory, file), 'utf8')),
+  }))
   check(manifest.expectedCount === 69 && manifest.entries?.length === 69, 'migration manifest count drift')
   check(migrationFiles.length === 69, 'migration directory count drift')
   check(exactSet(migrationFiles, (manifest.entries ?? []).map((entry) => entry.file)), 'migration file set drift')
@@ -74,10 +120,13 @@ function validate(candidate) {
   check(counts.business === expectedCategories.business, 'business expected count drift')
   check(counts.total === 26, 'total expected count drift')
   check(counts.postInstallCatalogAssertions === 4, 'catalog assertion count drift')
+  check(counts.definitionReferencedObjects === 52, 'definition referenced object count drift')
+  check(counts.redefinedDefinitionReferencedObjects === 28, 'redefined definition object count drift')
   check(sourceRules.doKeywordSeparatedFromDollarQuote === true, 'DO dollar-quote separator rule drift')
   check(sourceRules.forbiddenUnseparatedToken === 'do$$', 'DO dollar-quote forbidden token drift')
   check(sourceRules.policyWriteAssertionsRequirePermissiveFilter === true, 'policy write assertion source rule drift')
   check(sourceRules.definitionFragmentAssertionsNormalizeFormatting === true, 'definition fragment formatting source rule drift')
+  check(sourceRules.requiredDefinitionFragmentsMatchFinalMigration === true, 'final definition fragment source rule drift')
   check(tests.length === counts.total, 'test entry count drift')
   check(exactSet(tests.map((entry) => entry.path), tests.map((entry) => entry.path)), 'duplicate test path')
 
@@ -95,15 +144,28 @@ function validate(candidate) {
     [...expectedRollbackFixtures],
   ), 'rollback fixture set drift')
 
+  const definitionTargets = new Set()
   for (const entry of tests) {
     const absolutePath = resolve(repoRoot, entry.path)
     const sql = normalizeLf(readFileSync(absolutePath, 'utf8'))
+    for (const match of sql.matchAll(/pg_get_(function|view)def\s*\(\s*'public\.([a-z0-9_]+)/gi)) {
+      definitionTargets.add(`${match[1].toLowerCase()}:${match[2].toLowerCase()}`)
+    }
     check(entry.sha256Lf === sha256Lf(absolutePath), `test hash drift ${entry.path}`)
     check(!/^\s*\\/m.test(sql), `psql meta-command forbidden ${entry.path}`)
     check(!forbiddenSqlBoundary.test(sql), `remote SQL boundary forbidden ${entry.path}`)
     check(!/\bdo\$\$/i.test(sql), `DO keyword must be separated from dollar quote ${entry.path}`)
     check(findPolicyPresenceWriteAssertions(sql).length === 0, `policy presence misclassified as write grant ${entry.path}`)
     check(findFormattingSensitiveDefinitionAssertions(sql).length === 0, `definition fragment assertion depends on source formatting ${entry.path}`)
+    for (const assertion of findRequiredDirectDefinitionAssertions(sql)) {
+      const definitionPattern = new RegExp(`create\\s+(?:or\\s+replace\\s+)?${assertion.kind}\\s+public\\.${escapeRegex(assertion.name)}\\b`, 'i')
+      const definitions = migrationSources.filter((migration) => definitionPattern.test(migration.sql))
+      check(definitions.length > 0, `definition source missing for ${assertion.kind} ${assertion.name}`)
+      const finalDefinitionMigration = definitions.at(-1)
+      const normalizedFragment = assertion.fragment.toLowerCase().replace(/\s+/g, '')
+      const normalizedFinalMigration = finalDefinitionMigration?.sql.toLowerCase().replace(/\s+/g, '') ?? ''
+      check(normalizedFinalMigration.includes(normalizedFragment), `required definition fragment not found in final migration ${entry.path}:${assertion.name}:${finalDefinitionMigration?.file ?? 'missing'}:${assertion.fragment}`)
+    }
     if (entry.executionMode === 'rollback_fixture') {
       check(/^\s*(?:--[^\n]*\n\s*)*begin\s*;/i.test(sql), `fixture must begin a transaction ${entry.path}`)
       check(/rollback\s*;\s*$/i.test(sql), `fixture must end with rollback ${entry.path}`)
@@ -111,6 +173,13 @@ function validate(candidate) {
       check(!/^\s*(?:begin|commit|rollback)\s*;/im.test(sql), `read-only test contains transaction control ${entry.path}`)
     }
   }
+  const redefinedDefinitionTargets = [...definitionTargets].filter((target) => {
+    const [kind, name] = target.split(':')
+    const definitionPattern = new RegExp(`create\\s+(?:or\\s+replace\\s+)?${kind}\\s+public\\.${escapeRegex(name)}\\b`, 'i')
+    return migrationSources.filter((migration) => definitionPattern.test(migration.sql)).length > 1
+  })
+  check(definitionTargets.size === counts.definitionReferencedObjects, `definition referenced object inventory drift expected=${counts.definitionReferencedObjects} actual=${definitionTargets.size}`)
+  check(redefinedDefinitionTargets.length === counts.redefinedDefinitionReferencedObjects, `redefined definition object inventory drift expected=${counts.redefinedDefinitionReferencedObjects} actual=${redefinedDefinitionTargets.length}`)
 
   check(JSON.stringify(candidate.postInstallCatalog) === JSON.stringify(expectedCatalog), 'post-install catalog contract drift')
   const salesV3 = candidate.historicalChainExpectations?.salesOsV3 ?? {}
@@ -220,7 +289,7 @@ function validate(candidate) {
   check(boundary.repositorySecretsRequired === false, 'repository secrets must not be required')
 
   const attempts = candidate.formalAttemptHistory ?? []
-  check(attempts.length === 8, 'formal attempt history count drift')
+  check(attempts.length === 9, 'formal attempt history count drift')
   const failedAttempt = attempts[0] ?? {}
   check(failedAttempt.runId === '29680934378', 'failed run id drift')
   check(failedAttempt.jobId === '88176860842', 'failed job id drift')
@@ -352,6 +421,24 @@ function validate(candidate) {
   check(definitionAttempt.productionReadPerformed === false, 'definition run production read must remain false')
   check(definitionAttempt.productionWritePerformed === false, 'definition run production write must remain false')
   check(definitionAttempt.rerunOfFailedRun === false, 'definition run must remain a new candidate')
+  const finalDefinitionAttempt = attempts[8] ?? {}
+  check(finalDefinitionAttempt.runId === '29682720564', 'final definition run id drift')
+  check(finalDefinitionAttempt.jobId === '88181631622', 'final definition run job id drift')
+  check(finalDefinitionAttempt.headSha === '6271791cc70bc514ebc627eb4e5ac0100d11ca95', 'final definition run head SHA drift')
+  check(finalDefinitionAttempt.conclusion === 'failure', 'final definition run conclusion drift')
+  check(finalDefinitionAttempt.failedStep === 'Run database permission and business gates', 'final definition run failed step drift')
+  check(finalDefinitionAttempt.rootCauseCode === 'test_expected_foundation_notification_attempt_variable', 'final definition run root cause drift')
+  check(finalDefinitionAttempt.databaseStartupPassed === true, 'final definition run database startup evidence missing')
+  check(finalDefinitionAttempt.baselinePassed === true, 'final definition run baseline evidence missing')
+  check(finalDefinitionAttempt.migrationsPassed === 69, 'final definition run migration count drift')
+  check(finalDefinitionAttempt.sqlTestsStarted === 6 && finalDefinitionAttempt.sqlTestsPassed === 5, 'final definition run test count drift')
+  check(finalDefinitionAttempt.firstFailedTest === 'supabase/tests/notification_core.sql', 'final definition first failed test drift')
+  check(finalDefinitionAttempt.priorFulfillmentPassed === true, 'final definition run prior fulfillment evidence missing')
+  check(finalDefinitionAttempt.definitionReferencedObjects === 52 && finalDefinitionAttempt.redefinedReferencedObjects === 28, 'final definition classwide evidence drift')
+  check(finalDefinitionAttempt.cleanupPassed === true, 'final definition run cleanup evidence missing')
+  check(finalDefinitionAttempt.productionReadPerformed === false, 'final definition run production read must remain false')
+  check(finalDefinitionAttempt.productionWritePerformed === false, 'final definition run production write must remain false')
+  check(finalDefinitionAttempt.rerunOfFailedRun === false, 'final definition run must remain a new candidate')
   return failures
 }
 
@@ -376,6 +463,8 @@ const negativeCases = [
   ['import direct client write', (value) => { value.historicalChainExpectations.customerImportHistoryAccess.directClientWritePrivilegesAllowed = true }],
   ['policy write assertion source rule', (value) => { value.testSourceRules.policyWriteAssertionsRequirePermissiveFilter = false }],
   ['definition fragment formatting source rule', (value) => { value.testSourceRules.definitionFragmentAssertionsNormalizeFormatting = false }],
+  ['final definition fragment source rule', (value) => { value.testSourceRules.requiredDefinitionFragmentsMatchFinalMigration = false }],
+  ['definition target inventory', (value) => { value.expectedCounts.definitionReferencedObjects = 51 }],
   ['repository secret', (value) => { value.acceptanceBoundary.repositorySecretsRequired = true }],
   ['production write', (value) => { value.acceptanceBoundary.productionWritePerformed = true }],
   ['G0 falsely claimed', (value) => { value.acceptanceBoundary.g0OverallClaim = true }],
@@ -396,5 +485,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `P0_CI_DATABASE_CONTRACT_OK baseline=1 migrations=69 tests=${contract.tests.length} database=7 permission=10 business=9 catalog=4 negative=${negativePassed}/${negativeCases.length} localOnly=true repositorySecrets=0 productionReads=0 productionWrites=0 actualGithubRun=pending`,
+  `P0_CI_DATABASE_CONTRACT_OK baseline=1 migrations=69 tests=${contract.tests.length} database=7 permission=10 business=9 catalog=4 definitions=${contract.expectedCounts.definitionReferencedObjects} redefined=${contract.expectedCounts.redefinedDefinitionReferencedObjects} negative=${negativePassed}/${negativeCases.length} localOnly=true repositorySecrets=0 productionReads=0 productionWrites=0 actualGithubRun=pending`,
 )
