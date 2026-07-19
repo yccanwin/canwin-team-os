@@ -139,6 +139,19 @@ function validate(candidate) {
   check(finalLeadViewSql.includes("casewhenl.owner_idisnotnullandl.owner_id<>auth.uid()thennullelsel.addressendaddress"), 'lead view address privacy evidence missing')
   check(crmCoreTestSql.includes('20260717184206') && crmCoreTestSql.includes("'recycle_paused',\n      'address']"), 'lead view final column test drift')
   check(!/array\[[^\]]*'recycle_paused'\s*\]\s*then/.test(crmCoreTestSql), 'obsolete pre-address column contract returned')
+  const importAccess = candidate.historicalChainExpectations?.customerImportHistoryAccess ?? {}
+  check(importAccess.foundationMigration === 'supabase/migrations/20260713150000_add_customer_import.sql', 'import access foundation migration drift')
+  check(exactSet(importAccess.protectedTables, ['import_rows', 'import_created_entities']), 'import protected table set drift')
+  check(exactSet(importAccess.clientRoles, ['anon', 'authenticated']), 'import client role set drift')
+  check(importAccess.requiredRestrictiveAllGate === 'sales os v3 server gate', 'import restrictive gate drift')
+  check(importAccess.permissiveClientWritePoliciesAllowed === false, 'import permissive write boundary drift')
+  check(importAccess.directClientWritePrivilegesAllowed === false, 'import direct write privilege boundary drift')
+  const importFoundationSql = normalizeLf(readFileSync(resolve(repoRoot, importAccess.foundationMigration ?? 'missing'), 'utf8')).replace(/\s+/g, '').toLowerCase()
+  const customerImportTestSql = normalizeLf(readFileSync(resolve(repoRoot, 'supabase/tests/customer_import.sql'), 'utf8'))
+  check(importFoundationSql.includes('createpolicy"salesosv3servergate"onpublic.%iasrestrictiveforalltoauthenticated'), 'import restrictive gate source evidence missing')
+  check(customerImportTestSql.includes("permissive='RESTRICTIVE'") && customerImportTestSql.includes("permissive='PERMISSIVE'"), 'import permissive/restrictive policy test drift')
+  check(customerImportTestSql.includes("from(values('anon'),('authenticated'))") && customerImportTestSql.includes('has_table_privilege'), 'import effective client privilege test missing')
+  check(!customerImportTestSql.includes("cmd in('INSERT','UPDATE','DELETE','ALL'))then raise exception'Import history client-mutable'"), 'obsolete import policy-presence assertion returned')
   check(runtime.engine === 'supabase-cli-local-postgres', 'runtime engine drift')
   check(runtime.supabaseCliVersion === '2.109.1', 'Supabase CLI pin drift')
   check(runtime.postgresMajor === 17, 'Postgres major drift')
@@ -188,7 +201,7 @@ function validate(candidate) {
   check(boundary.repositorySecretsRequired === false, 'repository secrets must not be required')
 
   const attempts = candidate.formalAttemptHistory ?? []
-  check(attempts.length === 5, 'formal attempt history count drift')
+  check(attempts.length === 6, 'formal attempt history count drift')
   const failedAttempt = attempts[0] ?? {}
   check(failedAttempt.runId === '29680934378', 'failed run id drift')
   check(failedAttempt.jobId === '88176860842', 'failed job id drift')
@@ -267,6 +280,23 @@ function validate(candidate) {
   check(lexicalAttempt.productionReadPerformed === false, 'lexical run production read must remain false')
   check(lexicalAttempt.productionWritePerformed === false, 'lexical run production write must remain false')
   check(lexicalAttempt.rerunOfFailedRun === false, 'lexical run must remain a new candidate')
+  const importPolicyAttempt = attempts[5] ?? {}
+  check(importPolicyAttempt.runId === '29681885277', 'import policy run id drift')
+  check(importPolicyAttempt.jobId === '88179367094', 'import policy job id drift')
+  check(importPolicyAttempt.headSha === 'acd6e18ddf1a0335940893e7801242e0833525b9', 'import policy run head SHA drift')
+  check(importPolicyAttempt.conclusion === 'failure', 'import policy run conclusion drift')
+  check(importPolicyAttempt.failedStep === 'Run database permission and business gates', 'import policy run failed step drift')
+  check(importPolicyAttempt.rootCauseCode === 'restrictive_all_policy_misclassified_as_write_grant', 'import policy run root cause drift')
+  check(importPolicyAttempt.databaseStartupPassed === true, 'import policy run database startup evidence missing')
+  check(importPolicyAttempt.baselinePassed === true, 'import policy run baseline evidence missing')
+  check(importPolicyAttempt.migrationsPassed === 69, 'import policy run migration count drift')
+  check(importPolicyAttempt.sqlTestsStarted === 3 && importPolicyAttempt.sqlTestsPassed === 2, 'import policy run test count drift')
+  check(importPolicyAttempt.firstFailedTest === 'supabase/tests/customer_import.sql', 'import policy first failed test drift')
+  check(importPolicyAttempt.sqlParsingPassed === true, 'import policy run SQL parsing evidence missing')
+  check(importPolicyAttempt.cleanupPassed === true, 'import policy run cleanup evidence missing')
+  check(importPolicyAttempt.productionReadPerformed === false, 'import policy run production read must remain false')
+  check(importPolicyAttempt.productionWritePerformed === false, 'import policy run production write must remain false')
+  check(importPolicyAttempt.rerunOfFailedRun === false, 'import policy run must remain a new candidate')
   return failures
 }
 
@@ -288,6 +318,7 @@ const negativeCases = [
   ['pre-pilot final state', (value) => { value.historicalChainExpectations.salesOsV3.after69MigrationsEnabled = false }],
   ['pre-relaxation final qualification', (value) => { value.historicalChainExpectations.crmOpportunityQualification.after69RequiredAdvisoryFacts = true }],
   ['pre-address lead view', (value) => { value.historicalChainExpectations.crmLeadsVisible.after69Columns.pop() }],
+  ['import direct client write', (value) => { value.historicalChainExpectations.customerImportHistoryAccess.directClientWritePrivilegesAllowed = true }],
   ['repository secret', (value) => { value.acceptanceBoundary.repositorySecretsRequired = true }],
   ['production write', (value) => { value.acceptanceBoundary.productionWritePerformed = true }],
   ['G0 falsely claimed', (value) => { value.acceptanceBoundary.g0OverallClaim = true }],
