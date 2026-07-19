@@ -11,20 +11,20 @@
 - 当前源码 `7/7` 个 `<input type="file">`；
 - 当前源码 `7/7` 个 Storage 命名空间。
 
-每项都有明确候选动作和理由。路由保留兼容地址，不授权直接删除；旧媒体入口与命名空间只记录未来关闭候选，不修改生产权限。
+每项都有明确候选动作和理由。可复用的核心能力允许低成本重定向；已明确不进入4.0的旧入口关闭且不给任何岗位访问。关闭入口不等于删除源码或数据，旧数据、附件和审计证据仍必须备份并验证可恢复。本合同不修改生产权限。
 
 每个 4.8 页面项、路由、文件入口、Storage 命名空间和非文件写入口都必须逐项保持 `acceptanceStatus=candidate_unaccepted`。校验器运行时动态统计各组 `accepted` 数量，任何一项静态改成已验收都会失败。
 
 ## 路由兼容与访问边界
 
-- 36 条路由逐条保存 P1 导航合同的完整 `compatibilityState`、`hiddenFromDefaultNavigation`、`readOnly`、`writeMode` 和 canonical target；`retain_rebuild`、`retain_compatibility`、`retain_restrict_admin`、`retain_topbar_compatibility` 不得压成一个不可追溯状态。
+- 36 条路由逐条保存 P1 导航合同的完整 `compatibilityState`、`hiddenFromDefaultNavigation`、`readOnly`、`writeMode` 和 canonical target；`retain_rebuild`、`retain_compatibility`、`retain_restrict_admin`、`retain_topbar_compatibility`、`close_route_preserve_data` 不得压成一个不可追溯状态。
 - 校验器另有不可从合同 JSON 推导的 22 项 `mappingId + sourceTreatment + candidateAction` 锁和 36 项 `route + accessBoundary` 锁；例如把 `photos` 改成 `retain`、把 `/quotes-v3` 或 `/management-v3` 换成更宽访问 profile，必须失败。
-- 全部路由候选都要求登录并拒绝匿名访问，实际授权仍由服务器和数据库负责。
+- 保留或重定向的路由都要求登录并拒绝匿名访问，实际授权仍由服务器和数据库负责；已关闭路由没有登录页面、没有任何岗位例外，由应用路由直接拒绝。
 - `/finance` 仅财务和管理员；系统设置与客户导入的主岗位仅管理员；客户导入、目录和权限配置仅桌面端。
 - `/asset-center` 的主岗位边界是管理员；仓库附加职能只能进入分配范围内的 inventory 视图，不能获得商品、资产或系统设置管理权。
 - `/management-v3` 的主岗位边界是管理员；主管例外必须同时满足主管开关开启和已分配范围。
 
-这些都是机器候选边界，不是 403 验收结果。六身份直连 API、匿名拒绝、旧深链和界面可见性仍需运行时证据。
+这些都是机器候选边界，不是 403 验收结果。六身份直连 API、匿名拒绝、保留深链、关闭入口和底层数据恢复仍需运行时证据。
 
 ## 两个媒体槽与旧命名空间
 
@@ -66,7 +66,7 @@ P0_FRONTEND_DISPOSITION_CROSSCHECK_OK assertions=<动态计数> routes=36 sectio
 ## 尚未完成
 
 - 未完成五主岗位、附加职能和主管开关的逐页运行时验收；
-- 未执行旧深链、移动端和只读页面回归；
+- 未执行保留深链、关闭入口、移动端和底层数据恢复回归；
 - 未执行角色越权与匿名访问的 403 矩阵；
 - 未盘点或修改生产 Storage 对象、策略与权限；
 - 未证明旧命名空间的新写与匿名访问已被运行时策略拒绝；

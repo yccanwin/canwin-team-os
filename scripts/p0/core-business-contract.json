@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "manifestType": "canwin-team-os-core-business",
+  "status": {
+    "businessSemantics": "frozen",
+    "physicalTableNames": "pending-object-classification",
+    "physicalEnumNames": "pending-object-classification"
+  },
+  "deployment": {
+    "companyCount": 1,
+    "multiTenantSwitching": false
+  },
+  "identity": {
+    "primaryRoles": ["sales", "implementation", "operations", "finance", "admin"],
+    "additionalFunctions": ["warehouse", "supervisor"],
+    "onePrimaryRolePerActiveMember": true,
+    "fallbackApprover": "admin"
+  },
+  "customerHierarchy": {
+    "levels": ["settlement_customer", "brand", "store"],
+    "contractingEntity": "settlement_customer",
+    "fulfillmentUnit": "store",
+    "contactStoreRelationship": "many-to-many",
+    "maximumPrimaryStoreRelationshipsPerContact": 1
+  },
+  "productAndOrder": {
+    "priceFacts": ["customer_sale_price", "sales_internal_price", "company_actual_cost"],
+    "quoteReservesInventory": false,
+    "formalOrderFreezesSnapshot": true,
+    "snapshotFacts": ["product", "quantity", "price", "points", "profit_rule", "labor_earning_rule"],
+    "orderLineAllocationGrain": "order_line-by-store",
+    "allocationQuantityMustEqualOrderLineQuantity": true,
+    "fulfillmentGrain": "store-by-order_line",
+    "renewalGrain": "store-by-product_subscription",
+    "caseCandidateGrain": "store-fulfillment"
+  },
+  "paymentAndEarnings": {
+    "mixedPaymentFacts": [
+      "company_held",
+      "sales_held",
+      "sales_top_up",
+      "sales_payable",
+      "company_payable",
+      "company_subsidy"
+    ],
+    "confirmedRecordsAppendOnly": true,
+    "correctionMethod": "reversal-or-adjustment",
+    "profitSettleConditions": ["customer_payment_complete", "internal_coverage_balance_zero"],
+    "salesProfitAndLaborEarningsSeparate": true,
+    "acceptedLaborEarningsAutoReclaimedByCustomerRefund": false,
+    "performanceAndPointsSource": "frozen-order-snapshot"
+  },
+  "inventoryAndFulfillment": {
+    "internalPaymentRequiredBeforeFulfillment": true,
+    "allowExtraSku": false,
+    "allowOverIssue": false,
+    "allowNegativeInventory": false,
+    "cancelUnshippedOrderReleasesReservation": true,
+    "shippedOrderCorrection": "return-or-reversal"
+  },
+  "workItems": {
+    "singleSourceFor": ["workbench", "progress_center", "calendar"],
+    "uniqueGenerationKeyRequired": true,
+    "genericReminderCanUseGenericComplete": true,
+    "businessActionCanUseGenericComplete": false,
+    "businessActionClosure": "successful-server-transaction"
+  },
+  "cases": {
+    "autoPublish": false,
+    "customerDisplayAuthorizationRequired": true,
+    "administratorReviewRequired": true,
+    "publicReadsInternalTables": false,
+    "publicProjectionDesensitized": true,
+    "allowedImageSlots": ["case.logo", "case.miniprogram_code"],
+    "revokeAuthorizationRemovesPublicProjection": true
+  },
+  "dataProtection": {
+    "legacyPagesRequiredOnline": false,
+    "legacyDataDeletionAuthorized": false,
+    "historicalDataAndAttachmentsRecoverable": true,
+    "productionAndTestMayShareOneFrontendBuild": false,
+    "testDataMayWriteBackProduction": false
+  }
+}

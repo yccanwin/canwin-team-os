@@ -1,6 +1,7 @@
-# P0-05 核心实体和状态机字典（业务冻结草案）
+# P0-05 核心实体和状态机字典
 
-> 状态：业务语义草案；P0 对象盘点完成前不冻结新表名和新枚举名。
+> 状态：业务语义已冻结；新表名和新枚举名仍等待 P0 对象四分类映射完成。
+> 机器合同：`scripts/p0/core-business-contract.json`；校验器：`scripts/p0/verify-core-business-contract.mjs`。
 
 ## 核心实体与最小粒度
 

@@ -152,11 +152,9 @@ for (const route of compatibilityRoutes) {
     assert(Boolean(route.canonicalTarget), `Redirect route ${route.path} has no canonical target.`)
     assert(basePath(route.canonicalTarget) !== route.path, `Redirect route ${route.path} points to itself.`)
   }
-  if (route.compatibilityState === 'hide_read_only') {
-    assert(route.hiddenFromDefaultNavigation === true && route.readOnly === true, `Hidden read-only route ${route.path} must be hidden and read-only.`)
-  }
-  if (route.compatibilityState === 'retire_disable_write') {
-    assert(route.hiddenFromDefaultNavigation === true && route.readOnly === true && route.writeMode === 'disabled', `Retired route ${route.path} must be hidden, read-only and write-disabled.`)
+  if (route.compatibilityState === 'close_route_preserve_data') {
+    assert(route.canonicalTarget === null, `Closed route ${route.path} must not expose a canonical page target.`)
+    assert(route.hiddenFromDefaultNavigation === true && route.readOnly === false && route.writeMode === 'disabled', `Closed route ${route.path} must be hidden, inaccessible and write-disabled.`)
   }
 }
 

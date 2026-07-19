@@ -107,8 +107,7 @@ function compatibilityAction(state) {
     retain_topbar_compatibility: 'retain',
     merge_compatibility: 'merge',
     redirect: 'redirect',
-    hide_read_only: 'hide_read_only',
-    retire_disable_write: 'retire',
+    close_route_preserve_data: 'close',
   }[state] ?? null
 }
 
@@ -152,12 +151,12 @@ const expectedSectionDispositionContract = {
   'inventory-assets': { sourceTreatment: 'redirect', candidateAction: 'redirect' },
   'members-skills': { sourceTreatment: 'merge_redirect', candidateAction: 'merge' },
   achievements: { sourceTreatment: 'audit_merge_redirect', candidateAction: 'merge' },
-  'culture-center': { sourceTreatment: 'hide_split', candidateAction: 'hide_read_only' },
-  photos: { sourceTreatment: 'retire_disable_write', candidateAction: 'retire' },
-  timeline: { sourceTreatment: 'hide_migrate_read', candidateAction: 'merge' },
+  'culture-center': { sourceTreatment: 'close_split_archive', candidateAction: 'close' },
+  photos: { sourceTreatment: 'close_route_disable_write', candidateAction: 'close' },
+  timeline: { sourceTreatment: 'close_after_fact_migration', candidateAction: 'close' },
   'management-v3': { sourceTreatment: 'merge_compatibility', candidateAction: 'merge' },
   settings: { sourceTreatment: 'merge_preserve_deep_links', candidateAction: 'merge' },
-  'deferred-tools': { sourceTreatment: 'hide_read_only_30_days', candidateAction: 'hide_read_only' },
+  'deferred-tools': { sourceTreatment: 'close_archive_data', candidateAction: 'close' },
 }
 
 const expectedRouteAccessBoundaries = {
@@ -166,24 +165,24 @@ const expectedRouteAccessBoundaries = {
   '/work': 'authenticated_all_primary_roles',
   '/tasks': 'authenticated_all_primary_roles',
   '/goals': 'authenticated_all_primary_roles',
-  '/votes': 'authenticated_all_primary_roles',
-  '/votes/:voteId': 'authenticated_all_primary_roles',
+  '/votes': 'closed_route',
+  '/votes/:voteId': 'closed_route',
   '/inventory': 'admin_primary_with_warehouse_inventory_exception',
   '/finance': 'finance_admin',
   '/sales': 'sales_admin',
-  '/timeline': 'authenticated_all_primary_roles',
+  '/timeline': 'closed_route',
   '/achievements': 'admin_only',
-  '/photos': 'authenticated_all_primary_roles',
+  '/photos': 'closed_route',
   '/assets': 'admin_only',
   '/calendar': 'authenticated_all_primary_roles',
-  '/toolbox': 'authenticated_all_primary_roles',
+  '/toolbox': 'closed_route',
   '/skills': 'admin_desktop_only',
-  '/warroom': 'authenticated_all_primary_roles',
+  '/warroom': 'closed_route',
   '/members': 'admin_desktop_only',
   '/profile': 'authenticated_all_primary_roles',
   '/settings': 'admin_only',
   '/asset-center': 'admin_primary_with_warehouse_inventory_exception',
-  '/culture-center': 'authenticated_all_primary_roles',
+  '/culture-center': 'closed_route',
   '/sales-v3': 'sales_admin',
   '/operations/lead-intake': 'implementation_operations_admin',
   '/orders-v3': 'sales_delivery_admin',
@@ -200,6 +199,15 @@ const expectedRouteAccessBoundaries = {
 }
 
 const expectedAccessBoundaryProfiles = {
+  closed_route: {
+    anonymous: 'deny',
+    defaultDecision: 'deny',
+    authentication: 'not_applicable',
+    allowedPrimaryRoles: [],
+    additionalFunctionExceptions: [],
+    desktopOnly: false,
+    authority: 'application_router',
+  },
   authenticated_all_primary_roles: {
     anonymous: 'deny',
     defaultDecision: 'deny',
@@ -297,14 +305,14 @@ const expectedRuntimeEvidenceIds = [
   'anonymousRouteDenial',
   'storagePolicyInspection',
   'legacyNamespaceWriteDenial',
-  'legacyReadOnlyRegression',
+  'legacyClosedRouteAndDataRecovery',
   'isolatedStorageBackupRestore',
   'twoSlotAllowDenyAttackMatrix',
   'authorizedPublishCopyAndWithdrawal',
 ]
 
 function basePath(target) {
-  return target.split(/[?#]/, 1)[0]
+  return target?.split(/[?#]/, 1)[0] ?? null
 }
 
 const contract = JSON.parse(await readFile(contractPath, 'utf8'))
@@ -319,7 +327,9 @@ assert(contract.acceptanceBoundary?.candidateOnly === true, 'Candidate-only boun
 assert(contract.acceptanceBoundary?.runtimeAccepted === false, 'Runtime acceptance must remain false.')
 assert(contract.acceptanceBoundary?.p1UiComplete === false, 'P1 UI completion must remain false.')
 assert(contract.acceptanceBoundary?.productionStorageChanged === false, 'Production Storage must remain unchanged.')
-assert(contract.acceptanceBoundary?.routeDeletionAuthorized === false, 'Route deletion must remain unauthorized.')
+assert(contract.acceptanceBoundary?.legacyRouteClosureApproved === true, 'Legacy route closure must remain explicitly approved for direct replacement.')
+assert(contract.acceptanceBoundary?.legacySourceDeletionApproved === false, 'Legacy source deletion must remain unauthorized.')
+assert(contract.acceptanceBoundary?.legacyDataDeletionApproved === false, 'Legacy data deletion must remain unauthorized.')
 
 assert(counts.routes === inventory.expectedCounts.currentRoutes, 'Route count must inherit the frontend inventory count.')
 assert(counts.section48Items === inventory.expectedCounts.section48Mappings, 'Section 4.8 count must inherit the frontend inventory count.')
@@ -331,8 +341,8 @@ const pageActions = new Set(contract.allowedCandidateActions.pages)
 const routeActions = new Set(contract.allowedCandidateActions.routes)
 const uploadActions = new Set(contract.allowedCandidateActions.uploadEntrances)
 const storageActions = new Set(contract.allowedCandidateActions.storageNamespaces)
-compareExactSet('Allowed page actions', pageActions, ['retain', 'merge', 'redirect', 'retire', 'hide_read_only'])
-compareExactSet('Allowed route actions', routeActions, ['retain', 'merge', 'redirect', 'retire', 'hide_read_only'])
+compareExactSet('Allowed page actions', pageActions, ['retain', 'merge', 'redirect', 'close'])
+compareExactSet('Allowed route actions', routeActions, ['retain', 'merge', 'redirect', 'close'])
 compareExactSet('Allowed upload actions', uploadActions, ['close', 'close_migrate_candidate', 'retain_bulk_import_exemption'])
 compareExactSet('Allowed Storage actions', storageActions, ['close', 'close_migrate_candidate'])
 
@@ -344,9 +354,15 @@ for (const [profileId, profile] of Object.entries(accessProfiles)) {
   assertDeepExact(`Access profile ${profileId}`, profile, expectedAccessBoundaryProfiles[profileId])
   assert(profile.anonymous === 'deny', `Access profile ${profileId} must deny anonymous access.`)
   assert(profile.defaultDecision === 'deny', `Access profile ${profileId} must default to deny.`)
-  assert(profile.authentication === 'required', `Access profile ${profileId} must require authentication.`)
-  assert(profile.authority === 'server', `Access profile ${profileId} must remain server-authoritative.`)
-  assert(Array.isArray(profile.allowedPrimaryRoles) && profile.allowedPrimaryRoles.length > 0, `Access profile ${profileId} must list allowed primary roles.`)
+  if (profileId === 'closed_route') {
+    assert(profile.authentication === 'not_applicable', 'Closed routes must not expose an authenticated page.')
+    assert(profile.authority === 'application_router', 'Closed routes must be enforced by the application router.')
+    assert(Array.isArray(profile.allowedPrimaryRoles) && profile.allowedPrimaryRoles.length === 0, 'Closed routes must allow no primary role.')
+  } else {
+    assert(profile.authentication === 'required', `Access profile ${profileId} must require authentication.`)
+    assert(profile.authority === 'server', `Access profile ${profileId} must remain server-authoritative.`)
+    assert(Array.isArray(profile.allowedPrimaryRoles) && profile.allowedPrimaryRoles.length > 0, `Access profile ${profileId} must list allowed primary roles.`)
+  }
   compareExactSet(
     `Access profile ${profileId} primary-role subset`,
     profile.allowedPrimaryRoles,
@@ -444,7 +460,12 @@ for (const route of contract.routeDispositions) {
   assert(accessProfile?.anonymous === 'deny', `Route ${route.path} must deny anonymous access.`)
   assert(route.acceptanceStatus === 'candidate_unaccepted', `Route ${route.path} must remain candidate_unaccepted.`)
   assert(Boolean(route.reason), `Route ${route.path} has no reason.`)
-  assert(inventoryRoutes.has(basePath(route.canonicalTarget)), `Route ${route.path} points to unknown canonical base path ${basePath(route.canonicalTarget)}.`)
+  if (route.compatibilityState === 'close_route_preserve_data') {
+    assert(route.canonicalTarget === null, `Closed route ${route.path} must not expose a canonical target.`)
+    assert(route.accessBoundary === 'closed_route', `Closed route ${route.path} must allow no role.`)
+  } else {
+    assert(inventoryRoutes.has(basePath(route.canonicalTarget)), `Route ${route.path} points to unknown canonical base path ${basePath(route.canonicalTarget)}.`)
+  }
 }
 
 assert(routeDispositions.get('/finance')?.accessBoundary === 'finance_admin', '/finance must be limited to finance and admin.')
