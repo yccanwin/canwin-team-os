@@ -19,15 +19,17 @@ const gates = [
   ['restore-run-contract', resolve(repoRoot, 'scripts', 'p0', 'verify-restore-run-contract.mjs')],
   ['sealed-recovery-contract', resolve(repoRoot, 'scripts', 'p0', 'verify-sealed-recovery-contract.mjs')],
   ['ci-database-contract', resolve(repoRoot, 'scripts', 'p0', 'verify-ci-database-contract.mjs')],
+  ['p1-isolated-runtime-runner', resolve(repoRoot, 'scripts', 'p1', 'verify-isolated-runtime-runner.mjs')],
+  ['p1-pending-trigger-postgres-selftest', resolve(repoRoot, 'scripts', 'p1', 'verify-pending-trigger-postgres.mjs'), '--self-test'],
 ]
 
 let run = 0
 let passed = 0
 let failed = 0
-for (const [name, script] of gates) {
+for (const [name, script, ...args] of gates) {
   run += 1
   console.log('[p0:static] RUN ' + name)
-  const result = spawnSync(process.execPath, [script], {
+  const result = spawnSync(process.execPath, [script, ...args], {
     cwd: repoRoot,
     encoding: 'utf8',
     env: process.env,

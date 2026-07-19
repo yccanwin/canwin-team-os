@@ -100,7 +100,7 @@
     { "path": "supabase/tests/photo_policy_role_helper_alignment.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "f12435a942c2124298419ce391eb51d3455e176c120fb7b4bc1f039323204cf8" },
     { "path": "supabase/tests/quote_draft_hardening.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "69ee5d9480e3d23546889089726e32c7756083ea24ab6e2d0d81b9814e07d2b8" },
     { "path": "supabase/tests/team_photo_persistence_security.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "e41c6c682080772d492331ca8c3a997664dcf080be5c73c26092a4f4119da757" },
-    { "path": "supabase/tests/team_os_4_p1_access_shell.sql", "category": "permission", "executionMode": "rollback_fixture", "sha256Lf": "ba99f6c01c3f744515b691411aecff9146f526cebe414d3c2ea6824848539fa1" },
+    { "path": "supabase/tests/team_os_4_p1_access_shell.sql", "category": "permission", "executionMode": "rollback_fixture", "sha256Lf": "bed07c4d494ac3e7f7e993e12090194ed413b0e92d681aea0adb3eb381f430fb" },
 
     { "path": "supabase/tests/crm_qualification_append_only.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "2142d6d579772dc2ffb807ce5a2bb0b5d991fd9d4c553ecb5ae13aec910e330c" },
     { "path": "supabase/tests/crm_qualification_promotion_audit.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "297edf4c24d8de04279f60cc17f1d87658c08601180c0d8c6b8a0e0ec3774a98" },

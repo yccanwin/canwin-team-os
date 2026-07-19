@@ -58,7 +58,7 @@ function validate(candidate) {
 
   check(candidate.schemaVersion === 1, 'schema version must be 1')
   check(candidate.manifestType === 'canwin-team-os-p1-interface-freeze', 'manifest type drift')
-  check(candidate.contractStatus === 'p1_ci_passed_page_account_acceptance_pending', 'contract status drift')
+  check(candidate.contractStatus === 'p1_ci_passed_local_pg_repair_accepted_isolated_retry_pending', 'contract status drift')
   check(physical.contractStatus === 'p0_supervisor_frozen_runtime_not_implemented', 'physical object contract is not frozen')
   check(navigation.contractStatus === 'p1_ci_passed_page_account_acceptance_pending', 'navigation candidate status drift')
   check(roleMigration.manualPrimaryRoleDecisions?.status === 'owner-confirmed-isolated-applied-production-unchanged', 'manual role decisions are not frozen and isolated-applied')
@@ -152,7 +152,7 @@ function validate(candidate) {
 
   for (const order of workOrders) {
     check(['backend', 'frontend', 'qa'].includes(order.team), `${order.id} has unknown team`)
-    check(order.status === 'candidate_ci_passed_page_account_acceptance_pending', `${order.id} must remain CI-passed with real page/account acceptance pending`)
+    check(order.status === 'candidate_ci_passed_isolated_apply_failed_repair_pending', `${order.id} must preserve CI success and the isolated-apply repair boundary`)
     check(Boolean(order.deliverable?.trim()), `${order.id} lacks deliverable`)
   }
   check(workOrders.filter((entry) => entry.team === 'backend').length === 4, 'backend work-order count drift')
@@ -174,12 +174,53 @@ function validate(candidate) {
   check(ci.p1RunEvidence?.windowsGates === '15/15 static, 12/12 local, 71/71 P1 app shell', 'P1 Windows gate summary drift')
   check(ci.p1RunEvidence?.cleanupPassed === true, 'P1 cleanup evidence missing')
 
+  const isolated = candidate.isolatedTestProjectEvidence ?? {}
+  check(isolated.targetProjectRef === 'zdmuaqokndhhbarudhtw', 'isolated target ref drift')
+  check(isolated.dryRunPassed === true, 'isolated dry-run success evidence missing')
+  check(isolated.localMigrationCount === 70 && isolated.remoteMigrationCount === 69, 'isolated migration inventory drift')
+  check(JSON.stringify(isolated.pendingMigrationVersions) === JSON.stringify(['20260719130910']), 'isolated pending migration set drift')
+  check(isolated.formalAttempts === 1 && isolated.formalAttemptLimit === 1, 'isolated formal attempt count drift')
+  check(isolated.applyStatus === 'failed_repair_pending', 'isolated apply failure status missing')
+  check(isolated.failedStep === 'apply-signed-p1-migration' && isolated.failedMigrationVersion === '20260719130910', 'isolated failed migration boundary drift')
+  check(isolated.failedStatementNumber === 5, 'isolated failed statement number drift')
+  check(isolated.failedStatement === 'alter table public.profile_access_roles alter column assignment_kind set not null', 'isolated failed statement drift')
+  check(isolated.sqlstate === '55006' && isolated.failureCode === 'pending_trigger_events', 'isolated SQLSTATE or root cause drift')
+  check(isolated.postFailureSqlExecuted === false && isolated.catalogAssertionsExecuted === false && isolated.reconciliationExecuted === false, 'post-failure execution boundary drift')
+  check(isolated.productionReadPerformed === false && isolated.productionWritePerformed === false, 'isolated production boundary drift')
+  check(isolated.testProjectWriteAttempts === 1, 'isolated test-project write attempt must remain one')
+  check(isolated.transactionRollbackVerified === false, 'isolated rollback must remain unverified')
+  check(isolated.targetPreserved === true && isolated.retryPerformed === false && isolated.remoteCleanupPerformed === false, 'isolated stop-and-preserve boundary drift')
+  check(isolated.evidencePath === 'D:\\CanWin-Team-OS-4.0-P1-Validation\\p1-isolated-20260719T150630589Z-ed853ebbab\\failure.json', 'isolated evidence path drift')
+  check(isolated.evidenceSha256 === '773bf49d6fa8eb3abbe564969cbec83b22755282153fd11e5d5d0fc161cfc996', 'isolated evidence SHA drift')
+
+  const repair = candidate.repairCandidate ?? {}
+  const localPg = repair.localPostgresEvidence ?? {}
+  check(repair.hashMode === 'utf8-lf', 'repair candidate hash mode must remain utf8-lf')
+  check(repair.migrationSha256Lf === 'acc7f15afa502d7a124c2a13d74d0a71c2b98c11664d58de2d4639081d5a7597', 'repair migration LF SHA drift')
+  check(repair.testSha256Lf === 'bed07c4d494ac3e7f7e993e12090194ed413b0e92d681aea0adb3eb381f430fb', 'repair SQL test LF SHA drift')
+  check(repair.runtimeContractSha256Lf === '9cbfac0c7242b64e7e3fac2afa20c77de4d14159bef07fa0a158f5eb9065dadd', 'runtime contract LF SHA drift')
+  check(repair.runnerSha256Lf === 'ac22d2d935d4b557314b5e7c61dfdf54e4af8c3dfe178ad047de1b2cf5955248', 'runtime runner LF SHA drift')
+  check(repair.runnerValidatorSha256Lf === '83ded52f12f1672ad7cc76fdc582d92074a7e6023fda41402611ef14fcb3f062', 'runtime validator LF SHA drift')
+  check(repair.postgresRegressionSha256Lf === 'd2799a76bffd11be59d4ae6d7e4e01033be15c1981d9a50e68f427b98cefec85', 'local Postgres regression LF SHA drift')
+  check(repair.localPostgresAccepted === true && repair.isolatedRemoteApply === 'pending', 'local repair acceptance or isolated remote pending boundary drift')
+  check(localPg.path === 'D:\\CanWinP1LocalPgRuns\\p1-pending-trigger-iWUhfO', 'local Postgres evidence path drift')
+  check(localPg.resultSha256 === '9c16a2d8934f75c0f6a59641a090f3fa65fbf909d07e3d6bde1743a107614af7', 'local Postgres result SHA drift')
+  check(localPg.postgresMajor === 18 && localPg.negativePassed === '1/1' && localPg.positiveRepairPassed === '4/4', 'local Postgres control counts drift')
+  check(localPg.negativeControl === 'SQLSTATE 55006 pending trigger events', 'local Postgres negative control drift')
+  check(localPg.rollbackClean === true && localPg.serverStopped === true && localPg.attempts === 1 && localPg.remoteConnections === 0, 'local Postgres safety evidence drift')
+
   const boundary = candidate.acceptanceBoundary ?? {}
   check(boundary.p1InterfacesFrozen === true, 'P1 interface freeze missing')
   check(boundary.p1WorkOrdersFrozen === true, 'P1 work-order freeze missing')
   check(boundary.p1CodeStarted === true, 'P1 code start must be recorded')
   check(boundary.p1CandidateImplemented === true, 'P1 candidate implementation must be recorded')
   check(boundary.ciRuntimeAccepted === true, 'P1 CI runtime acceptance must be recorded')
+  check(boundary.localPostgresAccepted === true, 'local PostgreSQL repair acceptance must be recorded')
+  check(boundary.repairCandidateIsolatedRemoteApply === 'pending', 'isolated remote repair candidate must remain pending')
+  check(boundary.isolatedTestProjectApply === 'failed_repair_pending', 'isolated apply failure boundary missing')
+  check(boundary.isolatedTestProjectWriteAttempts === 1, 'isolated test-project write attempts must not be reported as zero')
+  check(boundary.isolatedTestProjectRollbackVerified === false, 'isolated rollback must not be reported as verified')
+  check(boundary.isolatedTestProjectReconciliationPerformed === false, 'isolated reconciliation must remain not performed')
   check(boundary.pageAccountAcceptancePassed === false, 'real page/account acceptance must remain pending')
   check(boundary.runtimeAccepted === false, 'runtime acceptance must remain false')
   check(boundary.g0OverallClaim === true, 'G0 success evidence is missing')
@@ -205,6 +246,12 @@ const negativeCases = [
   ['work status reverted', (value) => { value.workOrders[0].status = 'frozen_not_started' }],
   ['remote CI success erased', (value) => { value.ciContract.actualRemoteRunEvidence = 'pending' }],
   ['P1 CI success erased', (value) => { value.ciContract.p1ActualRemoteRunEvidence = 'failed_repair_pending' }],
+  ['isolated failure erased', (value) => { value.isolatedTestProjectEvidence.applyStatus = 'passed' }],
+  ['isolated write falsely zero', (value) => { value.acceptanceBoundary.isolatedTestProjectWriteAttempts = 0 }],
+  ['isolated rollback falsely verified', (value) => { value.acceptanceBoundary.isolatedTestProjectRollbackVerified = true }],
+  ['local Postgres acceptance erased', (value) => { value.acceptanceBoundary.localPostgresAccepted = false }],
+  ['remote repair falsely accepted', (value) => { value.acceptanceBoundary.repairCandidateIsolatedRemoteApply = 'passed' }],
+  ['repair hash mode changed', (value) => { value.repairCandidate.hashMode = 'raw-bytes' }],
   ['page acceptance falsely claimed', (value) => { value.acceptanceBoundary.pageAccountAcceptancePassed = true }],
   ['G1 falsely claimed', (value) => { value.acceptanceBoundary.g1OverallClaim = true }],
   ['G0 success erased', (value) => { value.acceptanceBoundary.g0OverallClaim = false }],
@@ -225,5 +272,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `P0_P1_INTERFACE_FREEZE_OK rpcs=${contract.rpcInterfaces.length} whitelists=${Object.keys(contract.fieldWhitelists).length} identities=${contract.baseTestIdentities.length} overlays=${contract.overlayTestCases.length} attacks=${contract.directApiAttackCases.length} workOrders=${contract.workOrders.length} negative=${negativePassed}/${negativeCases.length} p1ActualRemoteRun=passed ciRuntimeAccepted=true pageAccountAcceptance=false runtimeAccepted=false g0=true g1=false p1CandidateImplemented=true`,
+  `P0_P1_INTERFACE_FREEZE_OK rpcs=${contract.rpcInterfaces.length} whitelists=${Object.keys(contract.fieldWhitelists).length} identities=${contract.baseTestIdentities.length} overlays=${contract.overlayTestCases.length} attacks=${contract.directApiAttackCases.length} workOrders=${contract.workOrders.length} negative=${negativePassed}/${negativeCases.length} hashMode=utf8-lf p1ActualRemoteRun=passed ciRuntimeAccepted=true localPostgresAccepted=true isolatedTestProjectApply=failed_repair_pending repairCandidateIsolatedRemoteApply=pending testProjectWriteAttempts=1 rollbackVerified=false reconciliation=false pageAccountAcceptance=false runtimeAccepted=false g0=true g1=false p1CandidateImplemented=true`,
 )
