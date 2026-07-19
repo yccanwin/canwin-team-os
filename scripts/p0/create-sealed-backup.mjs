@@ -298,7 +298,17 @@ try {
     buildToolVersion: 'vite 8.0.12',
   }
 
-  const sourceAfter = getReconciliation({ psqlPath, pgEnvironment: sourceDb, sql: reconciliationSql })
+  const sourceFinalDb = getTemporaryDbEnvironment({
+    cliPath,
+    projectRef: sourceRef,
+    connectionMode: 'session-pooler',
+  })
+  console.log('[p0:sealed-backup] stage=final-credential-refreshed productionWrites=0')
+  const sourceAfter = getReconciliation({
+    psqlPath,
+    pgEnvironment: sourceFinalDb,
+    sql: reconciliationSql,
+  })
   if (sourceBefore.sha256 !== sourceAfter.sha256) throw new Error('production changed during the verified backup window')
   const storageAfter = storageSummary(await collectStorageArchive(sourceClient))
   if (canonicalJson(sourceStorageSummary) !== canonicalJson(storageAfter)) throw new Error('production Storage changed during the verified backup window')

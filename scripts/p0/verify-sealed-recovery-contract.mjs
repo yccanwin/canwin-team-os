@@ -27,7 +27,7 @@ check('temporary Session Pooler metadata is project-bound and uses port 5432',
 check('temporary Session Pooler access enables Supabase JIT authentication',
   databaseAccess.includes("PGOPTIONS: '-c jit=true'") &&
   preflight.match(/connectionMode: 'session-pooler'/g)?.length === 2 &&
-  backup.match(/connectionMode: 'session-pooler'/g)?.length === 2 &&
+  backup.match(/connectionMode: 'session-pooler'/g)?.length === 3 &&
   restore.match(/connectionMode: 'session-pooler'/g)?.length === 1)
 check('Windows dump preflight forbids the NUL device', !preflight.includes('--file=NUL'))
 check('Windows dump preflight uses controlled non-empty D drive files',
@@ -42,6 +42,10 @@ check('backup captures target-aware managed customizations', backup.includes('ge
 check('backup captures Auth users and identities without sessions', backup.includes("'--table=auth.users'") && backup.includes("'--table=auth.identities'") && !backup.includes("'--table=auth.sessions'"))
 check('backup preserves public ACL statements', backup.includes("'--schema=public', '--schema-only', '--no-owner', '--no-comments'") && !backup.includes("'--schema=public', '--schema-only', '--no-owner', '--no-privileges'"))
 check('backup verifies source database and Storage stability', backup.includes('sourceBefore.sha256 !== sourceAfter.sha256') && backup.includes('production Storage changed'))
+check('backup refreshes short-lived credentials before final freeze reconciliation',
+  backup.indexOf('const sourceFinalDb = getTemporaryDbEnvironment') < backup.indexOf('const sourceAfter = getReconciliation') &&
+  backup.includes('pgEnvironment: sourceFinalDb') &&
+  backup.includes('stage=final-credential-refreshed'))
 check('backup remains production read-only', !/sourceDb[^\n]{0,160}\b(?:insert|update|delete|create|alter|drop)\b/i.test(backup))
 check('backup records early connection failures and clears sensitive working state',
   backup.indexOf('try {') < backup.indexOf('const sourceDb = getTemporaryDbEnvironment') &&
