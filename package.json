@@ -4,17 +4,25 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev": "npm run verify:build-target && vite",
+    "build": "npm run verify:build-target && npm run build:app",
+    "build:app": "tsc -b && vite build",
+    "build:p0-static": "tsc -b && vite build --outDir dist-p0-static --emptyOutDir",
     "test:lead-parser": "node --experimental-strip-types scripts/test-lead-paste-parser.ts",
     "test:crm-ui": "node --experimental-strip-types scripts/test-crm-command-center-ui.ts",
     "test:p0:migrations": "node scripts/p0/verify-migration-manifest.mjs",
     "test:p0:project-ref": "node scripts/p0/verify-project-ref-contract.mjs",
+    "test:p0:build-target": "node scripts/p0/verify-build-target.mjs --self-test",
     "test:p0:backup-contract": "node scripts/p0/verify-backup-manifest-contract.mjs",
+    "verify:p0:backup-package": "node scripts/p0/verify-backup-package-runtime.mjs",
+    "test:p0:restore-run": "node scripts/p0/verify-restore-run-contract.mjs",
     "test:p0:static": "node scripts/p0/run-static-gates.mjs",
     "test:p0:local": "node scripts/p0/run-local-integration.mjs",
+    "verify:build-target": "node scripts/p0/verify-build-target.mjs",
+    "verify:build-artifact": "node scripts/p0/verify-build-target.mjs --artifact dist",
+    "verify:build-artifact:static": "node scripts/p0/verify-build-target.mjs --artifact-compile-only dist-p0-static",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "npm run verify:build-target && npm run verify:build-artifact && vite preview --host 127.0.0.1"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.10",

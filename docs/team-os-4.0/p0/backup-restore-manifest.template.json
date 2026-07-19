@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "manifestType": "canwin-team-os-backup-restore",
   "template": true,
   "package": {
@@ -7,86 +7,62 @@
     "createdAt": null,
     "sourceEnvironment": "production",
     "sourceProjectRef": null,
-    "gitCommit": null
+    "gitCommit": null,
+    "sourceSnapshotAt": null,
+    "freezeStartedAt": null,
+    "freezeEndedAt": null,
+    "encrypted": true,
+    "encryptionKeyReference": null,
+    "retentionUntil": null
   },
   "database": {
-    "dump": {
-      "status": "pending",
-      "path": null,
-      "sha256": null,
-      "format": null,
-      "tool": null,
-      "toolVersion": null,
-      "createdAt": null
-    },
-    "schemaInventory": {
-      "status": "pending",
-      "path": null,
-      "sha256": null
-    }
+    "rolesDump": { "status": "pending", "path": null, "sha256": null, "bytes": null, "contentType": null, "format": null, "tool": null, "toolVersion": null, "createdAt": null, "encrypted": true, "encryptionKeyReference": null },
+    "schemaDump": { "status": "pending", "path": null, "sha256": null, "bytes": null, "contentType": null, "format": null, "tool": null, "toolVersion": null, "createdAt": null, "encrypted": true, "encryptionKeyReference": null },
+    "dataDump": { "status": "pending", "path": null, "sha256": null, "bytes": null, "contentType": null, "format": null, "tool": null, "toolVersion": null, "createdAt": null, "encrypted": true, "encryptionKeyReference": null },
+    "migrationHistorySchemaDump": { "status": "pending", "path": null, "sha256": null, "bytes": null, "contentType": null, "format": null, "tool": null, "toolVersion": null, "createdAt": null, "encrypted": true, "encryptionKeyReference": null },
+    "migrationHistoryDataDump": { "status": "pending", "path": null, "sha256": null, "bytes": null, "contentType": null, "format": null, "tool": null, "toolVersion": null, "createdAt": null, "encrypted": true, "encryptionKeyReference": null },
+    "authStorageSchemaDiff": { "status": "pending", "path": null, "sha256": null, "bytes": null, "contentType": null, "format": null, "tool": null, "toolVersion": null, "createdAt": null, "encrypted": true, "encryptionKeyReference": null },
+    "schemaInventory": { "status": "pending", "path": null, "sha256": null, "bytes": null, "contentType": null, "format": null, "tool": null, "toolVersion": null, "createdAt": null, "encrypted": true, "encryptionKeyReference": null }
   },
   "auth": {
-    "identityRoleMapping": {
-      "status": "pending",
-      "path": null,
-      "sha256": null
+    "recoveryScope": {
+      "managedAuthSchemaDataIncluded": true,
+      "passwordHashesIncluded": true,
+      "sessionsRestored": false,
+      "sourceJwtSecretCopied": false
     },
+    "identitiesDump": { "status": "pending", "path": null, "sha256": null, "bytes": null, "contentType": null, "format": null, "tool": null, "toolVersion": null, "createdAt": null, "encrypted": true, "encryptionKeyReference": null },
+    "identityRoleMapping": { "status": "pending", "path": null, "sha256": null, "bytes": null, "contentType": null, "format": null, "tool": null, "toolVersion": null, "createdAt": null, "encrypted": true, "encryptionKeyReference": null },
+    "settingsManifest": { "status": "pending", "path": null, "sha256": null, "bytes": null, "contentType": null, "format": null, "tool": null, "toolVersion": null, "createdAt": null, "encrypted": true, "encryptionKeyReference": null },
     "counts": {
       "authUsers": null,
+      "authIdentities": null,
       "profiles": null,
-      "roleAssignments": null
+      "roleAssignments": null,
+      "orphanProfiles": null,
+      "orphanRoleAssignments": null
     }
   },
   "storage": {
-    "bucketsManifest": {
-      "status": "pending",
-      "path": null,
-      "sha256": null
-    },
-    "objectsManifest": {
-      "status": "pending",
-      "path": null,
-      "sha256": null
-    },
-    "objectsArchive": {
-      "status": "pending",
-      "path": null,
-      "sha256": null
-    },
-    "counts": {
-      "buckets": null,
-      "objects": null,
-      "bytes": null
-    }
+    "bucketsManifest": { "status": "pending", "path": null, "sha256": null, "bytes": null, "contentType": null, "format": null, "tool": null, "toolVersion": null, "createdAt": null, "encrypted": true, "encryptionKeyReference": null },
+    "objectsManifest": { "status": "pending", "path": null, "sha256": null, "bytes": null, "contentType": null, "format": null, "tool": null, "toolVersion": null, "createdAt": null, "encrypted": true, "encryptionKeyReference": null },
+    "objectsArchive": { "status": "pending", "path": null, "sha256": null, "bytes": null, "contentType": null, "format": null, "tool": null, "toolVersion": null, "createdAt": null, "encrypted": true, "encryptionKeyReference": null },
+    "counts": { "buckets": null, "objects": null, "bytes": null }
   },
   "functions": {
-    "manifest": {
-      "status": "pending",
-      "path": null,
-      "sha256": null
-    },
-    "sourceArchive": {
-      "status": "pending",
-      "path": null,
-      "sha256": null
-    },
+    "restoreSafety": { "deployEnabled": false, "externalDeliveryEnabled": false, "secretValuesIncluded": false },
+    "manifest": { "status": "pending", "path": null, "sha256": null, "bytes": null, "contentType": null, "format": null, "tool": null, "toolVersion": null, "createdAt": null, "encrypted": true, "encryptionKeyReference": null },
+    "sourceArchive": { "status": "pending", "path": null, "sha256": null, "bytes": null, "contentType": null, "format": null, "tool": null, "toolVersion": null, "createdAt": null, "encrypted": true, "encryptionKeyReference": null },
     "count": null
   },
   "cron": {
-    "manifest": {
-      "status": "pending",
-      "path": null,
-      "sha256": null
-    },
+    "restoreSafety": { "enabled": false, "cursorIncluded": true, "backfillConfigIncluded": true },
+    "manifest": { "status": "pending", "path": null, "sha256": null, "bytes": null, "contentType": null, "format": null, "tool": null, "toolVersion": null, "createdAt": null, "encrypted": true, "encryptionKeyReference": null },
     "count": null,
     "timezone": "Asia/Shanghai"
   },
   "featureFlags": {
-    "manifest": {
-      "status": "pending",
-      "path": null,
-      "sha256": null
-    },
+    "manifest": { "status": "pending", "path": null, "sha256": null, "bytes": null, "contentType": null, "format": null, "tool": null, "toolVersion": null, "createdAt": null, "encrypted": true, "encryptionKeyReference": null },
     "count": null
   },
   "environment": {
@@ -96,60 +72,45 @@
       "SUPABASE_URL",
       "VITE_SUPABASE_ANON_KEY",
       "VITE_SUPABASE_URL",
-      "WECOM_WEBHOOK_URL"
+      "VITE_EXPECTED_SUPABASE_PROJECT_REF",
+      "CANWIN_BUILD_TARGET",
+      "WECOM_WEBHOOK_URL",
+      "SITE_URL"
     ],
     "valuesIncluded": false
   },
   "release": {
     "gitCommit": null,
-    "frontendArtifact": {
-      "status": "pending",
-      "path": null,
-      "sha256": null
-    },
+    "frontendArtifact": { "status": "pending", "path": null, "sha256": null, "bytes": null, "contentType": null, "format": null, "tool": null, "toolVersion": null, "createdAt": null, "encrypted": true, "encryptionKeyReference": null },
     "buildToolVersion": null
   },
   "reconciliation": {
-    "tableRowCounts": {
-      "status": "pending",
-      "path": null,
-      "sha256": null
-    },
+    "asOf": null,
+    "querySha256": null,
+    "decimalPrecision": 2,
+    "sourceBeforeSha256": null,
+    "sourceAfterSha256": null,
+    "targetAfterSha256": null,
+    "tableRowCounts": { "status": "pending", "path": null, "sha256": null, "bytes": null, "contentType": null, "format": null, "tool": null, "toolVersion": null, "createdAt": null, "encrypted": true, "encryptionKeyReference": null },
     "keyAmounts": {
-      "status": "pending",
-      "path": null,
-      "sha256": null,
-      "currency": "CNY",
-      "customerPayments": null,
-      "internalPayables": null,
-      "salesProfit": null,
-      "laborEarnings": null
+      "status": "pending", "path": null, "sha256": null, "bytes": null, "contentType": null, "format": null, "tool": null, "toolVersion": null, "createdAt": null, "encrypted": true, "encryptionKeyReference": null,
+      "currency": "CNY", "customerPayments": null, "internalPayables": null, "salesProfit": null, "points": null, "laborEarnings": null
     },
     "inventory": {
-      "status": "pending",
-      "path": null,
-      "sha256": null,
-      "onHand": null,
-      "reserved": null,
-      "shipped": null
+      "status": "pending", "path": null, "sha256": null, "bytes": null, "contentType": null, "format": null, "tool": null, "toolVersion": null, "createdAt": null, "encrypted": true, "encryptionKeyReference": null,
+      "onHand": null, "reserved": null, "shipped": null
     }
   },
   "restoreEvidence": {
     "status": "not-run",
-    "targetEnvironment": "not-provisioned",
-    "targetProjectRef": null,
+    "targetEnvironment": "isolated-test",
+    "targetProjectRef": "adzerzckgxxibadxkhcr",
     "startedAt": null,
     "finishedAt": null,
     "evidenceId": null,
     "componentResults": {
-      "database": "not-run",
-      "auth": "not-run",
-      "storage": "not-run",
-      "functions": "not-run",
-      "cron": "not-run",
-      "featureFlags": "not-run",
-      "frontendArtifact": "not-run",
-      "reconciliation": "not-run"
+      "database": "not-run", "auth": "not-run", "storage": "not-run", "functions": "not-run",
+      "cron": "not-run", "featureFlags": "not-run", "frontendArtifact": "not-run", "reconciliation": "not-run"
     }
   }
 }

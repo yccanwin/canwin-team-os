@@ -1,6 +1,6 @@
 # CanWin Team OS
 
-CanWin Team OS 是团队内部经营与协作系统。现有 2.0 团队文化、任务、财务、案例馆、相册等功能继续保留；3.0 采用增量方式建设销售工作台，不重写 2.0 数据与页面。
+CanWin Team OS 是团队内部经营与协作系统。当前按 4.0 最终施工方案建设：允许内部暂停 3.0，完成数据保护和对账后由 4.0 直接替代；不以旧页面长期在线或双系统并行为交付目标。
 
 ## 3.0 销售优先范围
 
@@ -27,15 +27,18 @@ CanWin Team OS 是团队内部经营与协作系统。现有 2.0 团队文化、
 ```bash
 cp .env.example .env
 npm ci
-npm run dev
+npm run test:p0:local
+# 仅在 G0 恢复与隔离验收后：npm run dev
 ```
 
 必需变量：
 
+- `CANWIN_BUILD_TARGET`：只能是 `production` 或已解锁的 `test-preview`
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
+- `VITE_EXPECTED_SUPABASE_PROJECT_REF`
 
-任一变量缺失时应用会立即停止初始化。`service_role`、企业微信 Webhook 等服务端密钥不得进入前端变量或公开仓库。
+任一变量缺失、项目 ref 错配、前端 key 指纹不属于所选环境，或测试预览尚未通过 G0 解锁时，开发/构建会立即停止。`service_role`、企业微信 Webhook 等服务端密钥不得进入前端变量或公开仓库。
 
 ## 验证与构建
 
@@ -45,7 +48,7 @@ npm run build
 npm run preview
 ```
 
-Vite 的 GitHub Pages base 为 `/canwin-team-os/`，应用使用 HashRouter。Pages 工作流从 GitHub Variable `VITE_SUPABASE_URL` 和 GitHub Secret `VITE_SUPABASE_ANON_KEY` 注入构建配置，不输出变量值。
+Vite 的 GitHub Pages base 为 `/canwin-team-os/`，应用使用 HashRouter。Pages 工作流固定生产目标和生产项目 ref，从 GitHub Variable `VITE_SUPABASE_URL` 和 GitHub Secret `VITE_SUPABASE_ANON_KEY` 注入公开浏览器配置，并在发布前校验版本化指纹和产物隔离，不输出变量值。
 
 ## 当前验证边界
 

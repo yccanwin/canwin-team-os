@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "manifestType": "canwin-team-os-restore-run",
+  "runId": null,
+  "state": "preflight-blocked",
+  "progressGate": "G0",
+  "source": {
+    "environment": "production",
+    "projectRef": "agygfhmkazcbqaqwmljb",
+    "access": "read-only",
+    "writeFreeze": {
+      "authorization": "approved-when-scheduled",
+      "status": "not-started",
+      "startedAt": null,
+      "verifiedAt": null,
+      "verifiedBy": null,
+      "releaseOwner": "project-owner",
+      "channels": {
+        "frontend": "not-started",
+        "directApi": "not-started",
+        "authChanges": "not-started",
+        "functions": "not-started",
+        "webhooks": "not-started",
+        "cronWorkers": "not-started",
+        "manualAdmin": "not-started"
+      },
+      "sourceBeforeSha256": null,
+      "sourceAfterSha256": null
+    },
+    "snapshotAt": null
+  },
+  "target": {
+    "environment": "isolated-test",
+    "projectRef": "adzerzckgxxibadxkhcr",
+    "projectName": "canwinos-team-os-4-p0-test",
+    "health": "ACTIVE_HEALTHY",
+    "previewBuildAllowed": false,
+    "writeAuthorized": false
+  },
+  "dataPolicy": {
+    "mode": "decision-pending",
+    "g0EligibleMode": "encrypted-full-recovery-rehearsal",
+    "allowedModes": [
+      "encrypted-full-recovery-rehearsal",
+      "approved-desensitized-rehearsal"
+    ],
+    "realAuthLoginAllowed": false,
+    "externalDeliveryAllowed": false,
+    "retentionUntil": null
+  },
+  "authorization": {
+    "productionBackupRead": false,
+    "productionWriteFreezeApproved": true,
+    "targetRestoreWrite": false,
+    "formalAttemptId": null,
+    "formalAttemptStarted": false,
+    "maxAttempts": 1,
+    "noAutomaticRetry": true
+  },
+  "toolchain": {
+    "supabaseCli": { "status": "missing", "path": null, "version": null },
+    "docker": { "status": "missing", "path": null, "version": null },
+    "psql": { "status": "missing", "path": null, "version": null },
+    "pgDump": { "status": "missing", "path": null, "version": null }
+  },
+  "artifacts": {
+    "backupPackageManifest": null,
+    "backupPackageManifestSha256": null,
+    "evidenceDirectory": null
+  },
+  "steps": {
+    "database": { "status": "not-run", "attempts": 0, "startedAt": null, "finishedAt": null, "exitCode": null, "logPath": null, "logSha256": null },
+    "auth": { "status": "not-run", "attempts": 0, "startedAt": null, "finishedAt": null, "exitCode": null, "logPath": null, "logSha256": null },
+    "storage": { "status": "not-run", "attempts": 0, "startedAt": null, "finishedAt": null, "exitCode": null, "logPath": null, "logSha256": null },
+    "functions": { "status": "not-run", "attempts": 0, "startedAt": null, "finishedAt": null, "exitCode": null, "logPath": null, "logSha256": null },
+    "cron": { "status": "not-run", "attempts": 0, "startedAt": null, "finishedAt": null, "exitCode": null, "logPath": null, "logSha256": null },
+    "featureFlags": { "status": "not-run", "attempts": 0, "startedAt": null, "finishedAt": null, "exitCode": null, "logPath": null, "logSha256": null },
+    "reconciliation": { "status": "not-run", "attempts": 0, "startedAt": null, "finishedAt": null, "exitCode": null, "logPath": null, "logSha256": null }
+  },
+  "failurePolicy": {
+    "stopOnFirstFailure": true,
+    "preserveTargetAndEvidence": true,
+    "databaseRestoreAtomic": true,
+    "automaticCleanup": false,
+    "automaticRetry": false,
+    "newAuthorizationRequired": true
+  }
+}

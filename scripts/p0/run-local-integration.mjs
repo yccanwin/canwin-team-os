@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -6,6 +7,20 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const cmdExe = 'C:\\Windows\\System32\\cmd.exe'
 const powershellExe = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe'
 const p0Script = (...segments) => resolve(repoRoot, 'scripts', 'p0', ...segments)
+const projectContract = JSON.parse(readFileSync(p0Script('project-ref-contract.json'), 'utf8'))
+const staticProjectRef = projectContract.testProjectRef
+const encode = (value) => Buffer.from(JSON.stringify(value)).toString('base64url')
+const staticAnonKey = [
+  encode({ alg: 'HS256', typ: 'JWT' }),
+  encode({ iss: 'supabase', ref: staticProjectRef, role: 'anon' }),
+  'static-signature',
+].join('.')
+const staticBuildEnvironment = {
+  CANWIN_BUILD_TARGET: 'test-preview',
+  VITE_EXPECTED_SUPABASE_PROJECT_REF: staticProjectRef,
+  VITE_SUPABASE_URL: `https://${staticProjectRef}.supabase.co`,
+  VITE_SUPABASE_ANON_KEY: staticAnonKey,
+}
 
 const steps = [
   {
@@ -59,9 +74,21 @@ const steps = [
     args: [p0Script('verify-frontend-disposition-crosscheck.mjs')],
   },
   {
+    name: 'build-target-selftest',
+    command: process.execPath,
+    args: [p0Script('verify-build-target.mjs'), '--self-test'],
+  },
+  {
     name: 'frontend-build',
     command: cmdExe,
-    args: ['/d', '/c', 'npm.cmd', 'run', 'build'],
+    args: ['/d', '/c', 'npm.cmd', 'run', 'build:p0-static'],
+    env: staticBuildEnvironment,
+  },
+  {
+    name: 'frontend-artifact-static',
+    command: process.execPath,
+    args: [p0Script('verify-build-target.mjs'), '--artifact-compile-only', 'dist-p0-static'],
+    env: staticBuildEnvironment,
   },
 ]
 
@@ -82,9 +109,12 @@ function printSummary() {
 for (const step of steps) {
   run += 1
   console.log('[p0:local] RUN ' + step.name)
+  const cleanEnvironment = Object.fromEntries(
+    Object.entries(process.env).filter(([name]) => !name.startsWith('VITE_') && !name.startsWith('CANWIN_')),
+  )
   const result = spawnSync(step.command, step.args, {
     cwd: repoRoot,
-    env: { ...process.env, CI: '1' },
+    env: { ...cleanEnvironment, CI: '1', ...(step.env ?? {}) },
     stdio: 'inherit',
     windowsHide: true,
   })

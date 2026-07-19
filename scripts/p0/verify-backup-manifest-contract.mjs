@@ -43,21 +43,47 @@ const requiredPaths = [
   'package.sourceEnvironment',
   'package.sourceProjectRef',
   'package.gitCommit',
-  'database.dump',
+  'package.sourceSnapshotAt',
+  'package.freezeStartedAt',
+  'package.freezeEndedAt',
+  'package.encrypted',
+  'package.encryptionKeyReference',
+  'package.retentionUntil',
+  'database.rolesDump',
+  'database.schemaDump',
+  'database.dataDump',
+  'database.migrationHistorySchemaDump',
+  'database.migrationHistoryDataDump',
+  'database.authStorageSchemaDiff',
   'database.schemaInventory',
+  'auth.recoveryScope.managedAuthSchemaDataIncluded',
+  'auth.recoveryScope.passwordHashesIncluded',
+  'auth.recoveryScope.sessionsRestored',
+  'auth.recoveryScope.sourceJwtSecretCopied',
+  'auth.identitiesDump',
   'auth.identityRoleMapping',
+  'auth.settingsManifest',
   'auth.counts.authUsers',
+  'auth.counts.authIdentities',
   'auth.counts.profiles',
   'auth.counts.roleAssignments',
+  'auth.counts.orphanProfiles',
+  'auth.counts.orphanRoleAssignments',
   'storage.bucketsManifest',
   'storage.objectsManifest',
   'storage.objectsArchive',
   'storage.counts.buckets',
   'storage.counts.objects',
   'storage.counts.bytes',
+  'functions.restoreSafety.deployEnabled',
+  'functions.restoreSafety.externalDeliveryEnabled',
+  'functions.restoreSafety.secretValuesIncluded',
   'functions.manifest',
   'functions.sourceArchive',
   'functions.count',
+  'cron.restoreSafety.enabled',
+  'cron.restoreSafety.cursorIncluded',
+  'cron.restoreSafety.backfillConfigIncluded',
   'cron.manifest',
   'cron.count',
   'cron.timezone',
@@ -68,12 +94,19 @@ const requiredPaths = [
   'release.gitCommit',
   'release.frontendArtifact',
   'release.buildToolVersion',
+  'reconciliation.asOf',
+  'reconciliation.querySha256',
+  'reconciliation.decimalPrecision',
+  'reconciliation.sourceBeforeSha256',
+  'reconciliation.sourceAfterSha256',
+  'reconciliation.targetAfterSha256',
   'reconciliation.tableRowCounts',
   'reconciliation.keyAmounts',
   'reconciliation.keyAmounts.currency',
   'reconciliation.keyAmounts.customerPayments',
   'reconciliation.keyAmounts.internalPayables',
   'reconciliation.keyAmounts.salesProfit',
+  'reconciliation.keyAmounts.points',
   'reconciliation.keyAmounts.laborEarnings',
   'reconciliation.inventory',
   'reconciliation.inventory.onHand',
@@ -92,6 +125,20 @@ for (const path of requiredPaths) {
   check('required path exists: ' + path, getPath(path).exists)
 }
 
+const artifactFields = [
+  'status',
+  'path',
+  'sha256',
+  'bytes',
+  'contentType',
+  'format',
+  'tool',
+  'toolVersion',
+  'createdAt',
+  'encrypted',
+  'encryptionKeyReference',
+]
+
 const allowedKeysByPath = new Map(Object.entries({
   '': [
     'schemaVersion',
@@ -109,41 +156,66 @@ const allowedKeysByPath = new Map(Object.entries({
     'reconciliation',
     'restoreEvidence',
   ],
-  package: ['packageId', 'createdAt', 'sourceEnvironment', 'sourceProjectRef', 'gitCommit'],
-  database: ['dump', 'schemaInventory'],
-  'database.dump': ['status', 'path', 'sha256', 'format', 'tool', 'toolVersion', 'createdAt'],
-  'database.schemaInventory': ['status', 'path', 'sha256'],
-  auth: ['identityRoleMapping', 'counts'],
-  'auth.identityRoleMapping': ['status', 'path', 'sha256'],
-  'auth.counts': ['authUsers', 'profiles', 'roleAssignments'],
+  package: [
+    'packageId', 'createdAt', 'sourceEnvironment', 'sourceProjectRef', 'gitCommit',
+    'sourceSnapshotAt', 'freezeStartedAt', 'freezeEndedAt', 'encrypted',
+    'encryptionKeyReference', 'retentionUntil',
+  ],
+  database: [
+    'rolesDump', 'schemaDump', 'dataDump', 'migrationHistorySchemaDump',
+    'migrationHistoryDataDump', 'authStorageSchemaDiff', 'schemaInventory',
+  ],
+  'database.rolesDump': artifactFields,
+  'database.schemaDump': artifactFields,
+  'database.dataDump': artifactFields,
+  'database.migrationHistorySchemaDump': artifactFields,
+  'database.migrationHistoryDataDump': artifactFields,
+  'database.authStorageSchemaDiff': artifactFields,
+  'database.schemaInventory': artifactFields,
+  auth: ['recoveryScope', 'identitiesDump', 'identityRoleMapping', 'settingsManifest', 'counts'],
+  'auth.recoveryScope': [
+    'managedAuthSchemaDataIncluded', 'passwordHashesIncluded', 'sessionsRestored',
+    'sourceJwtSecretCopied',
+  ],
+  'auth.identitiesDump': artifactFields,
+  'auth.identityRoleMapping': artifactFields,
+  'auth.settingsManifest': artifactFields,
+  'auth.counts': [
+    'authUsers', 'authIdentities', 'profiles', 'roleAssignments',
+    'orphanProfiles', 'orphanRoleAssignments',
+  ],
   storage: ['bucketsManifest', 'objectsManifest', 'objectsArchive', 'counts'],
-  'storage.bucketsManifest': ['status', 'path', 'sha256'],
-  'storage.objectsManifest': ['status', 'path', 'sha256'],
-  'storage.objectsArchive': ['status', 'path', 'sha256'],
+  'storage.bucketsManifest': artifactFields,
+  'storage.objectsManifest': artifactFields,
+  'storage.objectsArchive': artifactFields,
   'storage.counts': ['buckets', 'objects', 'bytes'],
-  functions: ['manifest', 'sourceArchive', 'count'],
-  'functions.manifest': ['status', 'path', 'sha256'],
-  'functions.sourceArchive': ['status', 'path', 'sha256'],
-  cron: ['manifest', 'count', 'timezone'],
-  'cron.manifest': ['status', 'path', 'sha256'],
+  functions: ['restoreSafety', 'manifest', 'sourceArchive', 'count'],
+  'functions.restoreSafety': ['deployEnabled', 'externalDeliveryEnabled', 'secretValuesIncluded'],
+  'functions.manifest': artifactFields,
+  'functions.sourceArchive': artifactFields,
+  cron: ['restoreSafety', 'manifest', 'count', 'timezone'],
+  'cron.restoreSafety': ['enabled', 'cursorIncluded', 'backfillConfigIncluded'],
+  'cron.manifest': artifactFields,
   featureFlags: ['manifest', 'count'],
-  'featureFlags.manifest': ['status', 'path', 'sha256'],
+  'featureFlags.manifest': artifactFields,
   environment: ['variableNames', 'valuesIncluded'],
   release: ['gitCommit', 'frontendArtifact', 'buildToolVersion'],
-  'release.frontendArtifact': ['status', 'path', 'sha256'],
-  reconciliation: ['tableRowCounts', 'keyAmounts', 'inventory'],
-  'reconciliation.tableRowCounts': ['status', 'path', 'sha256'],
+  'release.frontendArtifact': artifactFields,
+  reconciliation: [
+    'asOf', 'querySha256', 'decimalPrecision', 'sourceBeforeSha256',
+    'sourceAfterSha256', 'targetAfterSha256', 'tableRowCounts', 'keyAmounts', 'inventory',
+  ],
+  'reconciliation.tableRowCounts': artifactFields,
   'reconciliation.keyAmounts': [
-    'status',
-    'path',
-    'sha256',
+    ...artifactFields,
     'currency',
     'customerPayments',
     'internalPayables',
     'salesProfit',
+    'points',
     'laborEarnings',
   ],
-  'reconciliation.inventory': ['status', 'path', 'sha256', 'onHand', 'reserved', 'shipped'],
+  'reconciliation.inventory': [...artifactFields, 'onHand', 'reserved', 'shipped'],
   restoreEvidence: [
     'status',
     'targetEnvironment',
@@ -182,12 +254,24 @@ const inspectShape = (value, path = '') => {
 
 inspectShape(manifest)
 
-check('schemaVersion is 1', manifest.schemaVersion === 1)
+check('schemaVersion is 2', manifest.schemaVersion === 2)
 check('manifestType is correct', manifest.manifestType === 'canwin-team-os-backup-restore')
 check('file is explicitly a template', manifest.template === true)
 check('source environment is production', manifest.package?.sourceEnvironment === 'production')
+check('backup package is encrypted', manifest.package?.encrypted === true)
+check('managed Auth schema data is included', manifest.auth?.recoveryScope?.managedAuthSchemaDataIncluded === true)
+check('Auth password hashes are included for G0 recovery', manifest.auth?.recoveryScope?.passwordHashesIncluded === true)
+check('Auth sessions are not restored', manifest.auth?.recoveryScope?.sessionsRestored === false)
+check('source JWT secret is not copied', manifest.auth?.recoveryScope?.sourceJwtSecretCopied === false)
 check('environment values are excluded', manifest.environment?.valuesIncluded === false)
 check('cron timezone is Asia/Shanghai', manifest.cron?.timezone === 'Asia/Shanghai')
+check('Functions deploy stays disabled in restored target', manifest.functions?.restoreSafety?.deployEnabled === false)
+check('Functions external delivery stays disabled', manifest.functions?.restoreSafety?.externalDeliveryEnabled === false)
+check('Function secret values are excluded', manifest.functions?.restoreSafety?.secretValuesIncluded === false)
+check('Cron stays disabled in restored target', manifest.cron?.restoreSafety?.enabled === false)
+check('Cron cursor is included', manifest.cron?.restoreSafety?.cursorIncluded === true)
+check('Cron backfill configuration is included', manifest.cron?.restoreSafety?.backfillConfigIncluded === true)
+check('reconciliation decimal precision is 2', manifest.reconciliation?.decimalPrecision === 2)
 check('key amount currency is CNY', manifest.reconciliation?.keyAmounts?.currency === 'CNY')
 
 const nullPlaceholderPaths = [
@@ -195,15 +279,23 @@ const nullPlaceholderPaths = [
   'package.createdAt',
   'package.sourceProjectRef',
   'package.gitCommit',
-  'database.dump.path',
-  'database.dump.sha256',
-  'database.dump.format',
-  'database.dump.tool',
-  'database.dump.toolVersion',
-  'database.dump.createdAt',
+  'package.sourceSnapshotAt',
+  'package.freezeStartedAt',
+  'package.freezeEndedAt',
+  'package.encryptionKeyReference',
+  'package.retentionUntil',
+  'database.rolesDump.path',
+  'database.rolesDump.sha256',
+  'database.rolesDump.format',
+  'database.rolesDump.tool',
+  'database.rolesDump.toolVersion',
+  'database.rolesDump.createdAt',
   'auth.counts.authUsers',
+  'auth.counts.authIdentities',
   'auth.counts.profiles',
   'auth.counts.roleAssignments',
+  'auth.counts.orphanProfiles',
+  'auth.counts.orphanRoleAssignments',
   'storage.counts.buckets',
   'storage.counts.objects',
   'storage.counts.bytes',
@@ -212,14 +304,19 @@ const nullPlaceholderPaths = [
   'featureFlags.count',
   'release.gitCommit',
   'release.buildToolVersion',
+  'reconciliation.asOf',
+  'reconciliation.querySha256',
+  'reconciliation.sourceBeforeSha256',
+  'reconciliation.sourceAfterSha256',
+  'reconciliation.targetAfterSha256',
   'reconciliation.keyAmounts.customerPayments',
   'reconciliation.keyAmounts.internalPayables',
   'reconciliation.keyAmounts.salesProfit',
+  'reconciliation.keyAmounts.points',
   'reconciliation.keyAmounts.laborEarnings',
   'reconciliation.inventory.onHand',
   'reconciliation.inventory.reserved',
   'reconciliation.inventory.shipped',
-  'restoreEvidence.targetProjectRef',
   'restoreEvidence.startedAt',
   'restoreEvidence.finishedAt',
   'restoreEvidence.evidenceId',
@@ -229,9 +326,16 @@ for (const path of nullPlaceholderPaths) {
 }
 
 const artifactPaths = [
-  'database.dump',
+  'database.rolesDump',
+  'database.schemaDump',
+  'database.dataDump',
+  'database.migrationHistorySchemaDump',
+  'database.migrationHistoryDataDump',
+  'database.authStorageSchemaDiff',
   'database.schemaInventory',
+  'auth.identitiesDump',
   'auth.identityRoleMapping',
+  'auth.settingsManifest',
   'storage.bucketsManifest',
   'storage.objectsManifest',
   'storage.objectsArchive',
@@ -249,17 +353,29 @@ for (const path of artifactPaths) {
   const artifact = getPath(path).value
   check(path + ' is an object', artifact !== null && typeof artifact === 'object' && !Array.isArray(artifact))
   check(path + ' status is pending', artifact?.status === 'pending')
-  check(path + ' path placeholder is null', hasOwn(artifact, 'path') && artifact.path === null)
-  check(path + ' sha256 placeholder is null', hasOwn(artifact, 'sha256') && artifact.sha256 === null)
+  for (const field of [
+    'path',
+    'sha256',
+    'bytes',
+    'contentType',
+    'format',
+    'tool',
+    'toolVersion',
+    'createdAt',
+    'encryptionKeyReference',
+  ]) {
+    check(path + ' ' + field + ' placeholder is null', hasOwn(artifact, field) && artifact[field] === null)
+  }
+  check(path + ' is marked encrypted', artifact?.encrypted === true)
 }
 
 check(
   'database dump and Storage archive are separate objects',
-  manifest.database?.dump !== manifest.storage?.objectsArchive,
+  manifest.database?.dataDump !== manifest.storage?.objectsArchive,
 )
 check(
   'database and Storage use distinct contract paths',
-  artifactPaths.includes('database.dump') && artifactPaths.includes('storage.objectsArchive'),
+  artifactPaths.includes('database.dataDump') && artifactPaths.includes('storage.objectsArchive'),
 )
 
 const requiredVariableNames = [
@@ -268,7 +384,10 @@ const requiredVariableNames = [
   'SUPABASE_URL',
   'VITE_SUPABASE_ANON_KEY',
   'VITE_SUPABASE_URL',
+  'VITE_EXPECTED_SUPABASE_PROJECT_REF',
+  'CANWIN_BUILD_TARGET',
   'WECOM_WEBHOOK_URL',
+  'SITE_URL',
 ]
 const variableNames = Array.isArray(manifest.environment?.variableNames)
   ? manifest.environment.variableNames
@@ -292,8 +411,11 @@ const restoreComponents = [
   'reconciliation',
 ]
 check('restore status is not-run', manifest.restoreEvidence?.status === 'not-run')
-check('restore target is not provisioned', manifest.restoreEvidence?.targetEnvironment === 'not-provisioned')
-check('restore target ref is null', manifest.restoreEvidence?.targetProjectRef === null)
+check('restore target is the isolated test environment', manifest.restoreEvidence?.targetEnvironment === 'isolated-test')
+check(
+  'restore target ref is the declared isolated project',
+  manifest.restoreEvidence?.targetProjectRef === 'adzerzckgxxibadxkhcr',
+)
 for (const component of restoreComponents) {
   check(
     'restore component is not-run: ' + component,
@@ -320,7 +442,7 @@ const walk = (value, path = []) => {
   if (value !== null && typeof value === 'object') {
     for (const [key, child] of Object.entries(value)) {
       const childPath = [...path, key]
-      if (sensitiveKeyPattern.test(key)) {
+      if (sensitiveKeyPattern.test(key) && key !== 'passwordHashesIncluded') {
         check(
           'sensitive field has no value: ' + childPath.join('.'),
           child === null || child === false,

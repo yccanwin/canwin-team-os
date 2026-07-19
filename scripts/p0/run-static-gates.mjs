@@ -7,6 +7,7 @@ const gates = [
   ['migration-manifest', resolve(repoRoot, 'scripts', 'p0', 'verify-migration-manifest.mjs')],
   ['project-ref-contract', resolve(repoRoot, 'scripts', 'p0', 'verify-project-ref-contract.mjs')],
   ['backup-manifest-contract', resolve(repoRoot, 'scripts', 'p0', 'verify-backup-manifest-contract.mjs')],
+  ['restore-run-contract', resolve(repoRoot, 'scripts', 'p0', 'verify-restore-run-contract.mjs')],
 ]
 
 let run = 0

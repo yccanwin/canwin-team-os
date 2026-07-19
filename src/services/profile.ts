@@ -1,5 +1,5 @@
 import type { Session } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
+import { supabase, supabaseAuthStorageKey, supabaseLegacyAuthStorageKey } from '@/lib/supabase'
 import { CANWIN_TEAM_ID } from '@/config/team'
 import type { User } from '@/types'
 
@@ -32,8 +32,6 @@ type PackedProfileNotes = {
 }
 
 const ADMIN_LOGIN_EMAIL = 'admin@yccanwin.com'
-const SUPABASE_AUTH_STORAGE_KEY = 'sb-agygfhmkazcbqaqwmljb-auth-token'
-
 function normalizeLoginEmail(value: string): string {
   const input = value.trim()
   if (input.toLowerCase() === 'admin') return ADMIN_LOGIN_EMAIL
@@ -255,9 +253,12 @@ export async function signInWithPassword(login: string, password: string): Promi
 export async function signOut(): Promise<void> {
   if (typeof window !== 'undefined') {
     const authKeys = [
-      SUPABASE_AUTH_STORAGE_KEY,
-      `${SUPABASE_AUTH_STORAGE_KEY}-code-verifier`,
-      `${SUPABASE_AUTH_STORAGE_KEY}-user`,
+      supabaseAuthStorageKey,
+      `${supabaseAuthStorageKey}-code-verifier`,
+      `${supabaseAuthStorageKey}-user`,
+      supabaseLegacyAuthStorageKey,
+      `${supabaseLegacyAuthStorageKey}-code-verifier`,
+      `${supabaseLegacyAuthStorageKey}-user`,
       'canwin-auth-session',
       'canwin-auth-session-code-verifier',
       'canwin-auth-session-user',
