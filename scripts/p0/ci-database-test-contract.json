@@ -18,7 +18,9 @@
     "total": 26,
     "postInstallCatalogAssertions": 4,
     "definitionReferencedObjects": 54,
-    "redefinedDefinitionReferencedObjects": 28
+    "redefinedDefinitionReferencedObjects": 28,
+    "directDealOrderFixtureFiles": 2,
+    "directDealOrderInsertStatements": 2
   },
   "testSourceRules": {
     "doKeywordSeparatedFromDollarQuote": true,
@@ -27,7 +29,8 @@
     "definitionFragmentAssertionsNormalizeFormatting": true,
     "requiredDefinitionFragmentsMatchFinalCreateStatement": true,
     "definitionStatementParserHandlesQuotedSemicolons": true,
-    "definitionReferencesResolveAssignmentsOverloadsAndRenames": true
+    "definitionReferencesResolveAssignmentsOverloadsAndRenames": true,
+    "directDealOrderFixturesIncludeFinalRequiredOrderNumber": true
   },
   "postInstallCatalog": {
     "publicTables": 103,
@@ -96,8 +99,8 @@
     { "path": "supabase/tests/crm_qualification_promotion_audit.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "297edf4c24d8de04279f60cc17f1d87658c08601180c0d8c6b8a0e0ec3774a98" },
     { "path": "supabase/tests/customer_import_behavior.sql", "category": "business", "executionMode": "rollback_fixture", "sha256Lf": "979d3254ea9642981cde3081fde910a23ec0f39f98372731c1c99cd358643915" },
     { "path": "supabase/tests/dual_ledger_upgrade.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "f3add27cbebc7715a506d29f152e0e2ca9a7cfef3d45bba099f3d93694f41b08" },
-    { "path": "supabase/tests/hardware_inventory_behavior.sql", "category": "business", "executionMode": "rollback_fixture", "sha256Lf": "9ac52c450948d5ef6b7a9407a3ddaf987a8e50197a5d1a33fe2776be401e4e93" },
-    { "path": "supabase/tests/hardware_shipping_chain_behavior.sql", "category": "business", "executionMode": "rollback_fixture", "sha256Lf": "390789cffaf37ec4b2a002d2458d5559833b07a31fefd1214bc17e698664d421" },
+    { "path": "supabase/tests/hardware_inventory_behavior.sql", "category": "business", "executionMode": "rollback_fixture", "sha256Lf": "3d6759967e8d686c6436bea5496afac4b865cb429cdc5d5311fbf7a44c32c03e" },
+    { "path": "supabase/tests/hardware_shipping_chain_behavior.sql", "category": "business", "executionMode": "rollback_fixture", "sha256Lf": "fec9dd843f68815362835e248fabe27653b745d107a91e6a7d4089fc92c7d89c" },
     { "path": "supabase/tests/performance_center_snapshot.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "3a9ccb96bdb01dc2c859ec658a507d89b3d067afb8e9e2cda3ae25eb741ba0e1" },
     { "path": "supabase/tests/quick_lead_uuid_region_selection.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "b3abc316b2bd5611c1137583ce665a74dd6876f56df5af4989b248ad5f3eeca0" },
     { "path": "supabase/tests/sales_automation.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "fb974fefdb9392a6d62570c2c201a9c4a1f03f4c184e2dee2085f26ffb5e4424" }
@@ -333,6 +336,28 @@
       "permissionTestsPassed": 5,
       "firstFailedTest": "supabase/tests/operations_lead_submission.sql",
       "overloadLayersAudited": 3,
+      "cleanupPassed": true,
+      "productionReadPerformed": false,
+      "productionWritePerformed": false,
+      "rerunOfFailedRun": false
+    },
+    {
+      "runId": "29684109383",
+      "jobId": "88185320892",
+      "headSha": "11ebcd6d54bef8dc2dc7ae914a899de5dc9875c1",
+      "conclusion": "failure",
+      "failedStep": "Run database permission and business gates",
+      "rootCauseCode": "direct_order_fixture_missing_final_required_order_number",
+      "databaseStartupPassed": true,
+      "baselinePassed": true,
+      "migrationsPassed": 69,
+      "sqlTestsStarted": 22,
+      "sqlTestsPassed": 21,
+      "databaseTestsPassed": 7,
+      "permissionTestsPassed": 10,
+      "businessTestsPassed": 4,
+      "firstFailedTest": "supabase/tests/hardware_inventory_behavior.sql",
+      "classwideAffectedTests": 2,
       "cleanupPassed": true,
       "productionReadPerformed": false,
       "productionWritePerformed": false,

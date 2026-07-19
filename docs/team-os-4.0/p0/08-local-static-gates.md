@@ -21,7 +21,7 @@
 - scripts/p0/verify-backup-manifest-contract.mjs：验证备份恢复合同结构、敏感值禁令和 not-run 恢复状态。
 - scripts/p0/verify-backup-package-runtime.mjs：在真实备份完成后校验仓库外运行实例、21 类制品文件、字节数、SHA256、冻结时间和对账摘要；不纳入没有真实备份的静态门禁。
 - restore-run.p0-test.json 与 scripts/p0/verify-restore-run-contract.mjs：记录当前独立测试项目的一次性恢复运行状态、缺失工具、授权边界、首错停和禁止重试/清理。
-- scripts/p0/ci-database-test-contract.json、scripts/p0/ci-runtime/supabase/config.toml 与 scripts/p0/verify-ci-database-contract.mjs：冻结临时本地数据库、1 份基线、69 个迁移、26 个 SQL 测试、4 项 catalog 对账、Supabase CLI 2.109.1、Postgres 17 和零仓库密钥边界；按函数参数签名分别冻结测试引用的 54 个函数/视图定义和其中 28 个重复定义对象，要求直接正向源码断言存在于对象最后一条完整 `CREATE` 语句或明确重命名来源，不能由同名重载、同文件其他对象或变量别名代偿；定义来源解析覆盖声明初始化、后置赋值和 `SELECT ... INTO`，SQL 分句器识别单/双引号、行/块注释、嵌套块注释和 dollar-quoted 正文中的分号。27 个负向自检拒绝清单、连接、版本、全栈误启动、`DO` 美元引用词法粘连、把限制策略误当写授权、函数/视图正文格式敏感、包装视图/计算函数错位、函数重载/重命名错位、错指早期迁移、导入历史直接写权限、过期迁移链预期、失败证据删除或 G0 状态漂移。
+- scripts/p0/ci-database-test-contract.json、scripts/p0/ci-runtime/supabase/config.toml 与 scripts/p0/verify-ci-database-contract.mjs：冻结临时本地数据库、1 份基线、69 个迁移、26 个 SQL 测试、4 项 catalog 对账、Supabase CLI 2.109.1、Postgres 17 和零仓库密钥边界；按函数参数签名分别冻结测试引用的 54 个函数/视图定义和其中 28 个重复定义对象，要求直接正向源码断言存在于对象最后一条完整 `CREATE` 语句或明确重命名来源，不能由同名重载、同文件其他对象或变量别名代偿；定义来源解析覆盖声明初始化、后置赋值和 `SELECT ... INTO`，SQL 分句器识别单/双引号、行/块注释、嵌套块注释和 dollar-quoted 正文中的分号；另冻结 2 个直接写入正式订单的回滚夹具，强制包含最终必填 `order_number`。28 个负向自检拒绝清单、连接、版本、全栈误启动、`DO` 美元引用词法粘连、把限制策略误当写授权、函数/视图正文格式敏感、包装视图/计算函数错位、函数重载/重命名错位、正式订单夹具缺必填编号、错指早期迁移、导入历史直接写权限、过期迁移链预期、失败证据删除或 G0 状态漂移。
 - scripts/p0/run-ci-database-gates.mjs：自检模式只验证 127.0.0.1:54322 连接边界并执行 6 个负例；GitHub 模式首错即停地安装基线、历史迁移和测试，使用合成夹具且不连接生产。
 - scripts/p0/run-static-gates.mjs：统一运行以上纯静态检查并输出发现、运行、通过、失败和跳过数量。
 - scripts/p0/verify-frontend-inventory.mjs：验证现有路由、总方案 4.8 节页面、文件入口和 Storage 命名空间清单。
@@ -74,7 +74,7 @@ npm.cmd run test:p0:local
 - 迁移文件：discovered=69 run=69 passed=69 failed=0；
 - 静态门禁：discovered=15 run=15 passed=15 failed=0 skipped=0；
 - 统一入口：discovered=11 run=11 passed=11 failed=0 skipped=0；
-- CI 数据库边界自检：合同 definitions=54、redefined=28、negative=27/27，runner negative=6/6、databaseCalls=0；
+- CI 数据库边界自检：合同 definitions=54、redefined=28、directOrderFixtures=2、negative=28/28，runner negative=6/6、databaseCalls=0；
 - 安全候选换行回归：cases=4，覆盖 lf、crlf、mixed、comment-semicolon；
 - 安全候选自检：cases=10 positive=4 negative=6；候选结果为 views=3 policies=4 callers=3 migrations=clean database_calls=0；
 - 103 表分类合同与前端处置交叉核验均成功；

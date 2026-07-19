@@ -169,6 +169,35 @@ function splitSqlCommaList(value) {
   return entries
 }
 
+function findDirectInsertColumns(sql, qualifiedTable) {
+  const insertPattern = new RegExp(
+    `^insert\\s+into\\s+${escapeRegex(qualifiedTable)}\\s*\\(([\\s\\S]*?)\\)\\s*(?:values|select)\\b`,
+    'i',
+  )
+  return splitSqlStatements(sql).flatMap((statement) => {
+    const match = stripLeadingSqlTrivia(statement).match(insertPattern)
+    if (!match) return []
+    return [{
+      statement,
+      columns: splitSqlCommaList(match[1]).map((column) => column.trim().replace(/^"|"$/g, '').toLowerCase()),
+    }]
+  })
+}
+
+const directDealOrderInsertProbeValid = findDirectInsertColumns(
+  "insert into public.deal_orders(id,team_id,order_number) values('1','T','CW-1');",
+  'public.deal_orders',
+)
+const directDealOrderInsertProbeInvalid = findDirectInsertColumns(
+  "insert into public.deal_orders(id,team_id) values('1','T');",
+  'public.deal_orders',
+)
+const directDealOrderInsertProbePassed =
+  directDealOrderInsertProbeValid.length === 1 &&
+  directDealOrderInsertProbeValid[0].columns.includes('order_number') &&
+  directDealOrderInsertProbeInvalid.length === 1 &&
+  !directDealOrderInsertProbeInvalid[0].columns.includes('order_number')
+
 function stripFunctionParameterDefault(value) {
   let depth = 0
   let inSingleQuote = false
@@ -508,6 +537,8 @@ function validate(candidate) {
   check(counts.postInstallCatalogAssertions === 4, 'catalog assertion count drift')
   check(counts.definitionReferencedObjects === 54, 'definition referenced object count drift')
   check(counts.redefinedDefinitionReferencedObjects === 28, 'redefined definition object count drift')
+  check(counts.directDealOrderFixtureFiles === 2, 'direct deal order fixture file count drift')
+  check(counts.directDealOrderInsertStatements === 2, 'direct deal order insert statement count drift')
   check(sourceRules.doKeywordSeparatedFromDollarQuote === true, 'DO dollar-quote separator rule drift')
   check(sourceRules.forbiddenUnseparatedToken === 'do$$', 'DO dollar-quote forbidden token drift')
   check(sourceRules.policyWriteAssertionsRequirePermissiveFilter === true, 'policy write assertion source rule drift')
@@ -515,9 +546,11 @@ function validate(candidate) {
   check(sourceRules.requiredDefinitionFragmentsMatchFinalCreateStatement === true, 'final definition CREATE statement source rule drift')
   check(sourceRules.definitionStatementParserHandlesQuotedSemicolons === true, 'definition statement parser source rule drift')
   check(sourceRules.definitionReferencesResolveAssignmentsOverloadsAndRenames === true, 'definition reference resolution source rule drift')
+  check(sourceRules.directDealOrderFixturesIncludeFinalRequiredOrderNumber === true, 'direct deal order required number source rule drift')
   check(statementParserProbePassed, 'definition statement parser probe failed')
   check(definitionResolutionProbeTargetsPassed, `definition assignment/overload target probe failed actual=${definitionResolutionProbeAssertions.map(definitionTargetKey).join(',')}`)
   check(definitionResolutionProbeSourcesPassed, 'definition overload/rename source probe failed')
+  check(directDealOrderInsertProbePassed, 'direct deal order insert parser probe failed')
   check(tests.length === counts.total, 'test entry count drift')
   check(exactSet(tests.map((entry) => entry.path), tests.map((entry) => entry.path)), 'duplicate test path')
 
@@ -536,6 +569,8 @@ function validate(candidate) {
   ), 'rollback fixture set drift')
 
   const definitionTargets = new Map()
+  const directDealOrderFixtureFiles = new Set()
+  let directDealOrderInsertStatements = 0
   for (const entry of tests) {
     const absolutePath = resolve(repoRoot, entry.path)
     const sql = normalizeLf(readFileSync(absolutePath, 'utf8'))
@@ -548,6 +583,12 @@ function validate(candidate) {
     check(!/\bdo\$\$/i.test(sql), `DO keyword must be separated from dollar quote ${entry.path}`)
     check(findPolicyPresenceWriteAssertions(sql).length === 0, `policy presence misclassified as write grant ${entry.path}`)
     check(findFormattingSensitiveDefinitionAssertions(sql).length === 0, `definition fragment assertion depends on source formatting ${entry.path}`)
+    const directDealOrderInserts = findDirectInsertColumns(sql, 'public.deal_orders')
+    if (directDealOrderInserts.length > 0) directDealOrderFixtureFiles.add(entry.path)
+    directDealOrderInsertStatements += directDealOrderInserts.length
+    for (const insert of directDealOrderInserts) {
+      check(insert.columns.includes('order_number'), `direct deal order fixture missing final required order_number ${entry.path}`)
+    }
     for (const assertion of findRequiredDirectDefinitionAssertions(sql)) {
       const definitions = findObjectDefinitions(migrationSources, assertion)
       const targetKey = definitionTargetKey(assertion)
@@ -568,6 +609,8 @@ function validate(candidate) {
     .filter((target) => findObjectDefinitions(migrationSources, target).length > 1)
   check(definitionTargets.size === counts.definitionReferencedObjects, `definition referenced object inventory drift expected=${counts.definitionReferencedObjects} actual=${definitionTargets.size}`)
   check(redefinedDefinitionTargets.length === counts.redefinedDefinitionReferencedObjects, `redefined definition object inventory drift expected=${counts.redefinedDefinitionReferencedObjects} actual=${redefinedDefinitionTargets.length}`)
+  check(directDealOrderFixtureFiles.size === counts.directDealOrderFixtureFiles, `direct deal order fixture file inventory drift expected=${counts.directDealOrderFixtureFiles} actual=${directDealOrderFixtureFiles.size}`)
+  check(directDealOrderInsertStatements === counts.directDealOrderInsertStatements, `direct deal order insert inventory drift expected=${counts.directDealOrderInsertStatements} actual=${directDealOrderInsertStatements}`)
 
   check(JSON.stringify(candidate.postInstallCatalog) === JSON.stringify(expectedCatalog), 'post-install catalog contract drift')
   const salesV3 = candidate.historicalChainExpectations?.salesOsV3 ?? {}
@@ -677,7 +720,7 @@ function validate(candidate) {
   check(boundary.repositorySecretsRequired === false, 'repository secrets must not be required')
 
   const attempts = candidate.formalAttemptHistory ?? []
-  check(attempts.length === 11, 'formal attempt history count drift')
+  check(attempts.length === 12, 'formal attempt history count drift')
   const failedAttempt = attempts[0] ?? {}
   check(failedAttempt.runId === '29680934378', 'failed run id drift')
   check(failedAttempt.jobId === '88176860842', 'failed job id drift')
@@ -863,6 +906,24 @@ function validate(candidate) {
   check(overloadAttempt.productionReadPerformed === false, 'overload run production read must remain false')
   check(overloadAttempt.productionWritePerformed === false, 'overload run production write must remain false')
   check(overloadAttempt.rerunOfFailedRun === false, 'overload run must remain a new candidate')
+  const orderFixtureAttempt = attempts[11] ?? {}
+  check(orderFixtureAttempt.runId === '29684109383', 'order fixture run id drift')
+  check(orderFixtureAttempt.jobId === '88185320892', 'order fixture run job id drift')
+  check(orderFixtureAttempt.headSha === '11ebcd6d54bef8dc2dc7ae914a899de5dc9875c1', 'order fixture run head SHA drift')
+  check(orderFixtureAttempt.conclusion === 'failure', 'order fixture run conclusion drift')
+  check(orderFixtureAttempt.failedStep === 'Run database permission and business gates', 'order fixture run failed step drift')
+  check(orderFixtureAttempt.rootCauseCode === 'direct_order_fixture_missing_final_required_order_number', 'order fixture run root cause drift')
+  check(orderFixtureAttempt.databaseStartupPassed === true, 'order fixture run database startup evidence missing')
+  check(orderFixtureAttempt.baselinePassed === true, 'order fixture run baseline evidence missing')
+  check(orderFixtureAttempt.migrationsPassed === 69, 'order fixture run migration count drift')
+  check(orderFixtureAttempt.sqlTestsStarted === 22 && orderFixtureAttempt.sqlTestsPassed === 21, 'order fixture run test count drift')
+  check(orderFixtureAttempt.databaseTestsPassed === 7 && orderFixtureAttempt.permissionTestsPassed === 10 && orderFixtureAttempt.businessTestsPassed === 4, 'order fixture run category evidence drift')
+  check(orderFixtureAttempt.firstFailedTest === 'supabase/tests/hardware_inventory_behavior.sql', 'order fixture first failed test drift')
+  check(orderFixtureAttempt.classwideAffectedTests === 2, 'order fixture classwide evidence drift')
+  check(orderFixtureAttempt.cleanupPassed === true, 'order fixture run cleanup evidence missing')
+  check(orderFixtureAttempt.productionReadPerformed === false, 'order fixture run production read must remain false')
+  check(orderFixtureAttempt.productionWritePerformed === false, 'order fixture run production write must remain false')
+  check(orderFixtureAttempt.rerunOfFailedRun === false, 'order fixture run must remain a new candidate')
   return failures
 }
 
@@ -890,6 +951,7 @@ const negativeCases = [
   ['final definition CREATE statement source rule', (value) => { value.testSourceRules.requiredDefinitionFragmentsMatchFinalCreateStatement = false }],
   ['definition statement parser source rule', (value) => { value.testSourceRules.definitionStatementParserHandlesQuotedSemicolons = false }],
   ['definition assignment overload source rule', (value) => { value.testSourceRules.definitionReferencesResolveAssignmentsOverloadsAndRenames = false }],
+  ['direct deal order fixture source rule', (value) => { value.testSourceRules.directDealOrderFixturesIncludeFinalRequiredOrderNumber = false }],
   ['definition target inventory', (value) => { value.expectedCounts.definitionReferencedObjects = 51 }],
   ['repository secret', (value) => { value.acceptanceBoundary.repositorySecretsRequired = true }],
   ['production write', (value) => { value.acceptanceBoundary.productionWritePerformed = true }],

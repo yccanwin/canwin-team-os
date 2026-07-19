@@ -19,8 +19,8 @@ insert into public.deal_quotes(id,team_id,opportunity_id,owner_id,version_no,sta
 values('b4000000-0000-4000-8000-000000000009','CANWIN_TEAM','b4000000-0000-4000-8000-000000000005','b4000000-0000-4000-8000-000000000001',1,'frozen',200,110,'b4000000-0000-4000-8000-000000000001');
 insert into public.deal_quote_lines(team_id,quote_id,source_item_id,item_name_snapshot,item_type_snapshot,quantity,customer_unit_price,internal_unit_price)
 values('CANWIN_TEAM','b4000000-0000-4000-8000-000000000009','b4000000-0000-4000-8000-000000000007','Required Hardware','hardware',2,100,55);
-insert into public.deal_orders(id,team_id,quote_id,opportunity_id,customer_total,internal_due,internal_paid,status,fulfillment_allowed_at)
-values('b4000000-0000-4000-8000-00000000000a','CANWIN_TEAM','b4000000-0000-4000-8000-000000000009','b4000000-0000-4000-8000-000000000005',200,110,110,'internal_paid',now());
+insert into public.deal_orders(id,team_id,quote_id,opportunity_id,order_number,customer_total,internal_due,internal_paid,status,fulfillment_allowed_at)
+values('b4000000-0000-4000-8000-00000000000a','CANWIN_TEAM','b4000000-0000-4000-8000-000000000009','b4000000-0000-4000-8000-000000000005','CW-TEST-HW-CHAIN-001',200,110,110,'internal_paid',now());
 -- A later display-state change must not detach the formal order from its frozen quote-line snapshot.
 update public.deal_quotes set status='cancelled'where id='b4000000-0000-4000-8000-000000000009';
 insert into public.fulfillment_deliveries(id,team_id,order_id,store_id,status,created_by)values('b4000000-0000-4000-8000-00000000000b','CANWIN_TEAM','b4000000-0000-4000-8000-00000000000a','b4000000-0000-4000-8000-000000000004','preparing','b4000000-0000-4000-8000-000000000001');
