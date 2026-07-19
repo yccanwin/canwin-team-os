@@ -4,6 +4,8 @@
 -- four existing read/manage policies that must recognize the frozen 4.0 roles.
 -- Authorization: authenticated may SELECT the views; PUBLIC and anon are denied.
 
+set role postgres;
+
 alter policy "finance roles read finance records"
 on public.finance_records
 using (public.has_access_role(team_id, array['finance', 'admin']));

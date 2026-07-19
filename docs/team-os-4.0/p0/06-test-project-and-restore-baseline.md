@@ -7,7 +7,7 @@
 
 | 检查项 | 当前结果 |
 | --- | --- |
-| 可见 Supabase 项目 | 生产 `canwinos` 与独立测试 `canwinos-team-os-4-p0-test-3`；两个失败测试项目已暂停保留 |
+| 可见 Supabase 项目 | 生产 `canwinos` 与当前独立测试 `canwinos-team-os-4-p0-test-4`；三个历史测试项目已暂停保留 |
 | 当前组织/方案 | `yccanwin's Org` / Free |
 | 生产项目 ref | `agygfhmkazcbqaqwmljb` |
 | 区域 | `ap-northeast-1` |
@@ -16,8 +16,8 @@
 | 本地 `supabase/config.toml` | 仍只声明生产项目；测试项目不写入默认链接配置 |
 | 生产迁移历史 | 69；版本和名称与本地精确匹配 |
 | 本地迁移文件 | 69；已有版本/文件名/SHA256 清单和纯静态校验 |
-| 独立测试项目 | `gktelqueikmbhtmdbjnh`；`ap-northeast-1`；`ACTIVE_HEALTHY`；2026-07-19 已创建；月费确认值 0 |
-| 失败现场保留 | 测试项目 `adzerzckgxxibadxkhcr`、`xlpkvjojuqwaqtahaksm` 均已暂停为 `INACTIVE`；分别保留第 9、12 个候选的数据库/事务现场、Storage 与失败证据，不删除、不复用 |
+| 独立测试项目 | `zdmuaqokndhhbarudhtw`；`ap-northeast-1`；`ACTIVE_HEALTHY`；2026-07-19 已创建；月费确认值 0；等待全新恢复候选 |
+| 失败现场保留 | 测试项目 `adzerzckgxxibadxkhcr`、`xlpkvjojuqwaqtahaksm`、`gktelqueikmbhtmdbjnh` 均已暂停为 `INACTIVE`；保留各自恢复/安全验证现场和失败证据，不删除、不复用 |
 | 数据库备份文件及校验和 | 成功包 `D:\CanWin-Team-OS-4.0-Recovery\canwin-team-os-4-p0-20260719T064719486Z-d6799976f3`；manifest SHA256 `e80c164636a57e6fd14469ef0bdfafeac65f6dded730f757e46deac06b9325bb` |
 | Auth/岗位关系导出 | 7 用户、7 identities 已恢复并全部禁登；卢宣丞=销售、朱浩=管理员；会话/令牌/JWT secret 未复制 |
 | Storage 对象备份 | 1 bucket、32 objects、1,700,978 bytes，恢复内容聚合 SHA256 已核对 |

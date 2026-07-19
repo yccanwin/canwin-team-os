@@ -56,16 +56,20 @@ function Test-CandidateSql {
       Where-Object { $_ -ne '' }
   )
 
-  if ($statements.Count -ne 13) {
-    throw "Candidate must contain exactly 13 statements (4 policy alters, 3 views, 3 revokes, 3 grants); found $($statements.Count)."
+  if ($statements.Count -ne 14) {
+    throw "Candidate must contain exactly 14 statements (1 role lock, 4 policy alters, 3 views, 3 revokes, 3 grants); found $($statements.Count)."
   }
 
+  $roleStatements = @($statements | Where-Object { $_ -match '(?is)^set\s+role\s+' })
   $alterStatements = @($statements | Where-Object { $_ -match '(?is)^alter\s+policy\s+' })
   $createStatements = @($statements | Where-Object { $_ -match '(?is)^create\s+or\s+replace\s+view\s+' })
   $revokeStatements = @($statements | Where-Object { $_ -match '(?is)^revoke\s+' })
   $grantStatements = @($statements | Where-Object { $_ -match '(?is)^grant\s+' })
-  if ($alterStatements.Count -ne 4 -or $createStatements.Count -ne 3 -or $revokeStatements.Count -ne 3 -or $grantStatements.Count -ne 3) {
-    throw 'Candidate statement kinds are not exactly 4 ALTER POLICY, 3 CREATE VIEW, 3 REVOKE, and 3 GRANT.'
+  if ($roleStatements.Count -ne 1 -or $alterStatements.Count -ne 4 -or $createStatements.Count -ne 3 -or $revokeStatements.Count -ne 3 -or $grantStatements.Count -ne 3) {
+    throw 'Candidate statement kinds are not exactly 1 SET ROLE, 4 ALTER POLICY, 3 CREATE VIEW, 3 REVOKE, and 3 GRANT.'
+  }
+  if ($roleStatements[0] -notmatch '(?is)^set\s+role\s+postgres$') {
+    throw 'Candidate must lock execution to the database owner role.'
   }
 
   $requiredPolicyContracts = @(
@@ -131,6 +135,7 @@ function Test-CandidateSql {
     $isAllowed =
       $requiredPolicyContracts | Where-Object { $statement -match $_ } | Select-Object -First 1
     $isAllowed = [bool]$isAllowed -or
+      $statement -match '(?is)^set\s+role\s+postgres$' -or
       $statement -match '(?is)^create\s+or\s+replace\s+view\s+public\.(finance_public_summary|inventory_public_items|assets_public)\b' -or
       $statement -match '(?is)^revoke\s+all\s+privileges\s+on\s+public\.(finance_public_summary|inventory_public_items|assets_public)\s+from\s+public\s*,\s*anon\s*,\s*authenticated$' -or
       $statement -match '(?is)^grant\s+select\s+on\s+public\.(finance_public_summary|inventory_public_items|assets_public)\s+to\s+authenticated$'

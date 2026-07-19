@@ -45,12 +45,12 @@ npm.cmd run test:p0:local
 当前合同如实记录：
 
 - 已知生产 ref：与 supabase/config.toml 一致；
-- 测试 ref：`gktelqueikmbhtmdbjnh`；
-- 测试项目状态：`restore-validated`，Supabase 复核状态为 `ACTIVE_HEALTHY`；
+- 测试 ref：`zdmuaqokndhhbarudhtw`；
+- 测试项目状态：`declared`，Supabase 复核状态为 `ACTIVE_HEALTHY`；旧项目的成功恢复证据继续保留，当前项目等待全新恢复候选；
 - 生产与测试 ref：不同；
 - 预览构建：恢复、密钥隔离和运行时校验完成前保持禁止。
 
-项目 ref 合同现在输出 `readiness=READY restore=validated preview=disabled`。数据库/Auth/Storage 的正式恢复和全量对账证据登记在 `restore-run.p0-test.json`；预览仍是独立门禁，没有随恢复自动开放。
+项目 ref 合同对当前新项目输出 `readiness=BLOCKED reason=isolated-restore-not-validated`。旧项目的数据库/Auth/Storage 正式恢复和全量对账证据仍由外部成功包保留；当前项目必须用全新候选再恢复，预览继续关闭。
 
 ## 迁移清单边界
 

@@ -37,7 +37,7 @@ const failurePath = resolve(evidenceDirectory, 'failure.json')
 if (run.state !== 'succeeded' || run.target.environment !== 'isolated-test' || run.target.previewBuildAllowed !== false) {
   throw new Error('sealed restore acceptance is not ready for isolated security validation')
 }
-if (targetRef !== 'gktelqueikmbhtmdbjnh' || run.source.projectRef === targetRef) {
+if (targetRef !== 'zdmuaqokndhhbarudhtw' || run.source.projectRef === targetRef) {
   throw new Error('security validation target does not match the frozen isolated project')
 }
 const porcelain = execFileSync('git', ['status', '--porcelain'], { cwd: repoRoot, encoding: 'utf8' })
