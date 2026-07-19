@@ -79,7 +79,8 @@ check(localPostgres.binaryRoot === 'D:/CanWinP1Postgres18/bin' &&
     .every((path) => path.startsWith(localPostgres.binaryRoot + '/') && /^[\x20-\x7e]+$/.test(path)),
   'local Postgres tools are not fixed absolute ASCII paths')
 check(localPostgres.user === 'p1_regression' && localPostgres.bootstrapUser === 'p1_regression' &&
-  localPostgres.encoding === 'UTF8' && localPostgres.clientEncoding === 'UTF8' && localPostgres.locale === 'C',
+  localPostgres.encoding === 'UTF8' && localPostgres.clientEncoding === 'UTF8' && localPostgres.locale === 'C' &&
+  localPostgres.toolVersion === '18.4',
   'ASCII bootstrap user, UTF8, or locale C lock drift')
 check(JSON.stringify([...localPostgres.forbiddenInheritedEnvironment].sort()) ===
   JSON.stringify(['HOME', 'HOMEDRIVE', 'HOMEPATH', 'USERNAME', 'USERPROFILE']),
@@ -112,6 +113,20 @@ check(postgresRegression.includes('if (serverStarted || existsSync(resolve(dataD
 check(postgresRegression.includes('pgCtlStartNegative=${startNegativePassed}/${startNegativeCases.length}') &&
   postgresRegression.includes('two-minute local Postgres hard limit exceeded'),
   'pg_ctl pipe/log/wait/timeout negatives or hard limit missing')
+const staticContractStart = postgresRegression.indexOf('function validateStaticContract(')
+const staticContractEnd = postgresRegression.indexOf('function probeToolVersion(', staticContractStart)
+const staticContractSource = postgresRegression.slice(staticContractStart, staticContractEnd)
+check(staticContractStart >= 0 && staticContractEnd > staticContractStart && !staticContractSource.includes('existsSync('),
+  'self-test static contract still requires local tool files')
+check(postgresRegression.includes('function validateExecutionToolchain(') &&
+  postgresRegression.includes('const pathExists = dependencies.pathExists ?? existsSync') &&
+  postgresRegression.includes('const versionProbe = dependencies.versionProbe ?? probeToolVersion') &&
+  postgresRegression.includes('assertStaticContract()\n  assertExecutionToolchain()'),
+  'execute-only tool existence/version gate is missing')
+check(postgresRegression.includes('selfTestMissingTools=allowed') &&
+  postgresRegression.includes('executeMissingTools=${executeMissingPassed}/${toolPaths.length}') &&
+  postgresRegression.includes('executeVersionDrift=${executeVersionDriftPassed}/1'),
+  'missing-tool self-test allowance or execute refusal negatives missing')
 
 check(sha256Lf(resolve(repoRoot, contract.candidate.migrationPath)) === contract.candidate.migrationSha256Lf,
   'P1 migration LF hash drift')

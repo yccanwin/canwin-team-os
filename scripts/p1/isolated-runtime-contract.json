@@ -34,6 +34,7 @@
       "initdbPath": "D:/CanWinP1Postgres18/bin/initdb.exe",
       "pgCtlPath": "D:/CanWinP1Postgres18/bin/pg_ctl.exe",
       "psqlPath": "D:/CanWinP1Postgres18/bin/psql.exe",
+      "toolVersion": "18.4",
       "postgresMajor": 18,
       "host": "127.0.0.1",
       "database": "postgres",
@@ -60,9 +61,9 @@
     "runnerPath": "scripts/p1/run-isolated-runtime.mjs",
     "runnerSha256Lf": "ac22d2d935d4b557314b5e7c61dfdf54e4af8c3dfe178ad047de1b2cf5955248",
     "validatorPath": "scripts/p1/verify-isolated-runtime-runner.mjs",
-    "validatorSha256Lf": "83ded52f12f1672ad7cc76fdc582d92074a7e6023fda41402611ef14fcb3f062",
+    "validatorSha256Lf": "5a95b5ae91caa3d9de964d4c8227575f1e6d37e394073321397492ebab092fe9",
     "postgresRegressionPath": "scripts/p1/verify-pending-trigger-postgres.mjs",
-    "postgresRegressionSha256Lf": "d2799a76bffd11be59d4ae6d7e4e01033be15c1981d9a50e68f427b98cefec85"
+    "postgresRegressionSha256Lf": "f4f54d77436b1b91035cd8fff7572dd52f4375aa75f52325a664426d0b9cf3ea"
   },
   "databaseContractPath": "scripts/p0/ci-database-test-contract.json",
   "migrationManifestPath": "docs/team-os-4.0/p0/migration-sha256-manifest.json",

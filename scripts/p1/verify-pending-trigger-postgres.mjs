@@ -8,7 +8,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs'
-import { dirname, isAbsolute, join, resolve } from 'node:path'
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
@@ -113,9 +113,13 @@ function isAscii(value) {
   return typeof value === 'string' && value.length > 0 && /^[\x20-\x7e]+$/.test(value)
 }
 
-function validateContract(candidate) {
+function validateStaticContract(candidate) {
   const failures = []
-  const fixedPaths = [candidate?.initdbPath, candidate?.pgCtlPath, candidate?.psqlPath]
+  const fixedPaths = [
+    ['initdbPath', 'initdb.exe'],
+    ['pgCtlPath', 'pg_ctl.exe'],
+    ['psqlPath', 'psql.exe'],
+  ]
   if (candidate?.host !== '127.0.0.1' || candidate.database !== 'postgres' ||
       candidate.postgresMajor !== 18 || candidate.maxAttempts !== 1 ||
       candidate.remoteConnectionsAllowed !== false) failures.push('local-only boundary drift')
@@ -127,11 +131,14 @@ function validateContract(candidate) {
       !/^D:[\\/][A-Za-z0-9._\\/-]+$/.test(candidate.temporaryRoot)) failures.push('ASCII D drive temporary root drift')
   if (!isAscii(candidate?.binaryRoot) || !isAbsolute(candidate.binaryRoot) ||
       !/^D:[\\/][A-Za-z0-9._\\/-]+$/.test(candidate.binaryRoot)) failures.push('ASCII fixed tool root drift')
-  for (const path of fixedPaths) {
-    if (!isAscii(path) || !isAbsolute(path) || !resolve(path).startsWith(resolve(candidate.binaryRoot) + '\\') || !existsSync(path)) {
-      failures.push('fixed absolute local Postgres toolchain drift')
+  for (const [key, expectedName] of fixedPaths) {
+    const path = candidate?.[key]
+    if (!isAscii(path) || !isAbsolute(path) || !resolve(path).startsWith(resolve(candidate.binaryRoot) + '\\') ||
+        basename(path).toLowerCase() !== expectedName) {
+      failures.push('fixed absolute local Postgres tool path format drift')
     }
   }
+  if (candidate?.toolVersion !== '18.4') failures.push('local Postgres tool version contract drift')
   const forbidden = candidate?.forbiddenInheritedEnvironment
   if (!Array.isArray(forbidden) || JSON.stringify([...forbidden].sort()) !==
       JSON.stringify(['HOME', 'HOMEDRIVE', 'HOMEPATH', 'USERNAME', 'USERPROFILE'])) {
@@ -142,6 +149,29 @@ function validateContract(candidate) {
       start.logFlag !== '-l' || start.waitFlag !== '-w' || start.timeoutFlag !== '-t' ||
       start.timeoutSeconds !== 30 || start.hardLimitSeconds !== 120) {
     failures.push('pg_ctl start no-pipe/wait/log/timeout lock drift')
+  }
+  return failures
+}
+
+function probeToolVersion(path) {
+  const result = run(path, ['--version'], { timeout: 10000 })
+  if (result.status !== 0 || result.error) return null
+  return String(result.stdout || result.stderr).match(/\b(\d+\.\d+)\b/)?.[1] ?? null
+}
+
+function validateExecutionToolchain(candidate, dependencies = {}) {
+  const pathExists = dependencies.pathExists ?? existsSync
+  const versionProbe = dependencies.versionProbe ?? probeToolVersion
+  const failures = [...validateStaticContract(candidate)]
+  for (const path of [candidate.initdbPath, candidate.pgCtlPath, candidate.psqlPath]) {
+    if (!pathExists(path)) {
+      failures.push(`local Postgres tool missing: ${basename(path)}`)
+      continue
+    }
+    const actualVersion = versionProbe(path)
+    if (actualVersion !== candidate.toolVersion) {
+      failures.push(`local Postgres tool version drift: ${basename(path)}`)
+    }
   }
   return failures
 }
@@ -179,8 +209,8 @@ function validateStartInvocation(invocation) {
   return failures
 }
 
-function assertContract() {
-  const failures = validateContract(regression)
+function assertStaticContract() {
+  const failures = validateStaticContract(regression)
   if (failures.length > 0) fail(`local Postgres regression contract refused: ${failures.join('; ')}`)
   const environment = cleanEnvironment()
   if (regression.forbiddenInheritedEnvironment.some((name) => Object.hasOwn(environment, name)) ||
@@ -189,8 +219,13 @@ function assertContract() {
   }
 }
 
+function assertExecutionToolchain() {
+  const failures = validateExecutionToolchain(regression)
+  if (failures.length > 0) fail(`local Postgres execution toolchain refused: ${failures.join('; ')}`)
+}
+
 function runStaticSelfTest() {
-  assertContract()
+  assertStaticContract()
   const mutate = (changes) => ({ ...structuredClone(regression), ...changes })
   const negativeCases = [
     mutate({ temporaryRoot: 'C:/Users/non-ascii-\u7941/p1' }),
@@ -205,8 +240,30 @@ function runStaticSelfTest() {
     mutate({ forbiddenInheritedEnvironment: ['USERNAME'] }),
     mutate({ remoteConnectionsAllowed: true }),
   ]
-  const negativePassed = negativeCases.filter((candidate) => validateContract(candidate).length > 0).length
+  const negativePassed = negativeCases.filter((candidate) => validateStaticContract(candidate).length > 0).length
   if (negativePassed !== negativeCases.length) fail('ASCII/UTF8/locale static negative test failed')
+  const missingRoot = 'D:/CanWinP1MissingTools/bin'
+  const missingToolsStaticCandidate = mutate({
+    binaryRoot: missingRoot,
+    initdbPath: `${missingRoot}/initdb.exe`,
+    pgCtlPath: `${missingRoot}/pg_ctl.exe`,
+    psqlPath: `${missingRoot}/psql.exe`,
+  })
+  if (validateStaticContract(missingToolsStaticCandidate).length > 0) {
+    fail('self-test incorrectly requires local Postgres files to exist')
+  }
+  const toolPaths = [regression.initdbPath, regression.pgCtlPath, regression.psqlPath]
+  const executeMissingPassed = toolPaths.filter((missingPath) => validateExecutionToolchain(regression, {
+    pathExists: (path) => path !== missingPath,
+    versionProbe: () => regression.toolVersion,
+  }).length > 0).length
+  const executeVersionDriftPassed = validateExecutionToolchain(regression, {
+    pathExists: () => true,
+    versionProbe: () => '18.3',
+  }).length > 0 ? 1 : 0
+  if (executeMissingPassed !== toolPaths.length || executeVersionDriftPassed !== 1) {
+    fail('execute tool existence/version negative test failed')
+  }
   const positiveStart = pgCtlStartInvocation('D:\\CanWinP1LocalPgRuns\\selftest\\data', 'D:\\CanWinP1LocalPgRuns\\selftest\\postgres.log', 55432)
   const withoutPair = (args, flag) => {
     const index = args.indexOf(flag)
@@ -222,7 +279,7 @@ function runStaticSelfTest() {
   if (validateStartInvocation(positiveStart).length > 0 || startNegativePassed !== startNegativeCases.length) {
     fail('pg_ctl no-pipe/log/wait/timeout static negative test failed')
   }
-  console.log(`P1_PENDING_TRIGGER_POSTGRES_SELFTEST_OK positive=2 negative=${negativePassed + startNegativePassed}/${negativeCases.length + startNegativeCases.length} asciiRoot=1 asciiBootstrapUser=1 utf8=2 localeC=1 fixedPaths=3 inheritedIdentityDenied=5 pgCtlNoPipe=1 pgCtlStartNegative=${startNegativePassed}/${startNegativeCases.length} hardLimitSeconds=120 remoteConnections=0 databaseCalls=0`)
+  console.log(`P1_PENDING_TRIGGER_POSTGRES_SELFTEST_OK positive=3 negative=${negativePassed + startNegativePassed + executeMissingPassed + executeVersionDriftPassed}/${negativeCases.length + startNegativeCases.length + toolPaths.length + 1} asciiRoot=1 asciiBootstrapUser=1 utf8=2 localeC=1 fixedPathFormats=3 selfTestMissingTools=allowed executeMissingTools=${executeMissingPassed}/${toolPaths.length} executeVersionDrift=${executeVersionDriftPassed}/1 inheritedIdentityDenied=5 pgCtlNoPipe=1 pgCtlStartNegative=${startNegativePassed}/${startNegativeCases.length} hardLimitSeconds=120 remoteConnections=0 databaseCalls=0`)
 }
 
 const fixtureSql = String.raw`
@@ -289,7 +346,8 @@ select case when to_regnamespace('canwin_p1_regression') is null then 'rollback-
 async function main() {
   if (mode === '--self-test') return runStaticSelfTest()
   if (mode !== '--execute') fail('usage: --self-test or --execute')
-  assertContract()
+  assertStaticContract()
+  assertExecutionToolchain()
   runDeadline = Date.now() + regression.pgCtlStart.hardLimitSeconds * 1000
   mkdirSync(regression.temporaryRoot, { recursive: true })
   const runDirectory = mkdtempSync(join(resolve(regression.temporaryRoot), 'p1-pending-trigger-'))
