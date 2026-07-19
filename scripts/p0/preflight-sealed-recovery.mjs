@@ -196,6 +196,11 @@ const managedCustomization = getManagedSchemaCustomizationSql({
 })
 if (!managedCustomization.sql.includes('create policy ') ||
     !managedCustomization.sql.includes('CREATE TRIGGER on_auth_user_created') ||
+    !managedCustomization.sql.includes('FROM public.profiles') ||
+    managedCustomization.sql.includes('FROM profiles') ||
+    !managedCustomization.sql.includes('public.has_permission(') ||
+    !managedCustomization.sql.includes('public.current_profile_role(') ||
+    !managedCustomization.sql.includes('EXECUTE FUNCTION public.handle_new_user()') ||
     managedCustomization.sql.includes('undefined')) fail('authorized managed schema customizations cannot be serialized')
 
 const reconciliationSql = readFileSync(resolve(repoRoot, 'scripts', 'p0', 'sealed-reconciliation.sql'), 'utf8')

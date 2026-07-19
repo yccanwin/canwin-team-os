@@ -78,6 +78,12 @@ check('backup records early connection failures and clears sensitive working sta
   backup.includes('if (key) key.fill(0)'))
 
 check('managed trigger difference is frozen exactly', library.includes("auth.users.on_auth_user_created") && library.includes("public") && library.includes("handle_new_user"))
+check('managed customization serialization locks and qualifies application dependencies',
+  library.match(/with search_path_locked as materialized/g)?.length === 2 &&
+  library.includes("set_config('search_path','',true)") &&
+  library.includes("policySql.includes('FROM public.profiles')") &&
+  library.includes("triggerSql.includes('EXECUTE FUNCTION public.handle_new_user()')") &&
+  library.includes('managed customization SQL contains an unqualified application dependency'))
 check('managed trigger DDL is restored after public function availability', restore.indexOf("files.schema") < restore.indexOf("files.policies") && restore.indexOf("files.data") < restore.indexOf("files.policies"))
 check('database restore is a single transaction', restore.includes("'--single-transaction'") && restore.includes("'ON_ERROR_STOP=1'"))
 check('runtime package gate decrypts every data dump and rejects protected trigger toggles',
@@ -95,6 +101,9 @@ check('runtime package gate validates the immutable platform default-privilege b
   packageRuntime.includes('supabaseAdminPublicDefaultPrivilegeRows') &&
   packageRuntime.includes('supabaseAdminPublicDefaultPrivilegesMd5') &&
   packageRuntime.includes('Supabase platform default privileges are baseline-only and sealed by fingerprint'))
+check('runtime package gate validates schema-qualified managed customization dependencies',
+  packageRuntime.includes('managedCustomizationDependenciesAreQualified') &&
+  packageRuntime.includes('managed customization dependencies are schema-qualified'))
 check('restore rejects protected trigger toggles in every data dump before target access',
   restore.includes("['public data', decrypted.get('database.dataDump')]") &&
   restore.includes("['migration history data', decrypted.get('database.migrationHistoryDataDump')]") &&
@@ -111,6 +120,9 @@ check('restore compares immutable platform default privileges before the formal 
   restore.includes('target platform default privileges') &&
   restore.includes('isolated target Supabase platform default privileges differ from the sealed source baseline') &&
   restore.indexOf('targetPlatformDefaultPrivileges') < restore.indexOf('formalAttemptStarted = true'))
+check('restore rejects unqualified managed customization dependencies before target access',
+  restore.includes('sealed managed customization SQL contains an unqualified application dependency') &&
+  restore.indexOf('managedCustomizationSql') < restore.indexOf('const targetDb = getTemporaryDbEnvironment'))
 check('target default table privileges are revoked before schema restore', restore.includes('alter default privileges in schema public revoke all on tables from anon, authenticated'))
 check('real restored users are banned in the database transaction', restore.includes("update auth.users set banned_until = now() + interval '100 years'"))
 check('Functions and secrets remain absent', restore.includes('finalFunctions.length !== 0') && restore.includes('finalSecrets.length !== 0'))

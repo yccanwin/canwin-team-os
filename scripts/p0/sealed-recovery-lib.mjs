@@ -342,6 +342,9 @@ export function getReconciliation({ psqlPath, pgEnvironment, sql }) {
 
 export function getStoragePolicySql({ psqlPath, pgEnvironment }) {
   const sql = `
+with search_path_locked as materialized (
+  select pg_catalog.set_config('search_path','',true) as ignored
+)
 select coalesce(string_agg(
   format('create policy %I on %I.%I as %s for %s to %s%s%s;',
     p.polname,n.nspname,c.relname,
@@ -356,12 +359,16 @@ select coalesce(string_agg(
 from pg_catalog.pg_policy p
 join pg_catalog.pg_class c on c.oid=p.polrelid
 join pg_catalog.pg_namespace n on n.oid=c.relnamespace
+cross join search_path_locked
 where n.nspname in ('auth','storage');`
   return runPsql({ psqlPath, pgEnvironment, sql }) + '\n'
 }
 
 function collectManagedTriggers({ psqlPath, pgEnvironment }) {
   const sql = `
+with search_path_locked as materialized (
+  select pg_catalog.set_config('search_path','',true) as ignored
+)
 select coalesce(jsonb_agg(jsonb_build_object(
   'schema',n.nspname,
   'table',c.relname,
@@ -376,6 +383,7 @@ join pg_catalog.pg_class c on c.oid=t.tgrelid
 join pg_catalog.pg_namespace n on n.oid=c.relnamespace
 join pg_catalog.pg_proc p on p.oid=t.tgfoid
 join pg_catalog.pg_namespace pn on pn.oid=p.pronamespace
+cross join search_path_locked
 where not t.tgisinternal and n.nspname in ('auth','storage');`
   return parseJson('managed trigger inventory', runPsql({ psqlPath, pgEnvironment, sql }))
 }
@@ -401,6 +409,11 @@ export function getManagedSchemaCustomizationSql({ psqlPath, sourcePgEnvironment
   }
   const policySql = getStoragePolicySql({ psqlPath, pgEnvironment: sourcePgEnvironment })
   const triggerSql = sourceOnly.map((item) => item.definition + ';').join('\n\n')
+  if (!policySql.includes('FROM public.profiles') || policySql.includes('FROM profiles') ||
+      !policySql.includes('public.has_permission(') || !policySql.includes('public.current_profile_role(') ||
+      !triggerSql.includes('EXECUTE FUNCTION public.handle_new_user()')) {
+    throw new Error('managed customization SQL contains an unqualified application dependency')
+  }
   return {
     sql: policySql + '\n' + triggerSql + '\n',
     triggerDiff: { sourceCount: source.length, targetCount: target.length, sourceOnly, targetOnly, changed },

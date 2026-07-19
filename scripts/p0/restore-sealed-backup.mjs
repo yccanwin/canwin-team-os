@@ -116,6 +116,13 @@ if (!Number.isSafeInteger(Number(sealedSchemaInventory.supabaseAdminPublicDefaul
     !/^[a-f0-9]{32}$/.test(sealedSchemaInventory.supabaseAdminPublicDefaultPrivilegesMd5 ?? '')) {
   throw new Error('sealed Supabase platform default-privilege baseline is invalid')
 }
+const managedCustomizationSql = decrypted.get('database.authStorageSchemaDiff').toString('utf8')
+if (!managedCustomizationSql.includes('FROM public.profiles') || managedCustomizationSql.includes('FROM profiles') ||
+    !managedCustomizationSql.includes('public.has_permission(') ||
+    !managedCustomizationSql.includes('public.current_profile_role(') ||
+    !managedCustomizationSql.includes('EXECUTE FUNCTION public.handle_new_user()')) {
+  throw new Error('sealed managed customization SQL contains an unqualified application dependency')
+}
 
 const cliPath = runContract.toolchain.supabaseCli.path
 const psqlPath = runContract.toolchain.psql.path
@@ -237,7 +244,7 @@ try {
   writeFileSync(files.data, decrypted.get('database.dataDump'), { flag: 'wx' })
   writeFileSync(files.migrationSchema, decrypted.get('database.migrationHistorySchemaDump'), { flag: 'wx' })
   writeFileSync(files.migrations, decrypted.get('database.migrationHistoryDataDump'), { flag: 'wx' })
-  writeFileSync(files.policies, decrypted.get('database.authStorageSchemaDiff'), { flag: 'wx' })
+  writeFileSync(files.policies, managedCustomizationSql, { flag: 'wx' })
   writeFileSync(files.post, "update auth.users set banned_until = now() + interval '100 years';\nset session_replication_role = origin;\n", { flag: 'wx' })
   runPgTool({
     commandPath: psqlPath,

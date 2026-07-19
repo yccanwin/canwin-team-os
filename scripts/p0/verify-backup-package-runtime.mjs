@@ -182,6 +182,7 @@ let dataDumpsOmitProtectedTriggerToggles = false
 let applicationSchemaIsComplete = false
 let applicationSchemaInventoryIsSafe = false
 let platformDefaultPrivilegeBaselineIsSafe = false
+let managedCustomizationDependenciesAreQualified = false
 try {
   packageKey = readProtectedKey({
     repoRoot,
@@ -227,11 +228,23 @@ try {
     Number.isSafeInteger(Number(schemaInventory.supabaseAdminPublicDefaultPrivilegeRows)) &&
     Number(schemaInventory.supabaseAdminPublicDefaultPrivilegeRows) > 0 &&
     /^[a-f0-9]{32}$/.test(schemaInventory.supabaseAdminPublicDefaultPrivilegesMd5 ?? '')
+  const managedCustomizationSql = readEncryptedArtifact({
+    packageDirectory,
+    artifact: manifest.database?.authStorageSchemaDiff,
+    key: packageKey,
+  }).toString('utf8')
+  managedCustomizationDependenciesAreQualified =
+    managedCustomizationSql.includes('FROM public.profiles') &&
+    !managedCustomizationSql.includes('FROM profiles') &&
+    managedCustomizationSql.includes('public.has_permission(') &&
+    managedCustomizationSql.includes('public.current_profile_role(') &&
+    managedCustomizationSql.includes('EXECUTE FUNCTION public.handle_new_user()')
 } catch {
   dataDumpsOmitProtectedTriggerToggles = false
   applicationSchemaIsComplete = false
   applicationSchemaInventoryIsSafe = false
   platformDefaultPrivilegeBaselineIsSafe = false
+  managedCustomizationDependenciesAreQualified = false
 } finally {
   if (packageKey) packageKey.fill(0)
 }
@@ -239,6 +252,7 @@ check('all data dumps omit protected table trigger toggles', dataDumpsOmitProtec
 check('application private schema dump is complete and function-only', applicationSchemaIsComplete)
 check('application private schema inventory has no unsealed data relations', applicationSchemaInventoryIsSafe)
 check('Supabase platform default privileges are baseline-only and sealed by fingerprint', platformDefaultPrivilegeBaselineIsSafe)
+check('managed customization dependencies are schema-qualified', managedCustomizationDependenciesAreQualified)
 
 for (const path of [
   'auth.counts.authUsers',
