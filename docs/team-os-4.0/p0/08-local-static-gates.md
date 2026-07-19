@@ -45,7 +45,7 @@ npm.cmd run test:p0:local
 当前合同如实记录：
 
 - 已知生产 ref：与 supabase/config.toml 一致；
-- 测试 ref：`xlpkvjojuqwaqtahaksm`；
+- 测试 ref：`gktelqueikmbhtmdbjnh`；
 - 测试项目状态：`declared`，Supabase 只读复核状态为 `ACTIVE_HEALTHY`；
 - 生产与测试 ref：不同；
 - 预览构建：恢复、密钥隔离和运行时校验完成前保持禁止。

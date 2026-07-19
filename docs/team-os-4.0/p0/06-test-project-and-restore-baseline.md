@@ -16,8 +16,8 @@
 | 本地 `supabase/config.toml` | 仍只声明生产项目；测试项目不写入默认链接配置 |
 | 生产迁移历史 | 69；版本和名称与本地精确匹配 |
 | 本地迁移文件 | 69；已有版本/文件名/SHA256 清单和纯静态校验 |
-| 独立测试项目 | `xlpkvjojuqwaqtahaksm`；`ap-northeast-1`；`ACTIVE_HEALTHY`；2026-07-19 已创建 |
-| 失败现场保留 | 旧测试项目 `adzerzckgxxibadxkhcr` 已暂停为 `INACTIVE`；保留第 9 个候选的数据库、Storage 与失败证据，不删除、不复用 |
+| 独立测试项目 | `gktelqueikmbhtmdbjnh`；`ap-northeast-1`；`ACTIVE_HEALTHY`；2026-07-19 已创建；月费确认值 0 |
+| 失败现场保留 | 测试项目 `adzerzckgxxibadxkhcr`、`xlpkvjojuqwaqtahaksm` 均已暂停为 `INACTIVE`；分别保留第 9、12 个候选的数据库/事务现场、Storage 与失败证据，不删除、不复用 |
 | 数据库备份文件及校验和 | 未提供本轮证据 |
 | Auth/岗位关系导出 | 未提供本轮证据 |
 | Storage 对象备份 | 未提供本轮证据 |

@@ -6,7 +6,7 @@ import { readEncryptedArtifact, readProtectedKey } from './sealed-recovery-lib.m
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const productionProjectRef = 'agygfhmkazcbqaqwmljb'
-const isolatedTestProjectRef = 'xlpkvjojuqwaqtahaksm'
+const isolatedTestProjectRef = 'gktelqueikmbhtmdbjnh'
 const requiredApplicationPrivateRoutines = [
   'refresh_order_performance_state_core',
   'refresh_performance_after_payment',
