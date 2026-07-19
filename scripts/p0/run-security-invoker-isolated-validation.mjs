@@ -46,6 +46,7 @@ const porcelain = execFileSync('git', ['status', '--porcelain'], { cwd: repoRoot
 if (porcelain.length !== 0) throw new Error('tracked security validation implementation is not committed')
 if (!/^[a-f0-9]{40}$/.test(gitCommit)) throw new Error('cannot resolve immutable Git commit')
 if (existsSync(evidenceDirectory)) throw new Error('security validation run id already exists')
+mkdirSync(evidenceRoot, { recursive: true })
 mkdirSync(evidenceDirectory, { recursive: false })
 
 let db = null
