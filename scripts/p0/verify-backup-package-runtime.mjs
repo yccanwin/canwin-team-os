@@ -205,14 +205,10 @@ for (const path of [
 check('reconciliation query is versioned by SHA256', isSha256(manifest.reconciliation?.querySha256))
 check('source-before reconciliation has SHA256', isSha256(manifest.reconciliation?.sourceBeforeSha256))
 check('source-after reconciliation has SHA256', isSha256(manifest.reconciliation?.sourceAfterSha256))
-check('target reconciliation has SHA256', isSha256(manifest.reconciliation?.targetAfterSha256))
+check('target reconciliation remains pending before restore', manifest.reconciliation?.targetAfterSha256 === null)
 check(
   'source did not change during the backup window',
   manifest.reconciliation?.sourceBeforeSha256 === manifest.reconciliation?.sourceAfterSha256,
-)
-check(
-  'isolated target reconciles to the frozen source snapshot',
-  manifest.reconciliation?.sourceAfterSha256 === manifest.reconciliation?.targetAfterSha256,
 )
 check('reconciliation precision is 2', manifest.reconciliation?.decimalPrecision === 2)
 check('reconciliation currency is CNY', manifest.reconciliation?.keyAmounts?.currency === 'CNY')

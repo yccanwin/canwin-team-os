@@ -14,6 +14,7 @@ const gates = [
   ['advisor-risk-priority-evidence', resolve(repoRoot, 'scripts', 'p0', 'verify-advisor-risk-priority-evidence.mjs')],
   ['backup-manifest-contract', resolve(repoRoot, 'scripts', 'p0', 'verify-backup-manifest-contract.mjs')],
   ['restore-run-contract', resolve(repoRoot, 'scripts', 'p0', 'verify-restore-run-contract.mjs')],
+  ['sealed-recovery-contract', resolve(repoRoot, 'scripts', 'p0', 'verify-sealed-recovery-contract.mjs')],
 ]
 
 let run = 0

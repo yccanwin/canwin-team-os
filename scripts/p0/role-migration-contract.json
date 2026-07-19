@@ -51,14 +51,31 @@
   },
   "manualPrimaryRoleDecisions": {
     "required": 2,
-    "resolved": 0,
-    "status": "owner-decision-pending",
+    "resolved": 2,
+    "status": "owner-confirmed-awaiting-isolated-application",
     "allowedPrimaryRoles": [
       "sales",
       "implementation",
       "operations",
       "finance",
       "admin"
-    ]
+    ],
+    "resolutionSummary": {
+      "sales": 1,
+      "implementation": 0,
+      "operations": 0,
+      "finance": 0,
+      "admin": 1
+    },
+    "liveMatchEvidence": {
+      "verifiedAt": "2026-07-19T02:25:55.737Z",
+      "projectRef": "agygfhmkazcbqaqwmljb",
+      "requestedPeople": 2,
+      "uniqueActiveMatches": 2,
+      "requiredRoleCodesAvailable": true,
+      "readOnly": true,
+      "writePerformed": false
+    },
+    "productionAssignmentsWritten": 0
   }
 }

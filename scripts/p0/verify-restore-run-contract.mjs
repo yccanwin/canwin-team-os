@@ -57,7 +57,7 @@ exactKeys('authorization', run.authorization, [
   'productionBackupRead', 'productionWriteFreezeApproved', 'targetRestoreWrite',
   'formalAttemptId', 'formalAttemptStarted', 'maxAttempts', 'noAutomaticRetry',
 ])
-exactKeys('toolchain', run.toolchain, ['supabaseCli', 'docker', 'psql', 'pgDump'])
+exactKeys('toolchain', run.toolchain, ['method', 'supabaseCli', 'docker', 'psql', 'pgDump'])
 exactKeys('artifacts', run.artifacts, [
   'backupPackageManifest', 'backupPackageManifestSha256', 'evidenceDirectory',
 ])
@@ -126,17 +126,23 @@ check(
 )
 
 const tools = ['supabaseCli', 'docker', 'psql', 'pgDump']
+check('toolchain method is the approved Session Pooler client path', run.toolchain?.method === 'session-pooler-postgresql-client')
 for (const tool of tools) {
   const value = run.toolchain?.[tool]
   exactKeys('toolchain.' + tool, value, ['status', 'path', 'version'])
-  check(tool + ' status is supported', ['missing', 'ready'].includes(value?.status))
+  check(tool + ' status is supported', ['missing', 'ready', 'not-required'].includes(value?.status))
   check(
     tool + ' evidence matches status',
     value?.status === 'missing'
       ? value.path === null && value.version === null
-      : typeof value.path === 'string' && /^[A-Za-z]:\\/.test(value.path) && typeof value.version === 'string' && value.version.length > 0,
+      : value?.status === 'not-required'
+        ? value.path === null && value.version === null
+        : typeof value.path === 'string' && /^[A-Za-z]:\\/.test(value.path) && typeof value.version === 'string' && value.version.length > 0,
   )
 }
+check('Docker is explicitly not required for the Session Pooler client path', run.toolchain?.docker?.status === 'not-required')
+check('Session Pooler client tools are ready',
+  ['supabaseCli', 'psql', 'pgDump'].every((tool) => run.toolchain?.[tool]?.status === 'ready'))
 
 check(
   'backup package reference is paired',
@@ -187,7 +193,9 @@ if (run.dataPolicy?.mode !== run.dataPolicy?.g0EligibleMode) blockers.push('g0-d
 if (run.authorization?.productionBackupRead !== true) blockers.push('production-backup-read-authorization')
 if (run.authorization?.targetRestoreWrite !== true) blockers.push('target-restore-write-authorization')
 if (freeze?.status !== 'verified' || freezeChannels.some((status) => status !== 'verified')) blockers.push('write-freeze-verification')
-if (tools.some((tool) => run.toolchain?.[tool]?.status !== 'ready')) blockers.push('toolchain')
+if (run.toolchain?.method !== 'session-pooler-postgresql-client' ||
+    ['supabaseCli', 'psql', 'pgDump'].some((tool) => run.toolchain?.[tool]?.status !== 'ready') ||
+    run.toolchain?.docker?.status !== 'not-required') blockers.push('toolchain')
 if (!run.artifacts?.backupPackageManifest || !run.artifacts?.backupPackageManifestSha256 || !run.artifacts?.evidenceDirectory) blockers.push('backup-artifacts')
 
 const allNotRun = stepStatuses.every((status) => status === 'not-run')

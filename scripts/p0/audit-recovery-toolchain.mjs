@@ -12,6 +12,9 @@ const definitions = {
   psql: { command: 'psql', versionArgs: ['--version'] },
   pgDump: { command: 'pg_dump', versionArgs: ['--version'] },
 }
+const supportedMethods = {
+  'session-pooler-postgresql-client': ['supabaseCli', 'psql', 'pgDump'],
+}
 
 let run
 try {
@@ -29,21 +32,26 @@ if (process.platform !== 'win32' || !existsSync(whereExe)) {
 const checks = []
 const check = (label, result) => checks.push([label, Boolean(result)])
 const findings = []
+const requiredTools = supportedMethods[run.toolchain?.method] ?? []
+check('toolchain method is supported', requiredTools.length > 0)
 
 for (const [name, definition] of Object.entries(definitions)) {
   const declared = run.toolchain?.[name]
   check(name + ' declaration exists', declared !== null && typeof declared === 'object')
-  check(name + ' declared status is supported', ['missing', 'ready'].includes(declared?.status))
+  check(name + ' declared status is supported', ['missing', 'ready', 'not-required'].includes(declared?.status))
 
-  const located = spawnSync(whereExe, [definition.command], {
-    cwd: repoRoot,
-    encoding: 'utf8',
-    windowsHide: true,
-  })
-  const paths = located.status === 0
-    ? located.stdout.split(/\r?\n/).map((value) => value.trim()).filter(Boolean)
-    : []
-  const actualPath = paths[0] ?? null
+  let actualPath = typeof declared?.path === 'string' && existsSync(declared.path) ? declared.path : null
+  if (!actualPath) {
+    const located = spawnSync(whereExe, [definition.command], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      windowsHide: true,
+    })
+    const paths = located.status === 0
+      ? located.stdout.split(/\r?\n/).map((value) => value.trim()).filter(Boolean)
+      : []
+    actualPath = paths[0] ?? null
+  }
   let actualStatus = 'missing'
   let actualVersion = null
 
@@ -59,17 +67,18 @@ for (const [name, definition] of Object.entries(definitions)) {
   }
 
   findings.push({ name, declared: declared?.status, actualStatus, actualPath, actualVersion })
-  if (declared?.status === 'missing') {
+  if (declared?.status === 'not-required') {
+    check(name + ' is not required by the selected method', !requiredTools.includes(name))
+    check(name + ' not-required declaration has no path or version', declared.path === null && declared.version === null)
+  } else if (declared?.status === 'missing') {
     check(name + ' is truly missing', actualStatus === 'missing')
     check(name + ' missing declaration has no path or version', declared.path === null && declared.version === null)
   } else {
     check(name + ' executable exists', actualStatus === 'ready')
     check(name + ' declared path exists', typeof declared.path === 'string' && existsSync(declared.path))
-    check(
-      name + ' declared path matches the executable',
+    check(name + ' declared path matches the executable',
       typeof declared.path === 'string' && actualPath !== null &&
-        resolve(declared.path).toLowerCase() === resolve(actualPath).toLowerCase(),
-    )
+      resolve(declared.path).toLowerCase() === resolve(actualPath).toLowerCase())
     check(
       name + ' declared version matches current output',
       typeof declared.version === 'string' && actualVersion?.includes(declared.version),
@@ -90,7 +99,10 @@ for (const finding of findings) {
       ' path=' + (finding.actualPath ?? '<none>'),
   )
 }
-const ready = findings.every((finding) => finding.actualStatus === 'ready')
+const ready = requiredTools.every((name) =>
+  findings.find((finding) => finding.name === name)?.actualStatus === 'ready') &&
+  Object.entries(definitions).every(([name]) =>
+    requiredTools.includes(name) || run.toolchain?.[name]?.status === 'not-required')
 console.log(
   '[p0:toolchain] summary discovered=' + checks.length +
     ' run=' + checks.length + ' passed=' + passed +

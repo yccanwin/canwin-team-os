@@ -51,7 +51,13 @@ exactKeys('population', contract.population, [
   'activeWithMultiplePrimaryRoles', 'activeSupervisors', 'activeWarehouseFunctions',
 ])
 exactKeys('manualPrimaryRoleDecisions', contract.manualPrimaryRoleDecisions, [
-  'required', 'resolved', 'status', 'allowedPrimaryRoles',
+  'required', 'resolved', 'status', 'allowedPrimaryRoles', 'resolutionSummary',
+  'liveMatchEvidence', 'productionAssignmentsWritten',
+])
+exactKeys('manualPrimaryRoleDecisions.resolutionSummary', contract.manualPrimaryRoleDecisions?.resolutionSummary, expectedPrimaryRoles)
+exactKeys('manualPrimaryRoleDecisions.liveMatchEvidence', contract.manualPrimaryRoleDecisions?.liveMatchEvidence, [
+  'verifiedAt', 'projectRef', 'requestedPeople', 'uniqueActiveMatches',
+  'requiredRoleCodesAvailable', 'readOnly', 'writePerformed',
 ])
 
 check('schema version is supported', contract.schemaVersion === 1)
@@ -128,13 +134,28 @@ check(
   contract.manualPrimaryRoleDecisions?.required ===
     population?.activeWithoutPrimaryRole + population?.activeWithMultiplePrimaryRoles,
 )
-check('manual decisions remain pending honestly',
-  contract.manualPrimaryRoleDecisions?.resolved === 0 &&
-  contract.manualPrimaryRoleDecisions?.status === 'owner-decision-pending')
+check('manual decisions are owner-confirmed but not written to production',
+  contract.manualPrimaryRoleDecisions?.resolved === 2 &&
+  contract.manualPrimaryRoleDecisions?.status === 'owner-confirmed-awaiting-isolated-application' &&
+  contract.manualPrimaryRoleDecisions?.productionAssignmentsWritten === 0)
 check(
   'manual decisions allow exactly the five primary roles',
   exactSet(contract.manualPrimaryRoleDecisions?.allowedPrimaryRoles, expectedPrimaryRoles),
 )
+const resolutionSummary = contract.manualPrimaryRoleDecisions?.resolutionSummary ?? {}
+check('manual decision summary assigns one sales and one admin role',
+  resolutionSummary.sales === 1 && resolutionSummary.implementation === 0 &&
+  resolutionSummary.operations === 0 && resolutionSummary.finance === 0 &&
+  resolutionSummary.admin === 1)
+check('manual decision summary reconciles',
+  Object.values(resolutionSummary).every((value) => Number.isSafeInteger(value) && value >= 0) &&
+  Object.values(resolutionSummary).reduce((sum, value) => sum + value, 0) === contract.manualPrimaryRoleDecisions?.resolved)
+const liveMatch = contract.manualPrimaryRoleDecisions?.liveMatchEvidence
+check('manual decision live match was read-only and exact',
+  isIso(liveMatch?.verifiedAt) && liveMatch?.projectRef === expectedProductionRef &&
+  liveMatch?.requestedPeople === 2 && liveMatch?.uniqueActiveMatches === 2 &&
+  liveMatch?.requiredRoleCodesAvailable === true && liveMatch?.readOnly === true &&
+  liveMatch?.writePerformed === false)
 
 const serialized = JSON.stringify(contract)
 const forbiddenPatterns = [

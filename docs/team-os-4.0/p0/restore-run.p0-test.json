@@ -35,10 +35,10 @@
     "projectName": "canwinos-team-os-4-p0-test",
     "health": "ACTIVE_HEALTHY",
     "previewBuildAllowed": false,
-    "writeAuthorized": false
+    "writeAuthorized": true
   },
   "dataPolicy": {
-    "mode": "decision-pending",
+    "mode": "encrypted-full-recovery-rehearsal",
     "g0EligibleMode": "encrypted-full-recovery-rehearsal",
     "allowedModes": [
       "encrypted-full-recovery-rehearsal",
@@ -49,19 +49,20 @@
     "retentionUntil": null
   },
   "authorization": {
-    "productionBackupRead": false,
+    "productionBackupRead": true,
     "productionWriteFreezeApproved": true,
-    "targetRestoreWrite": false,
+    "targetRestoreWrite": true,
     "formalAttemptId": null,
     "formalAttemptStarted": false,
     "maxAttempts": 1,
     "noAutomaticRetry": true
   },
   "toolchain": {
-    "supabaseCli": { "status": "missing", "path": null, "version": null },
-    "docker": { "status": "missing", "path": null, "version": null },
-    "psql": { "status": "missing", "path": null, "version": null },
-    "pgDump": { "status": "missing", "path": null, "version": null }
+    "method": "session-pooler-postgresql-client",
+    "supabaseCli": { "status": "ready", "path": "C:\\Users\\祁杰1\\scoop\\apps\\supabase\\2.109.1\\supabase.exe", "version": "2.109.1" },
+    "docker": { "status": "not-required", "path": null, "version": null },
+    "psql": { "status": "ready", "path": "C:\\Users\\祁杰1\\scoop\\apps\\postgresql\\18.4-2\\bin\\psql.exe", "version": "18.4" },
+    "pgDump": { "status": "ready", "path": "C:\\Users\\祁杰1\\scoop\\apps\\postgresql\\18.4-2\\bin\\pg_dump.exe", "version": "18.4" }
   },
   "artifacts": {
     "backupPackageManifest": null,
