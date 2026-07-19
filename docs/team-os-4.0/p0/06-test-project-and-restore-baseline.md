@@ -85,7 +85,7 @@
 
 ## 统一测试入口现状
 
-当前 `npm.cmd run test:p0:static` 已覆盖迁移 SHA256、项目 ref、核心业务、4.0物理对象、角色转换、P1接口、生产逐表元数据、生产逐函数元数据、本地函数调用方、Advisor/外键风险、对象分类、备份模板、恢复运行实例和隔离数据库 CI 合同共十五项纯静态检查，并输出发现/运行/通过/失败/跳过数量。`npm.cmd run test:p0:local` 还覆盖 CI 数据库 runner 连接边界负测、前端清单、导航、只读 SQL、安全候选、103 表、页面处置、构建目标负测、隔离目标前端编译和产物扫描。仓库外 21 类制品另由 `verify:p0:backup-package` 校验；`audit:p0:recovery-toolchain` 只读核对本机工具。静态入口和 runner 自检只校验仓库及本机边界，不连接数据库。GitHub Linux 候选 16 已在临时 Supabase/Postgres 内完整执行 1 份基线、69/69 迁移、26/26 SQL 测试和 4/4 catalog 对账，清理成功，不需要仓库密钥、不连接生产；run `29686358159` 已作为 G0 远端证据验收。
+当前 `npm.cmd run test:p0:static` 已覆盖迁移 SHA256、项目 ref、核心业务、4.0物理对象、角色转换、P1接口、生产逐表元数据、生产逐函数元数据、本地函数调用方、Advisor/外键风险、对象分类、备份模板、恢复运行实例、隔离数据库 CI 合同、P1 隔离运行器、PostgreSQL pending-trigger 回归、真实账号夹具和真实页面 runner 共十九项纯静态检查，并输出发现/运行/通过/失败/跳过数量。`npm.cmd run test:p0:local` 还覆盖 CI 数据库 runner 连接边界负测、前端清单、导航、只读 SQL、安全候选、103 表、页面处置、构建目标负测、隔离目标前端编译和产物扫描。仓库外 21 类制品另由 `verify:p0:backup-package` 校验；`audit:p0:recovery-toolchain` 只读核对本机工具。静态入口和 runner 自检只校验仓库及本机边界，不连接数据库。GitHub Linux 候选 16 已在临时 Supabase/Postgres 内完整执行 1 份基线、69/69 迁移、26/26 SQL 测试和 4/4 catalog 对账，清理成功，不需要仓库密钥、不连接生产；run `29686358159` 已作为 G0 远端证据验收。
 
 G0 已通过的统一入口至少输出：
 

@@ -9,13 +9,13 @@
   "forbiddenProductionProjectRef": "agygfhmkazcbqaqwmljb",
   "candidate": {
     "requiredAncestorSha": "c99370434c2af6b9ded22821dbcf3d67ef303556",
-    "signedCiHeadSha": "ed853ebbab250f562d03f433f4d2df4ada87de4e",
+    "signedCiHeadSha": "8273f5c69e09de24c9afbf27b010d60f7b7caddf",
     "migrationVersion": "20260719130910",
     "migrationPath": "supabase/migrations/20260719130910_team_os_4_p1_access_shell.sql",
     "migrationSha256Lf": "acc7f15afa502d7a124c2a13d74d0a71c2b98c11664d58de2d4639081d5a7597",
     "testPath": "supabase/tests/team_os_4_p1_access_shell.sql",
     "testSha256Lf": "bed07c4d494ac3e7f7e993e12090194ed413b0e92d681aea0adb3eb381f430fb",
-    "remoteExecutionAllowed": false
+    "remoteExecutionAllowed": true
   },
   "referenceSync": {
     "previousMigrationSha256Lf": "8f947d5747862d678014e778737c82dfc8a50a8f9fa273d9b60f5f6822ed012c",
@@ -61,7 +61,7 @@
     "runnerPath": "scripts/p1/run-isolated-runtime.mjs",
     "runnerSha256Lf": "ac22d2d935d4b557314b5e7c61dfdf54e4af8c3dfe178ad047de1b2cf5955248",
     "validatorPath": "scripts/p1/verify-isolated-runtime-runner.mjs",
-    "validatorSha256Lf": "ebb3d2fcc1cac6718bad785e21cc9d7dcda18fadafc3b31170b3c274fcf596b5",
+    "validatorSha256Lf": "3749561b5bb13f2e725be2447fe43f7d3b34ad745422e99a91b732307e9e6085",
     "postgresRegressionPath": "scripts/p1/verify-pending-trigger-postgres.mjs",
     "postgresRegressionSha256Lf": "f4f54d77436b1b91035cd8fff7572dd52f4375aa75f52325a664426d0b9cf3ea"
   },

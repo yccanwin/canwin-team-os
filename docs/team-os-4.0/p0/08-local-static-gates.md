@@ -23,7 +23,7 @@
 - restore-run.p0-test.json 与 scripts/p0/verify-restore-run-contract.mjs：记录当前独立测试项目的一次性恢复运行状态、缺失工具、授权边界、首错停和禁止重试/清理。
 - scripts/p0/ci-database-test-contract.json、scripts/p0/ci-runtime/supabase/config.toml 与 scripts/p0/verify-ci-database-contract.mjs：冻结临时本地数据库、1 份基线、69 个迁移、26 个 SQL 测试、4 项 catalog 对账、Supabase CLI 2.109.1、Postgres 17 和零仓库密钥边界；按函数参数签名分别冻结测试引用的 54 个函数/视图定义和其中 28 个重复定义对象，要求直接正向源码断言存在于对象最后一条完整 `CREATE` 语句或明确重命名来源，不能由同名重载、同文件其他对象或变量别名代偿；定义来源解析覆盖声明初始化、后置赋值和 `SELECT ... INTO`，SQL 分句器识别单/双引号、行/块注释、嵌套块注释和 dollar-quoted 正文中的分号，interval 输入文本与数据库规范化输出按等价值统一比较；另冻结 `crm_leads_visible` 的 2 处精确列清单和 2 个直接写入正式订单的回滚夹具，前者必须对齐最终20列顺序，后者必须包含最终必填 `order_number`。30 个负向自检拒绝清单、连接、版本、全栈误启动、`DO` 美元引用词法粘连、把限制策略误当写授权、函数/视图正文格式敏感、包装视图/计算函数错位、函数重载/重命名错位、interval 等价写法误判、视图列清单漏最终字段、正式订单夹具缺必填编号、错指早期迁移、导入历史直接写权限、过期迁移链预期、失败证据删除或 G0 状态漂移。
 - scripts/p0/run-ci-database-gates.mjs：自检模式只验证 127.0.0.1:54322 连接边界并执行 6 个负例；GitHub 模式首错即停地安装基线、历史迁移和测试，使用合成夹具且不连接生产。
-- scripts/p0/run-static-gates.mjs：统一运行以上纯静态检查并输出发现、运行、通过、失败和跳过数量。
+- scripts/p0/run-static-gates.mjs：统一运行十九项纯静态检查并输出发现、运行、通过、失败和跳过数量；其中真实账号夹具与真实页面 runner 只执行 `--self-test`，网络调用为 0。
 - scripts/p0/verify-frontend-inventory.mjs：验证现有路由、总方案 4.8 节页面、文件入口和 Storage 命名空间清单。
 - scripts/p0/verify-p1-app-navigation-contract.mjs：验证五主岗位、两个附加职能、桌面/移动导航和旧路由映射合同。
 - scripts/p0/validate-catalog-snapshot-readonly.ps1：验证 catalog 快照 SQL 只能执行只读语句。
@@ -31,7 +31,7 @@
 - scripts/p0/verify-table-classification-register.mjs：兼容入口，调用最终对象分类冻结校验器，验证来源哈希、集合、逐项字段、风险边界和负向自检。
 - scripts/p0/verify-frontend-disposition-crosscheck.mjs：交叉核验前端路由、总方案 4.8、上传入口、Storage 命名空间和处置状态。
 - scripts/p0/verify-build-target.mjs：把 production/test-preview 目标与精确项目 ref、URL、前端 key 类型和版本化指纹绑定；拒绝 service role/secret、ref 错配、交叉环境产物和未解锁预览，并内置 20 个正负用例。
-- scripts/p0/run-local-integration.mjs：按固定顺序运行十一个本地检查点，首个非零即退出并输出发现、运行、通过、失败和跳过数量。
+- scripts/p0/run-local-integration.mjs：按固定顺序运行十二个本地检查点，首个非零即退出并输出发现、运行、通过、失败和跳过数量。
 - .github/workflows/p0-static.yml：PR/手动触发两个作业；Windows 作业在 `npm ci` 后调用本地统一入口，Linux 作业只启动独立临时 Supabase/Postgres，执行数据库门禁并始终删除本地数据卷。
 
 ## 命令
@@ -40,7 +40,7 @@
 npm.cmd run test:p0:local
 ~~~
 
-统一入口固定运行：十五个 static gates、CI 数据库 runner 自检、前端 inventory、P1 导航合同、catalog 只读自检、安全视图候选校验、103 表分类合同、前端处置交叉核验、构建目标负测、隔离目标前端编译和静态产物扫描。runner 发现十一个检查点；其中 static gates 在第一个检查点内部按 15/15 单独计数。任一子命令首次返回非零，runner 立即停止，不运行后续检查点，并如实输出 skipped 数量。
+统一入口固定运行：十九个 static gates、CI 数据库 runner 自检、前端 inventory、P1 导航合同、P1 应用壳层、catalog 只读自检、安全视图候选校验、103 表分类合同、前端处置交叉核验、构建目标负测、隔离目标前端编译和静态产物扫描。runner 发现十二个检查点；其中 static gates 在第一个检查点内部按 19/19 单独计数。任一子命令首次返回非零，runner 立即停止，不运行后续检查点，并如实输出 skipped 数量。
 
 本地统一入口不调用 Supabase CLI、MCP、业务网络、数据库或会写数据的 SQL，不部署、不发布，也不修改历史迁移。catalog 和安全视图脚本只解析仓库内 SQL；build 只生成本地产物。Linux CI 数据库作业是单独边界：只访问 GitHub 包源、容器源和 runner 的 127.0.0.1 临时数据库，不读取仓库密钥或 Supabase 项目 ref，不访问生产；结束时使用 `supabase stop --no-backup` 删除本地数据卷。
 
@@ -72,8 +72,8 @@ npm.cmd run test:p0:local
 成功输出必须同时包含：
 
 - 迁移文件：discovered=69 run=69 passed=69 failed=0；
-- 静态门禁：discovered=15 run=15 passed=15 failed=0 skipped=0；
-- 统一入口：discovered=11 run=11 passed=11 failed=0 skipped=0；
+- 静态门禁：discovered=19 run=19 passed=19 failed=0 skipped=0；
+- 统一入口：discovered=12 run=12 passed=12 failed=0 skipped=0；
 - CI 数据库边界自检：合同 definitions=54、redefined=28、crmLeadColumnAssertions=2、directOrderFixtures=2、finalFunctionIdentities=162、functionIdentityReferences=189、negative=31/31，runner negative=6/6、databaseCalls=0；
 - 安全候选换行回归：cases=4，覆盖 lf、crlf、mixed、comment-semicolon；
 - 安全候选自检：cases=10 positive=4 negative=6；候选结果为 views=3 policies=4 callers=3 migrations=clean database_calls=0；

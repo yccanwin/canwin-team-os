@@ -64,7 +64,7 @@ check(source.includes('team_os_4_p1_access_shell_ok'), 'six-identity runtime mar
 check(source.includes('assertCatalog(catalog)') && source.includes('assertReconciliation(before, after)'), 'catalog/full reconciliation missing')
 check(source.includes('webLoginAccountsCreated: 0'), 'web-login account prohibition missing')
 check(source.includes('rmSync(channel.workdir, { recursive: true, force: true })'), 'temporary channel cleanup missing')
-check(contract.candidate.remoteExecutionAllowed === false && contract.referenceSync.remoteExecutionRequires === 'synchronized-and-qualified', 'offline repair candidate can enter a remote channel')
+check(contract.candidate.remoteExecutionAllowed === true && contract.referenceSync.remoteExecutionRequires === 'synchronized-and-qualified', 'qualified repair candidate cannot enter the frozen isolated channel')
 check(source.includes("P1_REMOTE_EXECUTION_REFUSED: offline repair candidate is not reference-synchronized and qualified"), 'remote execution does not fail closed while QA hash sync is pending')
 
 const repair = contract.pendingTriggerRepair

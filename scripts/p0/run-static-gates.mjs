@@ -21,6 +21,8 @@ const gates = [
   ['ci-database-contract', resolve(repoRoot, 'scripts', 'p0', 'verify-ci-database-contract.mjs')],
   ['p1-isolated-runtime-runner', resolve(repoRoot, 'scripts', 'p1', 'verify-isolated-runtime-runner.mjs')],
   ['p1-pending-trigger-postgres-selftest', resolve(repoRoot, 'scripts', 'p1', 'verify-pending-trigger-postgres.mjs'), '--self-test'],
+  ['p1-real-account-fixture-selftest', resolve(repoRoot, 'scripts', 'p1', 'manage-real-page-accounts.mjs'), '--self-test'],
+  ['p1-real-page-runner-selftest', resolve(repoRoot, 'scripts', 'p1', 'run-real-page-acceptance.mjs'), '--self-test'],
 ]
 
 let run = 0

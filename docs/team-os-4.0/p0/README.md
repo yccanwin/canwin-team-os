@@ -1,6 +1,6 @@
 # CanWin Team OS 4.0 — P0 监理台账
 
-> 状态：P0/G0 已验收；P1 第二修复候选 Linux CI 全绿，Windows static 15/17 后因校验器 CRLF 精确匹配误判而首错停止；运行已保留不重跑，G1 未签署
+> 状态：P0/G0 已验收；两次 Windows 修复失败运行均保留且未重跑，新独立 P1 CI 已双平台全绿；失败事务只读复核为完整回滚和零 P1 残留，正式持久化应用、全量对账、六类账号页面验收及 G1 仍未完成
 > 基线：`CanWin-Team-OS-4.0-最终施工总方案.md`（2026-07-18）
 > 监理分支：`codex/team-os-4-p0-integration`
 
@@ -8,7 +8,7 @@
 
 ## 当前结论
 
-七项首批产物和 G0 已完成监理验收；P1 历史成功与失败证据均保留。PG 自测的可移植分层已完成，但第二修复候选 Windows 又因 validator 对 CRLF 使用原始精确字符串匹配而在 static 15/17 后停止；校验器换行修复、新独立 CI、隔离项目重新应用、对账和页面/账号验收仍未完成。当前不提前开发 P3–P6，不修改生产数据库和生产 Storage 策略。
+七项首批产物和 G0 已完成监理验收；P1 历史成功与失败证据均保留。校验器换行修复已由新独立 run `29694757727` 的 Linux/Windows 全绿证明，失败事务也已只读确认完整回滚且测试项目零 P1 残留；隔离项目新的正式持久化应用、全量对账和六类账号页面验收仍未完成。当前不提前开发 P3–P6，不修改生产数据库和生产 Storage 策略。
 
 当前已核实：
 
@@ -41,10 +41,11 @@
 - GitHub 第十六个独立候选运行 [`29686358159`](https://github.com/yccanwin/canwin-team-os/actions/runs/29686358159) 首次取得完整全绿证据：Windows 本地总门禁通过；Linux 临时 Postgres 17 启动、基线、69/69迁移、26/26 SQL（数据库7、权限10、业务9）和4/4 catalog对账全部通过；临时数据卷清理成功，仓库密钥、生产读取和生产写入均为0。该候选提交为 `f90fb2ee9dff365a6388049cbe9820e4ac0a771f`，15个失败候选继续原样保留且未重跑。
 - 首个 P1 远端候选运行 [`29690060130`](https://github.com/yccanwin/canwin-team-os/actions/runs/29690060130)（提交 `0a8fc72e17ee018638f96c6062cdd9a29362e334`；Windows job `88201083600`，Linux job `88201083572`）已通过 Windows 门禁、基线、70/70 迁移、7/7 数据库测试和前 10 个权限测试；第 18 个 SQL 的 Auth 自动建档夹具重复插入 `profiles`，触发 `profiles_pkey` 首错停止。失败运行未重跑，隔离数据库清理成功，catalog 0/4 未开始，生产读写均为 0；随后由下述新独立候选完成 CI 验收。
 - 新独立 P1 候选运行 [`29691027458`](https://github.com/yccanwin/canwin-team-os/actions/runs/29691027458)（提交 `ed853ebbab250f562d03f433f4d2df4ada87de4e`）已全绿：Linux job `88203660504` 用时 2分7秒，基线、70/70 迁移、27/27 SQL（数据库7、权限11、业务9）和 catalog 4/4 全部通过，随后 `supabase stop --no-backup` 清理成功；Windows job `88203660515` 用时 1分37秒，static 15/15、local 12/12、P1 壳层 71/71、1975 模块构建和 66 文件制品均通过。仓库密钥、生产读取和生产写入均为 0。该证据签收 P1 的独立 CI，不代替真实页面和账号验收，因此 G1 仍为 false。
-- 独立测试项目 `zdmuaqokndhhbarudhtw` 的唯一正式候选尝试 1/1 已首错停止并保留。dry-run 显示本地70、远端69，仅 P1 迁移 `20260719130910` 待应用；正式应用到第5条 `ALTER profile_access_roles.assignment_kind SET NOT NULL` 时，因 pending trigger events 触发 SQLSTATE `55006`。后续 SQL、catalog 和全量对账均未执行；生产读写0。测试项目发生写入尝试1，事务是否完整回滚尚未复查，禁止记为“测试写入0”或“已回滚”。失败证据位于 `D:\CanWin-Team-OS-4.0-P1-Validation\p1-isolated-20260719T150630589Z-ed853ebbab\failure.json`，SHA256 `773bf49d6fa8eb3abbe564969cbec83b22755282153fd11e5d5d0fc161cfc996`。
+- 独立测试项目 `zdmuaqokndhhbarudhtw` 的唯一正式候选尝试 1/1 已首错停止并保留。dry-run 显示本地70、远端69，仅 P1 迁移 `20260719130910` 待应用；正式应用到第5条 `ALTER profile_access_roles.assignment_kind SET NOT NULL` 时，因 pending trigger events 触发 SQLSTATE `55006`。后续 SQL、catalog 和全量对账均未执行；生产读写0。测试项目发生写入尝试1。失败证据位于 `D:\CanWin-Team-OS-4.0-P1-Validation\p1-isolated-20260719T150630589Z-ed853ebbab\failure.json`，SHA256 `773bf49d6fa8eb3abbe564969cbec83b22755282153fd11e5d5d0fc161cfc996`。其后只读复核确认失败前后13项快照完全一致、69条迁移记录不变、P1对象/夹具/开关残留0、idle transaction 0，事务完整回滚；复核文件 SHA256 `9e77cd23a712b5f908e56af8daf355c81cb36d52f468a10afdb131bea6b74ec3`。这不等于新的正式持久化应用已成功。
 - 新修复候选按 `utf8-lf` 口径锁定 6 份候选文件；本机 PostgreSQL 18 针对性回归在 `D:\CanWinP1LocalPgRuns\p1-pending-trigger-iWUhfO` 完成：负控 1/1 复现 SQLSTATE `55006`，修复顺序 4/4、回滚干净、数据库停止、远端连接 0。当前只可记为 `localPostgresAccepted=true`；首次远端失败仍保留，隔离测试项目重新应用仍为 pending，G1 仍为 false。
 - 新独立 CI run `29693556452`（HEAD `b9bcca61b826c641e550c6c070f09c4adc407cbe`）已首错停止并保留、不重跑。Linux job `88210359113` 完成迁移70/70、SQL27/27（数据库7、权限11、业务9）、catalog4/4和清理，生产读写0；Windows job `88210359107` 在 local 第一项 static 的第17门失败，前16门已通过，失败仅因 PG selftest 要求 GitHub runner 存在本机 `D:\CanWinP1Postgres18` 三工具，local 其余11项未执行。当前为 `ciRepairCandidateLinuxAccepted=true`、`windowsStatic=16/17`、`portableSelftestRepairPending=true`，不冒充完整 CI 或 G1。
 - 第二个 repair CI run `29694104452`（HEAD `92bbac9c265834d0d4f4c550137f519afe366a03`）已首错停止、保留且不重跑。Linux job `88211774885` 完成迁移70/70、SQL27/27（7/11/9）、catalog4/4和清理，生产读写0；Windows job `88211774922` 在 local 第一项 static 的 gate16 `p1-isolated-runtime-runner` 失败，前15门通过，gate17 和 local 其余11项未执行。PG selftest 脚本本身的可移植修复已完成；当前仅可记为 `portableSelftestRepairImplemented=true`、`secondRepairWindowsStatic=15/17`、`validatorLineEndingRepairPending=true`，G1 仍为 false。
+- 新独立 CI run [`29694757727`](https://github.com/yccanwin/canwin-team-os/actions/runs/29694757727)（HEAD `8273f5c69e09de24c9afbf27b010d60f7b7caddf`）已双平台全绿，前两次失败继续保留且未重跑。Linux job `88213478676` 用时142秒，迁移70/70、SQL27/27（7/11/9）、catalog4/4并清理；Windows job `88213478682` 用时111秒，static17/17、local12/12、P1壳层71/71、1975模块和66文件静态制品均通过，制品 SHA256 `33505fcddc4b814379906406287b1fa715677b1e218497e1fe5a1693f50fc21b`。GitHub上传制品0；Linux/Windows各1条 Actions Node.js运行时弃用警告及少量依赖弃用提示均不阻断。仓库密钥、生产读取、生产写入均为0。该证据不代替隔离项目持久化应用、全量对账和六类账号页面验收，故 G1/30% 仍为 false。
 
 生产侧全程只读；测试侧恢复、对账、三视图隔离修复和对象分类证据已固化。七项首批产物和 G0 已联合签收，P1 执行已解锁。测试项目仍封闭，真实账号禁登、预览和外发均未开放。
 
@@ -58,7 +59,7 @@
 | 04 | 图片入口与 Storage 清理清单 | P0 清理方案已验收 | 7 个文件入口、7 个旧命名空间和两个最终图片槽已冻结；1 bucket、32 objects 已恢复，生产策略未改 |
 | 05 | 核心实体和状态机字典 | P0 已验收 | 业务语义 76/76；22 个实体、7 组现有表扩展、11 张新增表、16 组字典、12 条不变量及 RLS/RPC/索引边界均已冻结 |
 | 06 | 测试项目与备份恢复基线 | 已验收 | 正式封闭恢复 1/1、数据库/Auth/Storage 全量对账、禁登和外发隔离证据齐全 |
-| 07 | P1 工单及冻结接口 | 第二修复候选 Linux CI 已通过，Windows 校验器换行修复待完成 | 后端4、前端4、QA5项工单冻结；Windows static 15/17 首错运行保留不重跑，完成 CRLF/LF 无关校验、新独立 CI、隔离项目重跑、对账和页面/账号验收前不写为 G1 完成 |
+| 07 | P1 工单及冻结接口 | 新独立 CI 双平台全绿，隔离持久化与页面验收待完成 | 后端4、前端4、QA5项工单冻结；两次失败运行保留不重跑，新 run 已证明 CRLF/LF 无关校验和 static17/17；完成隔离项目正式持久化应用、全量对账和六类账号页面验收前不写为 G1 完成 |
 
 ## G0 门禁
 
@@ -75,7 +76,7 @@
 
 ## 2026-07-19 本地集成检查点
 
-当前新项目恢复、对象分类、物理对象、页面/Storage处置及 P1 接口冻结证据由本次台账固化。历史 GitHub 候选已证明 static 15/15；本地统一静态入口现为 17 项，新增隔离运行器合同校验与 PostgreSQL 回归纯自测，均禁止默认执行真实数据库或远端操作。G0 已签署；该结论允许 P1 施工，但不等于 P1 运行态、G1、生产迁移、发布或合并授权。
+当前新项目恢复、对象分类、物理对象、页面/Storage处置及 P1 接口冻结证据由本次台账固化。历史 GitHub 候选的 static 计数保留原始证据；本地统一静态入口现为 19 项，包含隔离运行器合同、PostgreSQL 回归、真实账号夹具和真实页面 runner 四项纯自测，均禁止默认执行真实数据库或远端操作。G0 已签署；该结论允许 P1 施工，但不等于 P1 运行态、G1、生产迁移、发布或合并授权。
 
 - 统一入口：12/12；首错即停和 skipped 计数已接入 Windows PR/手动 CI 候选；隔离连接边界负测不连接数据库。
 - 隔离数据库 CI 合同：基线 1、迁移 70、测试 27（数据库7、权限11、业务9）、catalog 对账4；合同 33/33 负测和 runner 6/6 连接负测通过；源码断言清单冻结 definitions=54、redefined=28、最终168个公开函数身份和211个函数身份引用。Linux 作业固定 Supabase CLI 2.109.1、Postgres 17、127.0.0.1:54322、合成夹具和销毁数据卷；P1 候选 run `29691027458`、提交 `ed853ebbab250f562d03f433f4d2df4ada87de4e` 已全绿并完成清理。
@@ -84,7 +85,7 @@
 - 恢复台账：139/139；真实恢复状态为 `succeeded`、阻塞项 0；封闭恢复合同 73/73，备份模板合同 1113/1113。
 - 前端清单：36 路由、22 个 4.8 节页面、7 个文件入口、7 个 Storage 命名空间。
 - P1 导航合同：5 个主岗位、2 个附加职能、13 个应用上下文字段、36 个旧路由映射。
-- P1 接口合同：6 个物理 RPC、4 组字段白名单、6 类基础身份、16 个附加职能组合、12 个直接 API 攻击用例、13 项三团队工单；历史成功和两次 repair CI 失败均保留，第二次 Linux 已签收、Windows static 15/17、validator 换行修复待完成，隔离项目重新应用 pending，G1 仍为 false。
+- P1 接口合同：6 个物理 RPC、4 组字段白名单、6 类基础身份、16 个附加职能组合、12 个直接 API 攻击用例、13 项三团队工单；两次 repair CI 失败均保留且未重跑，新独立 CI 已签收 Linux 70/70+27/27+4/4 与 Windows static17/17+local12/12。失败事务只读复核为完整回滚、P1残留0；隔离项目正式持久化应用、全量对账和六类账号页面验收仍 pending，G1 仍为 false。
 - 后端 catalog 只读校验：9 个自检案例、15 条只读 SQL。
 - 三视图候选校验：LF/CRLF/mixed/注释分号 4 种格式通过；4 个正例、6 个负例；3 个视图、4 条策略、3 个调用方；数据库调用 0。
 - 103 表四分类：完整17项证据和监理冻结 103/103；精确恢复副本总行数 796，运行时动态表名调用 0。该单项制品保持 `g0=false` 防止独立冒充整体门禁；整体 G0 已由联合签收单确认。

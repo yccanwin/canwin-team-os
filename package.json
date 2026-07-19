@@ -41,6 +41,7 @@
     "test:p1:isolated-runner-contract": "node scripts/p1/verify-isolated-runtime-runner.mjs",
     "test:p1:postgres-selftest": "node scripts/p1/verify-pending-trigger-postgres.mjs --self-test",
     "test:p1:page-precheck": "node scripts/p1/precheck-page-acceptance.mjs",
+    "test:p1:real-account-selftest": "node scripts/p1/manage-real-page-accounts.mjs --self-test",
     "test:p1:real-page-selftest": "node scripts/p1/run-real-page-acceptance.mjs --self-test",
     "verify:build-target": "node scripts/p0/verify-build-target.mjs",
     "verify:build-artifact": "node scripts/p0/verify-build-target.mjs --artifact dist",

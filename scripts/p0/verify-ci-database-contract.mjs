@@ -850,14 +850,15 @@ function validate(candidate) {
   check(boundary.portableSelftestRepairPending === false && boundary.portableSelftestRepairImplemented === true, 'portable self-test repair implementation evidence drift')
   check(boundary.ciSecondRepairCandidateLinuxAccepted === true, 'second repair candidate Linux acceptance evidence missing')
   check(boundary.ciSecondRepairCandidateWindowsStatic === '15/17', 'second repair candidate Windows static count drift')
-  check(boundary.validatorLineEndingRepairPending === true, 'validator line-ending repair must remain pending')
+  check(boundary.validatorLineEndingRepairPending === false && boundary.validatorLineEndingRepairImplemented === true, 'validator line-ending repair acceptance drift')
+  check(boundary.newIndependentCi === 'passed', 'new independent CI success evidence missing')
   check(boundary.g1OverallClaim === false, 'G1 must remain unclaimed until real page and account acceptance passes')
   check(boundary.productionReadPerformed === false, 'production read must remain false')
   check(boundary.productionWritePerformed === false, 'production write must remain false')
   check(boundary.repositorySecretsRequired === false, 'repository secrets must not be required')
 
   const attempts = candidate.formalAttemptHistory ?? []
-  check(attempts.length === 20, 'formal attempt history count drift')
+  check(attempts.length === 21, 'formal attempt history count drift')
   const failedAttempt = attempts[0] ?? {}
   check(failedAttempt.runId === '29680934378', 'failed run id drift')
   check(failedAttempt.jobId === '88176860842', 'failed job id drift')
@@ -1222,6 +1223,35 @@ function validate(candidate) {
   check(validatorLineEndingAttempt.repositorySecretsRequired === false && validatorLineEndingAttempt.productionReadPerformed === false && validatorLineEndingAttempt.productionWritePerformed === false, 'validator line-ending secret or production boundary drift')
   check(validatorLineEndingAttempt.rerunOfFailedRun === false && validatorLineEndingAttempt.preservedWithoutRerun === true, 'validator line-ending failed run must remain preserved without rerun')
   check(validatorLineEndingAttempt.pageAccountAcceptancePassed === false, 'validator line-ending CI must not claim page/account acceptance')
+  const independentRepairAttempt = attempts[20] ?? {}
+  check(independentRepairAttempt.runId === '29694757727', 'independent repair run id drift')
+  check(independentRepairAttempt.runUrl === 'https://github.com/yccanwin/canwin-team-os/actions/runs/29694757727', 'independent repair run URL drift')
+  check(independentRepairAttempt.jobId === '88213478676' && independentRepairAttempt.windowsJobId === '88213478682', 'independent repair job ids drift')
+  check(independentRepairAttempt.headSha === '8273f5c69e09de24c9afbf27b010d60f7b7caddf', 'independent repair head SHA drift')
+  check(independentRepairAttempt.conclusion === 'success', 'independent repair conclusion drift')
+  check(independentRepairAttempt.workflowDurationSeconds === 148 && independentRepairAttempt.linuxDurationSeconds === 142 && independentRepairAttempt.windowsDurationSeconds === 111, 'independent repair duration evidence drift')
+  check(independentRepairAttempt.windowsLocalGatePassed === true, 'independent repair Windows local gate evidence missing')
+  check(independentRepairAttempt.windowsStaticGatesPassed === 17 && independentRepairAttempt.windowsLocalIntegrationPassed === 12, 'independent repair Windows gate counts drift')
+  check(independentRepairAttempt.p1AppShellAssertionsPassed === 71, 'independent repair app-shell assertion count drift')
+  check(independentRepairAttempt.frontendModulesBuilt === 1975, 'independent repair frontend module count drift')
+  check(independentRepairAttempt.frontendArtifactFiles === 66, 'independent repair frontend artifact file count drift')
+  check(independentRepairAttempt.frontendArtifactSha256 === '33505fcddc4b814379906406287b1fa715677b1e218497e1fe5a1693f50fc21b', 'independent repair frontend artifact hash drift')
+  check(independentRepairAttempt.githubUploadedArtifacts === 0, 'independent repair uploaded artifact count drift')
+  check(independentRepairAttempt.linuxGithubWarningAnnotations === 1 && independentRepairAttempt.windowsGithubWarningAnnotations === 1, 'independent repair warning annotation count drift')
+  check(JSON.stringify(independentRepairAttempt.nonBlockingWarnings) === JSON.stringify([
+    'GitHub Actions Node.js 20 action runtime deprecation; actions were forced to Node.js 24',
+    'Node.js DEP0040 punycode deprecation',
+    'Windows Node.js DEP0169 url.parse deprecation',
+  ]), 'independent repair non-blocking warning inventory drift')
+  check(independentRepairAttempt.databaseStartupPassed === true && independentRepairAttempt.baselinePassed === true, 'independent repair database startup or baseline evidence missing')
+  check(independentRepairAttempt.migrationsPassed === 70 && independentRepairAttempt.sqlTestsStarted === 27 && independentRepairAttempt.sqlTestsPassed === 27, 'independent repair migration or SQL counts drift')
+  check(independentRepairAttempt.databaseTestsPassed === 7 && independentRepairAttempt.permissionTestsPassed === 11 && independentRepairAttempt.businessTestsPassed === 9, 'independent repair test-category counts drift')
+  check(independentRepairAttempt.catalogAssertionsPassed === 4 && independentRepairAttempt.successMarker === 'P0_CI_DATABASE_GATES_OK', 'independent repair catalog or marker evidence missing')
+  check(independentRepairAttempt.cleanupPassed === true, 'independent repair cleanup evidence missing')
+  check(independentRepairAttempt.repositorySecretsRequired === false && independentRepairAttempt.productionReadPerformed === false && independentRepairAttempt.productionWritePerformed === false, 'independent repair secret or production boundary drift')
+  check(independentRepairAttempt.rerunOfFailedRun === false, 'independent repair must remain a new candidate, not a rerun')
+  check(JSON.stringify(independentRepairAttempt.priorFailedRunsPreservedWithoutRerun) === JSON.stringify(['29693556452', '29694104452']), 'prior failed repair runs must remain preserved without rerun')
+  check(independentRepairAttempt.isolatedTestProjectPersistentApplyPassed === false && independentRepairAttempt.reconciliationPassed === false && independentRepairAttempt.pageAccountAcceptancePassed === false && independentRepairAttempt.g1OverallClaim === false, 'independent CI must not claim isolated apply, reconciliation, page acceptance or G1')
   return failures
 }
 
@@ -1263,9 +1293,10 @@ const negativeCases = [
   ['portable repair regressed to pending', (value) => { value.acceptanceBoundary.portableSelftestRepairPending = true }],
   ['second repair Linux acceptance erased', (value) => { value.acceptanceBoundary.ciSecondRepairCandidateLinuxAccepted = false }],
   ['second repair Windows falsely all green', (value) => { value.acceptanceBoundary.ciSecondRepairCandidateWindowsStatic = '17/17' }],
-  ['validator line-ending repair falsely completed', (value) => { value.acceptanceBoundary.validatorLineEndingRepairPending = false }],
+  ['validator line-ending repair regressed to pending', (value) => { value.acceptanceBoundary.validatorLineEndingRepairPending = true }],
+  ['new independent CI success erased', (value) => { value.acceptanceBoundary.newIndependentCi = 'pending' }],
   ['G1 falsely claimed', (value) => { value.acceptanceBoundary.g1OverallClaim = true }],
-  ['portable failure evidence erased', (value) => { value.formalAttemptHistory.pop() }],
+  ['latest independent CI evidence erased', (value) => { value.formalAttemptHistory.pop() }],
 ]
 let negativePassed = 0
 for (const [name, mutate] of negativeCases) {
@@ -1282,5 +1313,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `P0_CI_DATABASE_CONTRACT_OK baseline=1 migrations=70 tests=${contract.tests.length} database=7 permission=11 business=9 catalog=4 definitions=${contract.expectedCounts.definitionReferencedObjects} redefined=${contract.expectedCounts.redefinedDefinitionReferencedObjects} crmLeadColumnAssertions=${contract.expectedCounts.crmLeadsVisibleExactColumnAssertions} directOrderFixtures=${contract.expectedCounts.directDealOrderFixtureFiles} finalFunctionIdentities=${contract.expectedCounts.finalPublicFunctionIdentities} functionIdentityReferences=${contract.expectedCounts.functionIdentityReferences} negative=${negativePassed}/${negativeCases.length} localOnly=true repositorySecrets=0 productionReads=0 productionWrites=0 actualGithubRun=passed g0=true p1ActualGithubRun=passed firstRepairWindowsStatic=16/17 portableSelftestRepairImplemented=true secondRepairLinuxAccepted=true secondRepairWindowsStatic=15/17 validatorLineEndingRepairPending=true pageAccountAcceptance=false g1=false`,
+  `P0_CI_DATABASE_CONTRACT_OK baseline=1 migrations=70 tests=${contract.tests.length} database=7 permission=11 business=9 catalog=4 definitions=${contract.expectedCounts.definitionReferencedObjects} redefined=${contract.expectedCounts.redefinedDefinitionReferencedObjects} crmLeadColumnAssertions=${contract.expectedCounts.crmLeadsVisibleExactColumnAssertions} directOrderFixtures=${contract.expectedCounts.directDealOrderFixtureFiles} finalFunctionIdentities=${contract.expectedCounts.finalPublicFunctionIdentities} functionIdentityReferences=${contract.expectedCounts.functionIdentityReferences} negative=${negativePassed}/${negativeCases.length} localOnly=true repositorySecrets=0 productionReads=0 productionWrites=0 actualGithubRun=passed g0=true p1ActualGithubRun=passed firstRepairWindowsStatic=16/17 portableSelftestRepairImplemented=true secondRepairLinuxAccepted=true secondRepairWindowsStatic=15/17 validatorLineEndingRepairImplemented=true newIndependentCi=passed independentWindowsStatic=17/17 independentWindowsLocal=12/12 independentLinuxMigrations=70/70 independentLinuxSql=27/27 independentLinuxCatalog=4/4 pageAccountAcceptance=false g1=false`,
 )

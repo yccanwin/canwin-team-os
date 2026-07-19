@@ -34,6 +34,8 @@ function required(environment, key) {
 }
 
 function assertTestProjectLock(environment) {
+  required(environment, 'P1_REAL_SUPABASE_URL')
+  required(environment, 'P1_REAL_EXPECTED_PROJECT_REF')
   for (const key of ['P1_REAL_SUPABASE_URL', 'VITE_SUPABASE_URL']) {
     const value = environment[key]?.trim()
     if (!value) continue
@@ -106,6 +108,8 @@ async function runSelfTest() {
   assert.throws(() => readConfig({ ...environment, P1_REAL_FINANCE_PASSWORD: '' }), /CONFIG_MISSING:P1_REAL_FINANCE_PASSWORD/)
   assert.throws(() => readConfig({ ...environment, P1_REAL_DISABLED_PASSWORD: '' }), /CONFIG_MISSING:P1_REAL_DISABLED_PASSWORD/)
   assert.throws(() => readConfig({ ...environment, P1_REAL_SUPABASE_URL: `https://${PRODUCTION_REF}.supabase.co/` }), /PRODUCTION_REF_REJECTED/)
+  assert.throws(() => readConfig({ ...environment, P1_REAL_SUPABASE_URL: '' }), /CONFIG_MISSING:P1_REAL_SUPABASE_URL/)
+  assert.throws(() => readConfig({ ...environment, P1_REAL_EXPECTED_PROJECT_REF: '' }), /CONFIG_MISSING:P1_REAL_EXPECTED_PROJECT_REF/)
   assert.throws(() => readConfig({ ...environment, P1_REAL_SUPABASE_URL: 'https://abcdefghijklmnopqrst.supabase.co/' }), /TEST_REF_REQUIRED/)
   assert.throws(() => readConfig({ ...environment, P1_REAL_ALLOW_TEST_WRITES: 'YES' }), /TEST_WRITE_SCOPE_REJECTED/)
   assert.throws(() => readConfig({ ...environment, P1_REAL_ADMIN_LOGIN: 'admin' }), /TEST_ADMIN_ALIAS_REJECTED/)
@@ -133,13 +137,9 @@ async function runSelfTest() {
 async function startVite(config) {
   const viteEntry = resolve(repoRoot, 'node_modules', 'vite', 'bin', 'vite.js')
   const viteEnvironment = { ...process.env }
-  for (const definition of Object.values(roleDefinitions)) {
-    delete viteEnvironment[`${definition.envPrefix}_LOGIN`]
-    delete viteEnvironment[`${definition.envPrefix}_PASSWORD`]
+  for (const key of Object.keys(viteEnvironment)) {
+    if (key.startsWith('P1_REAL_')) delete viteEnvironment[key]
   }
-  delete viteEnvironment[`${disabledAccountDefinition.envPrefix}_LOGIN`]
-  delete viteEnvironment[`${disabledAccountDefinition.envPrefix}_PASSWORD`]
-  delete viteEnvironment.P1_REAL_ALLOW_TEST_WRITES
   const child = spawn(process.execPath, [viteEntry, '--host', localHost, '--port', String(localPort), '--strictPort'], {
     cwd: repoRoot,
     env: {
