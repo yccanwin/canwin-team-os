@@ -34,6 +34,10 @@ const expectedResumeRunId = 'p1-isolated-20260719T172151689Z-8273f5c69e'
 const expectedEvidenceRoot = 'D:/CanWin-Team-OS-4.0-P1-Validation/' + expectedResumeRunId
 const expectedPreflightSha256 = 'e44d53b72c85a71eff2d7a5359220f86c20af56af02a9bf6c0a81716c6d65b97'
 const expectedFailureSha256 = '3a8077ad58b1a7ee1fc4a75340ab3db9b8f1c3d5ea772e019ff1282136029774'
+const expectedQualificationHead = 'a620bb541f4c5eb613413e8b40455b3988ee0cf3'
+const expectedQualificationRunId = '29699951990'
+const expectedQualificationLinuxJobId = '88227205377'
+const expectedQualificationWindowsJobId = '88227205362'
 const expectedBackupManifestPath = 'D:/CanWin-Team-OS-4.0-Recovery/canwin-team-os-4-p0-20260719T074943659Z-c11fca6bd1/manifest.json'
 const expectedBackupManifestSha256 = 'f4174b91f51f63e37b42e9d907aea0f72aa907ec31694041081ee06c2f6d20b2'
 const expectedRestoreEvidencePath = 'D:/CanWin-Team-OS-4.0-Recovery/canwin-team-os-4-p0-20260719T074943659Z-c11fca6bd1/restore-evidence.json'
@@ -111,12 +115,38 @@ check(source.includes('function proveMigrationSets(') && source.includes('localM
 check(source.includes("status !== 'applied'") && source.includes('migration order proof failed'), 'migration status/order proof missing')
 check(!source.includes("output.match(/\\b\\d{14}\\b/g)"), 'resume safety depends on CLI human output')
 
-check(resume?.resumeOnly === true && resume?.remoteExecutionAllowed === false &&
-  resume?.signedCiHeadSha === null &&
+check(contract.candidate.remoteExecutionAllowed === false && resume?.resumeOnly === true &&
+  resume?.remoteExecutionAllowed === true && resume?.signedCiHeadSha === expectedQualificationHead &&
+  resume?.signedCiRunId === expectedQualificationRunId &&
+  resume?.signedCiLinuxJobId === expectedQualificationLinuxJobId &&
+  resume?.signedCiWindowsJobId === expectedQualificationWindowsJobId &&
+  resume?.signedCiConclusion === 'success' &&
   resume?.mode === '--resume-post-apply' && resume?.dbPushAllowed === false &&
   resume?.expectedPersistentRemoteWrites === 0 && resume?.perTestSnapshotRequired === true &&
   resume?.sourceRunId === expectedResumeRunId,
-  'post-apply resume source run, read-only verification, or resume-only boundary drift')
+  'candidate/resume remote gate, signed CI identity, or zero-persistent-write boundary drift')
+const signedResumeCiRuns = databaseContract.formalAttemptHistory.filter((entry) => entry.runId === expectedQualificationRunId)
+const signedResumeCiRun = signedResumeCiRuns[0]
+check(signedResumeCiRuns.length === 1 &&
+  signedResumeCiRun?.runUrl === 'https://github.com/yccanwin/canwin-team-os/actions/runs/29699951990' &&
+  signedResumeCiRun?.jobId === expectedQualificationLinuxJobId &&
+  signedResumeCiRun?.windowsJobId === expectedQualificationWindowsJobId &&
+  signedResumeCiRun?.headSha === expectedQualificationHead && signedResumeCiRun?.conclusion === 'success' &&
+  signedResumeCiRun?.qualificationScope === 'post_apply_resume_prequalification' &&
+  signedResumeCiRun?.resumePrequalification === 'qualified_remote_enabled' &&
+  signedResumeCiRun?.windowsLocalGatePassed === true &&
+  signedResumeCiRun?.windowsStaticGatesExpected === 19 && signedResumeCiRun?.windowsStaticGatesPassed === 19 &&
+  signedResumeCiRun?.windowsLocalIntegrationStepsExpected === 12 && signedResumeCiRun?.windowsLocalIntegrationStepsPassed === 12 &&
+  signedResumeCiRun?.linuxDatabaseAccepted === true && signedResumeCiRun?.migrationsPassed === 70 &&
+  signedResumeCiRun?.sqlTestsStarted === 27 && signedResumeCiRun?.sqlTestsPassed === 27 &&
+  signedResumeCiRun?.databaseTestsPassed === 7 && signedResumeCiRun?.permissionTestsPassed === 11 &&
+  signedResumeCiRun?.businessTestsPassed === 9 && signedResumeCiRun?.catalogAssertionsPassed === 4 &&
+  signedResumeCiRun?.repositorySecretsRequired === false &&
+  signedResumeCiRun?.testProjectRemoteReads === 0 && signedResumeCiRun?.testProjectRemoteWrites === 0 &&
+  signedResumeCiRun?.productionReadPerformed === false && signedResumeCiRun?.productionWritePerformed === false &&
+  signedResumeCiRun?.resumeVerificationExecuted === false && signedResumeCiRun?.pageAccountAcceptancePassed === false &&
+  signedResumeCiRun?.g1OverallClaim === false,
+  'signed resume CI formal history identity, dual-platform counts, or zero-remote/production boundary drift')
 check(resume?.preflightPath === expectedEvidenceRoot + '/preflight.json' &&
   resume?.failurePath === expectedEvidenceRoot + '/failure.json',
   'post-apply resume evidence paths drift')
@@ -278,12 +308,41 @@ check(source.includes('function validateResumeRemoteGate(') &&
   source.includes("/^[a-f0-9]{40}$/.test(resume?.signedCiHeadSha ?? '')") &&
   !source.slice(sourceIndex('function validateResumeRemoteGate('), sourceIndex('function sha256(')).includes('contract.candidate?.signedCiHeadSha'),
   'resume remote gate is not isolated from the old migration candidate CI identity')
-check(source.includes('function assertResumeSignedCiQualification(') &&
-  source.includes('const resumeHead = contract.postApplyResume.signedCiHeadSha') &&
-  source.includes('databaseContract.formalAttemptHistory.find') &&
-  source.includes("entry.headSha === resumeHead && entry.conclusion === 'success'") &&
-  source.includes("'merge-base', '--is-ancestor', resumeHead, head"),
-  'independent resume CI success/HEAD ancestry qualification is incomplete')
+check(source.includes(`const RESUME_CI_HEAD = '${expectedQualificationHead}'`) &&
+  source.includes(`const RESUME_CI_RUN_ID = '${expectedQualificationRunId}'`) &&
+  source.includes(`const RESUME_CI_LINUX_JOB_ID = '${expectedQualificationLinuxJobId}'`) &&
+  source.includes(`const RESUME_CI_WINDOWS_JOB_ID = '${expectedQualificationWindowsJobId}'`) &&
+  source.includes('function findResumeSignedCiRun()') &&
+  source.includes('entry.runId === resume.signedCiRunId && entry.jobId === resume.signedCiLinuxJobId') &&
+  source.includes('entry.windowsJobId === resume.signedCiWindowsJobId') &&
+  source.includes('entry.headSha === resume.signedCiHeadSha && entry.conclusion === resume.signedCiConclusion') &&
+  source.includes('entry.windowsStaticGatesExpected === 19 && entry.windowsStaticGatesPassed === 19') &&
+  source.includes('entry.windowsLocalIntegrationStepsExpected === 12 && entry.windowsLocalIntegrationStepsPassed === 12') &&
+  source.includes('entry.migrationsPassed === contract.expected.postMigrationRows') &&
+  source.includes('entry.sqlTestsPassed === contract.expected.tests && entry.catalogAssertionsPassed === 4') &&
+  source.includes('entry.databaseTestsPassed === contract.expected.databaseTests') &&
+  source.includes('entry.permissionTestsPassed === contract.expected.permissionTests') &&
+  source.includes('entry.businessTestsPassed === contract.expected.businessTests') &&
+  source.includes('entry.productionReadPerformed === false && entry.productionWritePerformed === false'),
+  'runner does not bind the exact signed CI run/jobs or dual-platform/database acceptance counts')
+const qualificationFunctionIndex = sourceIndex('function assertResumeSignedCiQualification()')
+const qualificationHeadIndex = source.indexOf("run('git', ['rev-parse', 'HEAD'])", qualificationFunctionIndex)
+const trackedStatusIndex = source.indexOf("'status', '--porcelain', '--untracked-files=no'", qualificationHeadIndex)
+const worktreeBoundaryIndex = source.indexOf('validateResumeWorktreeBoundary(head, resumeHead, trackedStatus)', trackedStatusIndex)
+const sameHeadRefusalIndex = source.indexOf('if (!worktreeBoundary.committedAfterSignedHead)', worktreeBoundaryIndex)
+const trackedStatusRefusalIndex = source.indexOf('if (!worktreeBoundary.trackedWorktreeClean)', sameHeadRefusalIndex)
+const qualificationAncestryIndex = source.indexOf("'merge-base', '--is-ancestor', resumeHead, head", trackedStatusRefusalIndex)
+check(qualificationFunctionIndex >= 0 && qualificationHeadIndex > qualificationFunctionIndex &&
+  trackedStatusIndex > qualificationHeadIndex && worktreeBoundaryIndex > trackedStatusIndex &&
+  sameHeadRefusalIndex > worktreeBoundaryIndex && trackedStatusRefusalIndex > sameHeadRefusalIndex &&
+  qualificationAncestryIndex > trackedStatusRefusalIndex &&
+  source.includes('function validateResumeWorktreeBoundary(head, resumeHead, trackedStatus)') &&
+  source.includes("committedAfterSignedHead: /^[a-f0-9]{40}$/.test(head) && head !== resumeHead") &&
+  source.includes("trackedWorktreeClean: trackedStatus === ''") &&
+  source.includes('post-apply resume qualification changes are not committed after the signed prequalification HEAD') &&
+  source.includes('post-apply resume requires a clean tracked worktree') &&
+  !source.includes("'status', '--porcelain', '--untracked-files=all'"),
+  'qualification must reject the signed HEAD itself and dirty tracked files while allowing untracked audit evidence')
 
 check(source.includes('for (const test of databaseContract.tests)') &&
   source.includes('const afterTest = snapshot(channel.dbEnvironment)') &&
@@ -363,8 +422,14 @@ check(selfTestStart >= 0 && selfTestEnd > selfTestStart &&
   !selfTestSource.includes('runSealedFullReconciliation(') &&
   !selfTestSource.includes('collectTargetStorageSummary(') &&
   selfTestSource.includes('databaseCalls=0') && selfTestSource.includes('storageCalls=0') &&
-  selfTestSource.includes('dEvidenceRequired=0'),
+  selfTestSource.includes('dEvidenceRequired=0') && selfTestSource.includes('resumeRemoteExecutionAllowed=1'),
   'runner self-test can touch a database, Storage, or D evidence')
+check(selfTestSource.includes('const cleanCommittedBoundary = validateResumeWorktreeBoundary(') &&
+  selfTestSource.includes('const worktreeBoundaryNegativePassed = [') &&
+  selfTestSource.includes('worktreeBoundaryNegativePassed !== 2') &&
+  selfTestSource.includes('worktreeBoundaryPositive=1') && selfTestSource.includes('worktreeBoundaryNegative=2/2') &&
+  selfTestSource.includes("validateResumeWorktreeBoundary('b'.repeat(40), contract.postApplyResume.signedCiHeadSha, ' M tracked.sql')"),
+  'worktree same-HEAD/dirty-tracked negative controls or clean-descendant positive control are incomplete')
 check(selfTestSource.includes('const syntheticManifest = {') &&
   selfTestSource.includes('const syntheticRestoreEvidence = {') &&
   selfTestSource.includes('const syntheticFullSnapshot = {') &&
@@ -523,4 +588,4 @@ if (failures.length > 0) {
   for (const failure of failures) console.error('- ' + failure)
   process.exit(1)
 }
-console.log(`P1_ISOLATED_RUNTIME_RUNNER_OK assertions=${assertionCount} sourceEolFormats=lf,crlf,mixed targetLocked=1 productionDenied=1 resumeOnly=1 dbPush=0 signed69Baseline=1 exact70PostApply=1 signedArtifacts=6 authRecoveryScope=1 fixturePatterns=4/4 sqlTests=27 perTestSnapshots=27 fullSnapshots=29 storageArchives=2 catalog=4 canonicalBeforeAfter=1 contentFingerprints=1 syntheticDriftControls=9 readOnlyTransactions=1 rollbackFixtures=1 credentialRotation=1 pendingTriggerOrder=1 postgresRegression=1 temporaryChannel=1 singleAttempt=1 secretsPersisted=0 validatorDatabaseCalls=0 validatorStorageCalls=0 validatorDEvidenceRequired=0 runnerSelftestDatabaseCalls=0 runnerSelftestStorageCalls=0 runnerSelftestDEvidenceRequired=0`)
+console.log(`P1_ISOLATED_RUNTIME_RUNNER_OK assertions=${assertionCount} sourceEolFormats=lf,crlf,mixed targetLocked=1 productionDenied=1 resumeOnly=1 candidateRemote=0 resumeRemote=1 signedCiRun=29699951990 signedCiLinux=88227205377 signedCiWindows=88227205362 signedCiDualPlatform=19/19+12/12 signedCiCounts=70/27/7/11/9/4 sameHeadDenied=1 trackedDirtyDenied=1 untrackedAuditAllowed=1 dbPush=0 signed69Baseline=1 exact70PostApply=1 signedArtifacts=6 authRecoveryScope=1 fixturePatterns=4/4 sqlTests=27 perTestSnapshots=27 fullSnapshots=29 storageArchives=2 catalog=4 canonicalBeforeAfter=1 contentFingerprints=1 syntheticDriftControls=9 readOnlyTransactions=1 rollbackFixtures=1 credentialRotation=1 pendingTriggerOrder=1 postgresRegression=1 temporaryChannel=1 singleAttempt=1 secretsPersisted=0 validatorDatabaseCalls=0 validatorStorageCalls=0 validatorDEvidenceRequired=0 runnerSelftestDatabaseCalls=0 runnerSelftestStorageCalls=0 runnerSelftestDEvidenceRequired=0`)

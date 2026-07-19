@@ -24,8 +24,12 @@
   },
   "postApplyResume": {
     "resumeOnly": true,
-    "remoteExecutionAllowed": false,
-    "signedCiHeadSha": null,
+    "remoteExecutionAllowed": true,
+    "signedCiHeadSha": "a620bb541f4c5eb613413e8b40455b3988ee0cf3",
+    "signedCiRunId": "29699951990",
+    "signedCiLinuxJobId": "88227205377",
+    "signedCiWindowsJobId": "88227205362",
+    "signedCiConclusion": "success",
     "mode": "--resume-post-apply",
     "sourceRunId": "p1-isolated-20260719T172151689Z-8273f5c69e",
     "preflightPath": "D:/CanWin-Team-OS-4.0-P1-Validation/p1-isolated-20260719T172151689Z-8273f5c69e/preflight.json",
@@ -171,9 +175,9 @@
   },
   "scriptHardLocks": {
     "runnerPath": "scripts/p1/run-isolated-runtime.mjs",
-    "runnerSha256Lf": "6bea4b4ff000d140ad783f0dadf7813d4079c1b16169651ab8e256858c3bba98",
+    "runnerSha256Lf": "f9d9d6abed29a482757682d25002f2c414a1271e0f7fa2e9360fc62f009ed648",
     "validatorPath": "scripts/p1/verify-isolated-runtime-runner.mjs",
-    "validatorSha256Lf": "842a82a5d11216c200a40efe222135d76f158e3eb11aae9e593e255f06872ae6",
+    "validatorSha256Lf": "60a90fc8bf75d44a02c2d824e29b912d14fbbe844af79b0e5a705c77fe59c2af",
     "postgresRegressionPath": "scripts/p1/verify-pending-trigger-postgres.mjs",
     "postgresRegressionSha256Lf": "f4f54d77436b1b91035cd8fff7572dd52f4375aa75f52325a664426d0b9cf3ea"
   },

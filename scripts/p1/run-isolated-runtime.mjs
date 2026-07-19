@@ -37,6 +37,10 @@ const restoreRun = JSON.parse(readFileSync(resolve(repoRoot, contract.restoreRun
 const TARGET_REF = 'zdmuaqokndhhbarudhtw'
 const PRODUCTION_REF = 'agygfhmkazcbqaqwmljb'
 const P1_VERSION = '20260719130910'
+const RESUME_CI_HEAD = 'a620bb541f4c5eb613413e8b40455b3988ee0cf3'
+const RESUME_CI_RUN_ID = '29699951990'
+const RESUME_CI_LINUX_JOB_ID = '88227205377'
+const RESUME_CI_WINDOWS_JOB_ID = '88227205362'
 const mode = process.argv[2]
 const allowedModes = new Set(['--self-test', '--resume-post-apply'])
 const fullReconciliationKeys = [
@@ -65,16 +69,44 @@ function validateResumeRemoteGate(candidateMode, syncState, resume) {
     resume?.dbPushAllowed === false && /^[a-f0-9]{40}$/.test(resume?.signedCiHeadSha ?? '')
 }
 
-function assertResumeSignedCiQualification() {
-  const resumeHead = contract.postApplyResume.signedCiHeadSha
-  const signedRun = databaseContract.formalAttemptHistory.find((entry) => (
-    entry.headSha === resumeHead && entry.conclusion === 'success' && entry.windowsLocalGatePassed === true &&
+function findResumeSignedCiRun() {
+  const resume = contract.postApplyResume
+  return databaseContract.formalAttemptHistory.find((entry) => (
+    entry.runId === resume.signedCiRunId && entry.jobId === resume.signedCiLinuxJobId &&
+    entry.windowsJobId === resume.signedCiWindowsJobId &&
+    entry.headSha === resume.signedCiHeadSha && entry.conclusion === resume.signedCiConclusion &&
+    entry.conclusion === 'success' && entry.windowsLocalGatePassed === true &&
+    entry.windowsStaticGatesExpected === 19 && entry.windowsStaticGatesPassed === 19 &&
+    entry.windowsLocalIntegrationStepsExpected === 12 && entry.windowsLocalIntegrationStepsPassed === 12 &&
     entry.migrationsPassed === contract.expected.postMigrationRows &&
     entry.sqlTestsPassed === contract.expected.tests && entry.catalogAssertionsPassed === 4 &&
+    entry.databaseTestsPassed === contract.expected.databaseTests &&
+    entry.permissionTestsPassed === contract.expected.permissionTests &&
+    entry.businessTestsPassed === contract.expected.businessTests &&
     entry.productionReadPerformed === false && entry.productionWritePerformed === false
   ))
+}
+
+function validateResumeWorktreeBoundary(head, resumeHead, trackedStatus) {
+  return {
+    committedAfterSignedHead: /^[a-f0-9]{40}$/.test(head) && head !== resumeHead,
+    trackedWorktreeClean: trackedStatus === '',
+  }
+}
+
+function assertResumeSignedCiQualification() {
+  const resumeHead = contract.postApplyResume.signedCiHeadSha
+  const signedRun = findResumeSignedCiRun()
   if (!signedRun) throw new Error('post-apply resume independent CI success evidence is missing')
   const head = requireSuccess('git head', run('git', ['rev-parse', 'HEAD'])).stdout.trim()
+  const trackedStatus = requireSuccess('tracked worktree status', run('git', [
+    'status', '--porcelain', '--untracked-files=no',
+  ])).stdout.trim()
+  const worktreeBoundary = validateResumeWorktreeBoundary(head, resumeHead, trackedStatus)
+  if (!worktreeBoundary.committedAfterSignedHead) {
+    throw new Error('post-apply resume qualification changes are not committed after the signed prequalification HEAD')
+  }
+  if (!worktreeBoundary.trackedWorktreeClean) throw new Error('post-apply resume requires a clean tracked worktree')
   requireSuccess('post-apply resume signed CI ancestry', run('git', [
     'merge-base', '--is-ancestor', resumeHead, head,
   ]))
@@ -532,15 +564,18 @@ function assertFrozenContract() {
       contract.candidate?.migrationVersion !== P1_VERSION) {
     throw new Error('P1 isolated runtime contract ref/version drift')
   }
-  const resumeCiQualificationConsistent = contract.postApplyResume?.remoteExecutionAllowed === false
-    ? contract.postApplyResume?.signedCiHeadSha === null
-    : /^[a-f0-9]{40}$/.test(contract.postApplyResume?.signedCiHeadSha ?? '')
+  const resumeCiQualificationConsistent = contract.postApplyResume?.remoteExecutionAllowed === true &&
+    contract.postApplyResume?.signedCiHeadSha === RESUME_CI_HEAD &&
+    contract.postApplyResume?.signedCiRunId === RESUME_CI_RUN_ID &&
+    contract.postApplyResume?.signedCiLinuxJobId === RESUME_CI_LINUX_JOB_ID &&
+    contract.postApplyResume?.signedCiWindowsJobId === RESUME_CI_WINDOWS_JOB_ID &&
+    contract.postApplyResume?.signedCiConclusion === 'success' && Boolean(findResumeSignedCiRun())
   if (contract.candidate.remoteExecutionAllowed !== false || contract.postApplyResume?.resumeOnly !== true ||
-      typeof contract.postApplyResume?.remoteExecutionAllowed !== 'boolean' ||
+      contract.postApplyResume?.remoteExecutionAllowed !== true ||
       contract.postApplyResume?.mode !== '--resume-post-apply' || contract.postApplyResume?.dbPushAllowed !== false ||
       contract.postApplyResume?.expectedPersistentRemoteWrites !== 0 ||
       contract.postApplyResume?.perTestSnapshotRequired !== true || !resumeCiQualificationConsistent) {
-    throw new Error('P1 post-apply resume candidate must remain offline, resume-only and zero-persistent-write')
+    throw new Error('P1 post-apply resume qualification, resume-only, or zero-persistent-write boundary drift')
   }
   if (restoreRun.target?.projectRef !== TARGET_REF || restoreRun.source?.projectRef !== PRODUCTION_REF ||
       restoreRun.target?.environment !== 'isolated-test' || restoreRun.target?.previewBuildAllowed !== false ||
@@ -958,19 +993,32 @@ function runSelfTest() {
     try { test() } catch { evidenceNegativePassed += 1 }
   }
 
+  const cleanCommittedBoundary = validateResumeWorktreeBoundary(
+    'b'.repeat(40),
+    contract.postApplyResume.signedCiHeadSha,
+    '',
+  )
+  const worktreeBoundaryNegativePassed = [
+    validateResumeWorktreeBoundary(
+      contract.postApplyResume.signedCiHeadSha,
+      contract.postApplyResume.signedCiHeadSha,
+      '',
+    ),
+    validateResumeWorktreeBoundary('b'.repeat(40), contract.postApplyResume.signedCiHeadSha, ' M tracked.sql'),
+  ].filter((candidate) => !candidate.committedAfterSignedHead || !candidate.trackedWorktreeClean).length
   const oldModesDenied = ['--execute', '--dry-run'].filter((candidateMode) => !validateMode(candidateMode)).length
-  const qualifiedResume = {
+  const unqualifiedResume = {
     ...contract.postApplyResume,
-    remoteExecutionAllowed: true,
-    signedCiHeadSha: 'a'.repeat(40),
+    remoteExecutionAllowed: false,
+    signedCiHeadSha: null,
   }
   const resumeGateNegativeCases = [
-    () => validateResumeRemoteGate('--resume-post-apply', 'synchronized', contract.postApplyResume),
-    () => validateResumeRemoteGate('--resume-post-apply', 'qa-sync-pending', qualifiedResume),
-    () => validateResumeRemoteGate('--execute', 'synchronized', qualifiedResume),
+    () => validateResumeRemoteGate('--resume-post-apply', 'synchronized', unqualifiedResume),
+    () => validateResumeRemoteGate('--resume-post-apply', 'qa-sync-pending', contract.postApplyResume),
+    () => validateResumeRemoteGate('--execute', 'synchronized', contract.postApplyResume),
   ]
   const resumeGateNegativePassed = resumeGateNegativeCases.filter((test) => test() === false).length
-  if (!validateResumeRemoteGate('--resume-post-apply', 'synchronized', qualifiedResume)) {
+  if (!validateResumeRemoteGate('--resume-post-apply', 'synchronized', contract.postApplyResume)) {
     throw new Error('qualified post-apply resume gate positive self-test failed')
   }
 
@@ -990,6 +1038,8 @@ function runSelfTest() {
   if (resumeNegativePassed !== resumeNegativeCases.length ||
       evidenceNegativePassed !== evidenceNegativeCases.length || oldModesDenied !== 2 ||
       reconciliationNegativePassed !== reconciliationNegativeCases.length ||
+      !cleanCommittedBoundary.committedAfterSignedHead || !cleanCommittedBoundary.trackedWorktreeClean ||
+      worktreeBoundaryNegativePassed !== 2 ||
       resumeGateNegativePassed !== resumeGateNegativeCases.length || !syntheticFailureStopped ||
       followingSyntheticTestRan || !validateMode('--self-test') || !validateMode('--resume-post-apply') ||
       JSON.stringify(authFixtureEmailPatterns) !== JSON.stringify(['p1-%@example.invalid', 'access-%@example.invalid']) ||
@@ -998,7 +1048,7 @@ function runSelfTest() {
       ])) {
     throw new Error('P1 post-apply resume negative self-test failed')
   }
-  console.log('P1_ISOLATED_RUNTIME_SELFTEST_OK targetPositive=1 targetNegative=3/3 migrationPositive=1 migrationNegative=6/6 credentialPositive=1 credentialNegative=3/3 resume69Denied=1 resume70Accepted=1 resumeDriftDenied=2/2 keyAmountDriftDenied=1 inventoryDriftDenied=1 rawLedgerDriftDenied=1 fullContentDriftDenied=1 artifactBindingDriftDenied=1 restoreStatusDriftDenied=1 storageDriftDenied=1 manifestShaDriftDenied=1 restoreEvidenceShaDriftDenied=1 evidenceNegative=5/5 oldApplyModesDenied=2/2 resumeGatePositive=1 resumeGateNegative=3/3 fixturePatterns=4/4 firstSqlFailureStops=1 candidateRemoteExecutionAllowed=0 resumeRemoteExecutionAllowed=0 databaseCalls=0 storageCalls=0 dEvidenceRequired=0')
+  console.log('P1_ISOLATED_RUNTIME_SELFTEST_OK targetPositive=1 targetNegative=3/3 migrationPositive=1 migrationNegative=6/6 credentialPositive=1 credentialNegative=3/3 resume69Denied=1 resume70Accepted=1 resumeDriftDenied=2/2 keyAmountDriftDenied=1 inventoryDriftDenied=1 rawLedgerDriftDenied=1 fullContentDriftDenied=1 artifactBindingDriftDenied=1 restoreStatusDriftDenied=1 storageDriftDenied=1 manifestShaDriftDenied=1 restoreEvidenceShaDriftDenied=1 evidenceNegative=5/5 worktreeBoundaryPositive=1 worktreeBoundaryNegative=2/2 oldApplyModesDenied=2/2 resumeGatePositive=1 resumeGateNegative=3/3 fixturePatterns=4/4 firstSqlFailureStops=1 candidateRemoteExecutionAllowed=0 resumeRemoteExecutionAllowed=1 databaseCalls=0 storageCalls=0 dEvidenceRequired=0')
 }
 
 function verifyTemporaryLink(workdir) {

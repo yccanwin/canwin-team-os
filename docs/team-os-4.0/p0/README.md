@@ -1,6 +1,6 @@
 # CanWin Team OS 4.0 — P0 监理台账
 
-> 状态：P0/G0 已验收；历史失败运行均保留且未重跑，换行修复后的独立 CI run `29696529290` 已双平台全绿。前次 P1 正式隔离尝试已完成迁移应用，但在首个 SQL 校验误报处停止；续验候选已完成 exact70、29份完整快照、27项逐项快照、2次Storage复核、6份签名制品和4/4夹具模式的最终本地预资格冻结，runner validator 97/97。旧应用入口和续验入口均保持远端关闭，续验 CI HEAD 未签署。续验尚未执行，当前 exact70、全量对账和六类账号页面验收仍待完成；candidateRemote=false、resumeRemote=false、resumeSigned=null，G1=false
+> 状态：P0/G0 已验收；历史失败运行均保留且未重跑。资格签名 CI run `29699951990`（HEAD `a620bb541f4c5eb613413e8b40455b3988ee0cf3`）已双平台全绿：Linux job `88227205377` 为70/27/7/11/9/4，Windows job `88227205362` 为static19/19、local12/12。续验候选的 exact70、29份完整快照、27项逐项快照、2次Storage复核、6份签名制品、4/4夹具和runner validator 100/100已最终冻结。旧应用入口永久关闭；只开放 resume-only 续验资格，签名HEAD本身和tracked dirty工作区拒绝，未跟踪 `.codex-audit` 证据允许保留。续验尚未执行，当前 exact70、全量对账和六类账号页面验收仍待完成；candidateRemote=false、resumeRemote=true、resumeSigned=a620bb...，G1=false
 > 基线：`CanWin-Team-OS-4.0-最终施工总方案.md`（2026-07-18）
 > 监理分支：`codex/team-os-4-p0-integration`
 
@@ -8,7 +8,7 @@
 
 ## 当前结论
 
-七项首批产物和 G0 已完成监理验收；P1 历史成功与失败证据均保留。换行修复后的 run `29696529290` 已完成 Linux70/27/4 与 Windows19/19、12/12、71/71 双平台验收。前次正式隔离尝试已完成迁移应用，但首个 SQL 校验误报后停止；续验候选现已用四份 LF 哈希冻结为 resume-only，并补齐完整对账合同：exact70、29份完整快照、27项逐项、2次Storage、6份签名制品、key5/raw9/inventory3、Auth/Session隔离、内容指纹、合法差异白名单与旧P0 counts-only缺口。续验没有远端执行，当前 exact70、全量对账和六类账号页面验收仍未完成，当前接受进度25%、G1=false。当前不提前开发 P3–P6，不修改生产数据库和生产 Storage 策略。
+七项首批产物和 G0 已完成监理验收；P1 历史成功与失败证据均保留。资格签名 run `29699951990` 已完成 Linux70/27/7/11/9/4 与 Windows19/19、12/12 双平台验收，并将 resume-only 资格绑定到 HEAD `a620bb541f4c5eb613413e8b40455b3988ee0cf3`。四份 LF 哈希及完整对账合同已最终冻结：exact70、29份完整快照、27项逐项、2次Storage、6份签名制品、key5/raw9/inventory3、Auth/Session隔离、内容指纹、合法差异白名单与旧P0 counts-only缺口。旧apply入口仍关闭；resume仅允许在签名HEAD之后的干净tracked提交执行，签名HEAD本身和tracked dirty拒绝，未跟踪 `.codex-audit` 允许。续验尚未远端执行，当前 exact70、全量对账和六类账号页面验收仍未完成，当前接受进度25%、G1=false。当前不提前开发 P3–P6，不修改生产数据库和生产 Storage 策略。
 
 当前已核实：
 
@@ -49,7 +49,7 @@
 - Fresh-checkout CI run [`29695919974`](https://github.com/yccanwin/canwin-team-os/actions/runs/29695919974)（HEAD `02f7377071783f2f3213218c6c3c3ace961768bc`）失败后原样保留且未重跑。Windows job `88216547016` 在 static 第6门 `p1-interface-freeze` 首错停止，前5门通过、其余13门及 local其余11项未执行；根因仅为回滚证据文件的 CRLF 原始字节哈希与 UTF-8 LF 合同哈希不一致。Linux job `88216547033` 完成迁移70/70、SQL27/27（7/11/9）、catalog4/4和清理，测试项目远端读写0、生产读写0。机械修复已改为 CRLF/CR→LF 后哈希并覆盖 LF/CRLF/CR/mixed 等价回归；该失败原样保留，由下述新候选独立验证。
 - 换行修复后的独立 CI run [`29696529290`](https://github.com/yccanwin/canwin-team-os/actions/runs/29696529290)（HEAD `e04dfa3ee8a9f569b97c905c87f760d7b76a6e00`）已双平台全绿。Linux job `88218121933` 用时132秒，迁移70/70、SQL27/27（7/11/9）、catalog4/4和清理通过；Windows job `88218121940` 用时76秒，static19/19、local12/12、P1壳层71/71和1975模块构建通过，66文件静态制品 SHA256 `33505fcddc4b814379906406287b1fa715677b1e218497e1fe5a1693f50fc21b`，上传制品0。真实账号安全夹具和页面 runner 均只完成无网络自测，页面/账号实际验收仍未完成；仓库密钥、测试项目远端读写和生产读写均为0。
 - P1 新候选正式隔离尝试 1/1（run `p1-isolated-20260719T172151689Z-8273f5c69e`）通过迁移阶段70条控制流门后，在首个 SQL `access_control_foundation.sql` 的 `Legacy member received implicit customers.manage permission` 校验误报处首错停止。`preflight.json` SHA256 `e44d53b72c85a71eff2d7a5359220f86c20af56af02a9bf6c0a81716c6d65b97`，`failure.json` SHA256 `3a8077ad58b1a7ee1fc4a75340ab3db9b8f1c3d5ea772e019ff1282136029774`；证据目录 `D:\CanWin-Team-OS-4.0-P1-Validation\p1-isolated-20260719T172151689Z-8273f5c69e`。失败文件没有固化迁移后快照，失败后未重新远端读取，故不宣称当前远端仍为70条。SQL通过0/27、后26项未执行，catalog 0/4、全量对账、最终后快照和六类账号页面验收均未执行；测试项目现场保留，未重试、未清理、未外发，生产读写0。当前为 `post-apply verification candidate pending`，接受进度25%、G1=false。
-- 续验候选已完成最终纯本地预资格冻结：access-control SHA `31fa286b318ad2b24e2d956005c4a5fcc9b0fddfd0269be029330d5c1c3e43f8`，runner SHA `6bea4b4ff000d140ad783f0dadf7813d4079c1b16169651ab8e256858c3bba98`，isolated contract SHA `5a9e98cd0e80541c5de09c384ddb26b267eb0ed0ba4dcee61bb20f9a89fd01ca`，validator SHA `842a82a5d11216c200a40efe222135d76f158e3eb11aae9e593e255f06872ae6`，断言97/97、fixture pattern4/4。完整对账合同为 exact70、27项逐项、29份完整快照、2次Storage内容归档、6份签名制品、金额5项/原始账本9项/库存3项、Auth/Session隔离、内容指纹与前后canonical相等；合法持久差异仅两项，未知差异0；旧P0只有counts且targetAfter为空，明确不能代替P1内容证明。旧apply入口关闭，resume入口关闭且未签CI HEAD，续验远端执行0。该预资格不提高进度，G1=false、25%。
+- 续验资格已由独立 CI run [`29699951990`](https://github.com/yccanwin/canwin-team-os/actions/runs/29699951990) 正式签署：HEAD `a620bb541f4c5eb613413e8b40455b3988ee0cf3`，Linux job `88227205377` 为70/27/7/11/9/4，Windows job `88227205362` 为19/19、12/12。最终 SHA 为 access-control `31fa286b318ad2b24e2d956005c4a5fcc9b0fddfd0269be029330d5c1c3e43f8`、runner `f9d9d6abed29a482757682d25002f2c414a1271e0f7fa2e9360fc62f009ed648`、isolated contract `f99e605341b36e2de18779b6dd52a624b1ef421a9b60c4517f59845a7ba22013`、validator `60a90fc8bf75d44a02c2d824e29b912d14fbbe844af79b0e5a705c77fe59c2af`，断言100/100、fixture pattern4/4。完整对账合同仍为29/27/2/6、key5/raw9/inventory3、内容指纹和两项合法差异。旧apply入口关闭；resume入口仅对签名HEAD之后的干净tracked提交开放，签名HEAD本身拒绝、tracked dirty拒绝、未跟踪 `.codex-audit` 允许；续验远端执行0。资格签署不提高进度，G1=false、25%。
 
 生产侧全程只读；测试侧恢复、对账、三视图隔离修复和对象分类证据已固化。七项首批产物和 G0 已联合签收，P1 执行已解锁。测试项目仍封闭，真实账号禁登、预览和外发均未开放。
 
@@ -63,7 +63,7 @@
 | 04 | 图片入口与 Storage 清理清单 | P0 清理方案已验收 | 7 个文件入口、7 个旧命名空间和两个最终图片槽已冻结；1 bucket、32 objects 已恢复，生产策略未改 |
 | 05 | 核心实体和状态机字典 | P0 已验收 | 业务语义 76/76；22 个实体、7 组现有表扩展、11 张新增表、16 组字典、12 条不变量及 RLS/RPC/索引边界均已冻结 |
 | 06 | 测试项目与备份恢复基线 | 已验收 | 正式封闭恢复 1/1、数据库/Auth/Storage 全量对账、禁登和外发隔离证据齐全 |
-| 07 | P1 工单及冻结接口 | post-apply resume prequalified，remote disabled | 后端4、前端4、QA5项工单冻结；run296965 双平台全绿，前次迁移已应用。最终四份LF哈希、29/27/2/6完整对账、fixture4/4和validator97/97已冻结；旧入口/续验入口均关闭且CI HEAD未签署，续验和页面验收未执行，接受进度25%、G1=false |
+| 07 | P1 工单及冻结接口 | post-apply resume qualified，remote enabled | 后端4、前端4、QA5项工单冻结；run296999（Linux job88227205377、Windows job88227205362）双平台全绿并签署HEAD a620bb。最终四份LF哈希、29/27/2/6完整对账、fixture4/4和validator100/100已冻结；旧入口关闭，只开放resume-only且拒绝same-head/tracked-dirty、允许untracked audit。续验和页面验收未执行，接受进度25%、G1=false |
 
 ## G0 门禁
 
@@ -89,7 +89,7 @@
 - 恢复台账：139/139；真实恢复状态为 `succeeded`、阻塞项 0；封闭恢复合同 73/73，备份模板合同 1113/1113。
 - 前端清单：36 路由、22 个 4.8 节页面、7 个文件入口、7 个 Storage 命名空间。
 - P1 导航合同：5 个主岗位、2 个附加职能、13 个应用上下文字段、36 个旧路由映射。
-- P1 接口合同：6 个物理 RPC、4 组字段白名单、6 类基础身份、16 个附加职能组合、12 个直接 API 攻击用例、13 项三团队工单；历史失败均保留且不重跑。run `29696529290` 为 Windows static19/19、local12/12、P1壳层71/71，Linux 70/70+27/27+4/4。前次迁移已应用；续验最终哈希和 exact70、29份完整快照、27项逐项、2次Storage、6制品、key5/raw9/inventory3、内容指纹及合法差异边界已冻结，fixture4/4、validator97/97。当前 candidateRemote=false、resumeRemote=false、resumeSigned=null，续验未执行，当前exact70和页面验收仍 pending，G1=false、进度25%。
+- P1 接口合同：6 个物理 RPC、4 组字段白名单、6 类基础身份、16 个附加职能组合、12 个直接 API 攻击用例、13 项三团队工单；历史失败均保留且不重跑。资格签名 run `29699951990` 为 Windows job `88227205362` static19/19、local12/12，Linux job `88227205377` 为70/27/7/11/9/4。续验最终哈希和 exact70、29份完整快照、27项逐项、2次Storage、6制品、key5/raw9/inventory3、内容指纹及合法差异边界已冻结，fixture4/4、validator100/100。当前 candidateRemote=false、resumeRemote=true、resumeSigned=a620bb；same-head和tracked-dirty拒绝、untracked audit允许。续验尚未执行，当前exact70和页面验收仍 pending，G1=false、进度25%。
 - 后端 catalog 只读校验：9 个自检案例、15 条只读 SQL。
 - 三视图候选校验：LF/CRLF/mixed/注释分号 4 种格式通过；4 个正例、6 个负例；3 个视图、4 条策略、3 个调用方；数据库调用 0。
 - 103 表四分类：完整17项证据和监理冻结 103/103；精确恢复副本总行数 796，运行时动态表名调用 0。该单项制品保持 `g0=false` 防止独立冒充整体门禁；整体 G0 已由联合签收单确认。
