@@ -58,7 +58,7 @@ function validate(candidate) {
 
   check(candidate.schemaVersion === 1, 'schema version must be 1')
   check(candidate.manifestType === 'canwin-team-os-p1-interface-freeze', 'manifest type drift')
-  check(candidate.contractStatus === 'p1_repair_ci_linux_accepted_windows_portable_selftest_pending', 'contract status drift')
+  check(candidate.contractStatus === 'p1_validator_line_ending_repair_implemented_independent_ci_pending', 'contract status drift')
   check(physical.contractStatus === 'p0_supervisor_frozen_runtime_not_implemented', 'physical object contract is not frozen')
   check(navigation.contractStatus === 'p1_ci_passed_page_account_acceptance_pending', 'navigation candidate status drift')
   check(roleMigration.manualPrimaryRoleDecisions?.status === 'owner-confirmed-isolated-applied-production-unchanged', 'manual role decisions are not frozen and isolated-applied')
@@ -152,7 +152,7 @@ function validate(candidate) {
 
   for (const order of workOrders) {
     check(['backend', 'frontend', 'qa'].includes(order.team), `${order.id} has unknown team`)
-    check(order.status === 'candidate_linux_accepted_windows_portable_selftest_repair_pending', `${order.id} must preserve Linux acceptance and Windows portability repair boundary`)
+    check(order.status === 'candidate_validator_line_ending_repair_implemented_ci_pending', `${order.id} must preserve implemented validator repair and pending independent CI boundary`)
     check(Boolean(order.deliverable?.trim()), `${order.id} lacks deliverable`)
   }
   check(workOrders.filter((entry) => entry.team === 'backend').length === 4, 'backend work-order count drift')
@@ -183,6 +183,17 @@ function validate(candidate) {
   check(repairCi.windowsLocalRemainingStepsExecuted === 0 && repairCi.windowsLocalRemainingStepsNotExecuted === 11, 'repair CI Windows stop boundary drift')
   check(repairCi.portableSelftestRepairPending === true, 'portable self-test repair must remain pending')
   check(repairCi.productionReadPerformed === false && repairCi.productionWritePerformed === false, 'repair CI production boundary drift')
+  const secondRepairCi = ci.secondRepairCandidateRunEvidence ?? {}
+  check(secondRepairCi.runId === '29694104452' && secondRepairCi.headSha === '92bbac9c265834d0d4f4c550137f519afe366a03', 'second repair CI run identity drift')
+  check(secondRepairCi.linuxJobId === '88211774885' && secondRepairCi.windowsJobId === '88211774922', 'second repair CI job ids drift')
+  check(secondRepairCi.overallStatus === 'failed_preserved_without_rerun' && secondRepairCi.rerunPerformed === false, 'second repair CI failure preservation drift')
+  check(secondRepairCi.ciSecondRepairCandidateLinuxAccepted === true && secondRepairCi.linuxDatabaseGates === '70/70 migrations, 27/27 SQL, 4/4 catalog, cleanup passed', 'second repair CI Linux acceptance drift')
+  check(secondRepairCi.portableSelftestRepairImplemented === true, 'portable self-test implementation evidence missing')
+  check(secondRepairCi.windowsStatic === '15/17' && secondRepairCi.windowsFailedGate === '16 p1-isolated-runtime-runner' && secondRepairCi.windowsGate17Executed === false, 'second repair CI Windows static stop boundary drift')
+  check(secondRepairCi.windowsFailure === 'validator raw CRLF exact-string mismatch for execute-only tool gate', 'second repair CI Windows failure drift')
+  check(secondRepairCi.windowsLocalRemainingStepsExecuted === 0 && secondRepairCi.windowsLocalRemainingStepsNotExecuted === 11, 'second repair CI Windows local stop boundary drift')
+  check(secondRepairCi.validatorLineEndingRepairPending === true, 'validator line-ending repair must remain pending')
+  check(secondRepairCi.productionReadPerformed === false && secondRepairCi.productionWritePerformed === false, 'second repair CI production boundary drift')
 
   const isolated = candidate.isolatedTestProjectEvidence ?? {}
   check(isolated.targetProjectRef === 'zdmuaqokndhhbarudhtw', 'isolated target ref drift')
@@ -208,11 +219,12 @@ function validate(candidate) {
   check(repair.hashMode === 'utf8-lf', 'repair candidate hash mode must remain utf8-lf')
   check(repair.migrationSha256Lf === 'acc7f15afa502d7a124c2a13d74d0a71c2b98c11664d58de2d4639081d5a7597', 'repair migration LF SHA drift')
   check(repair.testSha256Lf === 'bed07c4d494ac3e7f7e993e12090194ed413b0e92d681aea0adb3eb381f430fb', 'repair SQL test LF SHA drift')
-  check(repair.runtimeContractSha256Lf === 'd6d978e79f2c5e1083a46b2cf04e2e91d1825fb52bb559c93cc0c9615a0b2518', 'runtime contract LF SHA drift')
+  check(repair.runtimeContractSha256Lf === '741477531751240f763f0b22c9e9d6168ee6d7b3a036708d55b2b082b5f6df68', 'runtime contract LF SHA drift')
   check(repair.runnerSha256Lf === 'ac22d2d935d4b557314b5e7c61dfdf54e4af8c3dfe178ad047de1b2cf5955248', 'runtime runner LF SHA drift')
-  check(repair.runnerValidatorSha256Lf === '5a95b5ae91caa3d9de964d4c8227575f1e6d37e394073321397492ebab092fe9', 'runtime validator LF SHA drift')
+  check(repair.runnerValidatorSha256Lf === 'ebb3d2fcc1cac6718bad785e21cc9d7dcda18fadafc3b31170b3c274fcf596b5', 'runtime validator LF SHA drift')
   check(repair.postgresRegressionSha256Lf === 'f4f54d77436b1b91035cd8fff7572dd52f4375aa75f52325a664426d0b9cf3ea', 'local Postgres regression LF SHA drift')
   check(repair.localPostgresAccepted === true && repair.isolatedRemoteApply === 'pending', 'local repair acceptance or isolated remote pending boundary drift')
+  check(repair.validatorLineEndingRepairImplemented === true && repair.newIndependentCi === 'pending', 'validator line-ending implementation or independent CI boundary drift')
   check(localPg.path === 'D:\\CanWinP1LocalPgRuns\\p1-pending-trigger-iWUhfO', 'local Postgres evidence path drift')
   check(localPg.resultSha256 === '9c16a2d8934f75c0f6a59641a090f3fa65fbf909d07e3d6bde1743a107614af7', 'local Postgres result SHA drift')
   check(localPg.postgresMajor === 18 && localPg.negativePassed === '1/1' && localPg.positiveRepairPassed === '4/4', 'local Postgres control counts drift')
@@ -227,7 +239,11 @@ function validate(candidate) {
   check(boundary.ciRuntimeAccepted === true, 'P1 CI runtime acceptance must be recorded')
   check(boundary.ciRepairCandidateLinuxAccepted === true, 'repair candidate Linux acceptance must be recorded')
   check(boundary.ciRepairCandidateWindowsStatic === '16/17', 'repair candidate Windows static boundary drift')
-  check(boundary.portableSelftestRepairPending === true, 'portable self-test repair must remain pending')
+  check(boundary.portableSelftestRepairPending === false && boundary.portableSelftestRepairImplemented === true, 'portable self-test implementation boundary drift')
+  check(boundary.ciSecondRepairCandidateLinuxAccepted === true, 'second repair candidate Linux acceptance must be recorded')
+  check(boundary.ciSecondRepairCandidateWindowsStatic === '15/17', 'second repair candidate Windows static boundary drift')
+  check(boundary.validatorLineEndingRepairPending === false && boundary.validatorLineEndingRepairImplemented === true, 'validator line-ending implementation boundary drift')
+  check(boundary.newIndependentCi === 'pending', 'new independent CI must remain pending')
   check(boundary.localPostgresAccepted === true, 'local PostgreSQL repair acceptance must be recorded')
   check(boundary.repairCandidateIsolatedRemoteApply === 'pending', 'isolated remote repair candidate must remain pending')
   check(boundary.isolatedTestProjectApply === 'failed_repair_pending', 'isolated apply failure boundary missing')
@@ -261,7 +277,10 @@ const negativeCases = [
   ['P1 CI success erased', (value) => { value.ciContract.p1ActualRemoteRunEvidence = 'failed_repair_pending' }],
   ['repair CI Linux acceptance erased', (value) => { value.acceptanceBoundary.ciRepairCandidateLinuxAccepted = false }],
   ['repair CI Windows falsely all green', (value) => { value.acceptanceBoundary.ciRepairCandidateWindowsStatic = '17/17' }],
-  ['portable repair falsely completed', (value) => { value.acceptanceBoundary.portableSelftestRepairPending = false }],
+  ['portable repair regressed to pending', (value) => { value.acceptanceBoundary.portableSelftestRepairPending = true }],
+  ['second repair CI Linux acceptance erased', (value) => { value.acceptanceBoundary.ciSecondRepairCandidateLinuxAccepted = false }],
+  ['second repair CI Windows falsely all green', (value) => { value.acceptanceBoundary.ciSecondRepairCandidateWindowsStatic = '17/17' }],
+  ['validator line-ending implementation erased', (value) => { value.acceptanceBoundary.validatorLineEndingRepairImplemented = false }],
   ['isolated failure erased', (value) => { value.isolatedTestProjectEvidence.applyStatus = 'passed' }],
   ['isolated write falsely zero', (value) => { value.acceptanceBoundary.isolatedTestProjectWriteAttempts = 0 }],
   ['isolated rollback falsely verified', (value) => { value.acceptanceBoundary.isolatedTestProjectRollbackVerified = true }],
@@ -288,5 +307,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `P0_P1_INTERFACE_FREEZE_OK rpcs=${contract.rpcInterfaces.length} whitelists=${Object.keys(contract.fieldWhitelists).length} identities=${contract.baseTestIdentities.length} overlays=${contract.overlayTestCases.length} attacks=${contract.directApiAttackCases.length} workOrders=${contract.workOrders.length} negative=${negativePassed}/${negativeCases.length} hashMode=utf8-lf p1ActualRemoteRun=passed ciRuntimeAccepted=true ciRepairCandidateLinuxAccepted=true windowsStatic=16/17 portableSelftestRepairPending=true localPostgresAccepted=true isolatedTestProjectApply=failed_repair_pending repairCandidateIsolatedRemoteApply=pending testProjectWriteAttempts=1 rollbackVerified=false reconciliation=false pageAccountAcceptance=false runtimeAccepted=false g0=true g1=false p1CandidateImplemented=true`,
+  `P0_P1_INTERFACE_FREEZE_OK rpcs=${contract.rpcInterfaces.length} whitelists=${Object.keys(contract.fieldWhitelists).length} identities=${contract.baseTestIdentities.length} overlays=${contract.overlayTestCases.length} attacks=${contract.directApiAttackCases.length} workOrders=${contract.workOrders.length} negative=${negativePassed}/${negativeCases.length} hashMode=utf8-lf p1ActualRemoteRun=passed ciRuntimeAccepted=true firstRepairWindowsStatic=16/17 portableSelftestRepairImplemented=true secondRepairLinuxAccepted=true secondRepairWindowsStatic=15/17 validatorLineEndingRepairImplemented=true newIndependentCi=pending localPostgresAccepted=true isolatedTestProjectApply=failed_repair_pending repairCandidateIsolatedRemoteApply=pending testProjectWriteAttempts=1 rollbackVerified=false reconciliation=false pageAccountAcceptance=false runtimeAccepted=false g0=true g1=false p1CandidateImplemented=true`,
 )

@@ -1,6 +1,6 @@
 # P0-07 P1 工单与冻结接口
 
-> 状态：P1 工单和接口已冻结；新修复候选的 Linux 数据库通道全绿，Windows 因固定本机 PG18 工具路径不可移植而在 static 16/17 后首错停止并保留，尚未重跑；隔离项目应用和 G1 均未通过。
+> 状态：P1 工单和接口已冻结；第二个修复候选 Linux 数据库通道全绿，Windows 因校验器用原始 CRLF 精确字符串匹配而在 static 15/17 后首错停止并保留，尚未重跑；隔离项目应用和 G1 均未通过。
 > 机器合同：`scripts/p0/p1-interface-freeze.json`；校验器：`scripts/p0/verify-p1-interface-freeze.mjs`。
 
 ## P1 目标
@@ -71,3 +71,4 @@
 - 独立测试项目 `zdmuaqokndhhbarudhtw` 的唯一正式应用尝试 1/1 已首错停止。dry-run 为本地70、远端69，仅 P1 `20260719130910` 待应用；正式执行第5条 `ALTER profile_access_roles.assignment_kind SET NOT NULL` 时触发 pending trigger events、SQLSTATE `55006`。后续 SQL、catalog、对账均未执行，生产读写0；测试项目写入尝试1，事务回滚未复查，目标现场保留且未重试。失败证据 SHA256 为 `773bf49d6fa8eb3abbe564969cbec83b22755282153fd11e5d5d0fc161cfc996`。因此机器边界为 `isolatedTestProjectApply=failed_repair_pending`、`runtimeAccepted=false`、`g1OverallClaim=false`。
 - 修复候选使用 `utf8-lf` 哈希口径锁定迁移、SQL 测试、运行合同和三份执行/校验脚本；本机独立 PostgreSQL 18 实证目录为 `D:\CanWinP1LocalPgRuns\p1-pending-trigger-iWUhfO`，负控 1/1 精确复现 SQLSTATE `55006`，修复顺序 4/4 通过，夹具回滚干净，数据库已停止，尝试 1 次、远端连接 0。该证据只签收 `localPostgresAccepted=true`；隔离测试项目重新应用、全量对账和页面/账号验收仍待执行，G1 仍为 false。
 - 新独立 CI run `29693556452`（提交 `b9bcca61b826c641e550c6c070f09c4adc407cbe`）已首错停止且不重跑。Linux job `88210359113` 全绿：迁移70/70、SQL27/27（7/11/9）、catalog4/4、清理成功、生产读写0；Windows job `88210359107` 在 local 第1项 static 的第17门失败，前16门通过，原因是 PG selftest 错把本机固定 `D:\CanWinP1Postgres18` 三工具当成 GitHub runner 必备条件，local 其余11项未执行。当前边界为 `ciRepairCandidateLinuxAccepted=true`、`windowsStatic=16/17`、`portableSelftestRepairPending=true`、`g1OverallClaim=false`。
+- 第二个 repair CI run `29694104452`（提交 `92bbac9c265834d0d4f4c550137f519afe366a03`）同样首错停止、保留且不重跑。Linux job `88211774885` 全绿：迁移70/70、SQL27/27（7/11/9）、catalog4/4、清理成功、生产读写0；Windows job `88211774922` 在 local 第1项 static 的 gate16 `p1-isolated-runtime-runner` 失败，前15门通过，gate17 和 local 其余11项均未执行。PG selftest 的可移植分层本身已修；新首错是 validator 对 execute-only 工具门使用原始 CRLF 精确字符串匹配。当前为 `portableSelftestRepairImplemented=true`、`secondRepairWindowsStatic=15/17`、`validatorLineEndingRepairPending=true`、`g1OverallClaim=false`。

@@ -1,6 +1,6 @@
 # CanWin Team OS 4.0 — P0 监理台账
 
-> 状态：P0/G0 已验收；P1 新修复候选 Linux CI 全绿，Windows static 16/17 后因本机 PG 工具路径不可移植而首错停止；运行已保留不重跑，G1 未签署
+> 状态：P0/G0 已验收；P1 第二修复候选 Linux CI 全绿，Windows static 15/17 后因校验器 CRLF 精确匹配误判而首错停止；运行已保留不重跑，G1 未签署
 > 基线：`CanWin-Team-OS-4.0-最终施工总方案.md`（2026-07-18）
 > 监理分支：`codex/team-os-4-p0-integration`
 
@@ -8,7 +8,7 @@
 
 ## 当前结论
 
-七项首批产物和 G0 已完成监理验收；P1 旧候选曾通过独立 CI，首次独立测试项目应用首错证据保留。新修复候选的 Linux 数据库通道已全绿，但 Windows 因 PG 自测依赖本机固定工具路径而在 static 16/17 后停止；可移植性修复、隔离项目重新应用、对账和页面/账号验收仍未完成。当前不提前开发 P3–P6，不修改生产数据库和生产 Storage 策略。
+七项首批产物和 G0 已完成监理验收；P1 历史成功与失败证据均保留。PG 自测的可移植分层已完成，但第二修复候选 Windows 又因 validator 对 CRLF 使用原始精确字符串匹配而在 static 15/17 后停止；校验器换行修复、新独立 CI、隔离项目重新应用、对账和页面/账号验收仍未完成。当前不提前开发 P3–P6，不修改生产数据库和生产 Storage 策略。
 
 当前已核实：
 
@@ -44,6 +44,7 @@
 - 独立测试项目 `zdmuaqokndhhbarudhtw` 的唯一正式候选尝试 1/1 已首错停止并保留。dry-run 显示本地70、远端69，仅 P1 迁移 `20260719130910` 待应用；正式应用到第5条 `ALTER profile_access_roles.assignment_kind SET NOT NULL` 时，因 pending trigger events 触发 SQLSTATE `55006`。后续 SQL、catalog 和全量对账均未执行；生产读写0。测试项目发生写入尝试1，事务是否完整回滚尚未复查，禁止记为“测试写入0”或“已回滚”。失败证据位于 `D:\CanWin-Team-OS-4.0-P1-Validation\p1-isolated-20260719T150630589Z-ed853ebbab\failure.json`，SHA256 `773bf49d6fa8eb3abbe564969cbec83b22755282153fd11e5d5d0fc161cfc996`。
 - 新修复候选按 `utf8-lf` 口径锁定 6 份候选文件；本机 PostgreSQL 18 针对性回归在 `D:\CanWinP1LocalPgRuns\p1-pending-trigger-iWUhfO` 完成：负控 1/1 复现 SQLSTATE `55006`，修复顺序 4/4、回滚干净、数据库停止、远端连接 0。当前只可记为 `localPostgresAccepted=true`；首次远端失败仍保留，隔离测试项目重新应用仍为 pending，G1 仍为 false。
 - 新独立 CI run `29693556452`（HEAD `b9bcca61b826c641e550c6c070f09c4adc407cbe`）已首错停止并保留、不重跑。Linux job `88210359113` 完成迁移70/70、SQL27/27（数据库7、权限11、业务9）、catalog4/4和清理，生产读写0；Windows job `88210359107` 在 local 第一项 static 的第17门失败，前16门已通过，失败仅因 PG selftest 要求 GitHub runner 存在本机 `D:\CanWinP1Postgres18` 三工具，local 其余11项未执行。当前为 `ciRepairCandidateLinuxAccepted=true`、`windowsStatic=16/17`、`portableSelftestRepairPending=true`，不冒充完整 CI 或 G1。
+- 第二个 repair CI run `29694104452`（HEAD `92bbac9c265834d0d4f4c550137f519afe366a03`）已首错停止、保留且不重跑。Linux job `88211774885` 完成迁移70/70、SQL27/27（7/11/9）、catalog4/4和清理，生产读写0；Windows job `88211774922` 在 local 第一项 static 的 gate16 `p1-isolated-runtime-runner` 失败，前15门通过，gate17 和 local 其余11项未执行。PG selftest 脚本本身的可移植修复已完成；当前仅可记为 `portableSelftestRepairImplemented=true`、`secondRepairWindowsStatic=15/17`、`validatorLineEndingRepairPending=true`，G1 仍为 false。
 
 生产侧全程只读；测试侧恢复、对账、三视图隔离修复和对象分类证据已固化。七项首批产物和 G0 已联合签收，P1 执行已解锁。测试项目仍封闭，真实账号禁登、预览和外发均未开放。
 
@@ -57,7 +58,7 @@
 | 04 | 图片入口与 Storage 清理清单 | P0 清理方案已验收 | 7 个文件入口、7 个旧命名空间和两个最终图片槽已冻结；1 bucket、32 objects 已恢复，生产策略未改 |
 | 05 | 核心实体和状态机字典 | P0 已验收 | 业务语义 76/76；22 个实体、7 组现有表扩展、11 张新增表、16 组字典、12 条不变量及 RLS/RPC/索引边界均已冻结 |
 | 06 | 测试项目与备份恢复基线 | 已验收 | 正式封闭恢复 1/1、数据库/Auth/Storage 全量对账、禁登和外发隔离证据齐全 |
-| 07 | P1 工单及冻结接口 | 修复候选 Linux CI 已通过，Windows 可移植性修复待完成 | 后端4、前端4、QA5项工单冻结；Windows static 16/17 首错运行保留不重跑，完成可移植自测、新独立 CI、隔离项目重跑、对账和页面/账号验收前不写为 G1 完成 |
+| 07 | P1 工单及冻结接口 | 第二修复候选 Linux CI 已通过，Windows 校验器换行修复待完成 | 后端4、前端4、QA5项工单冻结；Windows static 15/17 首错运行保留不重跑，完成 CRLF/LF 无关校验、新独立 CI、隔离项目重跑、对账和页面/账号验收前不写为 G1 完成 |
 
 ## G0 门禁
 
@@ -83,7 +84,7 @@
 - 恢复台账：139/139；真实恢复状态为 `succeeded`、阻塞项 0；封闭恢复合同 73/73，备份模板合同 1113/1113。
 - 前端清单：36 路由、22 个 4.8 节页面、7 个文件入口、7 个 Storage 命名空间。
 - P1 导航合同：5 个主岗位、2 个附加职能、13 个应用上下文字段、36 个旧路由映射。
-- P1 接口合同：6 个物理 RPC、4 组字段白名单、6 类基础身份、16 个附加职能组合、12 个直接 API 攻击用例、13 项三团队工单；历史成功和失败证据继续保留，新修复候选 Linux 已签收、Windows static 16/17、可移植自测待修，隔离项目重新应用 pending，G1 仍为 false。
+- P1 接口合同：6 个物理 RPC、4 组字段白名单、6 类基础身份、16 个附加职能组合、12 个直接 API 攻击用例、13 项三团队工单；历史成功和两次 repair CI 失败均保留，第二次 Linux 已签收、Windows static 15/17、validator 换行修复待完成，隔离项目重新应用 pending，G1 仍为 false。
 - 后端 catalog 只读校验：9 个自检案例、15 条只读 SQL。
 - 三视图候选校验：LF/CRLF/mixed/注释分号 4 种格式通过；4 个正例、6 个负例；3 个视图、4 条策略、3 个调用方；数据库调用 0。
 - 103 表四分类：完整17项证据和监理冻结 103/103；精确恢复副本总行数 796，运行时动态表名调用 0。该单项制品保持 `g0=false` 防止独立冒充整体门禁；整体 G0 已由联合签收单确认。

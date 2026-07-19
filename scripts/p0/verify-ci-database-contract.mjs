@@ -604,7 +604,7 @@ function validate(candidate) {
 
   check(candidate.schemaVersion === 1, 'schema version must be 1')
   check(candidate.manifestType === 'canwin-team-os-p0-ci-database-tests', 'manifest type drift')
-  check(candidate.contractStatus === 'p1_repair_ci_linux_accepted_windows_portable_selftest_pending', 'contract status drift')
+  check(candidate.contractStatus === 'p1_second_repair_ci_linux_accepted_windows_validator_line_ending_pending', 'contract status drift')
 
   check(candidate.baseline?.path === 'supabase/schema.sql', 'baseline path drift')
   check(candidate.baseline?.sha256Lf === sha256Lf(resolve(repoRoot, 'supabase', 'schema.sql')), 'baseline hash drift')
@@ -847,14 +847,17 @@ function validate(candidate) {
   check(boundary.p1ActualGithubRunEvidence === 'passed', 'P1 successful GitHub run evidence missing')
   check(boundary.ciRepairCandidateLinuxAccepted === true, 'repair candidate Linux acceptance evidence missing')
   check(boundary.ciRepairCandidateWindowsStatic === '16/17', 'repair candidate Windows static count drift')
-  check(boundary.portableSelftestRepairPending === true, 'portable self-test repair must remain pending')
+  check(boundary.portableSelftestRepairPending === false && boundary.portableSelftestRepairImplemented === true, 'portable self-test repair implementation evidence drift')
+  check(boundary.ciSecondRepairCandidateLinuxAccepted === true, 'second repair candidate Linux acceptance evidence missing')
+  check(boundary.ciSecondRepairCandidateWindowsStatic === '15/17', 'second repair candidate Windows static count drift')
+  check(boundary.validatorLineEndingRepairPending === true, 'validator line-ending repair must remain pending')
   check(boundary.g1OverallClaim === false, 'G1 must remain unclaimed until real page and account acceptance passes')
   check(boundary.productionReadPerformed === false, 'production read must remain false')
   check(boundary.productionWritePerformed === false, 'production write must remain false')
   check(boundary.repositorySecretsRequired === false, 'repository secrets must not be required')
 
   const attempts = candidate.formalAttemptHistory ?? []
-  check(attempts.length === 19, 'formal attempt history count drift')
+  check(attempts.length === 20, 'formal attempt history count drift')
   const failedAttempt = attempts[0] ?? {}
   check(failedAttempt.runId === '29680934378', 'failed run id drift')
   check(failedAttempt.jobId === '88176860842', 'failed job id drift')
@@ -1199,6 +1202,26 @@ function validate(candidate) {
   check(portableSelftestAttempt.repositorySecretsRequired === false && portableSelftestAttempt.productionReadPerformed === false && portableSelftestAttempt.productionWritePerformed === false, 'portable self-test secret or production boundary drift')
   check(portableSelftestAttempt.rerunOfFailedRun === false && portableSelftestAttempt.preservedWithoutRerun === true, 'portable self-test failed run must remain preserved without rerun')
   check(portableSelftestAttempt.pageAccountAcceptancePassed === false, 'portable self-test CI must not claim page/account acceptance')
+  const validatorLineEndingAttempt = attempts[19] ?? {}
+  check(validatorLineEndingAttempt.runId === '29694104452', 'validator line-ending run id drift')
+  check(validatorLineEndingAttempt.jobId === '88211774885' && validatorLineEndingAttempt.windowsJobId === '88211774922', 'validator line-ending job ids drift')
+  check(validatorLineEndingAttempt.headSha === '92bbac9c265834d0d4f4c550137f519afe366a03', 'validator line-ending head SHA drift')
+  check(validatorLineEndingAttempt.conclusion === 'failure', 'validator line-ending run conclusion drift')
+  check(validatorLineEndingAttempt.failedStep === 'Windows local integration static gate 16 p1-isolated-runtime-runner', 'validator line-ending failed step drift')
+  check(validatorLineEndingAttempt.rootCauseCode === 'validator_raw_crlf_exact_string_mismatch_for_execute_only_tool_gate', 'validator line-ending root cause drift')
+  check(validatorLineEndingAttempt.windowsLocalGatePassed === false, 'validator line-ending Windows run must remain failed')
+  check(validatorLineEndingAttempt.windowsStaticGatesExpected === 17 && validatorLineEndingAttempt.windowsStaticGatesPassed === 15 && validatorLineEndingAttempt.windowsStaticGateFailed === 16 && validatorLineEndingAttempt.windowsStaticGate17Executed === false, 'validator line-ending Windows static stop boundary drift')
+  check(validatorLineEndingAttempt.windowsLocalIntegrationStepsExpected === 12 && validatorLineEndingAttempt.windowsLocalIntegrationStepsStarted === 1 && validatorLineEndingAttempt.windowsLocalIntegrationStepsPassed === 0 && validatorLineEndingAttempt.windowsLocalIntegrationStepsNotExecuted === 11, 'validator line-ending Windows local stop boundary drift')
+  check(validatorLineEndingAttempt.windowsFailure === 'validator compared a raw CRLF exact string for the execute-only tool gate', 'validator line-ending Windows failure drift')
+  check(validatorLineEndingAttempt.ciSecondRepairCandidateLinuxAccepted === true && validatorLineEndingAttempt.portableSelftestRepairImplemented === true && validatorLineEndingAttempt.validatorLineEndingRepairPending === true, 'validator line-ending repair boundary drift')
+  check(validatorLineEndingAttempt.databaseStartupPassed === true && validatorLineEndingAttempt.baselinePassed === true, 'validator line-ending Linux database startup or baseline evidence missing')
+  check(validatorLineEndingAttempt.migrationsPassed === 70 && validatorLineEndingAttempt.sqlTestsStarted === 27 && validatorLineEndingAttempt.sqlTestsPassed === 27, 'validator line-ending Linux migration or SQL counts drift')
+  check(validatorLineEndingAttempt.databaseTestsPassed === 7 && validatorLineEndingAttempt.permissionTestsPassed === 11 && validatorLineEndingAttempt.businessTestsPassed === 9, 'validator line-ending Linux category counts drift')
+  check(validatorLineEndingAttempt.catalogAssertionsPassed === 4 && validatorLineEndingAttempt.successMarker === 'P0_CI_DATABASE_GATES_OK', 'validator line-ending Linux catalog or marker evidence missing')
+  check(validatorLineEndingAttempt.cleanupPassed === true, 'validator line-ending Linux cleanup evidence missing')
+  check(validatorLineEndingAttempt.repositorySecretsRequired === false && validatorLineEndingAttempt.productionReadPerformed === false && validatorLineEndingAttempt.productionWritePerformed === false, 'validator line-ending secret or production boundary drift')
+  check(validatorLineEndingAttempt.rerunOfFailedRun === false && validatorLineEndingAttempt.preservedWithoutRerun === true, 'validator line-ending failed run must remain preserved without rerun')
+  check(validatorLineEndingAttempt.pageAccountAcceptancePassed === false, 'validator line-ending CI must not claim page/account acceptance')
   return failures
 }
 
@@ -1237,7 +1260,10 @@ const negativeCases = [
   ['P1 CI success erased', (value) => { value.acceptanceBoundary.p1ActualGithubRunEvidence = 'failed_repair_pending' }],
   ['repair Linux acceptance erased', (value) => { value.acceptanceBoundary.ciRepairCandidateLinuxAccepted = false }],
   ['repair Windows static falsely passed', (value) => { value.acceptanceBoundary.ciRepairCandidateWindowsStatic = '17/17' }],
-  ['portable repair falsely completed', (value) => { value.acceptanceBoundary.portableSelftestRepairPending = false }],
+  ['portable repair regressed to pending', (value) => { value.acceptanceBoundary.portableSelftestRepairPending = true }],
+  ['second repair Linux acceptance erased', (value) => { value.acceptanceBoundary.ciSecondRepairCandidateLinuxAccepted = false }],
+  ['second repair Windows falsely all green', (value) => { value.acceptanceBoundary.ciSecondRepairCandidateWindowsStatic = '17/17' }],
+  ['validator line-ending repair falsely completed', (value) => { value.acceptanceBoundary.validatorLineEndingRepairPending = false }],
   ['G1 falsely claimed', (value) => { value.acceptanceBoundary.g1OverallClaim = true }],
   ['portable failure evidence erased', (value) => { value.formalAttemptHistory.pop() }],
 ]
@@ -1256,5 +1282,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `P0_CI_DATABASE_CONTRACT_OK baseline=1 migrations=70 tests=${contract.tests.length} database=7 permission=11 business=9 catalog=4 definitions=${contract.expectedCounts.definitionReferencedObjects} redefined=${contract.expectedCounts.redefinedDefinitionReferencedObjects} crmLeadColumnAssertions=${contract.expectedCounts.crmLeadsVisibleExactColumnAssertions} directOrderFixtures=${contract.expectedCounts.directDealOrderFixtureFiles} finalFunctionIdentities=${contract.expectedCounts.finalPublicFunctionIdentities} functionIdentityReferences=${contract.expectedCounts.functionIdentityReferences} negative=${negativePassed}/${negativeCases.length} localOnly=true repositorySecrets=0 productionReads=0 productionWrites=0 actualGithubRun=passed g0=true p1ActualGithubRun=passed ciRepairCandidateLinuxAccepted=true windowsStatic=16/17 portableSelftestRepairPending=true pageAccountAcceptance=false g1=false`,
+  `P0_CI_DATABASE_CONTRACT_OK baseline=1 migrations=70 tests=${contract.tests.length} database=7 permission=11 business=9 catalog=4 definitions=${contract.expectedCounts.definitionReferencedObjects} redefined=${contract.expectedCounts.redefinedDefinitionReferencedObjects} crmLeadColumnAssertions=${contract.expectedCounts.crmLeadsVisibleExactColumnAssertions} directOrderFixtures=${contract.expectedCounts.directDealOrderFixtureFiles} finalFunctionIdentities=${contract.expectedCounts.finalPublicFunctionIdentities} functionIdentityReferences=${contract.expectedCounts.functionIdentityReferences} negative=${negativePassed}/${negativeCases.length} localOnly=true repositorySecrets=0 productionReads=0 productionWrites=0 actualGithubRun=passed g0=true p1ActualGithubRun=passed firstRepairWindowsStatic=16/17 portableSelftestRepairImplemented=true secondRepairLinuxAccepted=true secondRepairWindowsStatic=15/17 validatorLineEndingRepairPending=true pageAccountAcceptance=false g1=false`,
 )
