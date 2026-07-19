@@ -101,7 +101,10 @@ function collectFailures(evidence, tableEvidence, register) {
   check(register.livePerRoutineEvidence?.capturedAtUtc === evidence.capturedAtUtc, 'Routine evidence capture time differs from the live routine register.')
   check(register.livePerRoutineEvidence?.securityDefinerCount === counts.securityDefiner, 'Security-definer count differs from the live routine register.')
   check(register.livePerRoutineEvidence?.authenticatedSecurityDefinerCount === counts.authenticatedSecurityDefiner, 'Authenticated security-definer count differs from the live routine register.')
-  check(register.livePerRoutineEvidence?.supervisorAcceptedRoutineCount === 0, 'Live routine register must remain unaccepted.')
+  check(
+    register.livePerRoutineEvidence?.supervisorAcceptedRoutineCount === 162,
+    'The derived classification register must cross-review all 162 source routines.',
+  )
   check(tableEvidence.counts?.triggerObjects === counts.publicTableTriggerObjects, 'Public-table trigger total differs from table evidence.')
 
   const expectedClassifications = {

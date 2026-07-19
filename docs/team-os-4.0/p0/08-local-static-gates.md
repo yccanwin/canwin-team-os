@@ -9,10 +9,12 @@
 - scripts/p0/verify-migration-manifest.mjs：验证迁移数量、14 位版本唯一、文件名集合、清单顺序和每个文件 SHA256。
 - scripts/p0/project-ref-contract.json：分别登记生产 ref 与独立测试项目 ref；预览构建仍保持禁止，直至恢复和隔离验证完成。
 - scripts/p0/verify-project-ref-contract.mjs：验证 supabase/config.toml 与生产合同一致；测试 ref 存在时必须与生产不同。
-- core-business-contract.json 与 scripts/p0/verify-core-business-contract.mjs：冻结客户层级、三价、混合收款、订单/库存/履约、工作项、案例授权和数据保护语义；表名/枚举名继续如实标记待映射。
+- core-business-contract.json 与 scripts/p0/verify-core-business-contract.mjs：冻结客户层级、三价、混合收款、订单/库存/履约、工作项、案例授权和数据保护语义；现有103表映射已由对象分类证据冻结，新增表/字段/枚举名继续如实标记为 P0 待冻结。
 - role-migration-contract.json 与 scripts/p0/verify-role-migration-contract.mjs：冻结五主岗位、两个附加职能和旧角色转换；现网只读统计的 2 个主岗位人工决定继续保持阻塞。
 - public-table-live-evidence.json 与 scripts/p0/verify-public-table-live-evidence.mjs：校验生产只读、零业务行取证的 103 表逐表 RLS/GRANT/策略/触发器/索引/外键证据，并保持 0/103 监理验收。
 - public-routine-live-evidence.json 与 scripts/p0/verify-public-routine-live-evidence.mjs：校验 162 个生产函数签名的 owner、ACL、`search_path`、提权标志、触发器引用和定义指纹，并保持 0/162 监理验收；不保存函数正文。
+- object-classification-isolated-evidence.json 与 scripts/p0/capture-object-classification-evidence.mjs：在已恢复的封闭项目用显式只读事务补齐 103 表精确行数、162 函数表/函数依赖和 216 个运行时源码文件入口；不返回业务行、函数正文或凭据。
+- public-object-classification-freeze.json、scripts/p0/build-object-classification-freeze.mjs 与 scripts/p0/verify-object-classification-freeze.mjs：把生产只读元数据、隔离依赖证据和源码入口合并为 103/103 表、162/162 函数监理冻结结论，并保留 P0/P1A 权限风险和 205 个外键优先级；不宣称 G0 整体通过。
 - public-routine-caller-crosscheck.json 与 scripts/p0/verify-routine-caller-crosscheck.mjs：扫描 `src` 和 `supabase/functions` 的运行时源码，核验明确 RPC 名称均在线上存在，并单列动态包装调用和无本地调用方的可执行签名。
 - public-foreign-key-risk-live-evidence.json、advisor-risk-priority-evidence.json 与 scripts/p0/verify-advisor-risk-priority-evidence.mjs：交叉核验 309 个外键、Advisor 205 个未覆盖外键和 143/315 安全/性能提示，并保持风险决定验收为 0；不执行数据库变更。
 - backup-restore-manifest.template.json：冻结数据库、Auth、Storage、Functions、Cron、运行配置和恢复证据的机器合同，不含密钥值。
@@ -24,7 +26,7 @@
 - scripts/p0/verify-p1-app-navigation-contract.mjs：验证五主岗位、两个附加职能、桌面/移动导航和旧路由映射合同。
 - scripts/p0/validate-catalog-snapshot-readonly.ps1：验证 catalog 快照 SQL 只能执行只读语句。
 - scripts/p0/validate-security-invoker-view-candidate.ps1：验证三视图候选的范围、列、ACL、调用方和 LF/CRLF 注释解析，不执行 SQL。
-- scripts/p0/verify-table-classification-register.mjs：验证 103 张 public 表分类合同及开放审计缺口。
+- scripts/p0/verify-table-classification-register.mjs：兼容入口，调用最终对象分类冻结校验器，验证来源哈希、集合、逐项字段、风险边界和负向自检。
 - scripts/p0/verify-frontend-disposition-crosscheck.mjs：交叉核验前端路由、总方案 4.8、上传入口、Storage 命名空间和处置状态。
 - scripts/p0/verify-build-target.mjs：把 production/test-preview 目标与精确项目 ref、URL、前端 key 类型和版本化指纹绑定；拒绝 service role/secret、ref 错配、交叉环境产物和未解锁预览，并内置 20 个正负用例。
 - scripts/p0/run-local-integration.mjs：按固定顺序运行十个本地检查点，首个非零即退出并输出发现、运行、通过、失败和跳过数量。
@@ -36,7 +38,7 @@
 npm.cmd run test:p0:local
 ~~~
 
-统一入口固定运行：十个 static gates、前端 inventory、P1 导航合同、catalog 只读自检、安全视图候选校验、103 表分类合同、前端处置交叉核验、构建目标负测、隔离目标前端编译和静态产物扫描。runner 发现十个检查点；其中 static gates 在第一个检查点内部按 10/10 单独计数。任一子命令首次返回非零，runner 立即停止，不运行后续检查点，并如实输出 skipped 数量。
+统一入口固定运行：十二个 static gates、前端 inventory、P1 导航合同、catalog 只读自检、安全视图候选校验、103 表分类合同、前端处置交叉核验、构建目标负测、隔离目标前端编译和静态产物扫描。runner 发现十个检查点；其中 static gates 在第一个检查点内部按 12/12 单独计数。任一子命令首次返回非零，runner 立即停止，不运行后续检查点，并如实输出 skipped 数量。
 
 该入口不调用 Supabase CLI、MCP、业务网络、数据库或会写数据的 SQL，不部署、不发布，也不修改历史迁移。catalog 和安全视图脚本只解析仓库内 SQL；build 只生成本地产物。CI 包装层仅为 checkout、运行时准备和依赖安装访问 GitHub/npm，不访问 Supabase 项目。
 

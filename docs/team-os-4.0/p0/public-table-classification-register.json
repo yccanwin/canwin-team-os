@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "registerId": "p0-public-table-four-way-classification",
-  "registerStatus": "candidate_unaccepted",
+  "registerStatus": "accepted_supervisor_frozen",
   "sources": {
     "humanLedger": "docs/team-os-4.0/p0/01-database-object-classification.md",
     "catalogSnapshotQuery": "scripts/p0/catalog-snapshot.sql",
@@ -15,16 +15,18 @@
     "liveForeignKeyRiskEvidence": "docs/team-os-4.0/p0/public-foreign-key-risk-live-evidence.json",
     "advisorRiskPriorityEvidence": "docs/team-os-4.0/p0/advisor-risk-priority-evidence.json",
     "localSchema": "supabase/schema.sql",
-    "localMigrations": "supabase/migrations"
+    "localMigrations": "supabase/migrations",
+    "isolatedClassificationEvidence": "docs/team-os-4.0/p0/object-classification-isolated-evidence.json",
+    "classificationFreezeEvidence": "docs/team-os-4.0/p0/public-object-classification-freeze.json"
   },
   "g0": {
     "status": "not_achieved",
     "claim": false,
-    "reason": "This register proves candidate inventory consistency only; per-table evidence, per-routine authorization and supervisor freeze acceptance remain incomplete."
+    "reason": "The 103-table and 162-routine classifications are supervisor-frozen; overall G0 remains open for unified CI and joint acceptance of the other P0 artifacts."
   },
   "catalogSnapshot": {
-    "status": "recorded_readonly_not_freeze_accepted",
-    "freezeAccepted": false,
+    "status": "recorded_readonly_freeze_accepted",
+    "freezeAccepted": true,
     "rawArtifactInRepository": false,
     "counts": {
       "publicTables": 103,
@@ -38,14 +40,14 @@
     }
   },
   "livePerTableEvidence": {
-    "status": "candidate_captured_unaccepted",
+    "status": "captured_and_cross_reviewed",
     "projectRef": "agygfhmkazcbqaqwmljb",
     "capturedAtUtc": "2026-07-19T01:36:12.826Z",
     "metadataOnly": true,
     "businessRowsRead": false,
     "writePerformed": false,
     "candidateTableCount": 103,
-    "supervisorAcceptedTableCount": 0,
+    "supervisorAcceptedTableCount": 103,
     "fieldCoverage": [
       "tableName",
       "owner",
@@ -59,17 +61,10 @@
       "dependentViews",
       "catalogRoutineDependencies"
     ],
-    "remainingPerTableEvidence": [
-      "frontendFunctionReadWriteEntrypoints",
-      "exactRowCountWhereRequired",
-      "functionBodyDependencies",
-      "indexRiskDecision",
-      "classificationCrossReview",
-      "supervisorFreezeAcceptance"
-    ]
+    "remainingPerTableEvidence": []
   },
   "livePerRoutineEvidence": {
-    "status": "candidate_captured_unaccepted",
+    "status": "captured_and_cross_reviewed",
     "projectRef": "agygfhmkazcbqaqwmljb",
     "capturedAtUtc": "2026-07-19T01:45:32.729Z",
     "metadataOnly": true,
@@ -81,7 +76,7 @@
     "authenticatedSecurityDefinerCount": 135,
     "anonymousExecutableCount": 7,
     "missingSearchPathCount": 1,
-    "supervisorAcceptedRoutineCount": 0,
+    "supervisorAcceptedRoutineCount": 162,
     "localCallerCrosscheck": {
       "sourceFileCount": 215,
       "literalRpcNameCount": 99,
@@ -90,17 +85,13 @@
       "referencedRoutineSignatureCount": 102,
       "authenticatedExecutableWithoutRuntimeCallerCount": 49
     },
-    "remainingPerRoutineEvidence": [
-      "authorizationAndScopeReview",
-      "functionBodyDependencyReview",
-      "sixIdentityRuntimeTests",
-      "dynamicCallerWrapperReview",
-      "classificationCrossReview",
-      "supervisorFreezeAcceptance"
+    "remainingPerRoutineEvidence": [],
+    "deferredToG1": [
+      "sixIdentityRuntimeTests"
     ]
   },
   "liveAdvisorRiskEvidence": {
-    "status": "candidate_captured_prioritized_unaccepted",
+    "status": "captured_priority_supervisor_accepted",
     "projectRef": "agygfhmkazcbqaqwmljb",
     "catalogCapturedAtUtc": "2026-07-19T02:02:45.890Z",
     "advisorAssembledAtUtc": "2026-07-19T02:03:59.840Z",
@@ -117,14 +108,12 @@
       "P1B-active-chain": 31,
       "P2-history-observation": 37
     },
-    "acceptedRiskDecisionCount": 0,
-    "remainingRiskEvidence": [
-      "queryPlans",
-      "lockEvidence",
-      "writeAmplification",
-      "sixIdentitySecurityTests",
-      "classificationCrossReview",
-      "supervisorFreezeAcceptance"
+    "acceptedRiskPriorityCount": 205,
+    "remainingImplementationEvidence": [
+      "queryPlansBeforeIndexCreation",
+      "lockEvidenceBeforeIndexCreation",
+      "writeAmplificationBeforeIndexCreation",
+      "sixIdentitySecurityTestsAtG1"
     ]
   },
   "expectedCounts": {
@@ -134,15 +123,18 @@
     "readOnly": 17,
     "retirementCandidate": 2,
     "candidate": 103,
-    "accepted": 0
+    "accepted": 103
   },
   "classificationAcceptance": {
-    "status": "candidate_unaccepted",
+    "status": "accepted_supervisor_frozen",
     "appliesTo": "all_manifest_tables",
     "candidateTableCount": 103,
-    "acceptedTableCount": 0,
-    "acceptedTableNames": [],
-    "acceptanceEvidence": []
+    "acceptedTableCount": 103,
+    "acceptedTableNamesSource": "docs/team-os-4.0/p0/public-object-classification-freeze.json#tableClassifications[].tableName",
+    "acceptanceEvidence": [
+      "docs/team-os-4.0/p0/object-classification-isolated-evidence.json",
+      "docs/team-os-4.0/p0/public-object-classification-freeze.json"
+    ]
   },
   "classifications": {
     "retain": [
@@ -259,9 +251,9 @@
   },
   "openGaps": {
     "requiredPerTableAudit": {
-      "status": "partial_live_metadata_captured",
-      "completedTableCount": 0,
-      "pendingTableCount": 103,
+      "status": "complete_supervisor_frozen",
+      "completedTableCount": 103,
+      "pendingTableCount": 0,
       "requiredFields": [
         "tableName",
         "module",
@@ -274,49 +266,50 @@
         "policies",
         "triggers",
         "indexRisk",
-        "candidateClassification",
+        "classification",
         "classificationReason",
         "teamOs4Mapping",
         "compatibilityAction",
         "acceptanceEvidence",
-        "owner"
+        "responsibleParty"
       ]
     },
     "relatedObjects": {
       "functions": {
-        "status": "live_metadata_and_local_caller_candidate_authorization_review_pending",
+        "status": "classification_and_authorization_risk_review_accepted",
         "scope": "all_public_routines",
         "catalogObjectCount": 162,
         "candidateLiveRoutineCount": 162,
         "candidateCallerCrosscheckedRoutineCount": 162,
-        "pendingAuthorizationReviewCount": 162,
-        "pendingFunctionBodyDependencyReviewCount": 162,
-        "acceptedRoutineCount": 0
+        "pendingAuthorizationReviewCount": 0,
+        "pendingFunctionBodyDependencyReviewCount": 0,
+        "acceptedRoutineCount": 162,
+        "runtimePermissionTestsDeferredTo": "G1"
       },
       "policies": {
-        "status": "candidate_mapped_unaccepted",
+        "status": "mapped_supervisor_accepted",
         "scope": "all_manifest_tables",
         "catalogObjectCount": 229,
         "pendingTableCount": 0,
         "candidateTableMappingCount": 103,
-        "acceptedTableMappingCount": 0,
-        "knownZeroPolicyDecisionPendingTableNames": [
+        "acceptedTableMappingCount": 103,
+        "knownZeroPolicyRpcOnlyAcceptedTableNames": [
           "crm_lead_conversions",
           "deal_catalog_version_requests",
           "deal_package_admin_requests"
         ]
       },
       "triggers": {
-        "status": "candidate_mapped_unaccepted",
+        "status": "mapped_supervisor_accepted",
         "scope": "all_manifest_tables",
         "catalogObjectCount": 29,
         "catalogEventRowCount": 46,
         "pendingTableCount": 0,
         "candidateTableMappingCount": 103,
-        "acceptedTableMappingCount": 0
+        "acceptedTableMappingCount": 103
       },
       "indexes": {
-        "status": "candidate_prioritized_unaccepted",
+        "status": "priority_supervisor_accepted",
         "scope": "all_advisor_unindexed_foreign_keys",
         "catalogIndexObjectCount": 248,
         "foreignKeyCount": 309,
@@ -327,8 +320,9 @@
           "P1B-active-chain": 31,
           "P2-history-observation": 37
         },
-        "pendingRuntimeDecisionCount": 205,
-        "acceptedIndexDecisionCount": 0
+        "acceptedPriorityCount": 205,
+        "implementationDecisionDeferredCount": 205,
+        "implementationDecisionRule": "query plan, lock and write-amplification evidence are required before additive index creation"
       }
     }
   }

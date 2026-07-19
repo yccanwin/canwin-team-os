@@ -12,6 +12,7 @@ const gates = [
   ['public-routine-live-evidence', resolve(repoRoot, 'scripts', 'p0', 'verify-public-routine-live-evidence.mjs')],
   ['routine-caller-crosscheck', resolve(repoRoot, 'scripts', 'p0', 'verify-routine-caller-crosscheck.mjs')],
   ['advisor-risk-priority-evidence', resolve(repoRoot, 'scripts', 'p0', 'verify-advisor-risk-priority-evidence.mjs')],
+  ['object-classification-freeze', resolve(repoRoot, 'scripts', 'p0', 'verify-object-classification-freeze.mjs')],
   ['backup-manifest-contract', resolve(repoRoot, 'scripts', 'p0', 'verify-backup-manifest-contract.mjs')],
   ['restore-run-contract', resolve(repoRoot, 'scripts', 'p0', 'verify-restore-run-contract.mjs')],
   ['sealed-recovery-contract', resolve(repoRoot, 'scripts', 'p0', 'verify-sealed-recovery-contract.mjs')],
