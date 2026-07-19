@@ -1,7 +1,7 @@
 # P0-09 安全与性能风险登记册
 
 > 快照日期：2026-07-19
-> 状态：生产只读顾问结果已登记；SEC-01 已在隔离项目正式验证并完成回滚；G0 未通过。
+> 状态：生产只读顾问结果已登记；SEC-01 已在隔离项目正式验证并完成回滚；G0 已通过，生产修复仍未执行。
 > 约束：本登记册不授权生产 DDL，不把隔离验证或顾问数量直接等同于生产放行。
 > 本轮复核：2026-07-19 通过 Supabase Advisor 只读刷新，Security 143、Performance 315 与登记值一致；数据库写入为 0。
 
@@ -22,7 +22,7 @@
 
 | ID | 级别 | 当前事实 | 主要风险 | 本阶段处理决定 | 放行所需证据 |
 | --- | --- | --- | --- | --- | --- |
-| SEC-01 | P0 | 生产仍有 3 个 `security_definer_view` ERROR：`finance_public_summary`、`inventory_public_items`、`assets_public`；隔离候选与回滚证据已通过 | 视图按 owner 权限解析时可能绕过底表 RLS | 隔离项目正式候选 1/1：保持视图名/列顺序，`authenticated` 只读且 `anon` 拒绝；五岗位跨团队行 0、写入拒绝 15/15，Advisor 归零且 WARN 未增加；原子回滚 1/1 并清除全部模拟数据 | 隔离证据已齐；生产仍禁止执行，须待 G0 其余阻断项完成后单独形成生产变更与回退授权 |
+| SEC-01 | P0 | 生产仍有 3 个 `security_definer_view` ERROR：`finance_public_summary`、`inventory_public_items`、`assets_public`；隔离候选与回滚证据已通过 | 视图按 owner 权限解析时可能绕过底表 RLS | 隔离项目正式候选 1/1：保持视图名/列顺序，`authenticated` 只读且 `anon` 拒绝；五岗位跨团队行 0、写入拒绝 15/15，Advisor 归零且 WARN 未增加；原子回滚 1/1 并清除全部模拟数据 | 隔离证据已齐并纳入 G0；生产仍禁止执行，后续须单独形成生产变更、验收和回退证据 |
 | SEC-02 | P0 | 162 个签名已逐项登记：148 个 `SECURITY DEFINER`，135 个可由 `authenticated` 执行；本地找到 99 个明确 RPC 名称并对应 102 个签名，线上缺失名称 0；仍有 49 个 authenticated 可执行签名无本地直接调用方 | 高权限函数若缺少调用者身份、岗位/团队范围或安全 `search_path`，可形成越权入口；无本地调用方也不能证明可删除，可能由策略、触发器、外部客户端或动态 SQL 使用 | 逐签名分为正式业务 RPC、内部触发器/助手、废弃候选；禁止批量撤销 EXECUTE、批量改 invoker 或批量删除 | 每个签名的 owner、ACL、调用方、身份检查、团队/岗位范围、`search_path`、依赖和六身份允许/拒绝结果；变更按函数小批次独立审查 |
 | SEC-03 | P0 | 3 张表启用 RLS 但无策略：`crm_lead_conversions`、`deal_catalog_version_requests`、`deal_package_admin_requests` | Data API 默认拒绝不等于业务安全已证明；也可能隐藏前端故障，或依赖未审计的高权限 RPC | 先判定每表是“明确 RPC-only”还是“缺失策略”；不得为消除告警添加宽泛通用策略 | 表的公开入口、函数依赖和预期角色矩阵；anon/五主岗位直接 API 读写拒绝；合法 RPC 的正向及跨团队负向证据 |
 | SEC-04 | P0 | `touch_updated_at()` 未固定 `search_path`，且当前可由 `anon`、`authenticated`、`service_role` 执行 | SECURITY DEFINER 或高权限调用链可能被对象名解析劫持；多余的公开 EXECUTE 也扩大入口 | 先冻结准确函数签名、owner、函数体、触发器/调用者和依赖；单独候选设置受控 `search_path` 并审查是否撤销公开 EXECUTE，不与三视图候选合并 | 函数签名级 diff；合法调用回归；恶意同名对象/跨 schema 负向测试；anon/authenticated 直接调用拒绝；Advisor 告警消失 |

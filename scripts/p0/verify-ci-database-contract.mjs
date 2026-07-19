@@ -603,7 +603,7 @@ function validate(candidate) {
 
   check(candidate.schemaVersion === 1, 'schema version must be 1')
   check(candidate.manifestType === 'canwin-team-os-p0-ci-database-tests', 'manifest type drift')
-  check(candidate.contractStatus === 'p0_candidate_requires_actual_github_run', 'contract status drift')
+  check(candidate.contractStatus === 'p0_g0_actual_github_run_accepted', 'contract status drift')
 
   check(candidate.baseline?.path === 'supabase/schema.sql', 'baseline path drift')
   check(candidate.baseline?.sha256Lf === sha256Lf(resolve(repoRoot, 'supabase', 'schema.sql')), 'baseline hash drift')
@@ -841,14 +841,14 @@ function validate(candidate) {
   check(!/--linked\b|supabase\.co|pooler/i.test(workflow), 'remote Supabase boundary forbidden')
 
   check(boundary.contractAccepted === true, 'CI database contract not accepted')
-  check(boundary.actualGithubRunEvidence === 'pending', 'actual GitHub run must remain pending before evidence')
-  check(boundary.g0OverallClaim === false, 'G0 must not be claimed')
+  check(boundary.actualGithubRunEvidence === 'passed', 'actual GitHub run success evidence missing')
+  check(boundary.g0OverallClaim === true, 'G0 success claim missing')
   check(boundary.productionReadPerformed === false, 'production read must remain false')
   check(boundary.productionWritePerformed === false, 'production write must remain false')
   check(boundary.repositorySecretsRequired === false, 'repository secrets must not be required')
 
   const attempts = candidate.formalAttemptHistory ?? []
-  check(attempts.length === 15, 'formal attempt history count drift')
+  check(attempts.length === 16, 'formal attempt history count drift')
   const failedAttempt = attempts[0] ?? {}
   check(failedAttempt.runId === '29680934378', 'failed run id drift')
   check(failedAttempt.jobId === '88176860842', 'failed job id drift')
@@ -1111,6 +1111,25 @@ function validate(candidate) {
   check(retiredSignatureAttempt.productionReadPerformed === false, 'retired signature production read must remain false')
   check(retiredSignatureAttempt.productionWritePerformed === false, 'retired signature production write must remain false')
   check(retiredSignatureAttempt.rerunOfFailedRun === false, 'retired signature run must remain a new candidate')
+  const successfulAttempt = attempts[15] ?? {}
+  check(successfulAttempt.runId === '29686358159', 'successful run id drift')
+  check(successfulAttempt.jobId === '88191171416', 'successful Linux job id drift')
+  check(successfulAttempt.windowsJobId === '88191171335', 'successful Windows job id drift')
+  check(successfulAttempt.headSha === 'f90fb2ee9dff365a6388049cbe9820e4ac0a771f', 'successful run head SHA drift')
+  check(successfulAttempt.conclusion === 'success', 'successful run conclusion drift')
+  check(successfulAttempt.windowsLocalGatePassed === true, 'successful Windows gate evidence missing')
+  check(successfulAttempt.databaseStartupPassed === true, 'successful database startup evidence missing')
+  check(successfulAttempt.baselinePassed === true, 'successful baseline evidence missing')
+  check(successfulAttempt.migrationsPassed === 69, 'successful migration count drift')
+  check(successfulAttempt.sqlTestsStarted === 26 && successfulAttempt.sqlTestsPassed === 26, 'successful SQL test count drift')
+  check(successfulAttempt.databaseTestsPassed === 7 && successfulAttempt.permissionTestsPassed === 10 && successfulAttempt.businessTestsPassed === 9, 'successful category evidence drift')
+  check(successfulAttempt.catalogAssertionsPassed === 4, 'successful catalog assertion count drift')
+  check(successfulAttempt.successMarker === 'P0_CI_DATABASE_GATES_OK', 'successful marker drift')
+  check(successfulAttempt.cleanupPassed === true, 'successful cleanup evidence missing')
+  check(successfulAttempt.repositorySecretsRequired === false, 'successful run repository secret boundary drift')
+  check(successfulAttempt.productionReadPerformed === false, 'successful run production read must remain false')
+  check(successfulAttempt.productionWritePerformed === false, 'successful run production write must remain false')
+  check(successfulAttempt.rerunOfFailedRun === false, 'successful run must remain a new candidate')
   return failures
 }
 
@@ -1145,7 +1164,7 @@ const negativeCases = [
   ['definition target inventory', (value) => { value.expectedCounts.definitionReferencedObjects = 51 }],
   ['repository secret', (value) => { value.acceptanceBoundary.repositorySecretsRequired = true }],
   ['production write', (value) => { value.acceptanceBoundary.productionWritePerformed = true }],
-  ['G0 falsely claimed', (value) => { value.acceptanceBoundary.g0OverallClaim = true }],
+  ['G0 success evidence erased', (value) => { value.acceptanceBoundary.g0OverallClaim = false }],
   ['failed evidence erased', (value) => { value.formalAttemptHistory.pop() }],
 ]
 let negativePassed = 0
@@ -1163,5 +1182,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `P0_CI_DATABASE_CONTRACT_OK baseline=1 migrations=69 tests=${contract.tests.length} database=7 permission=10 business=9 catalog=4 definitions=${contract.expectedCounts.definitionReferencedObjects} redefined=${contract.expectedCounts.redefinedDefinitionReferencedObjects} crmLeadColumnAssertions=${contract.expectedCounts.crmLeadsVisibleExactColumnAssertions} directOrderFixtures=${contract.expectedCounts.directDealOrderFixtureFiles} finalFunctionIdentities=${contract.expectedCounts.finalPublicFunctionIdentities} functionIdentityReferences=${contract.expectedCounts.functionIdentityReferences} negative=${negativePassed}/${negativeCases.length} localOnly=true repositorySecrets=0 productionReads=0 productionWrites=0 actualGithubRun=pending`,
+  `P0_CI_DATABASE_CONTRACT_OK baseline=1 migrations=69 tests=${contract.tests.length} database=7 permission=10 business=9 catalog=4 definitions=${contract.expectedCounts.definitionReferencedObjects} redefined=${contract.expectedCounts.redefinedDefinitionReferencedObjects} crmLeadColumnAssertions=${contract.expectedCounts.crmLeadsVisibleExactColumnAssertions} directOrderFixtures=${contract.expectedCounts.directDealOrderFixtureFiles} finalFunctionIdentities=${contract.expectedCounts.finalPublicFunctionIdentities} functionIdentityReferences=${contract.expectedCounts.functionIdentityReferences} negative=${negativePassed}/${negativeCases.length} localOnly=true repositorySecrets=0 productionReads=0 productionWrites=0 actualGithubRun=passed g0=true`,
 )

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "manifestType": "canwin-team-os-p0-ci-database-tests",
-  "contractStatus": "p0_candidate_requires_actual_github_run",
+  "contractStatus": "p0_g0_actual_github_run_accepted",
   "baseline": {
     "path": "supabase/schema.sql",
     "sha256Lf": "4602c1e583174a4dbc6e480aac101d2cf914148651ded71028d9a43abed8c340"
@@ -129,8 +129,8 @@
   },
   "acceptanceBoundary": {
     "contractAccepted": true,
-    "actualGithubRunEvidence": "pending",
-    "g0OverallClaim": false,
+    "actualGithubRunEvidence": "passed",
+    "g0OverallClaim": true,
     "productionReadPerformed": false,
     "productionWritePerformed": false,
     "repositorySecretsRequired": false
@@ -436,6 +436,29 @@
       "classwideFunctionIdentityReferencesAudited": 189,
       "catalogAssertionsStarted": 0,
       "cleanupPassed": true,
+      "productionReadPerformed": false,
+      "productionWritePerformed": false,
+      "rerunOfFailedRun": false
+    },
+    {
+      "runId": "29686358159",
+      "jobId": "88191171416",
+      "windowsJobId": "88191171335",
+      "headSha": "f90fb2ee9dff365a6388049cbe9820e4ac0a771f",
+      "conclusion": "success",
+      "windowsLocalGatePassed": true,
+      "databaseStartupPassed": true,
+      "baselinePassed": true,
+      "migrationsPassed": 69,
+      "sqlTestsStarted": 26,
+      "sqlTestsPassed": 26,
+      "databaseTestsPassed": 7,
+      "permissionTestsPassed": 10,
+      "businessTestsPassed": 9,
+      "catalogAssertionsPassed": 4,
+      "successMarker": "P0_CI_DATABASE_GATES_OK",
+      "cleanupPassed": true,
+      "repositorySecretsRequired": false,
       "productionReadPerformed": false,
       "productionWritePerformed": false,
       "rerunOfFailedRun": false

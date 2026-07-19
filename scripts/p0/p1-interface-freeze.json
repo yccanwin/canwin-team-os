@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "manifestType": "canwin-team-os-p1-interface-freeze",
-  "contractStatus": "p0_supervisor_frozen_execution_locked_until_g0",
+  "contractStatus": "p0_g0_passed_p1_execution_unlocked",
   "scope": "Freeze P1 role, permission, app-context, navigation, responsibility-routing and acceptance interfaces without implementing them or writing production.",
   "sources": [
     "docs/CanWin-Team-OS-4.0-最终施工总方案.md",
@@ -165,14 +165,14 @@
     "isolatedProjectRefSource": "scripts/p0/project-ref-contract.json:testProjectRef",
     "secretValuesMayBePrintedOrCommitted": false,
     "databasePermissionAndBusinessTestsRequired": true,
-    "actualRemoteRunEvidence": "pending"
+    "actualRemoteRunEvidence": "passed"
   },
   "acceptanceBoundary": {
     "p1InterfacesFrozen": true,
     "p1WorkOrdersFrozen": true,
     "p1CodeStarted": false,
     "runtimeAccepted": false,
-    "g0OverallClaim": false,
+    "g0OverallClaim": true,
     "productionWritePerformed": false,
     "productionMigrationAuthorized": false
   }

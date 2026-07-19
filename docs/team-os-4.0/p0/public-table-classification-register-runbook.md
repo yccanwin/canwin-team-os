@@ -2,7 +2,7 @@
 
 > 机器清单：`public-table-classification-register.json`
 > 只读校验器：`scripts/p0/verify-table-classification-register.mjs`、`scripts/p0/verify-public-table-live-evidence.mjs`、`scripts/p0/verify-public-routine-live-evidence.mjs`、`scripts/p0/verify-routine-caller-crosscheck.mjs`、`scripts/p0/verify-advisor-risk-priority-evidence.mjs`
-> 当前状态：103/103 表、162/162 函数及相关策略/触发器分类已完成监理冻结；205/205 未覆盖外键优先级已冻结。B01 完成，整体 G0 仍等待统一 CI 和其余 P0 产物联合签署。
+> 当前状态：103/103 表、162/162 函数及相关策略/触发器分类已完成监理冻结；205/205 未覆盖外键优先级已冻结。B01 完成，统一 CI 和其余 P0 产物已联合签署，整体 G0 已通过。
 
 ## 1. 清单证明什么
 
@@ -68,4 +68,4 @@ P0_ADVISOR_RISK_PRIORITY_EVIDENCE_OK security=143 performance=315 foreignKeys=30
 
 ## 4. 验收结论
 
-`classificationAcceptance` 已由监理冻结为 103/103，函数分类为 162/162。该验收只证明 B01 对象分类和风险优先级完成；`g0.claim` 保持 `false`，直到统一 CI 实际执行数据库、权限和业务测试，并完成其他 P0 产物联合签署。
+`classificationAcceptance` 已由监理冻结为 103/103，函数分类为 162/162。该单项制品的 `g0.claim` 继续保持 `false`，避免一个分类文件独自冒充整体门禁；统一 CI 和其余 P0 产物已经联合签署，整体 G0 结论记录在 `09-g0-signoff.md`。

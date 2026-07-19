@@ -58,7 +58,7 @@ function validate(candidate) {
 
   check(candidate.schemaVersion === 1, 'schema version must be 1')
   check(candidate.manifestType === 'canwin-team-os-p1-interface-freeze', 'manifest type drift')
-  check(candidate.contractStatus === 'p0_supervisor_frozen_execution_locked_until_g0', 'contract status drift')
+  check(candidate.contractStatus === 'p0_g0_passed_p1_execution_unlocked', 'contract status drift')
   check(physical.contractStatus === 'p0_supervisor_frozen_runtime_not_implemented', 'physical object contract is not frozen')
   check(navigation.contractStatus === 'p0_supervisor_frozen_execution_locked_until_g0', 'navigation contract is not frozen')
   check(roleMigration.manualPrimaryRoleDecisions?.status === 'owner-confirmed-isolated-applied-production-unchanged', 'manual role decisions are not frozen and isolated-applied')
@@ -165,14 +165,14 @@ function validate(candidate) {
   check(ci.isolatedProjectRefSource === 'scripts/p0/project-ref-contract.json:testProjectRef', 'CI isolated ref source drift')
   check(ci.secretValuesMayBePrintedOrCommitted === false, 'CI secret boundary drift')
   check(ci.databasePermissionAndBusinessTestsRequired === true, 'CI runtime tests must remain required')
-  check(ci.actualRemoteRunEvidence === 'pending', 'remote CI evidence must remain pending until actual proof exists')
+  check(ci.actualRemoteRunEvidence === 'passed', 'remote CI evidence must remain accepted after actual proof exists')
 
   const boundary = candidate.acceptanceBoundary ?? {}
   check(boundary.p1InterfacesFrozen === true, 'P1 interface freeze missing')
   check(boundary.p1WorkOrdersFrozen === true, 'P1 work-order freeze missing')
   check(boundary.p1CodeStarted === false, 'P1 code must remain not started')
   check(boundary.runtimeAccepted === false, 'runtime acceptance must remain false')
-  check(boundary.g0OverallClaim === false, 'G0 must not be claimed')
+  check(boundary.g0OverallClaim === true, 'G0 success evidence is missing')
   check(boundary.productionWritePerformed === false, 'production write must remain false')
   check(boundary.productionMigrationAuthorized === false, 'production migration must remain unauthorized')
 
@@ -192,8 +192,8 @@ const negativeCases = [
   ['unversioned RPC', (value) => { value.rpcInterfaces[0].name = 'get_app_context' }],
   ['write without idempotency', (value) => { value.rpcInterfaces[3].arguments = value.rpcInterfaces[3].arguments.filter((name) => name !== 'p_idempotency_key') }],
   ['work started early', (value) => { value.workOrders[0].status = 'in_progress' }],
-  ['remote CI falsely accepted', (value) => { value.ciContract.actualRemoteRunEvidence = 'passed' }],
-  ['G0 falsely claimed', (value) => { value.acceptanceBoundary.g0OverallClaim = true }],
+  ['remote CI success erased', (value) => { value.ciContract.actualRemoteRunEvidence = 'pending' }],
+  ['G0 success erased', (value) => { value.acceptanceBoundary.g0OverallClaim = false }],
   ['production write', (value) => { value.acceptanceBoundary.productionWritePerformed = true }],
 ]
 let negativePassed = 0
@@ -211,5 +211,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `P0_P1_INTERFACE_FREEZE_OK rpcs=${contract.rpcInterfaces.length} whitelists=${Object.keys(contract.fieldWhitelists).length} identities=${contract.baseTestIdentities.length} overlays=${contract.overlayTestCases.length} attacks=${contract.directApiAttackCases.length} workOrders=${contract.workOrders.length} negative=${negativePassed}/${negativeCases.length} runtimeAccepted=false g0=false`,
+  `P0_P1_INTERFACE_FREEZE_OK rpcs=${contract.rpcInterfaces.length} whitelists=${Object.keys(contract.fieldWhitelists).length} identities=${contract.baseTestIdentities.length} overlays=${contract.overlayTestCases.length} attacks=${contract.directApiAttackCases.length} workOrders=${contract.workOrders.length} negative=${negativePassed}/${negativeCases.length} runtimeAccepted=false g0=true p1CodeStarted=false`,
 )
