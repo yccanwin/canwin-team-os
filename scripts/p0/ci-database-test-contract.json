@@ -21,7 +21,8 @@
   "testSourceRules": {
     "doKeywordSeparatedFromDollarQuote": true,
     "forbiddenUnseparatedToken": "do$$",
-    "policyWriteAssertionsRequirePermissiveFilter": true
+    "policyWriteAssertionsRequirePermissiveFilter": true,
+    "definitionFragmentAssertionsNormalizeFormatting": true
   },
   "postInstallCatalog": {
     "publicTables": 103,
@@ -71,13 +72,13 @@
     { "path": "supabase/tests/crm_core.sql", "category": "database", "executionMode": "read_only", "sha256Lf": "b86b2afd6c9170950bd227e87e5526b2245307b4711373cd8659cc0bc802ea11" },
     { "path": "supabase/tests/customer_import.sql", "category": "database", "executionMode": "read_only", "sha256Lf": "65bd97a65db1be4b891e35301fd1c0057c4c54967fcf1a7886e5414150d97061" },
     { "path": "supabase/tests/deal_core.sql", "category": "database", "executionMode": "read_only", "sha256Lf": "8c89cc9bbc8bd45d69f258a61526631124276cb9ef730593e20423dd2ff56d7b" },
-    { "path": "supabase/tests/fulfillment_core.sql", "category": "database", "executionMode": "read_only", "sha256Lf": "9458627717ed47d2f2253ae360ab165d656957913c5421650633a1f1504aae21" },
-    { "path": "supabase/tests/notification_core.sql", "category": "database", "executionMode": "read_only", "sha256Lf": "0f903653dd89a8596c5ac61d610e8f54653b0a1bfcfb9772365bf38a10e8ed37" },
-    { "path": "supabase/tests/performance_core.sql", "category": "database", "executionMode": "read_only", "sha256Lf": "ffd637868cf3414a46da3acba5bcd4d23f584144013efb63e7ff1a3dac7f38a3" },
+    { "path": "supabase/tests/fulfillment_core.sql", "category": "database", "executionMode": "read_only", "sha256Lf": "0e78d5f640d6192054ab806385cf318aff22748e2c8024ccfe74dfb1fc260476" },
+    { "path": "supabase/tests/notification_core.sql", "category": "database", "executionMode": "read_only", "sha256Lf": "7e3d1b358f97cb7e02d96d72c06911af9dbfb216fd47fb67432579de853e9ae7" },
+    { "path": "supabase/tests/performance_core.sql", "category": "database", "executionMode": "read_only", "sha256Lf": "3970df8bbca3360cbbee58bcc87d0b8fc94508b5dbee260209a6de215d147690" },
 
     { "path": "supabase/tests/crm_qualification_evidence.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "b20ce9b24c4476c06cc892ae1a22f8285f8529a1084b0b1017057249a2a8deb3" },
     { "path": "supabase/tests/crm_team_reference_trigger_isolation.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "f587420d063d14e4a50bac6ecf53f23df521009180eff1d35ba2ac63a2ee6f20" },
-    { "path": "supabase/tests/dual_ledger_secure_upgrade.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "e6450858388d497fb305c736142cf6edfa55f9b05c9be515754d79e2de15e9cd" },
+    { "path": "supabase/tests/dual_ledger_secure_upgrade.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "51ef6478cc77992bca67987c846ca056fd545472cdd2572644f9ada56cfb5877" },
     { "path": "supabase/tests/finance_summary_only_owner.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "adb20f2879b82c6b2900e4aef90071ffcd4e6b7f6a7eecc3168830623fe146ce" },
     { "path": "supabase/tests/internal_payment_workbench.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "e824eed8fe4999c04b1fb1cf11a001bc27cae660e8a1695515842b28d675534d" },
     { "path": "supabase/tests/operations_lead_submission.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "1807f79ac72771198bc53495c0d8c936949ddaf6e25dd558e0567810eb0c1fa0" },
@@ -89,12 +90,12 @@
     { "path": "supabase/tests/crm_qualification_append_only.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "2142d6d579772dc2ffb807ce5a2bb0b5d991fd9d4c553ecb5ae13aec910e330c" },
     { "path": "supabase/tests/crm_qualification_promotion_audit.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "297edf4c24d8de04279f60cc17f1d87658c08601180c0d8c6b8a0e0ec3774a98" },
     { "path": "supabase/tests/customer_import_behavior.sql", "category": "business", "executionMode": "rollback_fixture", "sha256Lf": "979d3254ea9642981cde3081fde910a23ec0f39f98372731c1c99cd358643915" },
-    { "path": "supabase/tests/dual_ledger_upgrade.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "58c26c0fdb4b269cd104764b710b9f5fc96ca92e897c491577e2f1f3603e7dce" },
+    { "path": "supabase/tests/dual_ledger_upgrade.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "b7c689e23130b1f1a52b2cf2096e82e0ea9745b6b82933da26af8f2a81b5a307" },
     { "path": "supabase/tests/hardware_inventory_behavior.sql", "category": "business", "executionMode": "rollback_fixture", "sha256Lf": "9ac52c450948d5ef6b7a9407a3ddaf987a8e50197a5d1a33fe2776be401e4e93" },
     { "path": "supabase/tests/hardware_shipping_chain_behavior.sql", "category": "business", "executionMode": "rollback_fixture", "sha256Lf": "390789cffaf37ec4b2a002d2458d5559833b07a31fefd1214bc17e698664d421" },
     { "path": "supabase/tests/performance_center_snapshot.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "3a9ccb96bdb01dc2c859ec658a507d89b3d067afb8e9e2cda3ae25eb741ba0e1" },
     { "path": "supabase/tests/quick_lead_uuid_region_selection.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "b3abc316b2bd5611c1137583ce665a74dd6876f56df5af4989b248ad5f3eeca0" },
-    { "path": "supabase/tests/sales_automation.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "de849381621a865b6a71690223e8c9e7448f523a97f2e01618131484b4cce4df" }
+    { "path": "supabase/tests/sales_automation.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "fb974fefdb9392a6d62570c2c201a9c4a1f03f4c184e2dee2085f26ffb5e4424" }
   ],
   "runtime": {
     "engine": "supabase-cli-local-postgres",
@@ -244,6 +245,27 @@
       "priorImportPolicyAssertionPassed": true,
       "classwideAffectedFiles": 5,
       "classwideOccurrences": 6,
+      "cleanupPassed": true,
+      "productionReadPerformed": false,
+      "productionWritePerformed": false,
+      "rerunOfFailedRun": false
+    },
+    {
+      "runId": "29682375531",
+      "jobId": "88180699827",
+      "headSha": "4d32968521acf264aa6079fa160425f01926438f",
+      "conclusion": "failure",
+      "failedStep": "Run database permission and business gates",
+      "rootCauseCode": "definition_fragment_whitespace_sensitive",
+      "databaseStartupPassed": true,
+      "baselinePassed": true,
+      "migrationsPassed": 69,
+      "sqlTestsStarted": 5,
+      "sqlTestsPassed": 4,
+      "firstFailedTest": "supabase/tests/fulfillment_core.sql",
+      "priorDealCorePassed": true,
+      "classwideAffectedFiles": 6,
+      "classwideOccurrences": 15,
       "cleanupPassed": true,
       "productionReadPerformed": false,
       "productionWritePerformed": false,

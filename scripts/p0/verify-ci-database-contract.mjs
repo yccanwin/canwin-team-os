@@ -32,6 +32,13 @@ function findPolicyPresenceWriteAssertions(sql) {
     .filter((assertion) => !/permissive='PERMISSIVE'/i.test(assertion))
 }
 
+function findFormattingSensitiveDefinitionAssertions(sql) {
+  const directDefinitionAssertion = /position\s*\(\s*'((?:''|[^'])*)'\s+in\s+(?:lower\s*\(\s*)?pg_get_(?:function|view)def/gi
+  return [...sql.matchAll(directDefinitionAssertion)]
+    .map((match) => match[1])
+    .filter((fragment) => /\s(?:=|<>|>=|<=|>|<|\+|-)\s/.test(fragment) || fragment.includes('count(DISTINCT'))
+}
+
 function validate(candidate) {
   const failures = []
   const check = (condition, message) => { if (!condition) failures.push(message) }
@@ -70,6 +77,7 @@ function validate(candidate) {
   check(sourceRules.doKeywordSeparatedFromDollarQuote === true, 'DO dollar-quote separator rule drift')
   check(sourceRules.forbiddenUnseparatedToken === 'do$$', 'DO dollar-quote forbidden token drift')
   check(sourceRules.policyWriteAssertionsRequirePermissiveFilter === true, 'policy write assertion source rule drift')
+  check(sourceRules.definitionFragmentAssertionsNormalizeFormatting === true, 'definition fragment formatting source rule drift')
   check(tests.length === counts.total, 'test entry count drift')
   check(exactSet(tests.map((entry) => entry.path), tests.map((entry) => entry.path)), 'duplicate test path')
 
@@ -95,6 +103,7 @@ function validate(candidate) {
     check(!forbiddenSqlBoundary.test(sql), `remote SQL boundary forbidden ${entry.path}`)
     check(!/\bdo\$\$/i.test(sql), `DO keyword must be separated from dollar quote ${entry.path}`)
     check(findPolicyPresenceWriteAssertions(sql).length === 0, `policy presence misclassified as write grant ${entry.path}`)
+    check(findFormattingSensitiveDefinitionAssertions(sql).length === 0, `definition fragment assertion depends on source formatting ${entry.path}`)
     if (entry.executionMode === 'rollback_fixture') {
       check(/^\s*(?:--[^\n]*\n\s*)*begin\s*;/i.test(sql), `fixture must begin a transaction ${entry.path}`)
       check(/rollback\s*;\s*$/i.test(sql), `fixture must end with rollback ${entry.path}`)
@@ -211,7 +220,7 @@ function validate(candidate) {
   check(boundary.repositorySecretsRequired === false, 'repository secrets must not be required')
 
   const attempts = candidate.formalAttemptHistory ?? []
-  check(attempts.length === 7, 'formal attempt history count drift')
+  check(attempts.length === 8, 'formal attempt history count drift')
   const failedAttempt = attempts[0] ?? {}
   check(failedAttempt.runId === '29680934378', 'failed run id drift')
   check(failedAttempt.jobId === '88176860842', 'failed job id drift')
@@ -325,6 +334,24 @@ function validate(candidate) {
   check(dealPolicyAttempt.productionReadPerformed === false, 'deal policy run production read must remain false')
   check(dealPolicyAttempt.productionWritePerformed === false, 'deal policy run production write must remain false')
   check(dealPolicyAttempt.rerunOfFailedRun === false, 'deal policy run must remain a new candidate')
+  const definitionAttempt = attempts[7] ?? {}
+  check(definitionAttempt.runId === '29682375531', 'definition run id drift')
+  check(definitionAttempt.jobId === '88180699827', 'definition run job id drift')
+  check(definitionAttempt.headSha === '4d32968521acf264aa6079fa160425f01926438f', 'definition run head SHA drift')
+  check(definitionAttempt.conclusion === 'failure', 'definition run conclusion drift')
+  check(definitionAttempt.failedStep === 'Run database permission and business gates', 'definition run failed step drift')
+  check(definitionAttempt.rootCauseCode === 'definition_fragment_whitespace_sensitive', 'definition run root cause drift')
+  check(definitionAttempt.databaseStartupPassed === true, 'definition run database startup evidence missing')
+  check(definitionAttempt.baselinePassed === true, 'definition run baseline evidence missing')
+  check(definitionAttempt.migrationsPassed === 69, 'definition run migration count drift')
+  check(definitionAttempt.sqlTestsStarted === 5 && definitionAttempt.sqlTestsPassed === 4, 'definition run test count drift')
+  check(definitionAttempt.firstFailedTest === 'supabase/tests/fulfillment_core.sql', 'definition first failed test drift')
+  check(definitionAttempt.priorDealCorePassed === true, 'definition run prior deal assertion evidence missing')
+  check(definitionAttempt.classwideAffectedFiles === 6 && definitionAttempt.classwideOccurrences === 15, 'definition classwide evidence drift')
+  check(definitionAttempt.cleanupPassed === true, 'definition run cleanup evidence missing')
+  check(definitionAttempt.productionReadPerformed === false, 'definition run production read must remain false')
+  check(definitionAttempt.productionWritePerformed === false, 'definition run production write must remain false')
+  check(definitionAttempt.rerunOfFailedRun === false, 'definition run must remain a new candidate')
   return failures
 }
 
@@ -348,6 +375,7 @@ const negativeCases = [
   ['pre-address lead view', (value) => { value.historicalChainExpectations.crmLeadsVisible.after69Columns.pop() }],
   ['import direct client write', (value) => { value.historicalChainExpectations.customerImportHistoryAccess.directClientWritePrivilegesAllowed = true }],
   ['policy write assertion source rule', (value) => { value.testSourceRules.policyWriteAssertionsRequirePermissiveFilter = false }],
+  ['definition fragment formatting source rule', (value) => { value.testSourceRules.definitionFragmentAssertionsNormalizeFormatting = false }],
   ['repository secret', (value) => { value.acceptanceBoundary.repositorySecretsRequired = true }],
   ['production write', (value) => { value.acceptanceBoundary.productionWritePerformed = true }],
   ['G0 falsely claimed', (value) => { value.acceptanceBoundary.g0OverallClaim = true }],

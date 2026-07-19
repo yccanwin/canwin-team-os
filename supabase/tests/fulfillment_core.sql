@@ -15,7 +15,7 @@ do $$declare n int;begin
   raise exception'Inventory audit direct client write privilege found';end if;
  if has_function_privilege('anon','public.ship_delivery_stock(uuid)','EXECUTE')then raise exception 'Anon can ship stock';end if;
  if to_regprocedure('public.can_read_order_delivery(text,uuid)') is null
-  or position('q.owner_id = auth.uid()' in pg_get_functiondef('public.can_read_order_delivery(text,uuid)'::regprocedure))=0
+  or position('q.owner_id=auth.uid()' in lower(regexp_replace(pg_get_functiondef('public.can_read_order_delivery(text,uuid)'::regprocedure),'[[:space:]]+','','g')))=0
   or position('can_act_for' in pg_get_functiondef('public.can_read_order_delivery(text,uuid)'::regprocedure))=0
   or position('customers.manage' in pg_get_functiondef('public.can_read_order_delivery(text,uuid)'::regprocedure))>0
   or position('customers.supervise' in pg_get_functiondef('public.can_read_order_delivery(text,uuid)'::regprocedure))>0 then raise exception 'Owner/delegate-only delivery read helper missing';end if;

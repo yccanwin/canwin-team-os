@@ -1,17 +1,19 @@
-do $$begin
+do $$declare batch_def text;review_def text;begin
  if to_regclass('public.crm_contact_attempts')is null or to_regclass('public.crm_recycle_pauses')is null then raise exception 'Automation tables missing';end if;
  if to_regprocedure('public.run_sales_automation_batch(text,timestamp with time zone)')is null then raise exception 'Batch RPC missing';end if;
+ batch_def:=lower(regexp_replace(pg_get_functiondef('public.run_sales_automation_batch(text,timestamp with time zone)'::regprocedure),'[[:space:]]+','','g'));
  if position('Asia/Shanghai' in pg_get_functiondef('public.run_sales_automation_batch(text,timestamp with time zone)'::regprocedure))=0 then raise exception 'Beijing natural-day rules missing';end if;
  if position('skip locked' in lower(pg_get_functiondef('public.run_sales_automation_batch(text,timestamp with time zone)'::regprocedure)))=0 then raise exception 'Concurrent idempotent batch lock missing';end if;
- if position('today_cn - 1' in pg_get_functiondef('public.run_sales_automation_batch(text,timestamp with time zone)'::regprocedure))=0 or position('today_cn - 2' in pg_get_functiondef('public.run_sales_automation_batch(text,timestamp with time zone)'::regprocedure))=0 or position('today_cn - 15' in pg_get_functiondef('public.run_sales_automation_batch(text,timestamp with time zone)'::regprocedure))=0 then raise exception '24h/48h/15d rules missing';end if;
- if position('count(DISTINCT' in pg_get_functiondef('public.run_sales_automation_batch(text,timestamp with time zone)'::regprocedure))=0 or position('today_cn + 30' in pg_get_functiondef('public.run_sales_automation_batch(text,timestamp with time zone)'::regprocedure))=0 then raise exception 'Three-day/30-day nurture rule missing';end if;
+ if position('today_cn-1' in batch_def)=0 or position('today_cn-2' in batch_def)=0 or position('today_cn-15' in batch_def)=0 then raise exception '24h/48h/15d rules missing';end if;
+ if position('count(distinct' in batch_def)=0 or position('today_cn+30' in batch_def)=0 then raise exception 'Three-day/30-day nurture rule missing';end if;
  if position('supervisor_review' in pg_get_functiondef('public.run_sales_automation_batch(text,timestamp with time zone)'::regprocedure))=0
-  or position('nurture_round = 1' in pg_get_functiondef('public.run_sales_automation_batch(text,timestamp with time zone)'::regprocedure))=0 then raise exception 'Round 1 to supervisor review transition missing';end if;
- if to_regprocedure('public.decide_crm_nurture_review(uuid,boolean,text)')is null
-  or position('nurture_round = 2' in pg_get_functiondef('public.decide_crm_nurture_review(uuid,boolean,text)'::regprocedure))=0
+  or position('nurture_round=1' in batch_def)=0 then raise exception 'Round 1 to supervisor review transition missing';end if;
+ if to_regprocedure('public.decide_crm_nurture_review(uuid,boolean,text)')is null then raise exception 'Supervisor round-2/reject decision missing';end if;
+ review_def:=lower(regexp_replace(pg_get_functiondef('public.decide_crm_nurture_review(uuid,boolean,text)'::regprocedure),'[[:space:]]+','','g'));
+ if position('nurture_round=2' in review_def)=0
   or position('nurture_review_rejected' in pg_get_functiondef('public.decide_crm_nurture_review(uuid,boolean,text)'::regprocedure))=0 then raise exception 'Supervisor round-2/reject decision missing';end if;
- if position('nurture_round = 2' in pg_get_functiondef('public.run_sales_automation_batch(text,timestamp with time zone)'::regprocedure))=0
-  or position('nurture_round < 1' in pg_get_functiondef('public.run_sales_automation_batch(text,timestamp with time zone)'::regprocedure))=0 then raise exception 'Round 2 expiry/max-round cap missing';end if;
+ if position('nurture_round=2' in batch_def)=0
+  or position('nurture_round<1' in batch_def)=0 then raise exception 'Round 2 expiry/max-round cap missing';end if;
  if position('access_delegations' in pg_get_functiondef('public.crm_lead_recycle_paused(text,uuid,uuid,timestamp with time zone)'::regprocedure))=0 then raise exception 'Pause/delegation exception missing';end if;
  if to_regclass('public.crm_today_actions')is null or to_regclass('public.crm_supervisor_exceptions')is null then raise exception 'Action views missing';end if;
  if position('48 hours' in pg_get_viewdef('public.crm_supervisor_exceptions'::regclass,true))=0 then raise exception 'Supervisor 48h exception rule missing';end if;
@@ -22,7 +24,7 @@ do $$begin
  if exists(select 1 from information_schema.columns where table_schema='public'and table_name='crm_leads_visible'and column_name in('phone','owner_id','email','wechat_id'))then raise exception 'Lead pool view leaks sensitive owner/contact data';end if;
  if position('claimable' in lower(pg_get_viewdef('public.crm_leads_visible'::regclass,true)))=0
   or position('owner_id is null' in lower(pg_get_viewdef('public.crm_leads_visible'::regclass,true)))=0
-  or position('status = ''public''' in lower(pg_get_viewdef('public.crm_leads_visible'::regclass,true)))=0 then raise exception 'Server claimable calculation missing';end if;
+  or position('status=''public''' in lower(regexp_replace(pg_get_viewdef('public.crm_leads_visible'::regclass,true),'[[:space:]]+','','g')))=0 then raise exception 'Server claimable calculation missing';end if;
  if not exists(select 1 from information_schema.columns where table_schema='public'and table_name='crm_opportunities'and column_name='decision_at')
   or to_regclass('public.crm_supervisor_board')is null then raise exception 'Closing opportunity supervisor board missing';end if;
  if position('7' in pg_get_viewdef('public.crm_supervisor_board'::regclass,true))=0 or position('deal_quotes' in pg_get_viewdef('public.crm_supervisor_board'::regclass,true))=0 then raise exception 'Quoted 0-7 day decision rule missing';end if;

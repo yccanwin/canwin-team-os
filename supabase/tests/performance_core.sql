@@ -9,7 +9,7 @@ do $$begin
  if to_regclass('public.personal_sales_margin')is null or to_regprocedure('public.get_order_sales_ledger(text,uuid)')is null then raise exception'Sales margin interfaces missing';end if;
  if position('deal_payments' in pg_get_functiondef('public.get_order_sales_ledger(text,uuid)'::regprocedure))=0 or position('deal_payment_reversals' in pg_get_functiondef('public.get_order_sales_ledger(text,uuid)'::regprocedure))=0 or position('internal_due' in pg_get_functiondef('public.get_order_sales_ledger(text,uuid)'::regprocedure))=0 or position('deal_sales_expenses' in pg_get_functiondef('public.get_order_sales_ledger(text,uuid)'::regprocedure))=0 then raise exception'Sales margin formula incomplete';end if;
  if position('recipient_type' in pg_get_functiondef('public.get_order_sales_ledger(text,uuid)'::regprocedure))>0 then raise exception'Customer payment path changes sales ownership formula';end if;
- if position('profile_id = auth.uid()' in pg_get_viewdef('public.personal_performance_summary'::regclass,true))=0 then raise exception'Personal summary isolation missing';end if;
+ if position('profile_id=auth.uid()' in lower(regexp_replace(pg_get_viewdef('public.personal_performance_summary'::regclass,true),'[[:space:]]+','','g')))=0 then raise exception'Personal summary isolation missing';end if;
  if(select count(*)from pg_policies where schemaname='public'
   and tablename in('performance_target_events','official_reconciliation_lines','profit_adjustments')
   and policyname='sales os v3 server gate'and permissive='RESTRICTIVE'and cmd='ALL'
