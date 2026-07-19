@@ -24,8 +24,17 @@
     "publicViews": 11,
     "storageBuckets": 1
   },
+  "historicalChainExpectations": {
+    "salesOsV3": {
+      "foundationMigration": "supabase/migrations/20260713080000_add_access_control_foundation.sql",
+      "foundationInsertedEnabled": false,
+      "finalEnableMigration": "supabase/migrations/20260713200000_enable_sales_os_v3_pilot.sql",
+      "after69MigrationsEnabled": true,
+      "operationalUsePausedOutsideDatabaseFlag": true
+    }
+  },
   "tests": [
-    { "path": "supabase/tests/access_control_foundation.sql", "category": "database", "executionMode": "read_only", "sha256Lf": "8a81fff0fff1028e8245d3d4fdb35815a581529a18a3ab7cc0b62454285351e5" },
+    { "path": "supabase/tests/access_control_foundation.sql", "category": "database", "executionMode": "read_only", "sha256Lf": "f6ad8dad40e9cbe965b46f248da3e17469b750b1491e2f4e59351317fad5be01" },
     { "path": "supabase/tests/crm_core.sql", "category": "database", "executionMode": "read_only", "sha256Lf": "b1d010a2a26a14f16111f063f00a4146b807c43b4379a09d1abc2172db24fa00" },
     { "path": "supabase/tests/customer_import.sql", "category": "database", "executionMode": "read_only", "sha256Lf": "4f8f2db8925865e81e08025bb6764ce2eefd86a5c6766c865e325abb5fda1cc4" },
     { "path": "supabase/tests/deal_core.sql", "category": "database", "executionMode": "read_only", "sha256Lf": "eb70721a5bf78e8549be55ae6e9819148d196225d94e29b4cfb9c3bc85240e57" },
@@ -87,6 +96,24 @@
       "failedStep": "Start isolated local Postgres",
       "rootCauseCode": "full_stack_exclusion_name_drift",
       "sqlTestsStarted": false,
+      "cleanupPassed": true,
+      "productionReadPerformed": false,
+      "productionWritePerformed": false,
+      "rerunOfFailedRun": false
+    },
+    {
+      "runId": "29681166438",
+      "jobId": "88177487346",
+      "headSha": "d618e3293e751fa8821df8c38a9147644fd2f6c3",
+      "conclusion": "failure",
+      "failedStep": "Run database permission and business gates",
+      "rootCauseCode": "post_chain_test_expected_pre_pilot_flag_state",
+      "databaseStartupPassed": true,
+      "baselinePassed": true,
+      "migrationsPassed": 69,
+      "sqlTestsStarted": 1,
+      "sqlTestsPassed": 0,
+      "firstFailedTest": "supabase/tests/access_control_foundation.sql",
       "cleanupPassed": true,
       "productionReadPerformed": false,
       "productionWritePerformed": false,

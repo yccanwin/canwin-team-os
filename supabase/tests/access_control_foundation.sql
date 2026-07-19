@@ -1,5 +1,5 @@
 -- Minimal post-migration smoke test. Run in a disposable/local Supabase DB.
--- It is read-only and raises on missing objects or unsafe defaults.
+-- It is read-only and raises on missing objects or unsafe final-chain state.
 do $$
 declare
   missing_count integer;
@@ -32,8 +32,11 @@ begin
     raise exception '% access tables do not have RLS enabled', unsafe_count;
   end if;
 
-  if public.is_feature_enabled('CANWIN_TEAM', 'sales_os_v3') then
-    raise exception 'sales_os_v3 must default to disabled';
+  -- The foundation migration inserts this flag disabled, then the immutable
+  -- 20260713200000 pilot migration explicitly enables it. This post-chain test
+  -- must verify the final 69-migration state rather than the earlier default.
+  if not public.is_feature_enabled('CANWIN_TEAM', 'sales_os_v3') then
+    raise exception 'sales_os_v3 pilot enable migration is missing';
   end if;
 
   -- Compatibility bootstrap must fail closed: a legacy member is not

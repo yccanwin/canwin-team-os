@@ -90,6 +90,19 @@ function validate(candidate) {
   }
 
   check(JSON.stringify(candidate.postInstallCatalog) === JSON.stringify(expectedCatalog), 'post-install catalog contract drift')
+  const salesV3 = candidate.historicalChainExpectations?.salesOsV3 ?? {}
+  check(salesV3.foundationMigration === 'supabase/migrations/20260713080000_add_access_control_foundation.sql', 'sales_os_v3 foundation migration drift')
+  check(salesV3.foundationInsertedEnabled === false, 'sales_os_v3 foundation default drift')
+  check(salesV3.finalEnableMigration === 'supabase/migrations/20260713200000_enable_sales_os_v3_pilot.sql', 'sales_os_v3 enable migration drift')
+  check(salesV3.after69MigrationsEnabled === true, 'sales_os_v3 final-chain state drift')
+  check(salesV3.operationalUsePausedOutsideDatabaseFlag === true, '3.0 operational pause boundary drift')
+  const foundationSql = normalizeLf(readFileSync(resolve(repoRoot, salesV3.foundationMigration ?? 'missing'), 'utf8'))
+  const pilotSql = normalizeLf(readFileSync(resolve(repoRoot, salesV3.finalEnableMigration ?? 'missing'), 'utf8'))
+  const accessTestSql = normalizeLf(readFileSync(resolve(repoRoot, 'supabase/tests/access_control_foundation.sql'), 'utf8'))
+  check(/'sales_os_v3'[\s\S]*false/i.test(foundationSql), 'foundation disabled insert evidence missing')
+  check(/set\s+enabled\s*=\s*true/i.test(pilotSql), 'pilot enable evidence missing')
+  check(accessTestSql.includes('20260713200000') && accessTestSql.includes("if not public.is_feature_enabled('CANWIN_TEAM', 'sales_os_v3')"), 'post-chain feature test semantics drift')
+  check(!accessTestSql.includes('sales_os_v3 must default to disabled'), 'obsolete pre-pilot assertion returned')
   check(runtime.engine === 'supabase-cli-local-postgres', 'runtime engine drift')
   check(runtime.supabaseCliVersion === '2.109.1', 'Supabase CLI pin drift')
   check(runtime.postgresMajor === 17, 'Postgres major drift')
@@ -139,7 +152,7 @@ function validate(candidate) {
   check(boundary.repositorySecretsRequired === false, 'repository secrets must not be required')
 
   const attempts = candidate.formalAttemptHistory ?? []
-  check(attempts.length === 1, 'formal attempt history count drift')
+  check(attempts.length === 2, 'formal attempt history count drift')
   const failedAttempt = attempts[0] ?? {}
   check(failedAttempt.runId === '29680934378', 'failed run id drift')
   check(failedAttempt.jobId === '88176860842', 'failed job id drift')
@@ -152,6 +165,22 @@ function validate(candidate) {
   check(failedAttempt.productionReadPerformed === false, 'failed attempt production read must remain false')
   check(failedAttempt.productionWritePerformed === false, 'failed attempt production write must remain false')
   check(failedAttempt.rerunOfFailedRun === false, 'failed run must not be represented as rerun')
+  const testAttempt = attempts[1] ?? {}
+  check(testAttempt.runId === '29681166438', 'test run id drift')
+  check(testAttempt.jobId === '88177487346', 'test job id drift')
+  check(testAttempt.headSha === 'd618e3293e751fa8821df8c38a9147644fd2f6c3', 'test run head SHA drift')
+  check(testAttempt.conclusion === 'failure', 'test run conclusion drift')
+  check(testAttempt.failedStep === 'Run database permission and business gates', 'test run failed step drift')
+  check(testAttempt.rootCauseCode === 'post_chain_test_expected_pre_pilot_flag_state', 'test run root cause drift')
+  check(testAttempt.databaseStartupPassed === true, 'database startup success evidence missing')
+  check(testAttempt.baselinePassed === true, 'baseline success evidence missing')
+  check(testAttempt.migrationsPassed === 69, 'migration success count drift')
+  check(testAttempt.sqlTestsStarted === 1 && testAttempt.sqlTestsPassed === 0, 'test execution count drift')
+  check(testAttempt.firstFailedTest === 'supabase/tests/access_control_foundation.sql', 'first failed test drift')
+  check(testAttempt.cleanupPassed === true, 'test run cleanup evidence missing')
+  check(testAttempt.productionReadPerformed === false, 'test run production read must remain false')
+  check(testAttempt.productionWritePerformed === false, 'test run production write must remain false')
+  check(testAttempt.rerunOfFailedRun === false, 'test run must be a new candidate, not a failed-run rerun')
   return failures
 }
 
@@ -169,10 +198,11 @@ const negativeCases = [
   ['Postgres major', (value) => { value.runtime.postgresMajor = 15 }],
   ['CLI unpinned', (value) => { value.runtime.supabaseCliVersion = 'latest' }],
   ['full stack startup', (value) => { value.runtime.startup = 'supabase start' }],
+  ['pre-pilot final state', (value) => { value.historicalChainExpectations.salesOsV3.after69MigrationsEnabled = false }],
   ['repository secret', (value) => { value.acceptanceBoundary.repositorySecretsRequired = true }],
   ['production write', (value) => { value.acceptanceBoundary.productionWritePerformed = true }],
   ['G0 falsely claimed', (value) => { value.acceptanceBoundary.g0OverallClaim = true }],
-  ['failed evidence erased', (value) => { value.formalAttemptHistory = [] }],
+  ['failed evidence erased', (value) => { value.formalAttemptHistory.pop() }],
 ]
 let negativePassed = 0
 for (const [name, mutate] of negativeCases) {
