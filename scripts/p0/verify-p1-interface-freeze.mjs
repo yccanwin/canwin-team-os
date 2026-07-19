@@ -4,15 +4,28 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
+const normalizeLf = (value) => value.replace(/\r\n?/g, '\n')
+const sha256Utf8Lf = (value) => createHash('sha256').update(normalizeLf(value), 'utf8').digest('hex')
 const readJson = (path) => JSON.parse(readFileSync(resolve(repoRoot, path), 'utf8'))
 const contract = readJson('scripts/p0/p1-interface-freeze.json')
 const navigation = readJson('docs/team-os-4.0/p0/p1-app-navigation-contract.json')
 const roleMigration = readJson('scripts/p0/role-migration-contract.json')
 const physical = readJson('scripts/p0/core-physical-object-contract.json')
 const rollbackEvidencePath = 'docs/team-os-4.0/p0/p1-isolated-rollback-readonly-evidence.json'
-const rollbackEvidenceRaw = readFileSync(resolve(repoRoot, rollbackEvidencePath))
-const rollbackEvidence = JSON.parse(rollbackEvidenceRaw.toString('utf8'))
-const rollbackEvidenceSha256 = createHash('sha256').update(rollbackEvidenceRaw).digest('hex')
+const rollbackEvidenceText = readFileSync(resolve(repoRoot, rollbackEvidencePath), 'utf8')
+const rollbackEvidenceLf = normalizeLf(rollbackEvidenceText)
+const rollbackEvidence = JSON.parse(rollbackEvidenceLf)
+const rollbackEvidenceSha256 = sha256Utf8Lf(rollbackEvidenceText)
+let rollbackEvidenceMixedEolIndex = 0
+const rollbackEvidenceEolFixtures = {
+  lf: rollbackEvidenceLf,
+  crlf: rollbackEvidenceLf.replace(/\n/g, '\r\n'),
+  cr: rollbackEvidenceLf.replace(/\n/g, '\r'),
+  mixed: rollbackEvidenceLf.replace(/\n/g, () => ['\n', '\r\n', '\r'][rollbackEvidenceMixedEolIndex++ % 3]),
+}
+const rollbackEvidenceEolHashes = Object.fromEntries(
+  Object.entries(rollbackEvidenceEolFixtures).map(([format, value]) => [format, sha256Utf8Lf(value)]),
+)
 const clone = (value) => structuredClone(value)
 const exactSet = (actual, expected) =>
   Array.isArray(actual) && actual.length === new Set(actual).size &&
@@ -63,7 +76,7 @@ function validate(candidate) {
 
   check(candidate.schemaVersion === 1, 'schema version must be 1')
   check(candidate.manifestType === 'canwin-team-os-p1-interface-freeze', 'manifest type drift')
-  check(candidate.contractStatus === 'p1_independent_ci_passed_isolated_remote_apply_pending', 'contract status drift')
+  check(candidate.contractStatus === 'p1_rollback_evidence_eol_repair_implemented_ci_pending', 'contract status drift')
   check(physical.contractStatus === 'p0_supervisor_frozen_runtime_not_implemented', 'physical object contract is not frozen')
   check(navigation.contractStatus === 'p1_ci_passed_page_account_acceptance_pending', 'navigation candidate status drift')
   check(roleMigration.manualPrimaryRoleDecisions?.status === 'owner-confirmed-isolated-applied-production-unchanged', 'manual role decisions are not frozen and isolated-applied')
@@ -157,7 +170,7 @@ function validate(candidate) {
 
   for (const order of workOrders) {
     check(['backend', 'frontend', 'qa'].includes(order.team), `${order.id} has unknown team`)
-    check(order.status === 'candidate_independent_ci_passed_remote_acceptance_pending', `${order.id} must preserve independent CI success and pending remote acceptance boundary`)
+    check(order.status === 'candidate_rollback_evidence_eol_repair_implemented_ci_pending', `${order.id} must preserve rollback evidence line-ending repair and pending CI boundary`)
     check(Boolean(order.deliverable?.trim()), `${order.id} lacks deliverable`)
   }
   check(workOrders.filter((entry) => entry.team === 'backend').length === 4, 'backend work-order count drift')
@@ -199,6 +212,22 @@ function validate(candidate) {
   check(secondRepairCi.windowsLocalRemainingStepsExecuted === 0 && secondRepairCi.windowsLocalRemainingStepsNotExecuted === 11, 'second repair CI Windows local stop boundary drift')
   check(secondRepairCi.validatorLineEndingRepairPending === true, 'validator line-ending repair must remain pending')
   check(secondRepairCi.productionReadPerformed === false && secondRepairCi.productionWritePerformed === false, 'second repair CI production boundary drift')
+  const freshCheckoutFailureCi = ci.freshCheckoutFailureRunEvidence ?? {}
+  check(freshCheckoutFailureCi.runId === '29695919974' && freshCheckoutFailureCi.headSha === '02f7377071783f2f3213218c6c3c3ace961768bc', 'fresh-checkout failure CI run identity drift')
+  check(freshCheckoutFailureCi.runUrl === 'https://github.com/yccanwin/canwin-team-os/actions/runs/29695919974', 'fresh-checkout failure CI run URL drift')
+  check(freshCheckoutFailureCi.linuxJobId === '88216547033' && freshCheckoutFailureCi.windowsJobId === '88216547016', 'fresh-checkout failure CI job ids drift')
+  check(freshCheckoutFailureCi.overallStatus === 'failed_preserved_without_rerun' && freshCheckoutFailureCi.rerunPerformed === false && freshCheckoutFailureCi.preservedWithoutRerun === true, 'fresh-checkout failed run preservation drift')
+  check(freshCheckoutFailureCi.workflowDurationSeconds === 142 && freshCheckoutFailureCi.linuxDurationSeconds === 137 && freshCheckoutFailureCi.windowsDurationSeconds === 57, 'fresh-checkout failure CI duration drift')
+  check(freshCheckoutFailureCi.linuxDatabaseGates === '70/70 migrations, 27/27 SQL (7 database, 11 permission, 9 business), 4/4 catalog, cleanup passed', 'fresh-checkout failure CI Linux gate summary drift')
+  check(freshCheckoutFailureCi.windowsStatic === '5/19' && freshCheckoutFailureCi.windowsFailedGate === '6 p1-interface-freeze', 'fresh-checkout failure CI Windows static stop boundary drift')
+  check(freshCheckoutFailureCi.windowsFailure === 'raw CRLF checkout bytes did not match the normalized UTF-8 LF rollback evidence SHA', 'fresh-checkout failure CI Windows root cause drift')
+  check(freshCheckoutFailureCi.windowsLocalRemainingStepsExecuted === 0 && freshCheckoutFailureCi.windowsLocalRemainingStepsNotExecuted === 11, 'fresh-checkout failure CI Windows local stop boundary drift')
+  check(freshCheckoutFailureCi.platformDifference === true && freshCheckoutFailureCi.staticSelfTestFailure === true && freshCheckoutFailureCi.databaseOrBusinessFailure === false, 'fresh-checkout failure CI classification drift')
+  check(freshCheckoutFailureCi.rollbackEvidenceExpectedSha256Lf === '9e77cd23a712b5f908e56af8daf355c81cb36d52f468a10afdb131bea6b74ec3', 'fresh-checkout rollback evidence LF SHA drift')
+  check(freshCheckoutFailureCi.windowsCrlfShapeSha256 === '04fb77da734a6b80f94f2e4bccbf6c0b1f4f33b04e39de5416ff61ec44296486', 'fresh-checkout rollback evidence CRLF SHA drift')
+  check(freshCheckoutFailureCi.rollbackEvidenceLineEndingRepairImplemented === true && exactSet(freshCheckoutFailureCi.sourceEolFormatsValidated, ['lf', 'crlf', 'cr', 'mixed']) && freshCheckoutFailureCi.postRepairIndependentCi === 'pending', 'fresh-checkout line-ending repair boundary drift')
+  check(freshCheckoutFailureCi.testProjectRemoteReads === 0 && freshCheckoutFailureCi.testProjectRemoteWrites === 0 && freshCheckoutFailureCi.productionReadPerformed === false && freshCheckoutFailureCi.productionWritePerformed === false, 'fresh-checkout failure CI remote boundary drift')
+  check(freshCheckoutFailureCi.pageAccountAcceptancePassed === false && freshCheckoutFailureCi.g1OverallClaim === false, 'fresh-checkout failure CI must not claim page acceptance or G1')
   const independentRepairCi = ci.independentRepairRunEvidence ?? {}
   check(independentRepairCi.runId === '29694757727' && independentRepairCi.headSha === '8273f5c69e09de24c9afbf27b010d60f7b7caddf', 'independent repair CI run identity drift')
   check(independentRepairCi.runUrl === 'https://github.com/yccanwin/canwin-team-os/actions/runs/29694757727', 'independent repair CI run URL drift')
@@ -239,6 +268,7 @@ function validate(candidate) {
   check(isolated.rollbackReadonlyEvidencePath === rollbackEvidencePath, 'isolated rollback evidence path drift')
   check(isolated.rollbackReadonlyEvidenceSha256 === '9e77cd23a712b5f908e56af8daf355c81cb36d52f468a10afdb131bea6b74ec3', 'isolated rollback evidence SHA contract drift')
   check(rollbackEvidenceSha256 === isolated.rollbackReadonlyEvidenceSha256, 'isolated rollback evidence file SHA mismatch')
+  check(Object.values(rollbackEvidenceEolHashes).every((hash) => hash === isolated.rollbackReadonlyEvidenceSha256), 'isolated rollback evidence LF/CRLF/CR/mixed hash equivalence drift')
   check(isolated.rollbackVerifiedAtUtc === '2026-07-19T16:33:23.5401222Z' && rollbackEvidence.verifiedAtUtc === isolated.rollbackVerifiedAtUtc, 'isolated rollback verification timestamp drift')
   check(isolated.rollbackComparisonSnapshotSha256 === '83169f289d0a411a9fb54296a9f6900f0e9337f7b9e2ca5e321480994fbc9cd7' && rollbackEvidence.comparison?.comparisonSnapshotSha256 === isolated.rollbackComparisonSnapshotSha256, 'isolated rollback comparison snapshot SHA drift')
   check(isolated.rollbackPreflightSha256 === '4ea5d3dc8f63feb56b8c0339c5734b79453f32ed6b6c905663e869e76b3287ac' && rollbackEvidence.sourceFailure?.preflightSha256 === isolated.rollbackPreflightSha256, 'isolated rollback preflight SHA drift')
@@ -275,6 +305,8 @@ function validate(candidate) {
   check(repair.postgresRegressionSha256Lf === 'f4f54d77436b1b91035cd8fff7572dd52f4375aa75f52325a664426d0b9cf3ea', 'local Postgres regression LF SHA drift')
   check(repair.localPostgresAccepted === true && repair.isolatedRemoteApply === 'pending' && repair.isolatedRemoteEligibility === 'ready_pending_formal_apply', 'local repair acceptance or isolated remote readiness boundary drift')
   check(repair.validatorLineEndingRepairImplemented === true && repair.newIndependentCi === 'passed', 'validator line-ending implementation or independent CI boundary drift')
+  check(repair.freshCheckoutFailureRunId === '29695919974' && repair.freshCheckoutFailurePreservedWithoutRerun === true, 'fresh-checkout failure preservation missing from repair candidate')
+  check(repair.rollbackEvidenceLineEndingRepairImplemented === true && exactSet(repair.rollbackEvidenceEolFormatsValidated, ['lf', 'crlf', 'cr', 'mixed']) && repair.postRepairIndependentCi === 'pending', 'rollback evidence line-ending repair candidate boundary drift')
   check(localPg.path === 'D:\\CanWinP1LocalPgRuns\\p1-pending-trigger-iWUhfO', 'local Postgres evidence path drift')
   check(localPg.resultSha256 === '9c16a2d8934f75c0f6a59641a090f3fa65fbf909d07e3d6bde1743a107614af7', 'local Postgres result SHA drift')
   check(localPg.postgresMajor === 18 && localPg.negativePassed === '1/1' && localPg.positiveRepairPassed === '4/4', 'local Postgres control counts drift')
@@ -294,6 +326,8 @@ function validate(candidate) {
   check(boundary.ciSecondRepairCandidateWindowsStatic === '15/17', 'second repair candidate Windows static boundary drift')
   check(boundary.validatorLineEndingRepairPending === false && boundary.validatorLineEndingRepairImplemented === true, 'validator line-ending implementation boundary drift')
   check(boundary.newIndependentCi === 'passed', 'new independent CI success evidence missing')
+  check(boundary.freshCheckoutFailureRunId === '29695919974' && boundary.freshCheckoutFailurePreservedWithoutRerun === true, 'fresh-checkout failure boundary missing')
+  check(boundary.rollbackEvidenceLineEndingRepairImplemented === true && boundary.postRepairIndependentCi === 'pending', 'rollback evidence line-ending repair acceptance boundary drift')
   check(boundary.localPostgresAccepted === true, 'local PostgreSQL repair acceptance must be recorded')
   check(boundary.repairCandidateIsolatedRemoteApply === 'pending', 'isolated remote repair candidate must remain pending')
   check(boundary.isolatedTestProjectApply === 'failed_repair_pending', 'isolated apply failure boundary missing')
@@ -332,6 +366,9 @@ const negativeCases = [
   ['second repair CI Windows falsely all green', (value) => { value.acceptanceBoundary.ciSecondRepairCandidateWindowsStatic = '17/17' }],
   ['validator line-ending implementation erased', (value) => { value.acceptanceBoundary.validatorLineEndingRepairImplemented = false }],
   ['new independent CI success erased', (value) => { value.acceptanceBoundary.newIndependentCi = 'pending' }],
+  ['fresh-checkout failure preservation erased', (value) => { value.acceptanceBoundary.freshCheckoutFailurePreservedWithoutRerun = false }],
+  ['rollback evidence line-ending repair erased', (value) => { value.acceptanceBoundary.rollbackEvidenceLineEndingRepairImplemented = false }],
+  ['post-repair CI falsely accepted', (value) => { value.acceptanceBoundary.postRepairIndependentCi = 'passed' }],
   ['isolated failure erased', (value) => { value.isolatedTestProjectEvidence.applyStatus = 'passed' }],
   ['isolated write falsely zero', (value) => { value.acceptanceBoundary.isolatedTestProjectWriteAttempts = 0 }],
   ['isolated rollback verification erased', (value) => { value.acceptanceBoundary.isolatedTestProjectRollbackVerified = false }],
@@ -359,5 +396,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `P0_P1_INTERFACE_FREEZE_OK rpcs=${contract.rpcInterfaces.length} whitelists=${Object.keys(contract.fieldWhitelists).length} identities=${contract.baseTestIdentities.length} overlays=${contract.overlayTestCases.length} attacks=${contract.directApiAttackCases.length} workOrders=${contract.workOrders.length} negative=${negativePassed}/${negativeCases.length} hashMode=utf8-lf p1ActualRemoteRun=passed ciRuntimeAccepted=true firstRepairWindowsStatic=16/17 portableSelftestRepairImplemented=true secondRepairLinuxAccepted=true secondRepairWindowsStatic=15/17 validatorLineEndingRepairImplemented=true newIndependentCi=passed independentWindowsStatic=17/17 independentWindowsLocal=12/12 independentLinuxMigrations=70/70 independentLinuxSql=27/27 independentLinuxCatalog=4/4 localPostgresAccepted=true isolatedTestProjectApply=failed_repair_pending repairCandidateIsolatedRemoteApply=pending testProjectWriteAttempts=1 rollbackVerified=true residualObjects=0 reconciliation=false pageAccountAcceptance=false runtimeAccepted=false g0=true g1=false p1CandidateImplemented=true`,
+  `P0_P1_INTERFACE_FREEZE_OK rpcs=${contract.rpcInterfaces.length} whitelists=${Object.keys(contract.fieldWhitelists).length} identities=${contract.baseTestIdentities.length} overlays=${contract.overlayTestCases.length} attacks=${contract.directApiAttackCases.length} workOrders=${contract.workOrders.length} negative=${negativePassed}/${negativeCases.length} hashMode=utf8-lf rollbackEvidenceEolFormats=${Object.keys(rollbackEvidenceEolHashes).join(',')} p1ActualRemoteRun=passed ciRuntimeAccepted=true firstRepairWindowsStatic=16/17 portableSelftestRepairImplemented=true secondRepairLinuxAccepted=true secondRepairWindowsStatic=15/17 validatorLineEndingRepairImplemented=true newIndependentCi=passed independentWindowsStatic=17/17 independentWindowsLocal=12/12 independentLinuxMigrations=70/70 independentLinuxSql=27/27 independentLinuxCatalog=4/4 freshCheckoutFailureRun=29695919974 freshCheckoutWindowsStatic=5/19 freshCheckoutFailedGate=6 freshCheckoutLinuxMigrations=70/70 freshCheckoutLinuxSql=27/27 freshCheckoutLinuxCatalog=4/4 postRepairIndependentCi=pending localPostgresAccepted=true isolatedTestProjectApply=failed_repair_pending repairCandidateIsolatedRemoteApply=pending testProjectWriteAttempts=1 rollbackVerified=true residualObjects=0 reconciliation=false pageAccountAcceptance=false runtimeAccepted=false g0=true g1=false p1CandidateImplemented=true`,
 )

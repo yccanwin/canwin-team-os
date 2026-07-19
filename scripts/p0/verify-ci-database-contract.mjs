@@ -852,13 +852,15 @@ function validate(candidate) {
   check(boundary.ciSecondRepairCandidateWindowsStatic === '15/17', 'second repair candidate Windows static count drift')
   check(boundary.validatorLineEndingRepairPending === false && boundary.validatorLineEndingRepairImplemented === true, 'validator line-ending repair acceptance drift')
   check(boundary.newIndependentCi === 'passed', 'new independent CI success evidence missing')
+  check(boundary.freshCheckoutFailureRunId === '29695919974' && boundary.freshCheckoutFailurePreservedWithoutRerun === true, 'fresh-checkout failure preservation evidence missing')
+  check(boundary.rollbackEvidenceLineEndingRepairImplemented === true && boundary.postRepairIndependentCi === 'pending', 'rollback evidence line-ending repair boundary drift')
   check(boundary.g1OverallClaim === false, 'G1 must remain unclaimed until real page and account acceptance passes')
   check(boundary.productionReadPerformed === false, 'production read must remain false')
   check(boundary.productionWritePerformed === false, 'production write must remain false')
   check(boundary.repositorySecretsRequired === false, 'repository secrets must not be required')
 
   const attempts = candidate.formalAttemptHistory ?? []
-  check(attempts.length === 21, 'formal attempt history count drift')
+  check(attempts.length === 22, 'formal attempt history count drift')
   const failedAttempt = attempts[0] ?? {}
   check(failedAttempt.runId === '29680934378', 'failed run id drift')
   check(failedAttempt.jobId === '88176860842', 'failed job id drift')
@@ -1252,6 +1254,28 @@ function validate(candidate) {
   check(independentRepairAttempt.rerunOfFailedRun === false, 'independent repair must remain a new candidate, not a rerun')
   check(JSON.stringify(independentRepairAttempt.priorFailedRunsPreservedWithoutRerun) === JSON.stringify(['29693556452', '29694104452']), 'prior failed repair runs must remain preserved without rerun')
   check(independentRepairAttempt.isolatedTestProjectPersistentApplyPassed === false && independentRepairAttempt.reconciliationPassed === false && independentRepairAttempt.pageAccountAcceptancePassed === false && independentRepairAttempt.g1OverallClaim === false, 'independent CI must not claim isolated apply, reconciliation, page acceptance or G1')
+  const freshCheckoutFailureAttempt = attempts[21] ?? {}
+  check(freshCheckoutFailureAttempt.runId === '29695919974', 'fresh-checkout failure run id drift')
+  check(freshCheckoutFailureAttempt.runUrl === 'https://github.com/yccanwin/canwin-team-os/actions/runs/29695919974', 'fresh-checkout failure run URL drift')
+  check(freshCheckoutFailureAttempt.jobId === '88216547033' && freshCheckoutFailureAttempt.windowsJobId === '88216547016', 'fresh-checkout failure job ids drift')
+  check(freshCheckoutFailureAttempt.headSha === '02f7377071783f2f3213218c6c3c3ace961768bc', 'fresh-checkout failure head SHA drift')
+  check(freshCheckoutFailureAttempt.conclusion === 'failure', 'fresh-checkout failure conclusion drift')
+  check(freshCheckoutFailureAttempt.workflowDurationSeconds === 142 && freshCheckoutFailureAttempt.linuxDurationSeconds === 137 && freshCheckoutFailureAttempt.windowsDurationSeconds === 57, 'fresh-checkout failure duration drift')
+  check(freshCheckoutFailureAttempt.failedStep === 'Windows local integration static gate 6 p1-interface-freeze', 'fresh-checkout failure step drift')
+  check(freshCheckoutFailureAttempt.rootCauseCode === 'windows_checkout_crlf_raw_rollback_evidence_sha_mismatch', 'fresh-checkout failure root cause drift')
+  check(freshCheckoutFailureAttempt.platformDifference === true && freshCheckoutFailureAttempt.staticSelfTestFailure === true && freshCheckoutFailureAttempt.databaseOrBusinessFailure === false, 'fresh-checkout failure classification drift')
+  check(freshCheckoutFailureAttempt.windowsLocalGatePassed === false, 'fresh-checkout Windows local gate must remain failed')
+  check(freshCheckoutFailureAttempt.windowsStaticGatesExpected === 19 && freshCheckoutFailureAttempt.windowsStaticGatesPassed === 5 && freshCheckoutFailureAttempt.windowsStaticGateFailed === 6, 'fresh-checkout Windows static stop boundary drift')
+  check(freshCheckoutFailureAttempt.windowsLocalIntegrationStepsExpected === 12 && freshCheckoutFailureAttempt.windowsLocalIntegrationStepsStarted === 1 && freshCheckoutFailureAttempt.windowsLocalIntegrationStepsPassed === 0 && freshCheckoutFailureAttempt.windowsLocalIntegrationStepsNotExecuted === 11, 'fresh-checkout Windows local stop boundary drift')
+  check(freshCheckoutFailureAttempt.windowsFailure === 'p1-interface-freeze hashed the CRLF checkout bytes instead of normalized UTF-8 LF rollback evidence', 'fresh-checkout Windows failure description drift')
+  check(freshCheckoutFailureAttempt.linuxDatabaseAccepted === true && freshCheckoutFailureAttempt.databaseStartupPassed === true && freshCheckoutFailureAttempt.baselinePassed === true, 'fresh-checkout Linux database acceptance evidence missing')
+  check(freshCheckoutFailureAttempt.migrationsPassed === 70 && freshCheckoutFailureAttempt.sqlTestsStarted === 27 && freshCheckoutFailureAttempt.sqlTestsPassed === 27, 'fresh-checkout Linux migration or SQL counts drift')
+  check(freshCheckoutFailureAttempt.databaseTestsPassed === 7 && freshCheckoutFailureAttempt.permissionTestsPassed === 11 && freshCheckoutFailureAttempt.businessTestsPassed === 9, 'fresh-checkout Linux test-category counts drift')
+  check(freshCheckoutFailureAttempt.catalogAssertionsPassed === 4 && freshCheckoutFailureAttempt.successMarker === 'P0_CI_DATABASE_GATES_OK' && freshCheckoutFailureAttempt.cleanupPassed === true, 'fresh-checkout Linux catalog, marker or cleanup evidence missing')
+  check(freshCheckoutFailureAttempt.repositorySecretsRequired === false && freshCheckoutFailureAttempt.testProjectRemoteReads === 0 && freshCheckoutFailureAttempt.testProjectRemoteWrites === 0 && freshCheckoutFailureAttempt.productionReadPerformed === false && freshCheckoutFailureAttempt.productionWritePerformed === false, 'fresh-checkout remote or secret boundary drift')
+  check(freshCheckoutFailureAttempt.rerunOfFailedRun === false && freshCheckoutFailureAttempt.preservedWithoutRerun === true, 'fresh-checkout failed run must remain preserved without rerun')
+  check(freshCheckoutFailureAttempt.rollbackEvidenceLineEndingRepairImplemented === true && freshCheckoutFailureAttempt.postRepairIndependentCi === 'pending', 'fresh-checkout repair or post-repair CI boundary drift')
+  check(freshCheckoutFailureAttempt.pageAccountAcceptancePassed === false && freshCheckoutFailureAttempt.g1OverallClaim === false, 'fresh-checkout failure must not claim page acceptance or G1')
   return failures
 }
 
@@ -1295,6 +1319,9 @@ const negativeCases = [
   ['second repair Windows falsely all green', (value) => { value.acceptanceBoundary.ciSecondRepairCandidateWindowsStatic = '17/17' }],
   ['validator line-ending repair regressed to pending', (value) => { value.acceptanceBoundary.validatorLineEndingRepairPending = true }],
   ['new independent CI success erased', (value) => { value.acceptanceBoundary.newIndependentCi = 'pending' }],
+  ['fresh-checkout failure preservation erased', (value) => { value.acceptanceBoundary.freshCheckoutFailurePreservedWithoutRerun = false }],
+  ['rollback evidence line-ending repair erased', (value) => { value.acceptanceBoundary.rollbackEvidenceLineEndingRepairImplemented = false }],
+  ['post-repair CI falsely accepted', (value) => { value.acceptanceBoundary.postRepairIndependentCi = 'passed' }],
   ['G1 falsely claimed', (value) => { value.acceptanceBoundary.g1OverallClaim = true }],
   ['latest independent CI evidence erased', (value) => { value.formalAttemptHistory.pop() }],
 ]
@@ -1313,5 +1340,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `P0_CI_DATABASE_CONTRACT_OK baseline=1 migrations=70 tests=${contract.tests.length} database=7 permission=11 business=9 catalog=4 definitions=${contract.expectedCounts.definitionReferencedObjects} redefined=${contract.expectedCounts.redefinedDefinitionReferencedObjects} crmLeadColumnAssertions=${contract.expectedCounts.crmLeadsVisibleExactColumnAssertions} directOrderFixtures=${contract.expectedCounts.directDealOrderFixtureFiles} finalFunctionIdentities=${contract.expectedCounts.finalPublicFunctionIdentities} functionIdentityReferences=${contract.expectedCounts.functionIdentityReferences} negative=${negativePassed}/${negativeCases.length} localOnly=true repositorySecrets=0 productionReads=0 productionWrites=0 actualGithubRun=passed g0=true p1ActualGithubRun=passed firstRepairWindowsStatic=16/17 portableSelftestRepairImplemented=true secondRepairLinuxAccepted=true secondRepairWindowsStatic=15/17 validatorLineEndingRepairImplemented=true newIndependentCi=passed independentWindowsStatic=17/17 independentWindowsLocal=12/12 independentLinuxMigrations=70/70 independentLinuxSql=27/27 independentLinuxCatalog=4/4 pageAccountAcceptance=false g1=false`,
+  `P0_CI_DATABASE_CONTRACT_OK baseline=1 migrations=70 tests=${contract.tests.length} database=7 permission=11 business=9 catalog=4 definitions=${contract.expectedCounts.definitionReferencedObjects} redefined=${contract.expectedCounts.redefinedDefinitionReferencedObjects} crmLeadColumnAssertions=${contract.expectedCounts.crmLeadsVisibleExactColumnAssertions} directOrderFixtures=${contract.expectedCounts.directDealOrderFixtureFiles} finalFunctionIdentities=${contract.expectedCounts.finalPublicFunctionIdentities} functionIdentityReferences=${contract.expectedCounts.functionIdentityReferences} negative=${negativePassed}/${negativeCases.length} localOnly=true repositorySecrets=0 productionReads=0 productionWrites=0 actualGithubRun=passed g0=true p1ActualGithubRun=passed firstRepairWindowsStatic=16/17 portableSelftestRepairImplemented=true secondRepairLinuxAccepted=true secondRepairWindowsStatic=15/17 validatorLineEndingRepairImplemented=true newIndependentCi=passed independentWindowsStatic=17/17 independentWindowsLocal=12/12 independentLinuxMigrations=70/70 independentLinuxSql=27/27 independentLinuxCatalog=4/4 freshCheckoutFailureRun=29695919974 freshCheckoutWindowsStatic=5/19 freshCheckoutFailedGate=6 freshCheckoutLinuxMigrations=70/70 freshCheckoutLinuxSql=27/27 freshCheckoutLinuxCatalog=4/4 postRepairIndependentCi=pending pageAccountAcceptance=false g1=false`,
 )

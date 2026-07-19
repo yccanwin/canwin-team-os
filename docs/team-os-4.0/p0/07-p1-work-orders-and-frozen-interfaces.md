@@ -1,6 +1,6 @@
 # P0-07 P1 工单与冻结接口
 
-> 状态：P1 工单和接口已冻结；两次 Windows 修复失败运行均原样保留且未重跑，新独立 run `29694757727` 已双平台全绿；失败事务已只读确认完整回滚且测试项目零 P1 残留，但新的正式持久化应用、全量对账、六类账号页面验收和 G1 均未通过。
+> 状态：P1 工单和接口已冻结；历史双平台成功 run `29694757727` 保留，三个 Windows 失败运行均原样保留且未重跑；最新 run `29695919974` 仅因回滚证据原始 CRLF 字节哈希误判在 static 第6门停止，Linux 数据库通道全绿。UTF-8 LF 归一化修复已完成本地 LF/CRLF/CR/mixed 回归，正式 CI 尚未重跑；持久化应用、全量对账、六类账号页面验收和 G1 均未通过。
 > 机器合同：`scripts/p0/p1-interface-freeze.json`；校验器：`scripts/p0/verify-p1-interface-freeze.mjs`。
 
 ## P1 目标
@@ -73,3 +73,4 @@
 - 新独立 CI run `29693556452`（提交 `b9bcca61b826c641e550c6c070f09c4adc407cbe`）已首错停止且不重跑。Linux job `88210359113` 全绿：迁移70/70、SQL27/27（7/11/9）、catalog4/4、清理成功、生产读写0；Windows job `88210359107` 在 local 第1项 static 的第17门失败，前16门通过，原因是 PG selftest 错把本机固定 `D:\CanWinP1Postgres18` 三工具当成 GitHub runner 必备条件，local 其余11项未执行。当前边界为 `ciRepairCandidateLinuxAccepted=true`、`windowsStatic=16/17`、`portableSelftestRepairPending=true`、`g1OverallClaim=false`。
 - 第二个 repair CI run `29694104452`（提交 `92bbac9c265834d0d4f4c550137f519afe366a03`）同样首错停止、保留且不重跑。Linux job `88211774885` 全绿：迁移70/70、SQL27/27（7/11/9）、catalog4/4、清理成功、生产读写0；Windows job `88211774922` 在 local 第1项 static 的 gate16 `p1-isolated-runtime-runner` 失败，前15门通过，gate17 和 local 其余11项均未执行。PG selftest 的可移植分层本身已修；新首错是 validator 对 execute-only 工具门使用原始 CRLF 精确字符串匹配。当前为 `portableSelftestRepairImplemented=true`、`secondRepairWindowsStatic=15/17`、`validatorLineEndingRepairPending=true`、`g1OverallClaim=false`。
 - 新独立 CI run [`29694757727`](https://github.com/yccanwin/canwin-team-os/actions/runs/29694757727)（HEAD `8273f5c69e09de24c9afbf27b010d60f7b7caddf`）已全绿，前两次失败运行继续保留且未重跑。Linux job `88213478676` 用时142秒，迁移70/70、SQL27/27（数据库7、权限11、业务9）、catalog4/4和清理全部通过；Windows job `88213478682` 用时111秒，static17/17、local12/12、P1壳层71/71、1975模块构建全部通过，66文件静态制品 SHA256 为 `33505fcddc4b814379906406287b1fa715677b1e218497e1fe5a1693f50fc21b`。GitHub上传制品0；两项 job 各有1条 Node.js 20 Actions运行时弃用警告，另有依赖弃用提示，均未阻断门禁。仓库密钥、生产读取和生产写入均为0。该证据只签收新独立CI；正式持久化应用、全量对账和六类真实/合成账号页面验收未完成，因此 G1/30% 仍未通过。
+- Fresh-checkout CI run [`29695919974`](https://github.com/yccanwin/canwin-team-os/actions/runs/29695919974)（HEAD `02f7377071783f2f3213218c6c3c3ace961768bc`）已失败保留且不重跑。Windows job `88216547016` 用时57秒，在 local 第1项 static 的第6门 `p1-interface-freeze` 失败：前5门通过，static 为5/19、其余13门跳过，local其余11项未执行；根因是校验器直接哈希 fresh checkout 的 CRLF 原始字节，未按合同的 UTF-8 LF 口径归一化。Linux job `88216547033` 用时137秒，迁移70/70、SQL27/27（7/11/9）、catalog4/4和清理全绿。测试项目远端读写0、生产读写0；这属于平台换行静态自测误判，不是数据库或业务失败。机械修复现统一 CRLF/CR 为 LF，并以 LF/CRLF/CR/mixed 四种夹具等价回归；正式 GitHub 未重跑，`postRepairIndependentCi=pending`、`g1OverallClaim=false`。
