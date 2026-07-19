@@ -25,6 +25,137 @@ const allowedModes = new Set(['read_only', 'rollback_fixture'])
 const forbiddenSqlBoundary = /(?:^|\W)(?:dblink_connect|postgres_fdw|postgresql_fdw|http_get|http_post|net\.http_)(?:\W|$)/i
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
+function splitSqlStatements(sql) {
+  const statements = []
+  let start = 0
+  let index = 0
+  let inSingleQuote = false
+  let inDoubleQuote = false
+  let inLineComment = false
+  let blockCommentDepth = 0
+  let dollarTag = null
+
+  while (index < sql.length) {
+    if (inLineComment) {
+      if (sql[index] === '\n') inLineComment = false
+      index += 1
+      continue
+    }
+    if (blockCommentDepth > 0) {
+      if (sql.startsWith('/*', index)) {
+        blockCommentDepth += 1
+        index += 2
+      } else if (sql.startsWith('*/', index)) {
+        blockCommentDepth -= 1
+        index += 2
+      } else index += 1
+      continue
+    }
+    if (dollarTag !== null) {
+      if (sql.startsWith(dollarTag, index)) {
+        index += dollarTag.length
+        dollarTag = null
+      } else index += 1
+      continue
+    }
+    if (inSingleQuote) {
+      if (sql[index] === "'" && sql[index + 1] === "'") index += 2
+      else if (sql[index] === '\\') index += Math.min(2, sql.length - index)
+      else {
+        if (sql[index] === "'") inSingleQuote = false
+        index += 1
+      }
+      continue
+    }
+    if (inDoubleQuote) {
+      if (sql[index] === '"' && sql[index + 1] === '"') index += 2
+      else {
+        if (sql[index] === '"') inDoubleQuote = false
+        index += 1
+      }
+      continue
+    }
+
+    if (sql.startsWith('--', index)) {
+      inLineComment = true
+      index += 2
+    } else if (sql.startsWith('/*', index)) {
+      blockCommentDepth = 1
+      index += 2
+    } else if (sql[index] === "'") {
+      inSingleQuote = true
+      index += 1
+    } else if (sql[index] === '"') {
+      inDoubleQuote = true
+      index += 1
+    } else if (sql[index] === '$') {
+      const match = sql.slice(index).match(/^\$(?:[A-Za-z_][A-Za-z0-9_]*)?\$/)
+      if (match) {
+        dollarTag = match[0]
+        index += dollarTag.length
+      } else index += 1
+    } else if (sql[index] === ';') {
+      const statement = sql.slice(start, index + 1).trim()
+      if (statement) statements.push(statement)
+      index += 1
+      start = index
+    } else index += 1
+  }
+
+  const trailing = sql.slice(start).trim()
+  if (trailing) statements.push(trailing)
+  return statements
+}
+
+function stripLeadingSqlTrivia(statement) {
+  let index = 0
+  while (index < statement.length) {
+    while (/\s/.test(statement[index] ?? '')) index += 1
+    if (statement.startsWith('--', index)) {
+      const newline = statement.indexOf('\n', index + 2)
+      index = newline < 0 ? statement.length : newline + 1
+      continue
+    }
+    if (statement.startsWith('/*', index)) {
+      let depth = 1
+      index += 2
+      while (index < statement.length && depth > 0) {
+        if (statement.startsWith('/*', index)) {
+          depth += 1
+          index += 2
+        } else if (statement.startsWith('*/', index)) {
+          depth -= 1
+          index += 2
+        } else index += 1
+      }
+      continue
+    }
+    break
+  }
+  return statement.slice(index)
+}
+
+function findObjectDefinitions(migrationSources, kind, name) {
+  const definitionPattern = new RegExp(`^create\\s+(?:or\\s+replace\\s+)?${kind}\\s+public\\.${escapeRegex(name)}\\b`, 'i')
+  return migrationSources.flatMap((migration) => migration.statements
+    .filter((statement) => definitionPattern.test(stripLeadingSqlTrivia(statement)))
+    .map((statement) => ({ file: migration.file, statement })))
+}
+
+const statementParserProbe = splitSqlStatements(`
+create or replace function public.p0_parser_probe() returns text language plpgsql as $body$
+begin perform ';'; perform "quoted;identifier"; return '/* not a comment; */'; end
+$body$;
+-- a line comment containing ;
+create or replace view public.p0_parser_probe_view as select ';'::text as "semi;colon";
+/* outer comment ; /* nested comment ; */ tail ; */
+select 'quoted;literal';
+`)
+const statementParserProbePassed = statementParserProbe.length === 3
+  && /^create\s+or\s+replace\s+function/i.test(stripLeadingSqlTrivia(statementParserProbe[0]))
+  && /^create\s+or\s+replace\s+view/i.test(stripLeadingSqlTrivia(statementParserProbe[1]))
+  && /^select\s+'quoted;literal'/i.test(stripLeadingSqlTrivia(statementParserProbe[2]))
+
 function findPolicyPresenceWriteAssertions(sql) {
   const compact = sql.replace(/\s+/g, '')
   return [...compact.matchAll(/ifexists\(select1frompg_policies[\s\S]*?\)thenraiseexception/gi)]
@@ -62,6 +193,13 @@ function findMatchingSqlParen(sql, openIndex) {
 
 function findRequiredDirectDefinitionAssertions(sql) {
   const assertions = []
+  const definitionVariables = new Map()
+  for (const match of sql.matchAll(/\b([a-z][a-z0-9_]*)\s+text\s*:=\s*pg_get_(function|view)def\s*\(\s*'public\.([a-z0-9_]+)/gi)) {
+    definitionVariables.set(match[1].toLowerCase(), {
+      kind: match[2].toLowerCase(),
+      name: match[3].toLowerCase(),
+    })
+  }
   for (const match of sql.matchAll(/\bposition\s*\(/gi)) {
     const openIndex = sql.indexOf('(', match.index)
     const closeIndex = findMatchingSqlParen(sql, openIndex)
@@ -69,12 +207,16 @@ function findRequiredDirectDefinitionAssertions(sql) {
     const inner = sql.slice(openIndex + 1, closeIndex)
     const fragmentMatch = inner.match(/^\s*'((?:''|[^'])*)'\s+in\b/i)
     const targetMatch = inner.match(/pg_get_(function|view)def\s*\(\s*'public\.([a-z0-9_]+)/i)
+    const variableMatch = inner.match(/\bin\s+([a-z][a-z0-9_]*)\s*$/i)
+    const target = targetMatch
+      ? { kind: targetMatch[1].toLowerCase(), name: targetMatch[2].toLowerCase() }
+      : definitionVariables.get(variableMatch?.[1]?.toLowerCase())
     const comparatorMatch = sql.slice(closeIndex + 1, closeIndex + 20).match(/^\s*([=<>]+)\s*0/)
-    if (fragmentMatch && targetMatch && comparatorMatch?.[1] === '=') {
+    if (fragmentMatch && target && comparatorMatch?.[1] === '=') {
       assertions.push({
         fragment: fragmentMatch[1].replace(/''/g, "'"),
-        kind: targetMatch[1].toLowerCase(),
-        name: targetMatch[2].toLowerCase(),
+        kind: target.kind,
+        name: target.name,
       })
     }
   }
@@ -107,7 +249,7 @@ function validate(candidate) {
   const migrationSources = migrationFiles.map((file) => ({
     file,
     sql: normalizeLf(readFileSync(resolve(repoRoot, candidate.migrations.directory, file), 'utf8')),
-  }))
+  })).map((migration) => ({ ...migration, statements: splitSqlStatements(migration.sql) }))
   check(manifest.expectedCount === 69 && manifest.entries?.length === 69, 'migration manifest count drift')
   check(migrationFiles.length === 69, 'migration directory count drift')
   check(exactSet(migrationFiles, (manifest.entries ?? []).map((entry) => entry.file)), 'migration file set drift')
@@ -126,7 +268,9 @@ function validate(candidate) {
   check(sourceRules.forbiddenUnseparatedToken === 'do$$', 'DO dollar-quote forbidden token drift')
   check(sourceRules.policyWriteAssertionsRequirePermissiveFilter === true, 'policy write assertion source rule drift')
   check(sourceRules.definitionFragmentAssertionsNormalizeFormatting === true, 'definition fragment formatting source rule drift')
-  check(sourceRules.requiredDefinitionFragmentsMatchFinalMigration === true, 'final definition fragment source rule drift')
+  check(sourceRules.requiredDefinitionFragmentsMatchFinalCreateStatement === true, 'final definition CREATE statement source rule drift')
+  check(sourceRules.definitionStatementParserHandlesQuotedSemicolons === true, 'definition statement parser source rule drift')
+  check(statementParserProbePassed, 'definition statement parser probe failed')
   check(tests.length === counts.total, 'test entry count drift')
   check(exactSet(tests.map((entry) => entry.path), tests.map((entry) => entry.path)), 'duplicate test path')
 
@@ -158,13 +302,12 @@ function validate(candidate) {
     check(findPolicyPresenceWriteAssertions(sql).length === 0, `policy presence misclassified as write grant ${entry.path}`)
     check(findFormattingSensitiveDefinitionAssertions(sql).length === 0, `definition fragment assertion depends on source formatting ${entry.path}`)
     for (const assertion of findRequiredDirectDefinitionAssertions(sql)) {
-      const definitionPattern = new RegExp(`create\\s+(?:or\\s+replace\\s+)?${assertion.kind}\\s+public\\.${escapeRegex(assertion.name)}\\b`, 'i')
-      const definitions = migrationSources.filter((migration) => definitionPattern.test(migration.sql))
+      const definitions = findObjectDefinitions(migrationSources, assertion.kind, assertion.name)
       check(definitions.length > 0, `definition source missing for ${assertion.kind} ${assertion.name}`)
-      const finalDefinitionMigration = definitions.at(-1)
+      const finalDefinition = definitions.at(-1)
       const normalizedFragment = assertion.fragment.toLowerCase().replace(/\s+/g, '')
-      const normalizedFinalMigration = finalDefinitionMigration?.sql.toLowerCase().replace(/\s+/g, '') ?? ''
-      check(normalizedFinalMigration.includes(normalizedFragment), `required definition fragment not found in final migration ${entry.path}:${assertion.name}:${finalDefinitionMigration?.file ?? 'missing'}:${assertion.fragment}`)
+      const normalizedFinalStatement = finalDefinition?.statement.toLowerCase().replace(/\s+/g, '') ?? ''
+      check(normalizedFinalStatement.includes(normalizedFragment), `required definition fragment not found in final CREATE statement ${entry.path}:${assertion.name}:${finalDefinition?.file ?? 'missing'}:${assertion.fragment}`)
     }
     if (entry.executionMode === 'rollback_fixture') {
       check(/^\s*(?:--[^\n]*\n\s*)*begin\s*;/i.test(sql), `fixture must begin a transaction ${entry.path}`)
@@ -175,8 +318,7 @@ function validate(candidate) {
   }
   const redefinedDefinitionTargets = [...definitionTargets].filter((target) => {
     const [kind, name] = target.split(':')
-    const definitionPattern = new RegExp(`create\\s+(?:or\\s+replace\\s+)?${kind}\\s+public\\.${escapeRegex(name)}\\b`, 'i')
-    return migrationSources.filter((migration) => definitionPattern.test(migration.sql)).length > 1
+    return findObjectDefinitions(migrationSources, kind, name).length > 1
   })
   check(definitionTargets.size === counts.definitionReferencedObjects, `definition referenced object inventory drift expected=${counts.definitionReferencedObjects} actual=${definitionTargets.size}`)
   check(redefinedDefinitionTargets.length === counts.redefinedDefinitionReferencedObjects, `redefined definition object inventory drift expected=${counts.redefinedDefinitionReferencedObjects} actual=${redefinedDefinitionTargets.length}`)
@@ -289,7 +431,7 @@ function validate(candidate) {
   check(boundary.repositorySecretsRequired === false, 'repository secrets must not be required')
 
   const attempts = candidate.formalAttemptHistory ?? []
-  check(attempts.length === 9, 'formal attempt history count drift')
+  check(attempts.length === 10, 'formal attempt history count drift')
   const failedAttempt = attempts[0] ?? {}
   check(failedAttempt.runId === '29680934378', 'failed run id drift')
   check(failedAttempt.jobId === '88176860842', 'failed job id drift')
@@ -439,6 +581,24 @@ function validate(candidate) {
   check(finalDefinitionAttempt.productionReadPerformed === false, 'final definition run production read must remain false')
   check(finalDefinitionAttempt.productionWritePerformed === false, 'final definition run production write must remain false')
   check(finalDefinitionAttempt.rerunOfFailedRun === false, 'final definition run must remain a new candidate')
+  const wrapperDefinitionAttempt = attempts[9] ?? {}
+  check(wrapperDefinitionAttempt.runId === '29683060597', 'wrapper definition run id drift')
+  check(wrapperDefinitionAttempt.jobId === '88182532072', 'wrapper definition run job id drift')
+  check(wrapperDefinitionAttempt.headSha === '0f4e44ef76bf5a44fc771d4c238a3ac4c1b5aecb', 'wrapper definition run head SHA drift')
+  check(wrapperDefinitionAttempt.conclusion === 'failure', 'wrapper definition run conclusion drift')
+  check(wrapperDefinitionAttempt.failedStep === 'Run database permission and business gates', 'wrapper definition run failed step drift')
+  check(wrapperDefinitionAttempt.rootCauseCode === 'wrapper_view_misclassified_as_profit_definition', 'wrapper definition run root cause drift')
+  check(wrapperDefinitionAttempt.databaseStartupPassed === true, 'wrapper definition run database startup evidence missing')
+  check(wrapperDefinitionAttempt.baselinePassed === true, 'wrapper definition run baseline evidence missing')
+  check(wrapperDefinitionAttempt.migrationsPassed === 69, 'wrapper definition run migration count drift')
+  check(wrapperDefinitionAttempt.sqlTestsStarted === 7 && wrapperDefinitionAttempt.sqlTestsPassed === 6, 'wrapper definition run test count drift')
+  check(wrapperDefinitionAttempt.firstFailedTest === 'supabase/tests/performance_core.sql', 'wrapper definition first failed test drift')
+  check(wrapperDefinitionAttempt.priorNotificationPassed === true, 'wrapper definition prior notification evidence missing')
+  check(wrapperDefinitionAttempt.classwideAffectedTests === 2, 'wrapper definition classwide evidence drift')
+  check(wrapperDefinitionAttempt.cleanupPassed === true, 'wrapper definition run cleanup evidence missing')
+  check(wrapperDefinitionAttempt.productionReadPerformed === false, 'wrapper definition run production read must remain false')
+  check(wrapperDefinitionAttempt.productionWritePerformed === false, 'wrapper definition run production write must remain false')
+  check(wrapperDefinitionAttempt.rerunOfFailedRun === false, 'wrapper definition run must remain a new candidate')
   return failures
 }
 
@@ -463,7 +623,8 @@ const negativeCases = [
   ['import direct client write', (value) => { value.historicalChainExpectations.customerImportHistoryAccess.directClientWritePrivilegesAllowed = true }],
   ['policy write assertion source rule', (value) => { value.testSourceRules.policyWriteAssertionsRequirePermissiveFilter = false }],
   ['definition fragment formatting source rule', (value) => { value.testSourceRules.definitionFragmentAssertionsNormalizeFormatting = false }],
-  ['final definition fragment source rule', (value) => { value.testSourceRules.requiredDefinitionFragmentsMatchFinalMigration = false }],
+  ['final definition CREATE statement source rule', (value) => { value.testSourceRules.requiredDefinitionFragmentsMatchFinalCreateStatement = false }],
+  ['definition statement parser source rule', (value) => { value.testSourceRules.definitionStatementParserHandlesQuotedSemicolons = false }],
   ['definition target inventory', (value) => { value.expectedCounts.definitionReferencedObjects = 51 }],
   ['repository secret', (value) => { value.acceptanceBoundary.repositorySecretsRequired = true }],
   ['production write', (value) => { value.acceptanceBoundary.productionWritePerformed = true }],

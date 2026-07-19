@@ -1,10 +1,14 @@
-do $$begin
+do $$declare
+ company_def text:=pg_get_functiondef('public.get_company_profit_summary()'::regprocedure);
+ company_view text:=pg_get_viewdef('public.company_profit_summary'::regclass,true);
+begin
  if to_regclass('public.performance_quarterly_targets')is null or to_regclass('public.official_reconciliation_batches')is null or to_regclass('public.profit_adjustments')is null then raise exception'Performance tables missing';end if;
- if to_regclass('public.company_profit_summary')is null or to_regclass('public.supervisor_order_margin')is null or to_regclass('public.personal_performance_summary')is null then raise exception'Performance views missing';end if;
- if position('deal_internal_settlements' in pg_get_viewdef('public.company_profit_summary'::regclass,true))=0 or position('deal_procurement_cost_payments' in pg_get_viewdef('public.company_profit_summary'::regclass,true))=0 or position('profit_adjustments' in pg_get_viewdef('public.company_profit_summary'::regclass,true))=0 then raise exception'Actual company profit ledger incomplete';end if;
- if position('deal_payments' in pg_get_viewdef('public.company_profit_summary'::regclass,true))>0 or position('deal_payment_reversals' in pg_get_viewdef('public.company_profit_summary'::regclass,true))>0 then raise exception'Customer cash path incorrectly changes company profit';end if;
- if position('forecast_profit' in pg_get_viewdef('public.company_profit_summary'::regclass,true))=0 or position('actual_profit' in pg_get_viewdef('public.company_profit_summary'::regclass,true))=0 then raise exception'Actual/forecast separation missing';end if;
- if position('customers.supervise' in pg_get_viewdef('public.company_profit_summary'::regclass,true))>0 then raise exception'Supervisor can read company profit';end if;
+ if to_regprocedure('public.get_company_profit_summary()')is null or to_regclass('public.company_profit_summary')is null or to_regclass('public.supervisor_order_margin')is null or to_regclass('public.personal_performance_summary')is null then raise exception'Performance summary interfaces missing';end if;
+ if position('get_company_profit_summary' in company_view)=0 then raise exception'Company profit wrapper view is not bound to the secure summary function';end if;
+ if position('deal_internal_settlements' in company_def)=0 or position('deal_procurement_cost_payments' in company_def)=0 or position('profit_adjustments' in company_def)=0 then raise exception'Actual company profit ledger incomplete';end if;
+ if position('deal_payments' in company_def)>0 or position('deal_payment_reversals' in company_def)>0 then raise exception'Customer cash path incorrectly changes company profit';end if;
+ if position('forecast_profit' in company_def)=0 or position('actual_profit' in company_def)=0 then raise exception'Actual/forecast separation missing';end if;
+ if position('customers.supervise' in company_def)>0 then raise exception'Supervisor can read company profit';end if;
  if position('can_supervise_performance' in pg_get_viewdef('public.supervisor_order_margin'::regclass,true))=0 then raise exception'Subordinate margin authorization missing';end if;
  if to_regclass('public.personal_sales_margin')is null or to_regprocedure('public.get_order_sales_ledger(text,uuid)')is null then raise exception'Sales margin interfaces missing';end if;
  if position('deal_payments' in pg_get_functiondef('public.get_order_sales_ledger(text,uuid)'::regprocedure))=0 or position('deal_payment_reversals' in pg_get_functiondef('public.get_order_sales_ledger(text,uuid)'::regprocedure))=0 or position('internal_due' in pg_get_functiondef('public.get_order_sales_ledger(text,uuid)'::regprocedure))=0 or position('deal_sales_expenses' in pg_get_functiondef('public.get_order_sales_ledger(text,uuid)'::regprocedure))=0 then raise exception'Sales margin formula incomplete';end if;
