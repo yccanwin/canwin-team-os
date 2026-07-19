@@ -48,6 +48,16 @@ begin
     raise exception 'P1 deferred one-primary trigger missing';
   end if;
 
+  if not exists (
+    select 1 from pg_trigger
+    where tgrelid = 'public.profile_access_roles'::regclass
+      and tgname = 'profile_access_roles_last_admin'
+      and tgdeferrable
+      and tginitdeferred
+  ) then
+    raise exception 'Existing last-admin trigger must remain initially deferred';
+  end if;
+
   foreach signature in array expected_public_functions loop
     if to_regprocedure(signature) is null then
       raise exception 'P1 RPC missing: %', signature;

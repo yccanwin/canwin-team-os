@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "manifestType": "canwin-team-os-4-p1-isolated-runtime",
+  "target": {
+    "projectRef": "zdmuaqokndhhbarudhtw",
+    "projectName": "canwinos-team-os-4-p0-test-4",
+    "environment": "isolated-test"
+  },
+  "forbiddenProductionProjectRef": "agygfhmkazcbqaqwmljb",
+  "candidate": {
+    "requiredAncestorSha": "c99370434c2af6b9ded22821dbcf3d67ef303556",
+    "signedCiHeadSha": "ed853ebbab250f562d03f433f4d2df4ada87de4e",
+    "migrationVersion": "20260719130910",
+    "migrationPath": "supabase/migrations/20260719130910_team_os_4_p1_access_shell.sql",
+    "migrationSha256Lf": "acc7f15afa502d7a124c2a13d74d0a71c2b98c11664d58de2d4639081d5a7597",
+    "testPath": "supabase/tests/team_os_4_p1_access_shell.sql",
+    "testSha256Lf": "bed07c4d494ac3e7f7e993e12090194ed413b0e92d681aea0adb3eb381f430fb",
+    "remoteExecutionAllowed": false
+  },
+  "referenceSync": {
+    "previousMigrationSha256Lf": "8f947d5747862d678014e778737c82dfc8a50a8f9fa273d9b60f5f6822ed012c",
+    "previousTestSha256Lf": "ba99f6c01c3f744515b691411aecff9146f526cebe414d3c2ea6824848539fa1",
+    "remoteExecutionRequires": "synchronized-and-qualified"
+  },
+  "pendingTriggerRepair": {
+    "constraintName": "public.profile_access_roles_last_admin",
+    "backfillStatement": "update public.profile_access_roles par",
+    "immediateStatement": "set constraints public.profile_access_roles_last_admin immediate;",
+    "deferredStatement": "set constraints public.profile_access_roles_last_admin deferred;",
+    "alterStatement": "alter table public.profile_access_roles\n  alter column assignment_kind set not null;",
+    "forbidAllConstraintsFlush": true,
+    "localPostgres": {
+      "binaryRoot": "D:/CanWinP1Postgres18/bin",
+      "initdbPath": "D:/CanWinP1Postgres18/bin/initdb.exe",
+      "pgCtlPath": "D:/CanWinP1Postgres18/bin/pg_ctl.exe",
+      "psqlPath": "D:/CanWinP1Postgres18/bin/psql.exe",
+      "postgresMajor": 18,
+      "host": "127.0.0.1",
+      "database": "postgres",
+      "user": "p1_regression",
+      "bootstrapUser": "p1_regression",
+      "encoding": "UTF8",
+      "locale": "C",
+      "clientEncoding": "UTF8",
+      "forbiddenInheritedEnvironment": ["USERNAME", "USERPROFILE", "HOME", "HOMEDRIVE", "HOMEPATH"],
+      "pgCtlStart": {
+        "stdio": ["ignore", "ignore", "ignore"],
+        "logFlag": "-l",
+        "waitFlag": "-w",
+        "timeoutFlag": "-t",
+        "timeoutSeconds": 30,
+        "hardLimitSeconds": 120
+      },
+      "remoteConnectionsAllowed": false,
+      "maxAttempts": 1,
+      "temporaryRoot": "D:/CanWinP1LocalPgRuns"
+    }
+  },
+  "scriptHardLocks": {
+    "runnerPath": "scripts/p1/run-isolated-runtime.mjs",
+    "runnerSha256Lf": "ac22d2d935d4b557314b5e7c61dfdf54e4af8c3dfe178ad047de1b2cf5955248",
+    "validatorPath": "scripts/p1/verify-isolated-runtime-runner.mjs",
+    "validatorSha256Lf": "83ded52f12f1672ad7cc76fdc582d92074a7e6023fda41402611ef14fcb3f062",
+    "postgresRegressionPath": "scripts/p1/verify-pending-trigger-postgres.mjs",
+    "postgresRegressionSha256Lf": "d2799a76bffd11be59d4ae6d7e4e01033be15c1981d9a50e68f427b98cefec85"
+  },
+  "databaseContractPath": "scripts/p0/ci-database-test-contract.json",
+  "migrationManifestPath": "docs/team-os-4.0/p0/migration-sha256-manifest.json",
+  "restoreRunPath": "docs/team-os-4.0/p0/restore-run.p0-test.json",
+  "expected": {
+    "preMigrationRows": 69,
+    "postMigrationRows": 70,
+    "authUsers": 7,
+    "tests": 27,
+    "databaseTests": 7,
+    "permissionTests": 11,
+    "businessTests": 9,
+    "catalog": {
+      "publicTables": 103,
+      "publicRoutines": 168,
+      "publicViews": 11,
+      "storageBuckets": 1
+    }
+  },
+  "evidenceRoot": "D:/CanWin-Team-OS-4.0-P1-Validation",
+  "failurePolicy": {
+    "maxFormalAttempts": 1,
+    "stopOnFirstFailure": true,
+    "automaticRetry": false,
+    "remoteCleanupAfterFailure": false,
+    "secretsPrinted": false,
+    "secretsWritten": false
+  }
+}

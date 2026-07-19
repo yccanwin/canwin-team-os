@@ -19,6 +19,12 @@ from public.access_roles ar
 where ar.id = par.role_id
   and par.assignment_kind is null;
 
+-- The existing last-admin constraint trigger is initially deferred. Flush only
+-- that trigger before changing this table's shape, then restore its original
+-- transaction mode for the remainder of the migration.
+set constraints public.profile_access_roles_last_admin immediate;
+set constraints public.profile_access_roles_last_admin deferred;
+
 do $$
 begin
   if exists (
