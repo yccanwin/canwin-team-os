@@ -1,4 +1,4 @@
-do$$declare n int;begin
+do $$declare n int;begin
  select count(*)into n from unnest(array['fulfillment_deliveries','fulfillment_states','fulfillment_inventory_stock','fulfillment_inventory_reservations','fulfillment_inventory_movements','fulfillment_exceptions','fulfillment_implementation','fulfillment_handoffs','fulfillment_renewal_milestones'])x(t)where to_regclass('public.'||t)is null;if n<>0 then raise exception 'Missing % fulfillment tables',n;end if;
  if(select count(*)from pg_policies where schemaname='public' and tablename like 'fulfillment_%' and policyname='sales os v3 server gate' and permissive='RESTRICTIVE')<>9 then raise exception 'Fulfillment gates missing';end if;
  if(select count(*)from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname like 'fulfillment_%' and c.relkind='r' and c.relrowsecurity)<9 then raise exception 'Fulfillment RLS missing';end if;

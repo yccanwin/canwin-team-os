@@ -45,7 +45,7 @@ insert into public.import_created_entities(team_id,batch_id,row_id,entity_type,e
 insert into public.crm_leads(team_id,region_id,brand_id,store_id,title,status,owner_id,claimed_at,created_by)values('CANWIN_TEAM','10000000-0000-4000-8000-000000000001','43000000-0000-4000-8000-000000000001','43000000-0000-4000-8000-000000000002','Later reference','claimed','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',now(),'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
 
 select public.rollback_customer_import('30000000-0000-4000-8000-000000000001');
-do$$begin
+do $$begin
  if not exists(select 1 from public.crm_brands where id='40000000-0000-4000-8000-000000000001')then raise exception'legacy NULL image was deleted';end if;
  if(select count(*)from public.import_rollback_conflicts where batch_id='30000000-0000-4000-8000-000000000001'and entity_id in('41000000-0000-4000-8000-000000000001','41000000-0000-4000-8000-000000000002','41000000-0000-4000-8000-000000000003','41000000-0000-4000-8000-000000000004'))<>4 then raise exception'four changed entities not preserved as conflicts';end if;
  if exists(select 1 from public.crm_brands where id='42000000-0000-4000-8000-000000000001')then raise exception'unchanged entity not deleted';end if;

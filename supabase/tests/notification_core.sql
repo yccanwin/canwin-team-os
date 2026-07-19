@@ -1,4 +1,4 @@
-do$$begin
+do $$begin
  if to_regclass('public.notification_jobs')is null or to_regclass('public.notification_attempts')is null or to_regclass('public.notification_supervisor_exceptions')is null then raise exception'Notification tables missing';end if;
  if position('09:30' in pg_get_functiondef('public.enqueue_wecom_notification_jobs(text,timestamp with time zone)'::regprocedure))=0 or position('appointment_day_before' in pg_get_functiondef('public.enqueue_wecom_notification_jobs(text,timestamp with time zone)'::regprocedure))=0 or position('2 hours' in pg_get_functiondef('public.enqueue_wecom_notification_jobs(text,timestamp with time zone)'::regprocedure))=0 then raise exception'Notification schedules missing';end if;
  if position('on conflict' in lower(pg_get_functiondef('public.enqueue_wecom_notification_jobs(text,timestamp with time zone)'::regprocedure)))=0 then raise exception'Idempotent enqueue missing';end if;

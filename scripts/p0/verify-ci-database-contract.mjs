@@ -29,6 +29,7 @@ function validate(candidate) {
   const check = (condition, message) => { if (!condition) failures.push(message) }
   const counts = candidate.expectedCounts ?? {}
   const tests = candidate.tests ?? []
+  const sourceRules = candidate.testSourceRules ?? {}
   const runtime = candidate.runtime ?? {}
   const boundary = candidate.acceptanceBoundary ?? {}
 
@@ -58,6 +59,8 @@ function validate(candidate) {
   check(counts.business === expectedCategories.business, 'business expected count drift')
   check(counts.total === 26, 'total expected count drift')
   check(counts.postInstallCatalogAssertions === 4, 'catalog assertion count drift')
+  check(sourceRules.doKeywordSeparatedFromDollarQuote === true, 'DO dollar-quote separator rule drift')
+  check(sourceRules.forbiddenUnseparatedToken === 'do$$', 'DO dollar-quote forbidden token drift')
   check(tests.length === counts.total, 'test entry count drift')
   check(exactSet(tests.map((entry) => entry.path), tests.map((entry) => entry.path)), 'duplicate test path')
 
@@ -81,6 +84,7 @@ function validate(candidate) {
     check(entry.sha256Lf === sha256Lf(absolutePath), `test hash drift ${entry.path}`)
     check(!/^\s*\\/m.test(sql), `psql meta-command forbidden ${entry.path}`)
     check(!forbiddenSqlBoundary.test(sql), `remote SQL boundary forbidden ${entry.path}`)
+    check(!/\bdo\$\$/i.test(sql), `DO keyword must be separated from dollar quote ${entry.path}`)
     if (entry.executionMode === 'rollback_fixture') {
       check(/^\s*(?:--[^\n]*\n\s*)*begin\s*;/i.test(sql), `fixture must begin a transaction ${entry.path}`)
       check(/rollback\s*;\s*$/i.test(sql), `fixture must end with rollback ${entry.path}`)
@@ -184,7 +188,7 @@ function validate(candidate) {
   check(boundary.repositorySecretsRequired === false, 'repository secrets must not be required')
 
   const attempts = candidate.formalAttemptHistory ?? []
-  check(attempts.length === 4, 'formal attempt history count drift')
+  check(attempts.length === 5, 'formal attempt history count drift')
   const failedAttempt = attempts[0] ?? {}
   check(failedAttempt.runId === '29680934378', 'failed run id drift')
   check(failedAttempt.jobId === '88176860842', 'failed job id drift')
@@ -246,6 +250,23 @@ function validate(candidate) {
   check(addressAttempt.productionReadPerformed === false, 'address run production read must remain false')
   check(addressAttempt.productionWritePerformed === false, 'address run production write must remain false')
   check(addressAttempt.rerunOfFailedRun === false, 'address run must remain a new candidate')
+  const lexicalAttempt = attempts[4] ?? {}
+  check(lexicalAttempt.runId === '29681693222', 'lexical run id drift')
+  check(lexicalAttempt.jobId === '88178855663', 'lexical job id drift')
+  check(lexicalAttempt.headSha === '5c4b42989716dac883f33f7062a49a5b06fb3c65', 'lexical run head SHA drift')
+  check(lexicalAttempt.conclusion === 'failure', 'lexical run conclusion drift')
+  check(lexicalAttempt.failedStep === 'Run database permission and business gates', 'lexical run failed step drift')
+  check(lexicalAttempt.rootCauseCode === 'sql_keyword_dollar_quote_missing_separator', 'lexical run root cause drift')
+  check(lexicalAttempt.databaseStartupPassed === true, 'lexical run database startup evidence missing')
+  check(lexicalAttempt.baselinePassed === true, 'lexical run baseline evidence missing')
+  check(lexicalAttempt.migrationsPassed === 69, 'lexical run migration count drift')
+  check(lexicalAttempt.sqlTestsStarted === 3 && lexicalAttempt.sqlTestsPassed === 2, 'lexical run test count drift')
+  check(lexicalAttempt.firstFailedTest === 'supabase/tests/customer_import.sql', 'lexical first failed test drift')
+  check(lexicalAttempt.classwideAffectedFiles === 14 && lexicalAttempt.classwideOccurrences === 17, 'lexical classwide evidence drift')
+  check(lexicalAttempt.cleanupPassed === true, 'lexical run cleanup evidence missing')
+  check(lexicalAttempt.productionReadPerformed === false, 'lexical run production read must remain false')
+  check(lexicalAttempt.productionWritePerformed === false, 'lexical run production write must remain false')
+  check(lexicalAttempt.rerunOfFailedRun === false, 'lexical run must remain a new candidate')
   return failures
 }
 
@@ -257,6 +278,7 @@ const negativeCases = [
   ['test hash', (value) => { value.tests[0].sha256Lf = '0'.repeat(64) }],
   ['test category', (value) => { value.tests[0].category = 'unknown' }],
   ['fixture mode', (value) => { value.tests[0].executionMode = 'rollback_fixture' }],
+  ['unseparated DO dollar quote rule', (value) => { value.testSourceRules.doKeywordSeparatedFromDollarQuote = false }],
   ['remote connection', (value) => { value.runtime.remoteConnectionsAllowed = true }],
   ['remote host', (value) => { value.runtime.allowedHosts = ['db.example.com'] }],
   ['remote port', (value) => { value.runtime.allowedPort = 6543 }],

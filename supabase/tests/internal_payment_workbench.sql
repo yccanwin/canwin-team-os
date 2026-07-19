@@ -1,4 +1,4 @@
-do$$declare f text:=lower(pg_get_functiondef('public.get_internal_payment_workbench()'::regprocedure));begin
+do $$declare f text:=lower(pg_get_functiondef('public.get_internal_payment_workbench()'::regprocedure));begin
  if position('security definer'in f)=0 or position('finance.manage'in f)=0
    or position('internal_remaining'in f)=0 or position('fulfillment_unlocked'in f)=0 then
    raise exception'Internal payment workbench contract incomplete';end if;

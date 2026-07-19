@@ -1,4 +1,4 @@
-do$$declare company_def text:=pg_get_viewdef('public.company_profit_summary'::regclass,true);begin
+do $$declare company_def text:=pg_get_viewdef('public.company_profit_summary'::regclass,true);begin
  if not exists(select 1 from information_schema.columns where table_schema='public'and table_name='deal_payments'and column_name='recipient_type')or not exists(select 1 from information_schema.columns where table_schema='public'and table_name='deal_internal_settlements'and column_name='method')then raise exception'Legacy deal migration not upgraded';end if;
  if to_regclass('public.deal_procurement_cost_payments')is null or to_regclass('public.deal_sales_expenses')is null then raise exception'Legacy ledger tables not upgraded';end if;
  if position('deal_internal_settlements' in company_def)=0 or position('deal_procurement_cost_payments' in company_def)=0 or position('profit_adjustments' in company_def)=0 or position('deal_payments' in company_def)>0 then raise exception'Company formula is not dual-ledger safe';end if;

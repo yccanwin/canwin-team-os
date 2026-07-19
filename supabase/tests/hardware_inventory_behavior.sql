@@ -66,7 +66,7 @@ insert into public.fulfillment_states(team_id,delivery_id)select'CANWIN_TEAM',id
 -- is not an inventory runtime gate.
 update public.deal_quotes set status='submitted'where id='f8400000-0000-4000-8000-000000000044';
 
-do$$declare blocked boolean;reservation_id uuid;begin
+do $$declare blocked boolean;reservation_id uuid;begin
  -- expected_on is mandatory and cannot be historical.
  blocked:=false;begin perform public.reserve_delivery_stock('f8400000-0000-4000-8000-000000000061','f8400000-0000-4000-8000-000000000031',1,null);exception when others then blocked:=position('VALID_EXPECTED_ARRIVAL_REQUIRED'in sqlerrm)>0;end;if not blocked then raise exception'NULL expected_on accepted';end if;
  blocked:=false;begin perform public.reserve_delivery_stock('f8400000-0000-4000-8000-000000000061','f8400000-0000-4000-8000-000000000031',1,current_date-1);exception when others then blocked:=position('VALID_EXPECTED_ARRIVAL_REQUIRED'in sqlerrm)>0;end;if not blocked then raise exception'Past expected_on accepted';end if;
@@ -97,7 +97,7 @@ end$$;
 -- A legacy shipped reservation for an extra SKU must not satisfy the ordered SKU.
 insert into public.fulfillment_inventory_reservations(id,team_id,delivery_id,stock_id,quantity,status,created_by)
 values('f8400000-0000-4000-8000-000000000071','CANWIN_TEAM','f8400000-0000-4000-8000-000000000065','f8400000-0000-4000-8000-000000000034',2,'shipped','f8400000-0000-4000-8000-000000000001');
-do$$declare blocked boolean:=false;definition text;begin
+do $$declare blocked boolean:=false;definition text;begin
  begin perform public.complete_delivery_hardware('f8400000-0000-4000-8000-000000000065');exception when others then blocked:=position('HARDWARE_ORDER_QUANTITY_MISMATCH'in sqlerrm)>0;end;
  if not blocked then raise exception'Legacy bad reservation satisfied quote';end if;
  -- Concurrency contract: reservation allocation is serialized by a stock row lock.

@@ -1,4 +1,4 @@
-do$$begin
+do $$begin
  if to_regclass('public.performance_quarterly_targets')is null or to_regclass('public.official_reconciliation_batches')is null or to_regclass('public.profit_adjustments')is null then raise exception'Performance tables missing';end if;
  if to_regclass('public.company_profit_summary')is null or to_regclass('public.supervisor_order_margin')is null or to_regclass('public.personal_performance_summary')is null then raise exception'Performance views missing';end if;
  if position('deal_internal_settlements' in pg_get_viewdef('public.company_profit_summary'::regclass,true))=0 or position('deal_procurement_cost_payments' in pg_get_viewdef('public.company_profit_summary'::regclass,true))=0 or position('profit_adjustments' in pg_get_viewdef('public.company_profit_summary'::regclass,true))=0 then raise exception'Actual company profit ledger incomplete';end if;

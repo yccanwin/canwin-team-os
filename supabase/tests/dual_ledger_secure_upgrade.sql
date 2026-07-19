@@ -1,4 +1,4 @@
-do$$declare f text:=pg_get_functiondef('public.get_company_profit_summary()'::regprocedure);begin
+do $$declare f text:=pg_get_functiondef('public.get_company_profit_summary()'::regprocedure);begin
  if to_regprocedure('public.confirm_deal_deposit(uuid,numeric,text,uuid,text)')is null or to_regprocedure('public.confirm_deal_internal_payment(uuid,numeric,text,uuid,text)')is null or to_regprocedure('public.record_deal_procurement_cost(uuid,numeric,text,uuid)')is null or to_regprocedure('public.record_deal_sales_expense(uuid,numeric,text,uuid)')is null then raise exception'Legacy write RPC upgrade incomplete';end if;
  if to_regprocedure('public.get_company_profit_summary()')is null or position('security definer' in lower(f))=0 then raise exception'Secure company summary missing';end if;
  if position('deal_payments' in f)>0 or position('deal_payment_reversals' in f)>0 then raise exception'Customer payments leak into company profit';end if;

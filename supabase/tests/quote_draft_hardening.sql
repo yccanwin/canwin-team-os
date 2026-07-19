@@ -1,4 +1,4 @@
-do$$declare create_def text;replace_def text;read_def text;begin
+do $$declare create_def text;replace_def text;read_def text;begin
  if has_table_privilege('authenticated','public.deal_quotes','INSERT,UPDATE,DELETE')
    or has_table_privilege('authenticated','public.deal_quote_lines','INSERT,UPDATE,DELETE')then
    raise exception'Direct quote writes remain';end if;

@@ -1,4 +1,4 @@
-do$$begin
+do $$begin
  if to_regclass('public.crm_contact_attempts')is null or to_regclass('public.crm_recycle_pauses')is null then raise exception 'Automation tables missing';end if;
  if to_regprocedure('public.run_sales_automation_batch(text,timestamp with time zone)')is null then raise exception 'Batch RPC missing';end if;
  if position('Asia/Shanghai' in pg_get_functiondef('public.run_sales_automation_batch(text,timestamp with time zone)'::regprocedure))=0 then raise exception 'Beijing natural-day rules missing';end if;
