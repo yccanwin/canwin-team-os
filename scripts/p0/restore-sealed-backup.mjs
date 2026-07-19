@@ -83,6 +83,10 @@ const decrypted = new Map()
 for (const [label, artifact] of artifactEntries) {
   decrypted.set(label, readEncryptedArtifact({ packageDirectory, artifact, key }))
 }
+const authIdentitiesDump = decrypted.get('auth.identitiesDump')
+if (/^ALTER TABLE auth\.(?:users|identities) (?:DISABLE|ENABLE) TRIGGER ALL;$/m.test(authIdentitiesDump.toString('utf8'))) {
+  throw new Error('sealed Auth dump contains forbidden managed-schema trigger toggles')
+}
 
 const cliPath = runContract.toolchain.supabaseCli.path
 const psqlPath = runContract.toolchain.psql.path
@@ -183,7 +187,7 @@ try {
     post: resolve(workingDirectory, '90-post.sql'),
   }
   writeFileSync(files.pre, "set role postgres;\nalter default privileges in schema public revoke all on tables from anon, authenticated;\nset session_replication_role = replica;\n", { flag: 'wx' })
-  writeFileSync(files.auth, decrypted.get('auth.identitiesDump'), { flag: 'wx' })
+  writeFileSync(files.auth, authIdentitiesDump, { flag: 'wx' })
   writeFileSync(files.schema, decrypted.get('database.schemaDump'), { flag: 'wx' })
   writeFileSync(files.data, decrypted.get('database.dataDump'), { flag: 'wx' })
   writeFileSync(files.migrationSchema, decrypted.get('database.migrationHistorySchemaDump'), { flag: 'wx' })

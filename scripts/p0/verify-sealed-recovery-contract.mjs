@@ -11,9 +11,14 @@ const databaseAccess = read('temporary-db-access.mjs')
 const preflight = read('preflight-sealed-recovery.mjs')
 const reconciliation = read('sealed-reconciliation.sql')
 const runtimeTest = read('test-sealed-recovery-runtime.mjs')
+const packageRuntime = read('verify-backup-package-runtime.mjs')
 const packageJson = JSON.parse(readFileSync(resolve(repoRoot, 'package.json'), 'utf8'))
 const checks = []
 const check = (label, value) => checks.push([label, Boolean(value)])
+const authDumpDefinition = backup.slice(
+  backup.indexOf('const identitiesDumpText = pgText'),
+  backup.indexOf('const authStorageSchemaDiffText'),
+)
 
 check('backup requires a current owner write-freeze timestamp', backup.includes("--freeze-started-at") && backup.includes('write-freeze timestamp is not current'))
 check('backup requires exactly two owner role decisions', backup.includes('exactly two owner-confirmed role decisions are required'))
@@ -40,6 +45,11 @@ check('backup uses an external DPAPI key', backup.includes('createProtectedKey')
 check('backup encrypts every declared artifact', backup.includes('writeEncryptedArtifact') && backup.includes('artifacts/${relativePath}.enc'))
 check('backup captures target-aware managed customizations', backup.includes('getManagedSchemaCustomizationSql') && backup.includes('targetPgEnvironment: targetDb'))
 check('backup captures Auth users and identities without sessions', backup.includes("'--table=auth.users'") && backup.includes("'--table=auth.identities'") && !backup.includes("'--table=auth.sessions'"))
+check('Auth dump relies on session-level trigger suppression instead of protected table toggles',
+  authDumpDefinition.includes("'--table=auth.users'") &&
+  authDumpDefinition.includes("'--table=auth.identities'") &&
+  !authDumpDefinition.includes("'--disable-triggers'") &&
+  authDumpDefinition.includes('Auth dump contains protected managed-schema trigger toggles'))
 check('backup preserves public ACL statements', backup.includes("'--schema=public', '--schema-only', '--no-owner', '--no-comments'") && !backup.includes("'--schema=public', '--schema-only', '--no-owner', '--no-privileges'"))
 check('backup verifies source database and Storage stability', backup.includes('sourceBefore.sha256 !== sourceAfter.sha256') && backup.includes('production Storage changed'))
 check('backup refreshes short-lived credentials before final freeze reconciliation',
@@ -56,6 +66,13 @@ check('backup records early connection failures and clears sensitive working sta
 check('managed trigger difference is frozen exactly', library.includes("auth.users.on_auth_user_created") && library.includes("public") && library.includes("handle_new_user"))
 check('managed trigger DDL is restored after public function availability', restore.indexOf("files.schema") < restore.indexOf("files.policies") && restore.indexOf("files.data") < restore.indexOf("files.policies"))
 check('database restore is a single transaction', restore.includes("'--single-transaction'") && restore.includes("'ON_ERROR_STOP=1'"))
+check('runtime package gate decrypts Auth data and rejects protected trigger toggles',
+  packageRuntime.includes('readProtectedKey') &&
+  packageRuntime.includes('readEncryptedArtifact') &&
+  packageRuntime.includes('Auth dump omits protected managed-schema trigger toggles'))
+check('restore rejects protected Auth trigger toggles before target access',
+  restore.indexOf("sealed Auth dump contains forbidden managed-schema trigger toggles") <
+    restore.indexOf('const targetDb = getTemporaryDbEnvironment'))
 check('target default table privileges are revoked before schema restore', restore.includes('alter default privileges in schema public revoke all on tables from anon, authenticated'))
 check('real restored users are banned in the database transaction', restore.includes("update auth.users set banned_until = now() + interval '100 years'"))
 check('Functions and secrets remain absent', restore.includes('finalFunctions.length !== 0') && restore.includes('finalSecrets.length !== 0'))
@@ -73,6 +90,10 @@ for (const token of [
 }
 check('reconciliation excludes the intentional Auth ban timestamp', reconciliation.includes("to_jsonb(u) - 'banned_until'"))
 check('reconciliation contains no raw non-ASCII command literals', !/[^\x00-\x7F]/.test(reconciliation))
+check('local synthetic restore uses session-level trigger suppression without Auth table toggles',
+  runtimeTest.includes('set session_replication_role = replica') &&
+  runtimeTest.includes('synthetic Auth dump contains protected managed-schema trigger toggles') &&
+  !runtimeTest.slice(runtimeTest.indexOf("'--schema=auth'"), runtimeTest.indexOf("'--schema=public'")).includes("'--disable-triggers'"))
 check('local PostgreSQL skip is explicit and owner-authorized', runtimeTest.includes('owner-authorized-windows-account-encoding') && runtimeTest.includes('--skip-local-postgres'))
 check('package exposes runtime, preflight, backup and restore commands', [
   'test:p0:sealed-recovery-runtime', 'preflight:p0:sealed-recovery',

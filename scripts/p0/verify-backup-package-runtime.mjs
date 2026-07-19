@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { dirname, isAbsolute, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { readEncryptedArtifact, readProtectedKey } from './sealed-recovery-lib.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const productionProjectRef = 'agygfhmkazcbqaqwmljb'
@@ -168,6 +169,27 @@ for (const path of artifactPaths) {
   const actualSha256 = createHash('sha256').update(readFileSync(artifactPath)).digest('hex')
   check(path + ' SHA256 matches the file', actualSha256 === artifact.sha256)
 }
+
+let authDumpKey = null
+let authDumpOmitsProtectedTriggerToggles = false
+try {
+  authDumpKey = readProtectedKey({
+    repoRoot,
+    keyPath: resolve('E:\\CanWin-Team-OS-4.0-Recovery-Keys', `${manifest.package?.packageId}.dpapi`),
+  })
+  const authDump = readEncryptedArtifact({
+    packageDirectory,
+    artifact: manifest.auth?.identitiesDump,
+    key: authDumpKey,
+  }).toString('utf8')
+  authDumpOmitsProtectedTriggerToggles =
+    !/^ALTER TABLE auth\.(?:users|identities) (?:DISABLE|ENABLE) TRIGGER ALL;$/m.test(authDump)
+} catch {
+  authDumpOmitsProtectedTriggerToggles = false
+} finally {
+  if (authDumpKey) authDumpKey.fill(0)
+}
+check('Auth dump omits protected managed-schema trigger toggles', authDumpOmitsProtectedTriggerToggles)
 
 for (const path of [
   'auth.counts.authUsers',

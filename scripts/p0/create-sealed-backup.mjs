@@ -158,8 +158,11 @@ try {
   ])
   const identitiesDumpText = pgText(pgDumpPath, [
     '--schema=auth', '--table=auth.users', '--table=auth.identities', '--data-only', '--column-inserts',
-    '--disable-triggers', '--no-owner', '--no-privileges', '--encoding=UTF8', '--role=postgres',
+    '--no-owner', '--no-privileges', '--encoding=UTF8', '--role=postgres',
   ])
+  if (/^ALTER TABLE auth\.(?:users|identities) (?:DISABLE|ENABLE) TRIGGER ALL;$/m.test(identitiesDumpText)) {
+    throw new Error('Auth dump contains protected managed-schema trigger toggles')
+  }
   const authStorageSchemaDiffText = getManagedSchemaCustomizationSql({
     psqlPath,
     sourcePgEnvironment: sourceDb,

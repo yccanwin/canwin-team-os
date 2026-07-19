@@ -124,7 +124,10 @@ try {
 
   const files = Object.fromEntries(['auth', 'schema', 'data', 'migrations', 'policies', 'pre', 'post'].map((name) => [name, resolve(workdir, `${name}.sql`)]))
   runPgTool({ commandPath: paths.pgDumpAll, pgEnvironment: sourceEnv, args: ['--roles-only', '--no-role-passwords', '--no-privileges', '--no-comments', '--role=postgres', '--file', resolve(workdir, 'roles.sql')] })
-  runPgTool({ commandPath: paths.pgDump, pgEnvironment: sourceEnv, args: ['--schema=auth', '--table=auth.users', '--table=auth.identities', '--data-only', '--column-inserts', '--disable-triggers', '--no-owner', '--no-privileges', '--role=postgres', '--file', files.auth] })
+  runPgTool({ commandPath: paths.pgDump, pgEnvironment: sourceEnv, args: ['--schema=auth', '--table=auth.users', '--table=auth.identities', '--data-only', '--column-inserts', '--no-owner', '--no-privileges', '--role=postgres', '--file', files.auth] })
+  if (/^ALTER TABLE auth\.(?:users|identities) (?:DISABLE|ENABLE) TRIGGER ALL;$/m.test(readFileSync(files.auth, 'utf8'))) {
+    throw new Error('synthetic Auth dump contains protected managed-schema trigger toggles')
+  }
   runPgTool({ commandPath: paths.pgDump, pgEnvironment: sourceEnv, args: ['--schema=public', '--schema-only', '--no-owner', '--no-privileges', '--no-comments', '--role=postgres', '--file', files.schema] })
   let schema = readFileSync(files.schema, 'utf8')
   if ((schema.match(/CREATE SCHEMA public;/g) ?? []).length !== 1) throw new Error('pg_dump public schema shape is unsupported')
