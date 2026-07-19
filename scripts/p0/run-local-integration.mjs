@@ -29,6 +29,11 @@ const steps = [
     args: ['/d', '/c', 'npm.cmd', 'run', 'test:p0:static'],
   },
   {
+    name: 'ci-database-runner-selftest',
+    command: process.execPath,
+    args: [p0Script('run-ci-database-gates.mjs'), '--self-test'],
+  },
+  {
     name: 'frontend-inventory',
     command: process.execPath,
     args: [p0Script('verify-frontend-inventory.mjs')],

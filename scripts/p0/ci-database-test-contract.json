@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "manifestType": "canwin-team-os-p0-ci-database-tests",
+  "contractStatus": "p0_candidate_requires_actual_github_run",
+  "baseline": {
+    "path": "supabase/schema.sql",
+    "sha256Lf": "4602c1e583174a4dbc6e480aac101d2cf914148651ded71028d9a43abed8c340"
+  },
+  "migrations": {
+    "directory": "supabase/migrations",
+    "sha256Manifest": "docs/team-os-4.0/p0/migration-sha256-manifest.json",
+    "expectedCount": 69
+  },
+  "expectedCounts": {
+    "database": 7,
+    "permission": 10,
+    "business": 9,
+    "total": 26,
+    "postInstallCatalogAssertions": 4
+  },
+  "postInstallCatalog": {
+    "publicTables": 103,
+    "publicRoutines": 162,
+    "publicViews": 11,
+    "storageBuckets": 1
+  },
+  "tests": [
+    { "path": "supabase/tests/access_control_foundation.sql", "category": "database", "executionMode": "read_only", "sha256Lf": "8a81fff0fff1028e8245d3d4fdb35815a581529a18a3ab7cc0b62454285351e5" },
+    { "path": "supabase/tests/crm_core.sql", "category": "database", "executionMode": "read_only", "sha256Lf": "b1d010a2a26a14f16111f063f00a4146b807c43b4379a09d1abc2172db24fa00" },
+    { "path": "supabase/tests/customer_import.sql", "category": "database", "executionMode": "read_only", "sha256Lf": "4f8f2db8925865e81e08025bb6764ce2eefd86a5c6766c865e325abb5fda1cc4" },
+    { "path": "supabase/tests/deal_core.sql", "category": "database", "executionMode": "read_only", "sha256Lf": "eb70721a5bf78e8549be55ae6e9819148d196225d94e29b4cfb9c3bc85240e57" },
+    { "path": "supabase/tests/fulfillment_core.sql", "category": "database", "executionMode": "read_only", "sha256Lf": "3005e51aa0979dc4c2b295555c639f120f51e36fc28d79eb2f1744c7dc17279f" },
+    { "path": "supabase/tests/notification_core.sql", "category": "database", "executionMode": "read_only", "sha256Lf": "dcab9106b3ab1223587a6dd9f7afa879ca25bd92e5434efcbdd503ba9ee32f40" },
+    { "path": "supabase/tests/performance_core.sql", "category": "database", "executionMode": "read_only", "sha256Lf": "cfc4c9ee1abddd7834e8451467249a6758dacba1fe69e1aee31d919b0f9669e1" },
+
+    { "path": "supabase/tests/crm_qualification_evidence.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "b20ce9b24c4476c06cc892ae1a22f8285f8529a1084b0b1017057249a2a8deb3" },
+    { "path": "supabase/tests/crm_team_reference_trigger_isolation.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "f587420d063d14e4a50bac6ecf53f23df521009180eff1d35ba2ac63a2ee6f20" },
+    { "path": "supabase/tests/dual_ledger_secure_upgrade.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "c87b38bda732fa6461220252766d49e2f4e75ddc884021a4573c84f8843fcdb9" },
+    { "path": "supabase/tests/finance_summary_only_owner.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "d60a86b2e8a275914912146ffcce9d85bd853467fc42426c77276424d3e6b8cf" },
+    { "path": "supabase/tests/internal_payment_workbench.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "599a247b5267c43df787070288200f3a7e9d37dec82017a0082f49ff984be472" },
+    { "path": "supabase/tests/operations_lead_submission.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "1807f79ac72771198bc53495c0d8c936949ddaf6e25dd558e0567810eb0c1fa0" },
+    { "path": "supabase/tests/performance_dashboard_sales_roles.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "cdeef28a30ddcc2c10111fd0dee1b9cd5c99cbb5e6c9f580eaca7e12a97cf634" },
+    { "path": "supabase/tests/photo_policy_role_helper_alignment.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "f12435a942c2124298419ce391eb51d3455e176c120fb7b4bc1f039323204cf8" },
+    { "path": "supabase/tests/quote_draft_hardening.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "1d740f86ce4bb95eeca6a3833e5b16f3b85141bb52a08458524a9e559c493512" },
+    { "path": "supabase/tests/team_photo_persistence_security.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "e41c6c682080772d492331ca8c3a997664dcf080be5c73c26092a4f4119da757" },
+
+    { "path": "supabase/tests/crm_qualification_append_only.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "2142d6d579772dc2ffb807ce5a2bb0b5d991fd9d4c553ecb5ae13aec910e330c" },
+    { "path": "supabase/tests/crm_qualification_promotion_audit.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "e28616fb062cb06be691cc83c3b10e3d257a49dabce390e4f956be0437f40f64" },
+    { "path": "supabase/tests/customer_import_behavior.sql", "category": "business", "executionMode": "rollback_fixture", "sha256Lf": "5497b84b6cfca0c07f0d23972084e2c964b18ab854a98caa44560608ff2eba2e" },
+    { "path": "supabase/tests/dual_ledger_upgrade.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "7777d0e324a62ac40d4f518b577bcdcca5dc2decab2f9e38b3c197e051d5ddc7" },
+    { "path": "supabase/tests/hardware_inventory_behavior.sql", "category": "business", "executionMode": "rollback_fixture", "sha256Lf": "e55ec9b46c41bfb0e11ffca124194ea399a91f7ef092e49d8b15469ef112d646" },
+    { "path": "supabase/tests/hardware_shipping_chain_behavior.sql", "category": "business", "executionMode": "rollback_fixture", "sha256Lf": "6549b823f6c12473cd4ca5d99cd4b5671d8259521a9892ad9d5e5418f16d2632" },
+    { "path": "supabase/tests/performance_center_snapshot.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "3a9ccb96bdb01dc2c859ec658a507d89b3d067afb8e9e2cda3ae25eb741ba0e1" },
+    { "path": "supabase/tests/quick_lead_uuid_region_selection.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "b3abc316b2bd5611c1137583ce665a74dd6876f56df5af4989b248ad5f3eeca0" },
+    { "path": "supabase/tests/sales_automation.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "973ffd6f1ca3df2896426d373356fa531da775b55ca5f2dd0bf6d3f46e43ca2f" }
+  ],
+  "runtime": {
+    "engine": "supabase-cli-local-postgres",
+    "supabaseCliVersion": "2.109.1",
+    "postgresMajor": 17,
+    "workdir": "scripts/p0/ci-runtime",
+    "projectId": "canwin-team-os-4-ci",
+    "allowedHosts": ["127.0.0.1", "localhost"],
+    "allowedPort": 54322,
+    "allowedDatabase": "postgres",
+    "allowedUser": "postgres",
+    "remoteConnectionsAllowed": false,
+    "credentialMode": "ephemeral-local-defaults",
+    "testData": "synthetic-only",
+    "cleanup": "supabase stop --no-backup"
+  },
+  "acceptanceBoundary": {
+    "contractAccepted": true,
+    "actualGithubRunEvidence": "pending",
+    "g0OverallClaim": false,
+    "productionReadPerformed": false,
+    "productionWritePerformed": false,
+    "repositorySecretsRequired": false
+  }
+}
