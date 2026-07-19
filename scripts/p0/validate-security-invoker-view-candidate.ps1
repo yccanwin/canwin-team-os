@@ -247,13 +247,46 @@ foreach ($case in $negativeCases) {
 
 Assert-FrontendContract
 
+$allowedP1CandidatePattern = '^(?:\?\?|A | M|M )\s+supabase/migrations/20260719130910_team_os_4_p1_access_shell\.sql$'
+
+function Test-AllowedMigrationStatusLine {
+  param([Parameter(Mandatory = $true)][string]$Line)
+
+  return [bool]($Line -match $allowedP1CandidatePattern)
+}
+
+$migrationStatusPositiveCases = @(
+  '?? supabase/migrations/20260719130910_team_os_4_p1_access_shell.sql',
+  'A  supabase/migrations/20260719130910_team_os_4_p1_access_shell.sql',
+  ' M supabase/migrations/20260719130910_team_os_4_p1_access_shell.sql',
+  'M  supabase/migrations/20260719130910_team_os_4_p1_access_shell.sql'
+)
+$migrationStatusNegativeCases = @(
+  'MM supabase/migrations/20260719130910_team_os_4_p1_access_shell.sql',
+  ' D supabase/migrations/20260719130910_team_os_4_p1_access_shell.sql',
+  'D  supabase/migrations/20260719130910_team_os_4_p1_access_shell.sql',
+  'R  supabase/migrations/20260719130910_team_os_4_p1_access_shell.sql',
+  '?? supabase/migrations/20260719130911_undeclared.sql',
+  ' M supabase/migrations/20260719130911_undeclared.sql'
+)
+
+foreach ($statusLine in $migrationStatusPositiveCases) {
+  if (-not (Test-AllowedMigrationStatusLine -Line $statusLine)) {
+    throw "Migration status self-test rejected allowed state: $statusLine"
+  }
+}
+foreach ($statusLine in $migrationStatusNegativeCases) {
+  if (Test-AllowedMigrationStatusLine -Line $statusLine) {
+    throw "Migration status self-test accepted forbidden state: $statusLine"
+  }
+}
+
 $migrationStatus = & git -C $repoRoot status --porcelain=v1 --untracked-files=all -- supabase/migrations 2>&1
 if ($LASTEXITCODE -ne 0) {
   throw "Unable to inspect historical migration changes: $($migrationStatus -join [Environment]::NewLine)"
 }
-$allowedP1CandidatePattern = '^(?:\?\?|A )\s+supabase/migrations/20260719130910_team_os_4_p1_access_shell\.sql$'
 $unexpectedMigrationStatus = @(@($migrationStatus) | Where-Object {
-  -not ([string]$_ -match $allowedP1CandidatePattern)
+  -not (Test-AllowedMigrationStatusLine -Line ([string]$_))
 })
 if ($unexpectedMigrationStatus.Count -gt 0) {
   throw "Historical migrations or an undeclared candidate have worktree changes; candidate validation stops:`n$($unexpectedMigrationStatus -join [Environment]::NewLine)"
@@ -261,4 +294,5 @@ if ($unexpectedMigrationStatus.Count -gt 0) {
 
 Write-Output "P0_SECURITY_INVOKER_COMMENT_REGRESSION_OK cases=$($commentRegressionCases.Count) formats=lf,crlf,mixed,comment-semicolon"
 Write-Output "P0_SECURITY_INVOKER_CANDIDATE_STATIC_SELFTEST_OK cases=$($commentRegressionCases.Count + $negativeCases.Count) positive=$($commentRegressionCases.Count) negative=$($negativeCases.Count)"
+Write-Output "P0_SECURITY_INVOKER_MIGRATION_STATUS_SELFTEST_OK positive=$($migrationStatusPositiveCases.Count) negative=$($migrationStatusNegativeCases.Count)"
 Write-Output 'P0_SECURITY_INVOKER_CANDIDATE_OK views=3 policies=4 callers=3 migrations=historical-clean-p1-candidate-allowed database_calls=0'

@@ -66,11 +66,11 @@ function iconFor(item: NavigationManifestItem): LucideIcon {
   return Store
 }
 
-function toLink(item: NavigationManifestItem): NavigationLink {
+function toLink(item: NavigationManifestItem, label = item.label): NavigationLink {
   return {
     type: 'link',
     routeId: item.routeId,
-    label: item.label,
+    label,
     to: item.canonicalPath,
     icon: iconFor(item),
     exact: exactRouteIds.has(item.routeId),
@@ -84,10 +84,10 @@ export function buildNavigationGroups(manifest: NavigationManifestItem[]): Navig
   const visible = manifest.filter((item) => item.visible)
   const base = visible
     .filter((item) => item.group === 'common' || item.group === 'current_role')
-    .map(toLink)
-  const roleBusiness = visible.filter((item) => item.group === 'role_business').map(toLink)
-  const warehouse = visible.filter((item) => item.group === 'warehouse').map(toLink)
-  const supervisor = visible.filter((item) => item.group === 'supervisor').map(toLink)
+    .map((item) => toLink(item, item.routeId === 'role-business' ? '当前岗位业务' : item.label))
+  const roleBusiness = visible.filter((item) => item.group === 'role_business').map((item) => toLink(item))
+  const warehouse = visible.filter((item) => item.group === 'warehouse').map((item) => toLink(item))
+  const supervisor = visible.filter((item) => item.group === 'supervisor').map((item) => toLink(item))
 
   const groups: NavigationGroup[] = []
   if (base.length > 0) groups.push({ id: 'daily', label: '我的工作', items: base })
@@ -111,6 +111,13 @@ export function buildNavigationGroups(manifest: NavigationManifestItem[]): Navig
 
 export function buildMobileLinks(manifest: NavigationManifestItem[]): NavigationLink[] {
   const order = ['my-workbench', 'progress', 'calendar', 'role-business', 'mobile-profile']
+  const labels: Record<string, string> = {
+    'my-workbench': '工作台',
+    progress: '推进',
+    calendar: '日历',
+    'role-business': '岗位业务',
+    'mobile-profile': '我的',
+  }
   const byId = new Map(
     manifest
       .filter((item) => item.visible && item.enabled)
@@ -118,7 +125,7 @@ export function buildMobileLinks(manifest: NavigationManifestItem[]): Navigation
   )
   return order.flatMap((routeId) => {
     const item = byId.get(routeId)
-    return item ? [toLink(item)] : []
+    return item ? [toLink(item, labels[routeId])] : []
   })
 }
 

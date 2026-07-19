@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "manifestType": "canwin-team-os-p1-interface-freeze",
-  "contractStatus": "p1_candidate_implemented_pending_remote_runtime",
-  "scope": "Freeze P1 role, permission, app-context, navigation, responsibility-routing and acceptance interfaces; track the implemented candidate while isolated remote runtime acceptance is pending and production remains unchanged.",
+  "contractStatus": "p1_repair_candidate_pending_remote_runtime",
+  "scope": "Freeze P1 role, permission, app-context, navigation, responsibility-routing and acceptance interfaces; preserve the failed first remote run and track the repaired candidate while isolated remote runtime acceptance is pending and production remains unchanged.",
   "sources": [
     "docs/CanWin-Team-OS-4.0-最终施工总方案.md",
     "docs/team-os-4.0/p0/p1-app-navigation-contract.json",
@@ -166,7 +166,7 @@
     "secretValuesMayBePrintedOrCommitted": false,
     "databasePermissionAndBusinessTestsRequired": true,
     "actualRemoteRunEvidence": "passed",
-    "p1ActualRemoteRunEvidence": "pending"
+    "p1ActualRemoteRunEvidence": "failed_repair_pending"
   },
   "acceptanceBoundary": {
     "p1InterfacesFrozen": true,

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "contractStatus": "p1_candidate_implemented_pending_remote_runtime",
-  "scope": "P1 app shell and navigation contract with a locally implemented candidate; isolated remote runtime acceptance is pending and this file does not authorize production changes.",
+  "contractStatus": "p1_repair_candidate_pending_remote_runtime",
+  "scope": "P1 app shell and navigation contract with the failed first remote run preserved and a locally repaired candidate pending isolated remote runtime acceptance; this file does not authorize production changes.",
   "sources": {
     "plan": "docs/CanWin-Team-OS-4.0-最终施工总方案.md",
     "frontendInventory": "docs/team-os-4.0/p0/frontend-inventory.json",

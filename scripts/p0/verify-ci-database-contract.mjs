@@ -604,7 +604,7 @@ function validate(candidate) {
 
   check(candidate.schemaVersion === 1, 'schema version must be 1')
   check(candidate.manifestType === 'canwin-team-os-p0-ci-database-tests', 'manifest type drift')
-  check(candidate.contractStatus === 'p1_candidate_pending_actual_github_run', 'contract status drift')
+  check(candidate.contractStatus === 'p1_repair_candidate_pending_actual_github_run', 'contract status drift')
 
   check(candidate.baseline?.path === 'supabase/schema.sql', 'baseline path drift')
   check(candidate.baseline?.sha256Lf === sha256Lf(resolve(repoRoot, 'supabase', 'schema.sql')), 'baseline hash drift')
@@ -645,7 +645,7 @@ function validate(candidate) {
   check(counts.directDealOrderFixtureFiles === 2, 'direct deal order fixture file count drift')
   check(counts.directDealOrderInsertStatements === 2, 'direct deal order insert statement count drift')
   check(counts.finalPublicFunctionIdentities === 168, 'final public function identity count drift')
-  check(counts.functionIdentityReferences === 206, 'function identity reference count drift')
+  check(counts.functionIdentityReferences === 211, 'function identity reference count drift')
   check(sourceRules.doKeywordSeparatedFromDollarQuote === true, 'DO dollar-quote separator rule drift')
   check(sourceRules.forbiddenUnseparatedToken === 'do$$', 'DO dollar-quote forbidden token drift')
   check(sourceRules.policyWriteAssertionsRequirePermissiveFilter === true, 'policy write assertion source rule drift')
@@ -844,14 +844,14 @@ function validate(candidate) {
   check(boundary.contractAccepted === true, 'CI database contract not accepted')
   check(boundary.actualGithubRunEvidence === 'passed', 'actual GitHub run success evidence missing')
   check(boundary.g0OverallClaim === true, 'G0 success claim missing')
-  check(boundary.p1ActualGithubRunEvidence === 'pending', 'P1 candidate evidence must remain pending before the formal run')
-  check(boundary.g1OverallClaim === false, 'G1 must remain unclaimed before the formal run')
+  check(boundary.p1ActualGithubRunEvidence === 'failed_repair_pending', 'P1 failed runtime evidence and repair boundary must remain explicit')
+  check(boundary.g1OverallClaim === false, 'G1 must remain unclaimed while the repaired candidate lacks a successful formal run')
   check(boundary.productionReadPerformed === false, 'production read must remain false')
   check(boundary.productionWritePerformed === false, 'production write must remain false')
   check(boundary.repositorySecretsRequired === false, 'repository secrets must not be required')
 
   const attempts = candidate.formalAttemptHistory ?? []
-  check(attempts.length === 16, 'formal attempt history count drift')
+  check(attempts.length === 17, 'formal attempt history count drift')
   const failedAttempt = attempts[0] ?? {}
   check(failedAttempt.runId === '29680934378', 'failed run id drift')
   check(failedAttempt.jobId === '88176860842', 'failed job id drift')
@@ -1133,6 +1133,24 @@ function validate(candidate) {
   check(successfulAttempt.productionReadPerformed === false, 'successful run production read must remain false')
   check(successfulAttempt.productionWritePerformed === false, 'successful run production write must remain false')
   check(successfulAttempt.rerunOfFailedRun === false, 'successful run must remain a new candidate')
+  const p1FixtureAttempt = attempts[16] ?? {}
+  check(p1FixtureAttempt.runId === '29690060130', 'P1 fixture run id drift')
+  check(p1FixtureAttempt.jobId === '88201083572', 'P1 fixture Linux job id drift')
+  check(p1FixtureAttempt.windowsJobId === '88201083600', 'P1 fixture Windows job id drift')
+  check(p1FixtureAttempt.headSha === '0a8fc72e17ee018638f96c6062cdd9a29362e334', 'P1 fixture head SHA drift')
+  check(p1FixtureAttempt.conclusion === 'failure', 'P1 fixture run conclusion drift')
+  check(p1FixtureAttempt.windowsLocalGatePassed === true, 'P1 fixture Windows gate evidence missing')
+  check(p1FixtureAttempt.databaseStartupPassed === true && p1FixtureAttempt.baselinePassed === true, 'P1 fixture database startup or baseline evidence missing')
+  check(p1FixtureAttempt.migrationsPassed === 70, 'P1 fixture migration count drift')
+  check(p1FixtureAttempt.sqlTestsStarted === 18 && p1FixtureAttempt.sqlTestsPassed === 17, 'P1 fixture test count drift')
+  check(p1FixtureAttempt.databaseTestsPassed === 7 && p1FixtureAttempt.permissionTestsPassed === 10 && p1FixtureAttempt.businessTestsPassed === 0, 'P1 fixture category evidence drift')
+  check(p1FixtureAttempt.firstFailedTest === 'supabase/tests/team_os_4_p1_access_shell.sql', 'P1 fixture first failed test drift')
+  check(p1FixtureAttempt.firstFailure === 'profiles_pkey duplicate after Auth trigger created the profile fixture', 'P1 fixture root cause drift')
+  check(p1FixtureAttempt.catalogAssertionsStarted === 0, 'P1 fixture catalog start boundary drift')
+  check(p1FixtureAttempt.cleanupPassed === true, 'P1 fixture cleanup evidence missing')
+  check(p1FixtureAttempt.repositorySecretsRequired === false, 'P1 fixture repository secret boundary drift')
+  check(p1FixtureAttempt.productionReadPerformed === false && p1FixtureAttempt.productionWritePerformed === false, 'P1 fixture production boundary drift')
+  check(p1FixtureAttempt.rerunOfFailedRun === false, 'P1 fixture attempt must remain an independent candidate')
   return failures
 }
 
@@ -1185,5 +1203,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `P0_CI_DATABASE_CONTRACT_OK baseline=1 migrations=70 tests=${contract.tests.length} database=7 permission=11 business=9 catalog=4 definitions=${contract.expectedCounts.definitionReferencedObjects} redefined=${contract.expectedCounts.redefinedDefinitionReferencedObjects} crmLeadColumnAssertions=${contract.expectedCounts.crmLeadsVisibleExactColumnAssertions} directOrderFixtures=${contract.expectedCounts.directDealOrderFixtureFiles} finalFunctionIdentities=${contract.expectedCounts.finalPublicFunctionIdentities} functionIdentityReferences=${contract.expectedCounts.functionIdentityReferences} negative=${negativePassed}/${negativeCases.length} localOnly=true repositorySecrets=0 productionReads=0 productionWrites=0 actualGithubRun=passed g0=true p1ActualGithubRun=pending g1=false`,
+  `P0_CI_DATABASE_CONTRACT_OK baseline=1 migrations=70 tests=${contract.tests.length} database=7 permission=11 business=9 catalog=4 definitions=${contract.expectedCounts.definitionReferencedObjects} redefined=${contract.expectedCounts.redefinedDefinitionReferencedObjects} crmLeadColumnAssertions=${contract.expectedCounts.crmLeadsVisibleExactColumnAssertions} directOrderFixtures=${contract.expectedCounts.directDealOrderFixtureFiles} finalFunctionIdentities=${contract.expectedCounts.finalPublicFunctionIdentities} functionIdentityReferences=${contract.expectedCounts.functionIdentityReferences} negative=${negativePassed}/${negativeCases.length} localOnly=true repositorySecrets=0 productionReads=0 productionWrites=0 actualGithubRun=passed g0=true p1ActualGithubRun=failed_repair_pending g1=false`,
 )

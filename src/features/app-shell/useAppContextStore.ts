@@ -25,7 +25,7 @@ export const useAppContextStore = create<AppContextState>((set, get) => ({
     set({ status: 'loading', error: null, navigation: [] })
     try {
       const context = await loadAppContext()
-      const navigation = await loadNavigationManifest(context.currentWorkView)
+      const navigation = await loadNavigationManifest(context.currentWorkView, context)
       set({ context, navigation, status: 'ready', error: null })
     } catch (error) {
       set({
@@ -45,7 +45,7 @@ export const useAppContextStore = create<AppContextState>((set, get) => ({
     }
     set({ status: 'loading', error: null, navigation: [] })
     try {
-      const navigation = await loadNavigationManifest(workView)
+      const navigation = await loadNavigationManifest(workView, current)
       set({
         context: { ...current, currentWorkView: workView },
         navigation,

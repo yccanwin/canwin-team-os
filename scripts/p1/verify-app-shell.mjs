@@ -35,10 +35,18 @@ for (const field of appContextFields) {
 check(dataSource.includes("supabase.rpc('get_app_context_v1')"), 'AppContext is not loaded from the frozen RPC')
 check(dataSource.includes("supabase.rpc('get_navigation_manifest_v1'"), 'navigation is not loaded from the frozen RPC')
 check(dataSource.includes('hasExactKeys'), 'runtime field whitelist is not fail-closed')
+check(dataSource.includes("value.navigationRevision !== `p1-nav-1:${value.company.id}`"), 'navigation revision is not fail-closed')
+check(dataSource.includes('validateNavigationManifest(items, workView, context)'), 'navigation semantics are not checked before rendering')
+check(dataSource.includes("routeId: 'my-workbench', order: 10"), 'desktop fixed navigation order is not enforced')
+check(dataSource.includes("routeId: 'mobile-profile', order: 50"), 'mobile profile contract is not enforced')
+check(dataSource.includes("expected: context.additionalFunctions.includes('warehouse')"), 'warehouse navigation is not matched to AppContext')
+check(dataSource.includes("context.additionalFunctions.includes('supervisor') && context.supervisorEnabled"), 'supervisor navigation is not matched to AppContext and switch')
 check(store.includes('availableWorkViews.some'), 'work-view switch does not verify the server whitelist')
 check(store.includes('navigation: []'), 'navigation does not fail closed during loading/error')
 
 check(navigation.includes("['my-workbench', 'progress', 'calendar', 'role-business', 'mobile-profile']"), 'mobile navigation does not use the frozen five-item order')
+check(navigation.includes("'role-business': '岗位业务'"), 'mobile navigation does not use the frozen 岗位业务 label')
+check(navigation.includes("item.routeId === 'role-business' ? '当前岗位业务'"), 'desktop navigation does not use the frozen 当前岗位业务 label')
 check(navigation.includes("item.group === 'warehouse'"), 'warehouse conditional group missing')
 check(navigation.includes("item.group === 'supervisor'"), 'supervisor conditional group missing')
 check(!navigation.includes('NAVIGATION_GROUPS'), 'legacy global static navigation remains authoritative')
@@ -56,10 +64,14 @@ check(dashboard.includes("item.group === 'role_business'"), 'workbench business 
 
 check(!profile.includes('CANWIN_TEAM_ID'), 'current profile resolution still hard-codes the old company id')
 check(profile.includes('loadAppContext()'), 'profile service does not resolve company and primary role from AppContext')
+check(profile.includes("context?.additionalFunctions.includes('warehouse')"), 'legacy warehouse UI helpers do not read the AppContext overlay')
+check(app.includes("appContext?.additionalFunctions.includes('warehouse')"), 'bootstrap warehouse loading is not controlled by AppContext')
+check(!app.includes('isWarehouseRole(currentUser.role)'), 'bootstrap still infers warehouse access from the primary role')
 check(!salesWorkbench.includes('<aside className="sw-desktop-nav"'), 'sales workbench retains a second desktop navigation')
 check(!salesWorkbench.includes('<nav className="sw-bottom-nav"'), 'sales workbench retains a second mobile navigation')
 
 const requiredRouteFragments = [
+  '<Route path="/" element={<Navigate to="/dashboard" replace />} />',
   '<Route path="/tasks" element={<Navigate to="/work" replace />} />',
   '<Route path="/goals" element={<Navigate to="/profile?view=goals" replace />} />',
   '<Route path="/votes" element={<ClosedLegacyRoute />} />',
@@ -89,6 +101,8 @@ check(!migration.includes('CANWIN_TEAM'), 'P1 migration hard-codes the old compa
 check(sqlTest.includes('rollback;'), 'P1 SQL fixture does not roll back')
 check(sqlTest.includes('Five P1 identities'), 'P1 SQL fixture does not cover all five primary roles')
 check(sqlTest.includes('Finance changed the supervisor system'), 'P1 SQL fixture lacks direct API overreach coverage')
+check(sqlTest.indexOf('insert into auth.users') < sqlTest.indexOf('insert into public.profiles'), 'P1 fixture must create Auth users before completing generated profiles')
+check(sqlTest.includes('on conflict (id) do update'), 'P1 fixture does not follow the Auth-to-profile trigger with an idempotent profile completion')
 
 console.log(`[p1:app-shell] summary assertions=${assertions} passed=${assertions - issues.length} failed=${issues.length}`)
 if (issues.length > 0) {

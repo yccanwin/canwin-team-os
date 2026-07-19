@@ -63,11 +63,16 @@ begin
 
   if has_function_privilege('anon', 'public.get_app_context_v1()', 'EXECUTE')
     or has_function_privilege('anon', 'public.get_navigation_manifest_v1(text)', 'EXECUTE')
+    or has_function_privilege('anon', 'public.resolve_responsible_profile_v1(text,uuid,uuid,timestamp with time zone)', 'EXECUTE')
     or has_function_privilege('anon', 'public.admin_apply_member_access_v1(uuid,text,text[],uuid[],uuid[],text[],uuid)', 'EXECUTE')
+    or has_function_privilege('anon', 'public.admin_set_supervisor_system_v1(boolean,uuid)', 'EXECUTE')
+    or has_function_privilege('anon', 'public.admin_replace_supervisor_scope_v1(uuid,uuid[],uuid[],text[],uuid)', 'EXECUTE')
     or has_function_privilege('authenticated', 'public.resolve_responsible_profile_v1(text,uuid,uuid,timestamp with time zone)', 'EXECUTE')
     or not has_function_privilege('authenticated', 'public.get_app_context_v1()', 'EXECUTE')
     or not has_function_privilege('authenticated', 'public.get_navigation_manifest_v1(text)', 'EXECUTE')
     or not has_function_privilege('authenticated', 'public.admin_apply_member_access_v1(uuid,text,text[],uuid[],uuid[],text[],uuid)', 'EXECUTE')
+    or not has_function_privilege('authenticated', 'public.admin_set_supervisor_system_v1(boolean,uuid)', 'EXECUTE')
+    or not has_function_privilege('authenticated', 'public.admin_replace_supervisor_scope_v1(uuid,uuid[],uuid[],text[],uuid)', 'EXECUTE')
     or not has_function_privilege('service_role', 'public.resolve_responsible_profile_v1(text,uuid,uuid,timestamp with time zone)', 'EXECUTE') then
     raise exception 'P1 RPC grants are unsafe';
   end if;
@@ -118,7 +123,8 @@ values
   ('d4000000-0000-4000-8000-000000000002', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'p1-sales@example.invalid', '', now(), '{}', '{}', now(), now()),
   ('d4000000-0000-4000-8000-000000000003', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'p1-implementation@example.invalid', '', now(), '{}', '{}', now(), now()),
   ('d4000000-0000-4000-8000-000000000004', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'p1-operations@example.invalid', '', now(), '{}', '{}', now(), now()),
-  ('d4000000-0000-4000-8000-000000000005', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'p1-finance@example.invalid', '', now(), '{}', '{}', now(), now());
+  ('d4000000-0000-4000-8000-000000000005', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'p1-finance@example.invalid', '', now(), '{}', '{}', now(), now()),
+  ('d4000000-0000-4000-8000-000000000006', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'p1-role-transfer@example.invalid', '', now(), '{}', '{}', now(), now());
 
 insert into public.profiles(id, team_id, name, role, status)
 values
@@ -126,7 +132,13 @@ values
   ('d4000000-0000-4000-8000-000000000002', 'CANWIN_TEAM', 'P1 Sales', 'member', 'active'),
   ('d4000000-0000-4000-8000-000000000003', 'CANWIN_TEAM', 'P1 Implementation', 'member', 'active'),
   ('d4000000-0000-4000-8000-000000000004', 'CANWIN_TEAM', 'P1 Operations', 'member', 'active'),
-  ('d4000000-0000-4000-8000-000000000005', 'CANWIN_TEAM', 'P1 Finance', 'finance', 'active');
+  ('d4000000-0000-4000-8000-000000000005', 'CANWIN_TEAM', 'P1 Finance', 'finance', 'active'),
+  ('d4000000-0000-4000-8000-000000000006', 'CANWIN_TEAM', 'P1 Role Transfer Target', 'member', 'disabled')
+on conflict (id) do update
+set team_id = excluded.team_id,
+    name = excluded.name,
+    role = excluded.role,
+    status = excluded.status;
 
 insert into public.profile_access_roles(team_id, profile_id, role_id, assignment_kind)
 select 'CANWIN_TEAM', 'd4000000-0000-4000-8000-000000000001', ar.id, 'primary'
@@ -194,6 +206,27 @@ begin
   end;
 end
 $fixture$;
+
+set constraints profile_access_roles_one_primary immediate;
+set constraints profile_access_roles_one_primary deferred;
+
+do $primary_invariant$
+begin
+  begin
+    update public.profile_access_roles par
+    set profile_id = 'd4000000-0000-4000-8000-000000000006'
+    from public.access_roles ar
+    where ar.id = par.role_id
+      and par.profile_id = 'd4000000-0000-4000-8000-000000000005'
+      and par.assignment_kind = 'primary'
+      and ar.code = 'finance';
+    execute 'set constraints profile_access_roles_one_primary immediate';
+    raise exception 'Primary role transfer left the original member without a primary role';
+  exception when check_violation then
+    if sqlerrm <> 'EXACTLY_ONE_PRIMARY_ROLE_REQUIRED' then raise; end if;
+  end;
+end
+$primary_invariant$;
 
 set constraints profile_access_roles_one_primary immediate;
 set constraints profile_access_roles_one_primary deferred;
@@ -280,6 +313,28 @@ $roles$;
 
 select set_config('request.jwt.claim.sub', 'd4000000-0000-4000-8000-000000000001', true);
 select public.admin_set_supervisor_system_v1(true, 'd4300000-0000-4000-8000-000000000001');
+
+update public.profiles set status = 'disabled'
+where id = 'd4000000-0000-4000-8000-000000000002';
+do $inactive_supervisor$
+begin
+  begin
+    perform public.admin_replace_supervisor_scope_v1(
+      'd4000000-0000-4000-8000-000000000002',
+      array['d4100000-0000-4000-8000-000000000001'::uuid],
+      array['d4000000-0000-4000-8000-000000000003'::uuid],
+      array['implementation.approval'],
+      'd4300000-0000-4000-8000-000000000099'
+    );
+    raise exception 'Inactive supervisor received a new scope';
+  exception when check_violation then
+    if sqlerrm <> 'ACTIVE_SUPERVISOR_REQUIRED' then raise; end if;
+  end;
+end
+$inactive_supervisor$;
+update public.profiles set status = 'active'
+where id = 'd4000000-0000-4000-8000-000000000002';
+
 select public.admin_replace_supervisor_scope_v1(
   'd4000000-0000-4000-8000-000000000002',
   array['d4100000-0000-4000-8000-000000000001'::uuid],

@@ -87,23 +87,32 @@ security definer
 set search_path = ''
 as $$
 declare
-  affected_profile uuid := coalesce(new.profile_id, old.profile_id);
+  affected_profile uuid;
+  affected_profiles uuid[];
   active_member boolean;
   primary_count integer;
 begin
-  select p.status = 'active' into active_member
-  from public.profiles p
-  where p.id = affected_profile;
+  affected_profiles := case tg_op
+    when 'INSERT' then array[new.profile_id]
+    when 'DELETE' then array[old.profile_id]
+    else array[new.profile_id, old.profile_id]
+  end;
 
-  if coalesce(active_member, false) then
-    select count(*) into primary_count
-    from public.profile_access_roles par
-    where par.profile_id = affected_profile
-      and par.assignment_kind = 'primary';
-    if primary_count <> 1 then
-      raise exception 'EXACTLY_ONE_PRIMARY_ROLE_REQUIRED' using errcode = '23514';
+  foreach affected_profile in array affected_profiles loop
+    select p.status = 'active' into active_member
+    from public.profiles p
+    where p.id = affected_profile;
+
+    if coalesce(active_member, false) then
+      select count(*) into primary_count
+      from public.profile_access_roles par
+      where par.profile_id = affected_profile
+        and par.assignment_kind = 'primary';
+      if primary_count <> 1 then
+        raise exception 'EXACTLY_ONE_PRIMARY_ROLE_REQUIRED' using errcode = '23514';
+      end if;
     end if;
-  end if;
+  end loop;
   return null;
 end $$;
 
@@ -747,6 +756,9 @@ begin
   if actor.id is null or supervisor.id is null or actor.team_id <> supervisor.team_id
      or private.member_primary_role_v1(actor.team_id, actor.id) <> 'admin' then
     raise exception 'ACCESS_ADMIN_REQUIRED' using errcode = '42501';
+  end if;
+  if supervisor.status <> 'active' then
+    raise exception 'ACTIVE_SUPERVISOR_REQUIRED' using errcode = '23514';
   end if;
   if p_idempotency_key is null then
     raise exception 'IDEMPOTENCY_KEY_REQUIRED' using errcode = '22023';

@@ -58,9 +58,9 @@ function validate(candidate) {
 
   check(candidate.schemaVersion === 1, 'schema version must be 1')
   check(candidate.manifestType === 'canwin-team-os-p1-interface-freeze', 'manifest type drift')
-  check(candidate.contractStatus === 'p1_candidate_implemented_pending_remote_runtime', 'contract status drift')
+  check(candidate.contractStatus === 'p1_repair_candidate_pending_remote_runtime', 'contract status drift')
   check(physical.contractStatus === 'p0_supervisor_frozen_runtime_not_implemented', 'physical object contract is not frozen')
-  check(navigation.contractStatus === 'p1_candidate_implemented_pending_remote_runtime', 'navigation candidate status drift')
+  check(navigation.contractStatus === 'p1_repair_candidate_pending_remote_runtime', 'navigation candidate status drift')
   check(roleMigration.manualPrimaryRoleDecisions?.status === 'owner-confirmed-isolated-applied-production-unchanged', 'manual role decisions are not frozen and isolated-applied')
 
   check(counts.rpcInterfaces === expectedRpcNames.length && rpcs.length === counts.rpcInterfaces, 'RPC count drift')
@@ -166,7 +166,7 @@ function validate(candidate) {
   check(ci.secretValuesMayBePrintedOrCommitted === false, 'CI secret boundary drift')
   check(ci.databasePermissionAndBusinessTestsRequired === true, 'CI runtime tests must remain required')
   check(ci.actualRemoteRunEvidence === 'passed', 'remote CI evidence must remain accepted after actual proof exists')
-  check(ci.p1ActualRemoteRunEvidence === 'pending', 'P1 remote runtime evidence must remain pending before the formal candidate run')
+  check(ci.p1ActualRemoteRunEvidence === 'failed_repair_pending', 'P1 failed runtime evidence and repair boundary must remain explicit')
 
   const boundary = candidate.acceptanceBoundary ?? {}
   check(boundary.p1InterfacesFrozen === true, 'P1 interface freeze missing')
@@ -213,5 +213,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `P0_P1_INTERFACE_FREEZE_OK rpcs=${contract.rpcInterfaces.length} whitelists=${Object.keys(contract.fieldWhitelists).length} identities=${contract.baseTestIdentities.length} overlays=${contract.overlayTestCases.length} attacks=${contract.directApiAttackCases.length} workOrders=${contract.workOrders.length} negative=${negativePassed}/${negativeCases.length} runtimeAccepted=false g0=true p1CandidateImplemented=true`,
+  `P0_P1_INTERFACE_FREEZE_OK rpcs=${contract.rpcInterfaces.length} whitelists=${Object.keys(contract.fieldWhitelists).length} identities=${contract.baseTestIdentities.length} overlays=${contract.overlayTestCases.length} attacks=${contract.directApiAttackCases.length} workOrders=${contract.workOrders.length} negative=${negativePassed}/${negativeCases.length} p1ActualRemoteRun=failed_repair_pending runtimeAccepted=false g0=true p1CandidateImplemented=true`,
 )

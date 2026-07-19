@@ -1,6 +1,7 @@
 import type { Session } from '@supabase/supabase-js'
 import { supabase, supabaseAuthStorageKey, supabaseLegacyAuthStorageKey } from '@/lib/supabase'
 import { loadAppContext } from '@/features/app-shell/supabaseDataSource'
+import { useAppContextStore } from '@/features/app-shell/useAppContextStore'
 import type { PrimaryRoleId } from '@/features/app-shell/types'
 import type { User } from '@/types'
 
@@ -131,7 +132,8 @@ export function isFinanceRole(role?: UserRole): boolean {
 }
 
 export function isWarehouseRole(role?: UserRole): boolean {
-  return role === 'admin' || role === 'implementation' || role === 'warehouse'
+  if (role === 'warehouse') return true
+  return useAppContextStore.getState().context?.additionalFunctions.includes('warehouse') ?? false
 }
 
 export async function loadCurrentProfile(session?: Session | null): Promise<User | null> {

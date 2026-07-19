@@ -12,7 +12,8 @@ import { useCalendarStore } from './stores/useCalendarStore'
 import { useAssetStore } from './stores/useAssetStore'
 import { useSkillStore } from './stores/useSkillStore'
 import { useSalesStore } from './stores/useSalesStore'
-import { isCaptainRole, isFinanceRole, isWarehouseRole, loadTeamProfiles } from './services/profile'
+import { useAppContextStore } from './features/app-shell/useAppContextStore'
+import { isCaptainRole, isFinanceRole, loadTeamProfiles } from './services/profile'
 import { loadTasks } from './services/tasks'
 import { loadFinancePublicSummary, loadFinanceRecords } from './services/finance'
 import { loadInventory, loadInventoryPublic } from './services/inventory'
@@ -66,9 +67,13 @@ function App() {
   const setAssets = useAssetStore((s) => s.setAssets)
   const setSkillData = useSkillStore((s) => s.setSkillData)
   const setSalesData = useSalesStore((s) => s.setSalesData)
+  const appContext = useAppContextStore((s) => s.context)
+  const appContextStatus = useAppContextStore((s) => s.status)
+  const primaryRole = appContext?.primaryRole
+  const hasWarehouseFunction = appContext?.additionalFunctions.includes('warehouse') ?? false
 
   useEffect(() => {
-    if (!currentUser) return
+    if (!currentUser || appContextStatus !== 'ready' || !primaryRole) return
 
     let cancelled = false
 
@@ -87,12 +92,12 @@ function App() {
         loadModule('tasks', loadTasks, setTasks),
         loadModule(
           'finance',
-          () => (isFinanceRole(currentUser.role) ? loadFinanceRecords() : loadFinancePublicSummary()),
+          () => (isFinanceRole(primaryRole) ? loadFinanceRecords() : loadFinancePublicSummary()),
           setRecords
         ),
         loadModule(
           'inventory',
-          () => (isWarehouseRole(currentUser.role) ? loadInventory() : loadInventoryPublic()),
+          () => (hasWarehouseFunction ? loadInventory() : loadInventoryPublic()),
           setInventoryData
         ),
         loadModule('goals', loadGoals, setGoals),
@@ -101,7 +106,7 @@ function App() {
         loadModule(
           'assets',
           () =>
-            isCaptainRole(currentUser.role) || isFinanceRole(currentUser.role) || isWarehouseRole(currentUser.role)
+            isCaptainRole(primaryRole) || isFinanceRole(primaryRole) || hasWarehouseFunction
               ? loadAssets()
               : loadPublicAssets(),
           setAssets
@@ -139,7 +144,10 @@ function App() {
       cancelled = true
     }
   }, [
+    appContextStatus,
     currentUser,
+    hasWarehouseFunction,
+    primaryRole,
     setAssets,
     setEvents,
     setGoals,
