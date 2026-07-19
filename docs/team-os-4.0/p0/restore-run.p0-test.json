@@ -31,8 +31,8 @@
   },
   "target": {
     "environment": "isolated-test",
-    "projectRef": "adzerzckgxxibadxkhcr",
-    "projectName": "canwinos-team-os-4-p0-test",
+    "projectRef": "xlpkvjojuqwaqtahaksm",
+    "projectName": "canwinos-team-os-4-p0-test-2",
     "health": "ACTIVE_HEALTHY",
     "previewBuildAllowed": false,
     "writeAuthorized": true

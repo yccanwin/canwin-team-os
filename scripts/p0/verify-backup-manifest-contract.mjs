@@ -414,7 +414,7 @@ check('restore status is not-run', manifest.restoreEvidence?.status === 'not-run
 check('restore target is the isolated test environment', manifest.restoreEvidence?.targetEnvironment === 'isolated-test')
 check(
   'restore target ref is the declared isolated project',
-  manifest.restoreEvidence?.targetProjectRef === 'adzerzckgxxibadxkhcr',
+  manifest.restoreEvidence?.targetProjectRef === 'xlpkvjojuqwaqtahaksm',
 )
 for (const component of restoreComponents) {
   check(
