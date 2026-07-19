@@ -309,6 +309,22 @@ function findDefinitionReferences(sql) {
     .map((match) => ({ ...definitionTargetFromReference(match), index: match.index }))
 }
 
+function findFunctionIdentityReferences(sql) {
+  return [...sql.matchAll(/'public\.([a-z0-9_]+)\(((?:''|[^'])*)\)'/gi)].map((match) => {
+    const before = sql.slice(Math.max(0, match.index - 80), match.index)
+    const after = sql.slice(match.index + match[0].length, match.index + match[0].length + 80)
+    const isExplicitAbsenceAssertion = /to_regprocedure\s*\(\s*$/i.test(before)
+      && /^\s*\)\s*is\s+not\s+null\b/i.test(after)
+    return {
+      kind: 'function',
+      name: match[1].toLowerCase(),
+      signature: normalizeReferenceSignature(match[2]),
+      expectedState: isExplicitAbsenceAssertion ? 'absent' : 'present',
+      index: match.index,
+    }
+  })
+}
+
 function parseCreateDefinition(statement) {
   const sql = stripLeadingSqlTrivia(statement)
   const match = sql.match(/^create\s+(?:or\s+replace\s+)?(function|view)\s+public\.([a-z0-9_]+)\b/i)
@@ -346,6 +362,38 @@ function parseFunctionRename(statement) {
       signature: normalizeReferenceSignature(sql.slice(openIndex + 1, closeIndex)),
     },
   }
+}
+
+function parseDropFunctionIdentities(statement) {
+  const sql = stripLeadingSqlTrivia(statement)
+  if (!/^drop\s+function\b/i.test(sql)) return []
+  return [...sql.matchAll(/\bpublic\.([a-z0-9_]+)\s*\(/gi)].flatMap((match) => {
+    const openIndex = sql.indexOf('(', match.index)
+    const closeIndex = findMatchingSqlParen(sql, openIndex)
+    if (openIndex < 0 || closeIndex < 0) return []
+    return [{
+      kind: 'function',
+      name: match[1].toLowerCase(),
+      signature: normalizeReferenceSignature(sql.slice(openIndex + 1, closeIndex)),
+    }]
+  })
+}
+
+function findFinalFunctionIdentities(installationSources) {
+  const identities = new Map()
+  for (const source of installationSources) {
+    for (const statement of source.statements) {
+      const definition = parseCreateDefinition(statement)
+      if (definition?.kind === 'function') identities.set(definitionTargetKey(definition), definition)
+      for (const dropped of parseDropFunctionIdentities(statement)) identities.delete(definitionTargetKey(dropped))
+      const rename = parseFunctionRename(statement)
+      if (rename) {
+        identities.delete(definitionTargetKey(rename.source))
+        identities.set(definitionTargetKey(rename.target), rename.target)
+      }
+    }
+  }
+  return identities
 }
 
 function findObjectDefinitions(migrationSources, target) {
@@ -524,6 +572,25 @@ if (select array_agg(column_name::text order by ordinal_position)
 const exactViewColumnAssertionProbePassed = exactViewColumnAssertionProbe.length === 1
   && exactViewColumnAssertionProbe[0].view === 'p0_column_probe'
   && JSON.stringify(exactViewColumnAssertionProbe[0].columns) === JSON.stringify(['id', 'name'])
+const functionIdentityProbeMigration = `
+create function public.p0_identity_probe(p_value text)returns text language sql as $$select p_value$$;
+drop function public.p0_identity_probe(text);
+create function public.p0_identity_probe(p_value text,p_key uuid)returns text language sql as $$select p_value$$;
+`
+const functionIdentityProbeSources = [{
+  file: 'probe.sql',
+  statements: splitSqlStatements(functionIdentityProbeMigration),
+}]
+const functionIdentityProbeFinal = findFinalFunctionIdentities(functionIdentityProbeSources)
+const functionIdentityProbeReferences = findFunctionIdentityReferences(`
+select to_regprocedure('public.p0_identity_probe(text)') is not null;
+select to_regprocedure('public.p0_identity_probe(text,uuid)');
+`)
+const functionIdentityFinalStateProbePassed = functionIdentityProbeFinal.size === 1
+  && functionIdentityProbeReferences[0].expectedState === 'absent'
+  && functionIdentityProbeReferences[1].expectedState === 'present'
+  && !functionIdentityProbeFinal.has(definitionTargetKey(functionIdentityProbeReferences[0]))
+  && functionIdentityProbeFinal.has(definitionTargetKey(functionIdentityProbeReferences[1]))
 
 function validate(candidate) {
   const failures = []
@@ -552,6 +619,13 @@ function validate(candidate) {
     file,
     sql: normalizeLf(readFileSync(resolve(repoRoot, candidate.migrations.directory, file), 'utf8')),
   })).map((migration) => ({ ...migration, statements: splitSqlStatements(migration.sql) }))
+  const baselineSql = normalizeLf(readFileSync(resolve(repoRoot, candidate.baseline?.path ?? 'missing'), 'utf8'))
+  const installationSources = [{
+    file: candidate.baseline?.path ?? 'missing',
+    sql: baselineSql,
+    statements: splitSqlStatements(baselineSql),
+  }, ...migrationSources]
+  const finalFunctionIdentities = findFinalFunctionIdentities(installationSources)
   check(manifest.expectedCount === 69 && manifest.entries?.length === 69, 'migration manifest count drift')
   check(migrationFiles.length === 69, 'migration directory count drift')
   check(exactSet(migrationFiles, (manifest.entries ?? []).map((entry) => entry.file)), 'migration file set drift')
@@ -569,6 +643,8 @@ function validate(candidate) {
   check(counts.crmLeadsVisibleExactColumnAssertions === 2, 'crm_leads_visible exact column assertion count drift')
   check(counts.directDealOrderFixtureFiles === 2, 'direct deal order fixture file count drift')
   check(counts.directDealOrderInsertStatements === 2, 'direct deal order insert statement count drift')
+  check(counts.finalPublicFunctionIdentities === 162, 'final public function identity count drift')
+  check(counts.functionIdentityReferences === 189, 'function identity reference count drift')
   check(sourceRules.doKeywordSeparatedFromDollarQuote === true, 'DO dollar-quote separator rule drift')
   check(sourceRules.forbiddenUnseparatedToken === 'do$$', 'DO dollar-quote forbidden token drift')
   check(sourceRules.policyWriteAssertionsRequirePermissiveFilter === true, 'policy write assertion source rule drift')
@@ -579,12 +655,14 @@ function validate(candidate) {
   check(sourceRules.viewIntervalLiteralsNormalizeInputAndCanonicalOutput === true, 'view interval normalization source rule drift')
   check(sourceRules.crmLeadsVisibleExactColumnAssertionsMatchFinalContract === true, 'crm_leads_visible exact column source rule drift')
   check(sourceRules.directDealOrderFixturesIncludeFinalRequiredOrderNumber === true, 'direct deal order required number source rule drift')
+  check(sourceRules.functionIdentityReferencesMatchFinalMigrationState === true, 'final function identity source rule drift')
   check(statementParserProbePassed, 'definition statement parser probe failed')
   check(definitionResolutionProbeTargetsPassed, `definition assignment/overload target probe failed actual=${definitionResolutionProbeAssertions.map(definitionTargetKey).join(',')}`)
   check(definitionResolutionProbeSourcesPassed, 'definition overload/rename source probe failed')
   check(viewIntervalNormalizationProbePassed, 'view interval input/output normalization probe failed')
   check(exactViewColumnAssertionProbePassed, 'exact view column assertion parser probe failed')
   check(directDealOrderInsertProbePassed, 'direct deal order insert parser probe failed')
+  check(functionIdentityFinalStateProbePassed, 'final function identity parser probe failed')
   check(tests.length === counts.total, 'test entry count drift')
   check(exactSet(tests.map((entry) => entry.path), tests.map((entry) => entry.path)), 'duplicate test path')
 
@@ -607,11 +685,21 @@ function validate(candidate) {
   let crmLeadsVisibleExactColumnAssertions = 0
   const directDealOrderFixtureFiles = new Set()
   let directDealOrderInsertStatements = 0
+  let functionIdentityReferences = 0
   for (const entry of tests) {
     const absolutePath = resolve(repoRoot, entry.path)
     const sql = normalizeLf(readFileSync(absolutePath, 'utf8'))
     for (const target of findDefinitionReferences(sql)) {
       definitionTargets.set(definitionTargetKey(target), target)
+    }
+    for (const identity of findFunctionIdentityReferences(sql)) {
+      functionIdentityReferences += 1
+      const key = definitionTargetKey(identity)
+      if (identity.expectedState === 'absent') {
+        check(!finalFunctionIdentities.has(key), `retired function identity unexpectedly remains after the final migration ${entry.path}:${key}`)
+      } else {
+        check(finalFunctionIdentities.has(key), `function identity reference is absent after the final migration ${entry.path}:${key}`)
+      }
     }
     check(entry.sha256Lf === sha256Lf(absolutePath), `test hash drift ${entry.path}`)
     check(!/^\s*\\/m.test(sql), `psql meta-command forbidden ${entry.path}`)
@@ -655,6 +743,8 @@ function validate(candidate) {
   check(exactSet([...crmLeadsVisibleColumnAssertionFiles], [...expectedCrmLeadsVisibleColumnAssertionFiles]), 'crm_leads_visible exact column assertion file set drift')
   check(directDealOrderFixtureFiles.size === counts.directDealOrderFixtureFiles, `direct deal order fixture file inventory drift expected=${counts.directDealOrderFixtureFiles} actual=${directDealOrderFixtureFiles.size}`)
   check(directDealOrderInsertStatements === counts.directDealOrderInsertStatements, `direct deal order insert inventory drift expected=${counts.directDealOrderInsertStatements} actual=${directDealOrderInsertStatements}`)
+  check(finalFunctionIdentities.size === counts.finalPublicFunctionIdentities, `final public function identity inventory drift expected=${counts.finalPublicFunctionIdentities} actual=${finalFunctionIdentities.size}`)
+  check(functionIdentityReferences === counts.functionIdentityReferences, `function identity reference inventory drift expected=${counts.functionIdentityReferences} actual=${functionIdentityReferences}`)
 
   check(JSON.stringify(candidate.postInstallCatalog) === JSON.stringify(expectedCatalog), 'post-install catalog contract drift')
   const salesV3 = candidate.historicalChainExpectations?.salesOsV3 ?? {}
@@ -758,7 +848,7 @@ function validate(candidate) {
   check(boundary.repositorySecretsRequired === false, 'repository secrets must not be required')
 
   const attempts = candidate.formalAttemptHistory ?? []
-  check(attempts.length === 14, 'formal attempt history count drift')
+  check(attempts.length === 15, 'formal attempt history count drift')
   const failedAttempt = attempts[0] ?? {}
   check(failedAttempt.runId === '29680934378', 'failed run id drift')
   check(failedAttempt.jobId === '88176860842', 'failed job id drift')
@@ -999,6 +1089,28 @@ function validate(candidate) {
   check(leadColumnAttempt.productionReadPerformed === false, 'lead column run production read must remain false')
   check(leadColumnAttempt.productionWritePerformed === false, 'lead column run production write must remain false')
   check(leadColumnAttempt.rerunOfFailedRun === false, 'lead column run must remain a new candidate')
+  const retiredSignatureAttempt = attempts[14] ?? {}
+  check(retiredSignatureAttempt.runId === '29685639756', 'retired signature run id drift')
+  check(retiredSignatureAttempt.jobId === '88189304998', 'retired signature run job id drift')
+  check(retiredSignatureAttempt.headSha === 'b4315a373963a02f04e26e6494f12633828fbd9b', 'retired signature run head SHA drift')
+  check(retiredSignatureAttempt.conclusion === 'failure', 'retired signature run conclusion drift')
+  check(retiredSignatureAttempt.failedStep === 'Run database permission and business gates', 'retired signature run failed step drift')
+  check(retiredSignatureAttempt.rootCauseCode === 'sales_automation_referenced_retired_five_argument_supervisor_resolution_signature', 'retired signature run root cause drift')
+  check(retiredSignatureAttempt.windowsLocalGatePassed === true, 'retired signature Windows gate evidence missing')
+  check(retiredSignatureAttempt.databaseStartupPassed === true, 'retired signature database startup evidence missing')
+  check(retiredSignatureAttempt.baselinePassed === true, 'retired signature baseline evidence missing')
+  check(retiredSignatureAttempt.migrationsPassed === 69, 'retired signature migration count drift')
+  check(retiredSignatureAttempt.sqlTestsStarted === 26 && retiredSignatureAttempt.sqlTestsPassed === 25, 'retired signature test count drift')
+  check(retiredSignatureAttempt.databaseTestsPassed === 7 && retiredSignatureAttempt.permissionTestsPassed === 10 && retiredSignatureAttempt.businessTestsPassed === 8, 'retired signature category evidence drift')
+  check(retiredSignatureAttempt.firstFailedTest === 'supabase/tests/sales_automation.sql', 'retired signature first failed test drift')
+  check(retiredSignatureAttempt.priorLeadViewColumnAssertionPassed === true, 'retired signature prior lead-column assertion evidence missing')
+  check(retiredSignatureAttempt.retiredFunctionIdentityReferences === 5, 'retired signature affected reference count drift')
+  check(retiredSignatureAttempt.classwideFunctionIdentityReferencesAudited === 189, 'retired signature classwide audit evidence drift')
+  check(retiredSignatureAttempt.catalogAssertionsStarted === 0, 'retired signature catalog start boundary drift')
+  check(retiredSignatureAttempt.cleanupPassed === true, 'retired signature cleanup evidence missing')
+  check(retiredSignatureAttempt.productionReadPerformed === false, 'retired signature production read must remain false')
+  check(retiredSignatureAttempt.productionWritePerformed === false, 'retired signature production write must remain false')
+  check(retiredSignatureAttempt.rerunOfFailedRun === false, 'retired signature run must remain a new candidate')
   return failures
 }
 
@@ -1029,6 +1141,7 @@ const negativeCases = [
   ['view interval normalization source rule', (value) => { value.testSourceRules.viewIntervalLiteralsNormalizeInputAndCanonicalOutput = false }],
   ['crm lead view exact columns source rule', (value) => { value.testSourceRules.crmLeadsVisibleExactColumnAssertionsMatchFinalContract = false }],
   ['direct deal order fixture source rule', (value) => { value.testSourceRules.directDealOrderFixturesIncludeFinalRequiredOrderNumber = false }],
+  ['final function identity source rule', (value) => { value.testSourceRules.functionIdentityReferencesMatchFinalMigrationState = false }],
   ['definition target inventory', (value) => { value.expectedCounts.definitionReferencedObjects = 51 }],
   ['repository secret', (value) => { value.acceptanceBoundary.repositorySecretsRequired = true }],
   ['production write', (value) => { value.acceptanceBoundary.productionWritePerformed = true }],
@@ -1050,5 +1163,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `P0_CI_DATABASE_CONTRACT_OK baseline=1 migrations=69 tests=${contract.tests.length} database=7 permission=10 business=9 catalog=4 definitions=${contract.expectedCounts.definitionReferencedObjects} redefined=${contract.expectedCounts.redefinedDefinitionReferencedObjects} crmLeadColumnAssertions=${contract.expectedCounts.crmLeadsVisibleExactColumnAssertions} directOrderFixtures=${contract.expectedCounts.directDealOrderFixtureFiles} negative=${negativePassed}/${negativeCases.length} localOnly=true repositorySecrets=0 productionReads=0 productionWrites=0 actualGithubRun=pending`,
+  `P0_CI_DATABASE_CONTRACT_OK baseline=1 migrations=69 tests=${contract.tests.length} database=7 permission=10 business=9 catalog=4 definitions=${contract.expectedCounts.definitionReferencedObjects} redefined=${contract.expectedCounts.redefinedDefinitionReferencedObjects} crmLeadColumnAssertions=${contract.expectedCounts.crmLeadsVisibleExactColumnAssertions} directOrderFixtures=${contract.expectedCounts.directDealOrderFixtureFiles} finalFunctionIdentities=${contract.expectedCounts.finalPublicFunctionIdentities} functionIdentityReferences=${contract.expectedCounts.functionIdentityReferences} negative=${negativePassed}/${negativeCases.length} localOnly=true repositorySecrets=0 productionReads=0 productionWrites=0 actualGithubRun=pending`,
 )

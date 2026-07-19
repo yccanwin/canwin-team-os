@@ -74,7 +74,7 @@ npm.cmd run test:p0:local
 - 迁移文件：discovered=69 run=69 passed=69 failed=0；
 - 静态门禁：discovered=15 run=15 passed=15 failed=0 skipped=0；
 - 统一入口：discovered=11 run=11 passed=11 failed=0 skipped=0；
-- CI 数据库边界自检：合同 definitions=54、redefined=28、crmLeadColumnAssertions=2、directOrderFixtures=2、negative=30/30，runner negative=6/6、databaseCalls=0；
+- CI 数据库边界自检：合同 definitions=54、redefined=28、crmLeadColumnAssertions=2、directOrderFixtures=2、finalFunctionIdentities=162、functionIdentityReferences=189、negative=31/31，runner negative=6/6、databaseCalls=0；
 - 安全候选换行回归：cases=4，覆盖 lf、crlf、mixed、comment-semicolon；
 - 安全候选自检：cases=10 positive=4 negative=6；候选结果为 views=3 policies=4 callers=3 migrations=clean database_calls=0；
 - 103 表分类合同与前端处置交叉核验均成功；

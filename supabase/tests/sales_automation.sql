@@ -33,10 +33,11 @@ do $$declare batch_def text;review_def text;supervisor_def text;begin
  if position('count(distinct' in lower(pg_get_functiondef('public.get_crm_lead_followup_context(uuid)'::regprocedure)))=0
   or position('crm_contact_attempts' in lower(pg_get_functiondef('public.get_crm_lead_followup_context(uuid)'::regprocedure)))=0
   or position('crm_followups' in lower(pg_get_functiondef('public.get_crm_lead_followup_context(uuid)'::regprocedure)))=0 then raise exception 'Lead follow-up history contract incomplete';end if;
- if to_regclass('public.supervisor_exception_resolutions')is null or to_regprocedure('public.resolve_supervisor_exception(text,uuid,uuid,timestamp with time zone,text)')is null then raise exception 'Supervisor resolution interface missing';end if;
- if position('p_owner_id' in pg_get_function_arguments('public.resolve_supervisor_exception(text,uuid,uuid,timestamp with time zone,text)'::regprocedure))=0
-  or position('p_resolution_due_at' in pg_get_function_arguments('public.resolve_supervisor_exception(text,uuid,uuid,timestamp with time zone,text)'::regprocedure))=0
-  or position('p_resolution_note' in pg_get_function_arguments('public.resolve_supervisor_exception(text,uuid,uuid,timestamp with time zone,text)'::regprocedure))=0 then raise exception 'Resolution owner/deadline/note contract missing';end if;
+ if to_regclass('public.supervisor_exception_resolutions')is null or to_regprocedure('public.resolve_supervisor_exception(text,uuid,uuid,timestamp with time zone,text,uuid)')is null then raise exception 'Supervisor resolution interface missing';end if;
+ if position('p_owner_id' in pg_get_function_arguments('public.resolve_supervisor_exception(text,uuid,uuid,timestamp with time zone,text,uuid)'::regprocedure))=0
+  or position('p_resolution_due_at' in pg_get_function_arguments('public.resolve_supervisor_exception(text,uuid,uuid,timestamp with time zone,text,uuid)'::regprocedure))=0
+  or position('p_resolution_note' in pg_get_function_arguments('public.resolve_supervisor_exception(text,uuid,uuid,timestamp with time zone,text,uuid)'::regprocedure))=0
+  or position('p_idempotency_key' in pg_get_function_arguments('public.resolve_supervisor_exception(text,uuid,uuid,timestamp with time zone,text,uuid)'::regprocedure))=0 then raise exception 'Resolution owner/deadline/note/idempotency contract missing';end if;
  if exists(select 1 from pg_policies where schemaname='public'and tablename='supervisor_exception_resolutions'
   and permissive='PERMISSIVE'and cmd in('INSERT','UPDATE','DELETE','ALL'))then raise exception'Supervisor resolution permissive write policy found';end if;
  if exists(select 1 from(values('anon'),('authenticated'))as r(role_name)
@@ -44,5 +45,5 @@ do $$declare batch_def text;review_def text;supervisor_def text;begin
   where has_table_privilege(r.role_name,'public.supervisor_exception_resolutions',p.privilege_name))then
   raise exception'Supervisor resolution direct client write privilege found';end if;
  if not exists(select 1 from pg_policies where schemaname='public'and tablename='supervisor_exception_resolutions'and policyname='sales os v3 server gate'and permissive='RESTRICTIVE')
-  or has_table_privilege('anon','public.crm_supervisor_board','SELECT')or has_function_privilege('anon','public.resolve_supervisor_exception(text,uuid,uuid,timestamp with time zone,text)','EXECUTE')then raise exception 'Supervisor board gate/grants unsafe';end if;
+  or has_table_privilege('anon','public.crm_supervisor_board','SELECT')or has_function_privilege('anon','public.resolve_supervisor_exception(text,uuid,uuid,timestamp with time zone,text,uuid)','EXECUTE')then raise exception 'Supervisor board gate/grants unsafe';end if;
 end$$;select'sales_automation_ok'result;

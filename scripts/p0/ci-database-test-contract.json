@@ -21,7 +21,9 @@
     "redefinedDefinitionReferencedObjects": 28,
     "crmLeadsVisibleExactColumnAssertions": 2,
     "directDealOrderFixtureFiles": 2,
-    "directDealOrderInsertStatements": 2
+    "directDealOrderInsertStatements": 2,
+    "finalPublicFunctionIdentities": 162,
+    "functionIdentityReferences": 189
   },
   "testSourceRules": {
     "doKeywordSeparatedFromDollarQuote": true,
@@ -33,7 +35,8 @@
     "definitionReferencesResolveAssignmentsOverloadsAndRenames": true,
     "viewIntervalLiteralsNormalizeInputAndCanonicalOutput": true,
     "crmLeadsVisibleExactColumnAssertionsMatchFinalContract": true,
-    "directDealOrderFixturesIncludeFinalRequiredOrderNumber": true
+    "directDealOrderFixturesIncludeFinalRequiredOrderNumber": true,
+    "functionIdentityReferencesMatchFinalMigrationState": true
   },
   "postInstallCatalog": {
     "publicTables": 103,
@@ -106,7 +109,7 @@
     { "path": "supabase/tests/hardware_shipping_chain_behavior.sql", "category": "business", "executionMode": "rollback_fixture", "sha256Lf": "fec9dd843f68815362835e248fabe27653b745d107a91e6a7d4089fc92c7d89c" },
     { "path": "supabase/tests/performance_center_snapshot.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "3a9ccb96bdb01dc2c859ec658a507d89b3d067afb8e9e2cda3ae25eb741ba0e1" },
     { "path": "supabase/tests/quick_lead_uuid_region_selection.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "b3abc316b2bd5611c1137583ce665a74dd6876f56df5af4989b248ad5f3eeca0" },
-    { "path": "supabase/tests/sales_automation.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "203f741dd36dadb66f4f894778964530dc3902b19dc55c10e0ae867ea886bbb4" }
+    { "path": "supabase/tests/sales_automation.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "8a6f1517e75db3833b858657f60efa69ff22943fd4fa448fd9fd36bab2c942ab" }
   ],
   "runtime": {
     "engine": "supabase-cli-local-postgres",
@@ -406,6 +409,32 @@
       "firstFailedTest": "supabase/tests/sales_automation.sql",
       "priorViewIntervalAssertionPassed": true,
       "classwideExactAssertionsAudited": 2,
+      "cleanupPassed": true,
+      "productionReadPerformed": false,
+      "productionWritePerformed": false,
+      "rerunOfFailedRun": false
+    },
+    {
+      "runId": "29685639756",
+      "jobId": "88189304998",
+      "headSha": "b4315a373963a02f04e26e6494f12633828fbd9b",
+      "conclusion": "failure",
+      "failedStep": "Run database permission and business gates",
+      "rootCauseCode": "sales_automation_referenced_retired_five_argument_supervisor_resolution_signature",
+      "windowsLocalGatePassed": true,
+      "databaseStartupPassed": true,
+      "baselinePassed": true,
+      "migrationsPassed": 69,
+      "sqlTestsStarted": 26,
+      "sqlTestsPassed": 25,
+      "databaseTestsPassed": 7,
+      "permissionTestsPassed": 10,
+      "businessTestsPassed": 8,
+      "firstFailedTest": "supabase/tests/sales_automation.sql",
+      "priorLeadViewColumnAssertionPassed": true,
+      "retiredFunctionIdentityReferences": 5,
+      "classwideFunctionIdentityReferencesAudited": 189,
+      "catalogAssertionsStarted": 0,
       "cleanupPassed": true,
       "productionReadPerformed": false,
       "productionWritePerformed": false,
