@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { parseTemporaryPgEnvironment, useSessionPooler } from './temporary-db-access.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const read = (name) => readFileSync(resolve(repoRoot, 'scripts', 'p0', name), 'utf8')
@@ -15,6 +16,27 @@ const packageRuntime = read('verify-backup-package-runtime.mjs')
 const packageJson = JSON.parse(readFileSync(resolve(repoRoot, 'package.json'), 'utf8'))
 const checks = []
 const check = (label, value) => checks.push([label, Boolean(value)])
+const expectThrows = (action) => {
+  try {
+    action()
+    return false
+  } catch {
+    return true
+  }
+}
+const temporaryCredentialOutput = [
+  'export PGHOST="aws-shared.supabase.co"',
+  'export PGPORT="5432"',
+  'export PGUSER="cli_login_postgres"',
+  'export PGPASSWORD="contract-test-only"',
+  'export PGDATABASE="postgres"',
+].join('\n')
+const temporaryCredentialRef = 'abcdefghijklmnopqrst'
+const sessionPoolerEnvironment = useSessionPooler(
+  parseTemporaryPgEnvironment(temporaryCredentialOutput, temporaryCredentialRef, { requireHostMatch: false }),
+  `postgresql://postgres.${temporaryCredentialRef}@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres`,
+  temporaryCredentialRef,
+)
 const authDumpDefinition = backup.slice(
   backup.indexOf('const identitiesDumpText = pgText'),
   backup.indexOf('const authStorageSchemaDiffText'),
@@ -26,9 +48,18 @@ check('Chinese role decisions use ASCII-safe UTF8 literals', backup.includes('qu
 check('inline Windows SQL rejects raw non-ASCII text', databaseAccess.includes('inline psql SQL must be ASCII-safe on Windows') && databaseAccess.includes("PGCLIENTENCODING: 'UTF8'"))
 check('temporary Session Pooler metadata is project-bound and uses port 5432',
   databaseAccess.includes("readFileSync(resolve(workdir, 'supabase', '.temp', 'pooler-url')") &&
+  databaseAccess.includes("requireHostMatch: connectionMode === 'direct'") &&
   databaseAccess.includes("decodeURIComponent(poolerUrl.username) !== expectedPoolerUser") &&
   databaseAccess.includes("PGPORT: '5432'") &&
-  databaseAccess.includes("PGUSER: `${directEnvironment.PGUSER}.${projectRef}`"))
+  databaseAccess.includes("PGUSER: `${directEnvironment.PGUSER}.${projectRef}`") &&
+  sessionPoolerEnvironment.PGHOST === 'aws-1-ap-northeast-1.pooler.supabase.com' &&
+  sessionPoolerEnvironment.PGUSER === `cli_login_postgres.${temporaryCredentialRef}` &&
+  expectThrows(() => parseTemporaryPgEnvironment(temporaryCredentialOutput, temporaryCredentialRef)) &&
+  expectThrows(() => useSessionPooler(
+    parseTemporaryPgEnvironment(temporaryCredentialOutput, temporaryCredentialRef, { requireHostMatch: false }),
+    'postgresql://postgres.wrongprojectref00000@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres',
+    temporaryCredentialRef,
+  )))
 check('temporary Session Pooler access enables Supabase JIT authentication',
   databaseAccess.includes("PGOPTIONS: '-c jit=true'") &&
   preflight.match(/connectionMode: 'session-pooler'/g)?.length === 2 &&

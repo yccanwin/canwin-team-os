@@ -47,20 +47,20 @@ function requireSuccess(label, result) {
   throw new Error(label + ' failed: ' + redact(result.stderr || result.stdout || result.error?.message))
 }
 
-function parseTemporaryPgEnvironment(text, projectRef) {
+export function parseTemporaryPgEnvironment(text, projectRef, { requireHostMatch = true } = {}) {
   const values = {}
   for (const name of requiredPgVariables) {
     const match = text.match(new RegExp(`^export\\s+${name}="([^"]+)"\\s*$`, 'm'))
     if (!match) throw new Error('temporary database credential output is missing ' + name)
     values[name] = match[1]
   }
-  if (!values.PGHOST.includes(projectRef)) {
+  if (requireHostMatch && !values.PGHOST.includes(projectRef)) {
     throw new Error('temporary database credential host does not match the requested project')
   }
   return { ...values, PGSSLMODE: 'require', PGCLIENTENCODING: 'UTF8' }
 }
 
-function useSessionPooler(directEnvironment, poolerUrlText, projectRef) {
+export function useSessionPooler(directEnvironment, poolerUrlText, projectRef) {
   const poolerUrl = new URL(poolerUrlText.trim())
   const allowedProtocol = poolerUrl.protocol === 'postgres:' || poolerUrl.protocol === 'postgresql:'
   const expectedPoolerUser = `postgres.${projectRef}`
@@ -98,7 +98,9 @@ export function getTemporaryDbEnvironment({ cliPath, projectRef, connectionMode 
       { timeout: 90000 },
     )
     const combined = dryRun.stdout + '\n' + dryRun.stderr
-    const directEnvironment = parseTemporaryPgEnvironment(combined, projectRef)
+    const directEnvironment = parseTemporaryPgEnvironment(combined, projectRef, {
+      requireHostMatch: connectionMode === 'direct',
+    })
     if (connectionMode === 'direct') return directEnvironment
     const poolerUrlText = readFileSync(resolve(workdir, 'supabase', '.temp', 'pooler-url'), 'utf8')
     return useSessionPooler(directEnvironment, poolerUrlText, projectRef)
