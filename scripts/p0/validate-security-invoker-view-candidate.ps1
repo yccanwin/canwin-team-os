@@ -56,15 +56,28 @@ function Test-CandidateSql {
       Where-Object { $_ -ne '' }
   )
 
-  if ($statements.Count -ne 9) {
-    throw "Candidate must contain exactly 9 statements (3 views, 3 revokes, 3 grants); found $($statements.Count)."
+  if ($statements.Count -ne 13) {
+    throw "Candidate must contain exactly 13 statements (4 policy alters, 3 views, 3 revokes, 3 grants); found $($statements.Count)."
   }
 
+  $alterStatements = @($statements | Where-Object { $_ -match '(?is)^alter\s+policy\s+' })
   $createStatements = @($statements | Where-Object { $_ -match '(?is)^create\s+or\s+replace\s+view\s+' })
   $revokeStatements = @($statements | Where-Object { $_ -match '(?is)^revoke\s+' })
   $grantStatements = @($statements | Where-Object { $_ -match '(?is)^grant\s+' })
-  if ($createStatements.Count -ne 3 -or $revokeStatements.Count -ne 3 -or $grantStatements.Count -ne 3) {
-    throw 'Candidate statement kinds are not exactly 3 CREATE VIEW, 3 REVOKE, and 3 GRANT.'
+  if ($alterStatements.Count -ne 4 -or $createStatements.Count -ne 3 -or $revokeStatements.Count -ne 3 -or $grantStatements.Count -ne 3) {
+    throw 'Candidate statement kinds are not exactly 4 ALTER POLICY, 3 CREATE VIEW, 3 REVOKE, and 3 GRANT.'
+  }
+
+  $requiredPolicyContracts = @(
+    '(?is)^alter\s+policy\s+"finance roles read finance records"\s+on\s+public\.finance_records\s+using\s*\(\s*public\.has_access_role\(team_id\s*,\s*array\[''finance''\s*,\s*''admin''\]\)\s*\)$',
+    '(?is)^alter\s+policy\s+"finance roles manage finance records"\s+on\s+public\.finance_records\s+using\s*\(\s*public\.has_access_role\(team_id\s*,\s*array\[''finance''\s*,\s*''admin''\]\)\s*\)\s+with\s+check\s*\(\s*public\.has_access_role\(team_id\s*,\s*array\[''finance''\s*,\s*''admin''\]\)\s*\)$',
+    '(?is)^alter\s+policy\s+"inventory roles read inventory items"\s+on\s+public\.inventory_items\s+using\s*\(\s*public\.is_team_member\(team_id\)\s*\)$',
+    '(?is)^alter\s+policy\s+"asset roles read assets"\s+on\s+public\.assets\s+using\s*\(\s*public\.is_team_member\(team_id\)\s*\)$'
+  )
+  foreach ($policyContract in $requiredPolicyContracts) {
+    if (@($alterStatements | Where-Object { $_ -match $policyContract }).Count -ne 1) {
+      throw "Candidate is missing or changed a frozen 4.0 policy contract: $policyContract"
+    }
   }
 
   $declaredViews = @()
@@ -95,7 +108,7 @@ function Test-CandidateSql {
       throw "Candidate is missing required view: $viewName"
     }
 
-    $expectedRevoke = "(?is)^revoke\s+all\s+privileges\s+on\s+public\.$([regex]::Escape($viewName))\s+from\s+public\s*,\s*anon$"
+    $expectedRevoke = "(?is)^revoke\s+all\s+privileges\s+on\s+public\.$([regex]::Escape($viewName))\s+from\s+public\s*,\s*anon\s*,\s*authenticated$"
     $expectedGrant = "(?is)^grant\s+select\s+on\s+public\.$([regex]::Escape($viewName))\s+to\s+authenticated$"
     if (@($revokeStatements | Where-Object { $_ -match $expectedRevoke }).Count -ne 1) {
       throw "$viewName must have exactly one explicit REVOKE from PUBLIC and anon."
@@ -106,7 +119,7 @@ function Test-CandidateSql {
   }
 
   $finance = @($createStatements | Where-Object { $_ -match '(?is)^create\s+or\s+replace\s+view\s+public\.finance_public_summary\b' })[0]
-  Assert-Matches -Text $finance -Pattern "(?is)select\s+fr\.team_id\s*,\s*date_trunc\(\s*'month'\s*,\s*fr\.date\s*\)::date\s+as\s+month\s*,\s*fr\.record_type\s*,\s*fr\.category\s*,\s*sum\(\s*fr\.amount\s*\)\s+as\s+total_amount\s*,\s*count\(\s*\*\s*\)\s+as\s+record_count\s+from\s+public\.finance_records\s+as\s+fr\s+group\s+by\s+fr\.team_id\s*,\s*date_trunc\(\s*'month'\s*,\s*fr\.date\s*\)::date\s*,\s*fr\.record_type\s*,\s*fr\.category\s*$" -Message 'finance_public_summary source, projection, order, or aggregation contract changed.'
+  Assert-Matches -Text $finance -Pattern "(?is)select\s+fr\.team_id\s*,\s*date_trunc\(\s*'month'\s*,\s*fr\.date\s*\)::date\s+as\s+month\s*,\s*fr\.record_type\s*,\s*fr\.category\s*,\s*sum\(\s*fr\.amount\s*\)\s+as\s+total_amount\s*,\s*count\(\s*\*\s*\)\s+as\s+record_count\s+from\s+public\.finance_records\s+as\s+fr\s+where\s+public\.has_access_role\(fr\.team_id\s*,\s*array\['finance'\s*,\s*'admin'\]\)\s+group\s+by\s+fr\.team_id\s*,\s*date_trunc\(\s*'month'\s*,\s*fr\.date\s*\)::date\s*,\s*fr\.record_type\s*,\s*fr\.category\s*$" -Message 'finance_public_summary source, projection, authorization, order, or aggregation contract changed.'
 
   $inventory = @($createStatements | Where-Object { $_ -match '(?is)^create\s+or\s+replace\s+view\s+public\.inventory_public_items\b' })[0]
   Assert-Matches -Text $inventory -Pattern '(?is)select\s+ii\.id\s*,\s*ii\.team_id\s*,\s*ii\.name\s*,\s*ii\.sku\s*,\s*ii\.quantity\s*,\s*ii\.unit\s*,\s*ii\.public_status\s*,\s*ii\.low_stock_threshold\s*,\s*ii\.updated_at\s+from\s+public\.inventory_items\s+as\s+ii\s*$' -Message 'inventory_public_items source, projection, or column order contract changed.'
@@ -116,8 +129,10 @@ function Test-CandidateSql {
 
   foreach ($statement in $statements) {
     $isAllowed =
+      $requiredPolicyContracts | Where-Object { $statement -match $_ } | Select-Object -First 1
+    $isAllowed = [bool]$isAllowed -or
       $statement -match '(?is)^create\s+or\s+replace\s+view\s+public\.(finance_public_summary|inventory_public_items|assets_public)\b' -or
-      $statement -match '(?is)^revoke\s+all\s+privileges\s+on\s+public\.(finance_public_summary|inventory_public_items|assets_public)\s+from\s+public\s*,\s*anon$' -or
+      $statement -match '(?is)^revoke\s+all\s+privileges\s+on\s+public\.(finance_public_summary|inventory_public_items|assets_public)\s+from\s+public\s*,\s*anon\s*,\s*authenticated$' -or
       $statement -match '(?is)^grant\s+select\s+on\s+public\.(finance_public_summary|inventory_public_items|assets_public)\s+to\s+authenticated$'
     if (-not $isAllowed) {
       throw "Candidate contains a forbidden or unrecognized SQL statement: $($statement.Substring(0, [Math]::Min(80, $statement.Length)))"
@@ -207,6 +222,7 @@ $negativeCases = @(
   @{ Name = 'missing-invoker'; Text = $candidateSql.Replace('security_invoker = true', 'security_invoker = false') },
   @{ Name = 'data-write'; Text = $candidateSql + "`nupdate public.assets set status = 'x';" },
   @{ Name = 'broad-grant'; Text = $candidateSql.Replace('grant select on public.assets_public to authenticated;', 'grant select on public.assets_public to anon;') },
+  @{ Name = 'legacy-finance-role'; Text = $candidateSql.Replace("public.has_access_role(team_id, array['finance', 'admin'])", "public.has_role(team_id, array['finance', 'admin'])") },
   @{ Name = 'projection-drift'; Text = $candidateSql.Replace('  a.updated_at', '  a.amount') }
 )
 
@@ -236,4 +252,4 @@ if (@($migrationStatus).Count -gt 0) {
 
 Write-Output "P0_SECURITY_INVOKER_COMMENT_REGRESSION_OK cases=$($commentRegressionCases.Count) formats=lf,crlf,mixed,comment-semicolon"
 Write-Output "P0_SECURITY_INVOKER_CANDIDATE_STATIC_SELFTEST_OK cases=$($commentRegressionCases.Count + $negativeCases.Count) positive=$($commentRegressionCases.Count) negative=$($negativeCases.Count)"
-Write-Output 'P0_SECURITY_INVOKER_CANDIDATE_OK views=3 callers=3 migrations=clean database_calls=0'
+Write-Output 'P0_SECURITY_INVOKER_CANDIDATE_OK views=3 policies=4 callers=3 migrations=clean database_calls=0'
