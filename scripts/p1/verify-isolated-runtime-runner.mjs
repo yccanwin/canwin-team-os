@@ -5,21 +5,37 @@ import { fileURLToPath } from 'node:url'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const root = resolve(repoRoot, 'scripts', 'p1')
-const source = readFileSync(resolve(root, 'run-isolated-runtime.mjs'), 'utf8')
+const normalizeLf = (value) => value.replaceAll('\r\n', '\n').replaceAll('\r', '\n')
+const mixedEol = (value) => normalizeLf(value).split('\n').map((line, index, lines) => (
+  index === lines.length - 1 ? line : line + ['\n', '\r\n'][index % 2]
+)).join('')
+const rawSource = readFileSync(resolve(root, 'run-isolated-runtime.mjs'), 'utf8')
+const source = normalizeLf(rawSource)
 const contract = JSON.parse(readFileSync(resolve(root, 'isolated-runtime-contract.json'), 'utf8'))
-const migration = readFileSync(resolve(repoRoot, contract.candidate.migrationPath), 'utf8').replaceAll('\r\n', '\n').replaceAll('\r', '\n')
-const test = readFileSync(resolve(repoRoot, contract.candidate.testPath), 'utf8').replaceAll('\r\n', '\n').replaceAll('\r', '\n')
-const postgresRegression = readFileSync(resolve(repoRoot, contract.scriptHardLocks.postgresRegressionPath), 'utf8')
+const migration = normalizeLf(readFileSync(resolve(repoRoot, contract.candidate.migrationPath), 'utf8'))
+const test = normalizeLf(readFileSync(resolve(repoRoot, contract.candidate.testPath), 'utf8'))
+const rawPostgresRegression = readFileSync(resolve(repoRoot, contract.scriptHardLocks.postgresRegressionPath), 'utf8')
+const postgresRegression = normalizeLf(rawPostgresRegression)
 const failures = []
 let assertionCount = 0
 const check = (condition, message) => { assertionCount += 1; if (!condition) failures.push(message) }
 const sha256Lf = (path) => createHash('sha256')
-  .update(readFileSync(path, 'utf8').replaceAll('\r\n', '\n').replaceAll('\r', '\n'))
+  .update(normalizeLf(readFileSync(path, 'utf8')))
   .digest('hex')
 const occurrences = (text, needle) => text.split(needle).length - 1
 
 check(contract.target.projectRef === 'zdmuaqokndhhbarudhtw', 'isolated target ref drift')
 check(contract.forbiddenProductionProjectRef === 'agygfhmkazcbqaqwmljb', 'production deny ref drift')
+check([
+  source,
+  source.replaceAll('\n', '\r\n'),
+  mixedEol(rawSource),
+].every((variant) => normalizeLf(variant) === source) && [
+  postgresRegression,
+  postgresRegression.replaceAll('\n', '\r\n'),
+  mixedEol(rawPostgresRegression),
+].every((variant) => normalizeLf(variant) === postgresRegression),
+'runner/PG regression semantic source normalization fails for LF, CRLF, or mixed EOL')
 check(source.includes("const TARGET_REF = 'zdmuaqokndhhbarudhtw'"), 'runner does not literal-lock target ref')
 check(source.includes("const PRODUCTION_REF = 'agygfhmkazcbqaqwmljb'"), 'runner does not literal-deny production ref')
 check(source.includes("mkdtempSync(join(tmpdir(), 'canwin-p1-runtime-'))"), 'runner lacks independent temporary workdir')
@@ -144,4 +160,4 @@ if (failures.length > 0) {
   for (const failure of failures) console.error('- ' + failure)
   process.exit(1)
 }
-console.log(`P1_ISOLATED_RUNTIME_RUNNER_OK assertions=${assertionCount} targetLocked=1 productionDenied=1 migrationSetProof=1 dryRunSnapshotProof=1 credentialRotation=1 pendingTriggerOrder=1 postgresRegression=1 temporaryChannel=1 singleAttempt=1 secretsPersisted=0`)
+console.log(`P1_ISOLATED_RUNTIME_RUNNER_OK assertions=${assertionCount} sourceEolFormats=lf,crlf,mixed targetLocked=1 productionDenied=1 migrationSetProof=1 dryRunSnapshotProof=1 credentialRotation=1 pendingTriggerOrder=1 postgresRegression=1 temporaryChannel=1 singleAttempt=1 secretsPersisted=0`)
