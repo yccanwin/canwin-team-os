@@ -93,6 +93,7 @@ function validate(candidate) {
   check(runtime.engine === 'supabase-cli-local-postgres', 'runtime engine drift')
   check(runtime.supabaseCliVersion === '2.109.1', 'Supabase CLI pin drift')
   check(runtime.postgresMajor === 17, 'Postgres major drift')
+  check(runtime.startup === 'supabase db start', 'database-only startup command drift')
   check(runtime.workdir === 'scripts/p0/ci-runtime', 'CI workdir drift')
   check(runtime.projectId === 'canwin-team-os-4-ci', 'CI project id drift')
   check(exactSet(runtime.allowedHosts, ['127.0.0.1', 'localhost']), 'allowed host boundary drift')
@@ -122,7 +123,8 @@ function validate(candidate) {
   check(workflow.includes('p0-database:'), 'isolated database CI job missing')
   check(workflow.includes('uses: supabase/setup-cli@v1'), 'official Supabase CLI setup action missing')
   check(workflow.includes(`version: ${runtime.supabaseCliVersion}`), 'workflow Supabase CLI pin drift')
-  check(workflow.includes('supabase start'), 'isolated database start step missing')
+  check(workflow.includes(`${runtime.startup} --workdir ${runtime.workdir} --yes`), 'database-only start step missing')
+  check(!workflow.includes('--exclude'), 'full-stack container exclusion list is forbidden')
   check(workflow.includes(`--workdir ${runtime.workdir}`), 'isolated workdir missing from workflow')
   check(workflow.includes('node scripts/p0/run-ci-database-gates.mjs'), 'database gate runner missing from workflow')
   check(workflow.includes(`supabase stop --no-backup --workdir ${runtime.workdir} --yes`), 'destructive isolated cleanup step missing')
@@ -135,6 +137,21 @@ function validate(candidate) {
   check(boundary.productionReadPerformed === false, 'production read must remain false')
   check(boundary.productionWritePerformed === false, 'production write must remain false')
   check(boundary.repositorySecretsRequired === false, 'repository secrets must not be required')
+
+  const attempts = candidate.formalAttemptHistory ?? []
+  check(attempts.length === 1, 'formal attempt history count drift')
+  const failedAttempt = attempts[0] ?? {}
+  check(failedAttempt.runId === '29680934378', 'failed run id drift')
+  check(failedAttempt.jobId === '88176860842', 'failed job id drift')
+  check(failedAttempt.headSha === '9d3b0d2a0c2569367dcfcfb0b41e696b4886d185', 'failed head SHA drift')
+  check(failedAttempt.conclusion === 'failure', 'failed attempt conclusion drift')
+  check(failedAttempt.failedStep === 'Start isolated local Postgres', 'failed step drift')
+  check(failedAttempt.rootCauseCode === 'full_stack_exclusion_name_drift', 'failed root cause drift')
+  check(failedAttempt.sqlTestsStarted === false, 'failed attempt must not claim SQL execution')
+  check(failedAttempt.cleanupPassed === true, 'failed attempt cleanup evidence missing')
+  check(failedAttempt.productionReadPerformed === false, 'failed attempt production read must remain false')
+  check(failedAttempt.productionWritePerformed === false, 'failed attempt production write must remain false')
+  check(failedAttempt.rerunOfFailedRun === false, 'failed run must not be represented as rerun')
   return failures
 }
 
@@ -151,9 +168,11 @@ const negativeCases = [
   ['remote port', (value) => { value.runtime.allowedPort = 6543 }],
   ['Postgres major', (value) => { value.runtime.postgresMajor = 15 }],
   ['CLI unpinned', (value) => { value.runtime.supabaseCliVersion = 'latest' }],
+  ['full stack startup', (value) => { value.runtime.startup = 'supabase start' }],
   ['repository secret', (value) => { value.acceptanceBoundary.repositorySecretsRequired = true }],
   ['production write', (value) => { value.acceptanceBoundary.productionWritePerformed = true }],
   ['G0 falsely claimed', (value) => { value.acceptanceBoundary.g0OverallClaim = true }],
+  ['failed evidence erased', (value) => { value.formalAttemptHistory = [] }],
 ]
 let negativePassed = 0
 for (const [name, mutate] of negativeCases) {

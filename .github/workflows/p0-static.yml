@@ -52,11 +52,7 @@ jobs:
           sudo apt-get install --yes postgresql-client
 
       - name: Start isolated local Postgres
-        run: >-
-          supabase start
-          --workdir scripts/p0/ci-runtime
-          --exclude analytics,edge-runtime,functions,imgproxy,inbucket,kong,meta,realtime,rest,storage,studio,vector
-          --yes
+        run: supabase db start --workdir scripts/p0/ci-runtime --yes
 
       - name: Run database permission and business gates
         run: node scripts/p0/run-ci-database-gates.mjs

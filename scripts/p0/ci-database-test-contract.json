@@ -58,6 +58,7 @@
     "engine": "supabase-cli-local-postgres",
     "supabaseCliVersion": "2.109.1",
     "postgresMajor": 17,
+    "startup": "supabase db start",
     "workdir": "scripts/p0/ci-runtime",
     "projectId": "canwin-team-os-4-ci",
     "allowedHosts": ["127.0.0.1", "localhost"],
@@ -76,5 +77,20 @@
     "productionReadPerformed": false,
     "productionWritePerformed": false,
     "repositorySecretsRequired": false
-  }
+  },
+  "formalAttemptHistory": [
+    {
+      "runId": "29680934378",
+      "jobId": "88176860842",
+      "headSha": "9d3b0d2a0c2569367dcfcfb0b41e696b4886d185",
+      "conclusion": "failure",
+      "failedStep": "Start isolated local Postgres",
+      "rootCauseCode": "full_stack_exclusion_name_drift",
+      "sqlTestsStarted": false,
+      "cleanupPassed": true,
+      "productionReadPerformed": false,
+      "productionWritePerformed": false,
+      "rerunOfFailedRun": false
+    }
+  ]
 }
