@@ -87,6 +87,9 @@ function collectFailures(register, context) {
     catalogSnapshotRunbook: 'docs/team-os-4.0/p0/backend-catalog-snapshot-runbook.md',
     livePerTableEvidenceSql: 'scripts/p0/public-table-live-evidence.sql',
     livePerTableEvidence: 'docs/team-os-4.0/p0/public-table-live-evidence.json',
+    livePerRoutineEvidenceSql: 'scripts/p0/public-routine-live-evidence.sql',
+    livePerRoutineEvidence: 'docs/team-os-4.0/p0/public-routine-live-evidence.json',
+    localRoutineCallerCrosscheck: 'docs/team-os-4.0/p0/public-routine-caller-crosscheck.json',
     localSchema: 'supabase/schema.sql',
     localMigrations: 'supabase/migrations',
   }
@@ -133,6 +136,25 @@ function collectFailures(register, context) {
     ['frontendFunctionReadWriteEntrypoints', 'exactRowCountWhereRequired', 'functionBodyDependencies', 'indexRiskDecision', 'classificationCrossReview', 'supervisorFreezeAcceptance'],
   )
 
+  const liveRoutineEvidence = register.livePerRoutineEvidence ?? {}
+  fail(liveRoutineEvidence.status === 'candidate_captured_unaccepted', 'Live per-routine evidence must remain a candidate.')
+  fail(liveRoutineEvidence.projectRef === 'agygfhmkazcbqaqwmljb', 'Live routine evidence project ref drifted.')
+  fail(Number.isFinite(Date.parse(liveRoutineEvidence.capturedAtUtc)), 'Live routine evidence capture time must be ISO-compatible.')
+  fail(liveRoutineEvidence.metadataOnly === true && liveRoutineEvidence.businessRowsRead === false && liveRoutineEvidence.functionBodiesReturned === false && liveRoutineEvidence.writePerformed === false, 'Live routine evidence must remain metadata-only, body-free and write-free.')
+  fail(liveRoutineEvidence.candidateRoutineCount === 162 && liveRoutineEvidence.supervisorAcceptedRoutineCount === 0, 'Live routine evidence must remain 162 candidate / 0 accepted.')
+  fail(liveRoutineEvidence.securityDefinerCount === 148 && liveRoutineEvidence.authenticatedSecurityDefinerCount === 135, 'Live routine security-definer counts drifted.')
+  fail(liveRoutineEvidence.anonymousExecutableCount === 7 && liveRoutineEvidence.missingSearchPathCount === 1, 'Live routine exposure counts drifted.')
+  const callerCrosscheck = liveRoutineEvidence.localCallerCrosscheck ?? {}
+  fail(callerCrosscheck.sourceFileCount === 215 && callerCrosscheck.literalRpcNameCount === 99, 'Local routine caller inventory counts drifted.')
+  fail(callerCrosscheck.orphanLiteralRpcNameCount === 0 && callerCrosscheck.dynamicRpcCallSiteCount === 1, 'Local routine caller risk counts drifted.')
+  fail(callerCrosscheck.referencedRoutineSignatureCount === 102 && callerCrosscheck.authenticatedExecutableWithoutRuntimeCallerCount === 49, 'Local routine caller coverage counts drifted.')
+  compareExactSet(
+    failures,
+    'remaining per-routine evidence',
+    liveRoutineEvidence.remainingPerRoutineEvidence ?? [],
+    ['authorizationAndScopeReview', 'functionBodyDependencyReview', 'sixIdentityRuntimeTests', 'dynamicCallerWrapperReview', 'classificationCrossReview', 'supervisorFreezeAcceptance'],
+  )
+
   const counts = register.expectedCounts ?? {}
   fail(counts.publicTables === 103, `Expected publicTables=103, got ${counts.publicTables}.`)
   fail(counts.retain === 47 && counts.extend === 37 && counts.readOnly === 17 && counts.retirementCandidate === 2, 'Expected classification counts drifted.')
@@ -175,9 +197,10 @@ function collectFailures(register, context) {
 
   const related = register.openGaps?.relatedObjects ?? {}
   const functionGap = related.functions ?? {}
-  fail(functionGap.status === 'catalog_dependency_candidate_function_body_audit_pending', 'Function gap status drifted.')
-  fail(functionGap.scope === 'all_manifest_tables', 'Function gap must cover all manifest tables.')
-  fail(functionGap.pendingTableCount === 103 && functionGap.candidateCatalogMappingCount === 103 && functionGap.acceptedTableMappingCount === 0, 'Function mapping counts must remain 103 pending / 103 catalog candidate / 0 accepted.')
+  fail(functionGap.status === 'live_metadata_and_local_caller_candidate_authorization_review_pending', 'Function gap status drifted.')
+  fail(functionGap.scope === 'all_public_routines', 'Function gap must cover all public routines.')
+  fail(functionGap.candidateLiveRoutineCount === 162 && functionGap.candidateCallerCrosscheckedRoutineCount === 162, 'Function evidence must remain 162 live candidates / 162 caller-crosschecked candidates.')
+  fail(functionGap.pendingAuthorizationReviewCount === 162 && functionGap.pendingFunctionBodyDependencyReviewCount === 162 && functionGap.acceptedRoutineCount === 0, 'Function review counts must remain 162 pending authorization / 162 pending body dependency / 0 accepted.')
   for (const kind of ['policies', 'triggers']) {
     const gap = related[kind] ?? {}
     fail(gap.status === 'candidate_mapped_unaccepted', `${kind} mapping must remain candidate_mapped_unaccepted.`)
@@ -250,6 +273,7 @@ const selfTests = [
   ['false-g0', (copy) => { copy.g0.status = 'achieved'; copy.g0.claim = true }],
   ['hidden-function-gap', (copy) => { copy.openGaps.relatedObjects.functions.status = 'complete' }],
   ['false-live-acceptance', (copy) => { copy.livePerTableEvidence.supervisorAcceptedTableCount = 103 }],
+  ['false-routine-acceptance', (copy) => { copy.livePerRoutineEvidence.supervisorAcceptedRoutineCount = 162 }],
   ['zero-policy-gap-drift', (copy) => { copy.openGaps.relatedObjects.policies.knownZeroPolicyDecisionPendingTableNames.pop() }],
 ]
 
@@ -264,4 +288,4 @@ for (const [name, mutate] of selfTests) {
 
 console.log(`P0_TABLE_CLASSIFICATION_REGISTER_SELFTEST_OK cases=${selfTests.length}`)
 console.log('P0_TABLE_CLASSIFICATION_REGISTER_OK tables=103 retain=47 extend=37 readOnly=17 retirementCandidate=2 candidate=103 accepted=0')
-console.log('P0_TABLE_CLASSIFICATION_GAPS_OPEN requiredAudit=103 functions=103 policies=0 triggers=0 zeroPolicyDecisions=3 g0=false databaseCalls=0')
+console.log('P0_TABLE_CLASSIFICATION_GAPS_OPEN requiredAudit=103 routinesAuthorization=162 routinesBodyDependency=162 policies=0 triggers=0 zeroPolicyDecisions=3 g0=false databaseCalls=0')

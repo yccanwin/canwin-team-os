@@ -9,6 +9,8 @@ const gates = [
   ['core-business-contract', resolve(repoRoot, 'scripts', 'p0', 'verify-core-business-contract.mjs')],
   ['role-migration-contract', resolve(repoRoot, 'scripts', 'p0', 'verify-role-migration-contract.mjs')],
   ['public-table-live-evidence', resolve(repoRoot, 'scripts', 'p0', 'verify-public-table-live-evidence.mjs')],
+  ['public-routine-live-evidence', resolve(repoRoot, 'scripts', 'p0', 'verify-public-routine-live-evidence.mjs')],
+  ['routine-caller-crosscheck', resolve(repoRoot, 'scripts', 'p0', 'verify-routine-caller-crosscheck.mjs')],
   ['backup-manifest-contract', resolve(repoRoot, 'scripts', 'p0', 'verify-backup-manifest-contract.mjs')],
   ['restore-run-contract', resolve(repoRoot, 'scripts', 'p0', 'verify-restore-run-contract.mjs')],
 ]

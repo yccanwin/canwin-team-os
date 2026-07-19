@@ -12,6 +12,8 @@
 - core-business-contract.json 与 scripts/p0/verify-core-business-contract.mjs：冻结客户层级、三价、混合收款、订单/库存/履约、工作项、案例授权和数据保护语义；表名/枚举名继续如实标记待映射。
 - role-migration-contract.json 与 scripts/p0/verify-role-migration-contract.mjs：冻结五主岗位、两个附加职能和旧角色转换；现网只读统计的 2 个主岗位人工决定继续保持阻塞。
 - public-table-live-evidence.json 与 scripts/p0/verify-public-table-live-evidence.mjs：校验生产只读、零业务行取证的 103 表逐表 RLS/GRANT/策略/触发器/索引/外键证据，并保持 0/103 监理验收。
+- public-routine-live-evidence.json 与 scripts/p0/verify-public-routine-live-evidence.mjs：校验 162 个生产函数签名的 owner、ACL、`search_path`、提权标志、触发器引用和定义指纹，并保持 0/162 监理验收；不保存函数正文。
+- public-routine-caller-crosscheck.json 与 scripts/p0/verify-routine-caller-crosscheck.mjs：扫描 `src` 和 `supabase/functions` 的运行时源码，核验明确 RPC 名称均在线上存在，并单列动态包装调用和无本地调用方的可执行签名。
 - backup-restore-manifest.template.json：冻结数据库、Auth、Storage、Functions、Cron、运行配置和恢复证据的机器合同，不含密钥值。
 - scripts/p0/verify-backup-manifest-contract.mjs：验证备份恢复合同结构、敏感值禁令和 not-run 恢复状态。
 - scripts/p0/verify-backup-package-runtime.mjs：在真实备份完成后校验仓库外运行实例、21 类制品文件、字节数、SHA256、冻结时间和对账摘要；不纳入没有真实备份的静态门禁。
@@ -33,7 +35,7 @@
 npm.cmd run test:p0:local
 ~~~
 
-统一入口固定运行：七个 static gates、前端 inventory、P1 导航合同、catalog 只读自检、安全视图候选校验、103 表分类合同、前端处置交叉核验、构建目标负测、隔离目标前端编译和静态产物扫描。runner 发现十个检查点；其中 static gates 在第一个检查点内部按 7/7 单独计数。任一子命令首次返回非零，runner 立即停止，不运行后续检查点，并如实输出 skipped 数量。
+统一入口固定运行：九个 static gates、前端 inventory、P1 导航合同、catalog 只读自检、安全视图候选校验、103 表分类合同、前端处置交叉核验、构建目标负测、隔离目标前端编译和静态产物扫描。runner 发现十个检查点；其中 static gates 在第一个检查点内部按 9/9 单独计数。任一子命令首次返回非零，runner 立即停止，不运行后续检查点，并如实输出 skipped 数量。
 
 该入口不调用 Supabase CLI、MCP、业务网络、数据库或会写数据的 SQL，不部署、不发布，也不修改历史迁移。catalog 和安全视图脚本只解析仓库内 SQL；build 只生成本地产物。CI 包装层仅为 checkout、运行时准备和依赖安装访问 GitHub/npm，不访问 Supabase 项目。
 
@@ -65,7 +67,7 @@ npm.cmd run test:p0:local
 成功输出必须同时包含：
 
 - 迁移文件：discovered=69 run=69 passed=69 failed=0；
-- 静态门禁：discovered=7 run=7 passed=7 failed=0 skipped=0；
+- 静态门禁：discovered=9 run=9 passed=9 failed=0 skipped=0；
 - 统一入口：discovered=10 run=10 passed=10 failed=0 skipped=0；
 - 安全候选换行回归：cases=4，覆盖 lf、crlf、mixed、comment-semicolon；
 - 安全候选自检：cases=9 positive=4 negative=5；候选结果为 views=3 callers=3 migrations=clean database_calls=0；
@@ -74,6 +76,8 @@ npm.cmd run test:p0:local
 - 构建目标负测：20/20，覆盖 URL/ref/key/指纹错配、secret key、交叉环境产物和预览未解锁；
 - 核心业务合同：76/76；角色转换合同：77/77，并如实输出 2 项人工主岗位决定未完成；
 - 逐表现网元数据：103/103 表、RLS 103、策略 229、触发器 29、索引 248、外键 309；业务行读取和生产写入均为 0；
+- 逐函数现网元数据：162/162 签名、148 个 `SECURITY DEFINER`、135 个 authenticated 可执行提权函数、7 个 anon 可执行签名、1 个缺固定 `search_path`；函数正文返回、业务行读取和生产写入均为 0；
+- 本地调用方交叉核验：215 个运行时源码文件、99 个明确 RPC 名称、0 个线上缺失名称、1 个动态包装点、102 个有本地调用方的签名；49 个 authenticated 可执行但无本地调用方的签名继续待审；
 - 测试环境就绪状态仍为 BLOCKED。
 
 本地命令或 CI 绿色只证明仓库静态合同和前端 build 通过。它不包含数据库执行、真实岗位权限、业务流程、页面运行时或远端测试，不证明远端迁移 SQL 正文一致，不证明生产安全顾问已清零，也不证明数据库、Auth 或 Storage 已在独立项目恢复成功，因此不能声称 G0 通过。

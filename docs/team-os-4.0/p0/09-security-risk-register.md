@@ -23,9 +23,9 @@
 | ID | 级别 | 当前事实 | 主要风险 | 本阶段处理决定 | 放行所需证据 |
 | --- | --- | --- | --- | --- | --- |
 | SEC-01 | P0 | 3 个 `security_definer_view` ERROR：`finance_public_summary`、`inventory_public_items`、`assets_public`；前端仍直接调用 | 视图按 owner 权限解析时可能绕过底表 RLS | 只为这 3 个视图准备 `security_invoker = true` 候选；保持视图名、列顺序和 `authenticated` 只读入口；不开放 `anon` | 静态闸门通过；独立项目六身份直接 API 测试；前端三个调用回归；Security Advisor 中该分类归零；权限拒绝符合矩阵 |
-| SEC-02 | P0 | 148 个当前 `public SECURITY DEFINER` 函数中，135 个可由 `authenticated` 执行 | 高权限函数若缺少调用者身份、岗位/团队范围或安全 `search_path`，可形成越权入口 | 逐签名分为正式业务 RPC、内部触发器/助手、废弃候选；禁止批量撤销 EXECUTE、批量改 invoker 或批量删除 | 每个签名的 owner、ACL、调用方、身份检查、团队/岗位范围、`search_path`、依赖和六身份允许/拒绝结果；变更按函数小批次独立审查 |
+| SEC-02 | P0 | 162 个签名已逐项登记：148 个 `SECURITY DEFINER`，135 个可由 `authenticated` 执行；本地找到 99 个明确 RPC 名称并对应 102 个签名，线上缺失名称 0；仍有 49 个 authenticated 可执行签名无本地直接调用方 | 高权限函数若缺少调用者身份、岗位/团队范围或安全 `search_path`，可形成越权入口；无本地调用方也不能证明可删除，可能由策略、触发器、外部客户端或动态 SQL 使用 | 逐签名分为正式业务 RPC、内部触发器/助手、废弃候选；禁止批量撤销 EXECUTE、批量改 invoker 或批量删除 | 每个签名的 owner、ACL、调用方、身份检查、团队/岗位范围、`search_path`、依赖和六身份允许/拒绝结果；变更按函数小批次独立审查 |
 | SEC-03 | P0 | 3 张表启用 RLS 但无策略：`crm_lead_conversions`、`deal_catalog_version_requests`、`deal_package_admin_requests` | Data API 默认拒绝不等于业务安全已证明；也可能隐藏前端故障，或依赖未审计的高权限 RPC | 先判定每表是“明确 RPC-only”还是“缺失策略”；不得为消除告警添加宽泛通用策略 | 表的公开入口、函数依赖和预期角色矩阵；anon/五主岗位直接 API 读写拒绝；合法 RPC 的正向及跨团队负向证据 |
-| SEC-04 | P0 | 1 个函数 `search_path` 可变 | SECURITY DEFINER 或高权限调用链可能被对象名解析劫持 | 先冻结准确函数签名、owner、函数体、调用者和依赖；单独候选设置受控 `search_path`，不与三视图候选合并 | 函数签名级 diff；合法调用回归；恶意同名对象/跨 schema 负向测试；Advisor 告警消失 |
+| SEC-04 | P0 | `touch_updated_at()` 未固定 `search_path`，且当前可由 `anon`、`authenticated`、`service_role` 执行 | SECURITY DEFINER 或高权限调用链可能被对象名解析劫持；多余的公开 EXECUTE 也扩大入口 | 先冻结准确函数签名、owner、函数体、触发器/调用者和依赖；单独候选设置受控 `search_path` 并审查是否撤销公开 EXECUTE，不与三视图候选合并 | 函数签名级 diff；合法调用回归；恶意同名对象/跨 schema 负向测试；anon/authenticated 直接调用拒绝；Advisor 告警消失 |
 | SEC-05 | P0 | Auth 泄露密码保护未开启 1 项 | 已泄露密码仍可能用于注册/改密 | 作为项目级 Auth 配置独立处理；需管理员确认可用性影响与回退，不写 SQL | 独立项目开启前后注册/改密验证、审计截图和回退步骤；生产变更另行授权 |
 | PERF-01 | P1（其中热链候选可升 P0） | 205 个未索引外键 | 热表删除/更新可能锁等待或慢查询；盲目建 205 个索引会增加写放大和存储 | 先按订单、付款、库存、责任归属等热链排序；用查询计划、表规模和写频率选出小批候选 | 每个候选的 FK 列、父/子表规模、查询/锁证据、建索引前后计划及写入影响；一次只验证一批 |
 | PERF-02 | P1 | 54 个 `auth_rls_initplan` | RLS 对每行重复计算身份函数，放大查询成本 | 按高频公开表优先，验证可安全改为 `(select auth.uid())` 等一次求值形式；不得只做字符串替换 | 策略语义 diff；六身份结果完全一致；典型查询 `EXPLAIN` 改善；无跨团队扩大 |

@@ -5,7 +5,9 @@ param(
 
   [switch]$SelfTest,
 
-  [switch]$LiveTableEvidence
+  [switch]$LiveTableEvidence,
+
+  [switch]$LiveRoutineEvidence
 )
 
 Set-StrictMode -Version Latest
@@ -158,7 +160,14 @@ if ($SelfTest) {
 
 $resolvedSqlPath = (Resolve-Path -LiteralPath $SqlPath).Path
 $sqlText = Get-Content -Raw -LiteralPath $resolvedSqlPath -Encoding UTF8
-$safetyErrors = @(Get-SqlSafetyErrors -SqlText $sqlText -RequireSnapshotContract (-not $LiveTableEvidence))
+if ($LiveTableEvidence -and $LiveRoutineEvidence) {
+  Write-Error 'Choose only one live-evidence mode.'
+  exit 1
+}
+
+$safetyErrors = @(
+  Get-SqlSafetyErrors -SqlText $sqlText -RequireSnapshotContract (-not ($LiveTableEvidence -or $LiveRoutineEvidence))
+)
 
 if ($LiveTableEvidence) {
   $requiredLiveEvidenceMarkers = @(
@@ -177,6 +186,25 @@ if ($LiveTableEvidence) {
   foreach ($marker in $requiredLiveEvidenceMarkers) {
     if (-not $sqlText.Contains($marker)) {
       $safetyErrors += "Required live-table evidence marker is missing: $marker"
+    }
+  }
+}
+
+if ($LiveRoutineEvidence) {
+  $requiredLiveRoutineMarkers = @(
+    "'production-readonly-public-routine-catalog'",
+    "'businessRowsRead', false",
+    "'writePerformed', false",
+    "'functionBodiesReturned', false",
+    "'effectiveExecuteRoles'",
+    "'triggerUses'",
+    "'catalogRelationDependencies'",
+    "'definitionEvidence'",
+    "'candidateClassification'"
+  )
+  foreach ($marker in $requiredLiveRoutineMarkers) {
+    if (-not $sqlText.Contains($marker)) {
+      $safetyErrors += "Required live-routine evidence marker is missing: $marker"
     }
   }
 }
