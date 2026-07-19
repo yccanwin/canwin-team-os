@@ -53,7 +53,12 @@ let db = null
 const parseJson = (label, text) => {
   try { return JSON.parse(text) } catch { throw new Error(label + ' did not return valid JSON') }
 }
-const sqlJson = (label, sql) => parseJson(label, runPsql({ psqlPath, pgEnvironment: db, sql }))
+const sqlJson = (label, sql) => parseJson(label, runPsql({
+  psqlPath,
+  pgEnvironment: db,
+  sql,
+  retryReadOnlySessionPooler: true,
+}))
 const objectSnapshot = () => sqlJson('security object snapshot', `select jsonb_build_object(
   'views',(select jsonb_agg(jsonb_build_object(
     'name',c.relname,'owner',pg_get_userbyid(c.relowner),'definition',pg_get_viewdef(c.oid,true),
