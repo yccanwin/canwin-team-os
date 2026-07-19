@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "productionProjectRef": "agygfhmkazcbqaqwmljb",
-  "testProjectRef": null,
-  "testProjectStatus": "not-provisioned",
+  "testProjectRef": "adzerzckgxxibadxkhcr",
+  "testProjectStatus": "declared",
   "previewBuildAllowed": false
 }

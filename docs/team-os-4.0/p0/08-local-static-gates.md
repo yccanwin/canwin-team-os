@@ -7,7 +7,7 @@
 
 - migration-sha256-manifest.json：冻结当前 69 个历史迁移的版本、文件名和规范化 UTF-8/LF 内容 SHA256。
 - scripts/p0/verify-migration-manifest.mjs：验证迁移数量、14 位版本唯一、文件名集合、清单顺序和每个文件 SHA256。
-- scripts/p0/project-ref-contract.json：登记已知生产 ref，并明确测试项目尚未配置。
+- scripts/p0/project-ref-contract.json：分别登记生产 ref 与独立测试项目 ref；预览构建仍保持禁止，直至恢复和隔离验证完成。
 - scripts/p0/verify-project-ref-contract.mjs：验证 supabase/config.toml 与生产合同一致；测试 ref 存在时必须与生产不同。
 - backup-restore-manifest.template.json：冻结数据库、Auth、Storage、Functions、Cron、运行配置和恢复证据的机器合同，不含密钥值。
 - scripts/p0/verify-backup-manifest-contract.mjs：验证备份恢复合同结构、敏感值禁令和 not-run 恢复状态。
@@ -36,12 +36,12 @@ npm.cmd run test:p0:local
 当前合同如实记录：
 
 - 已知生产 ref：与 supabase/config.toml 一致；
-- 测试 ref：null；
-- 测试项目状态：not-provisioned；
-- 预览构建：在测试项目建立前保持禁止。
+- 测试 ref：`adzerzckgxxibadxkhcr`；
+- 测试项目状态：`declared`，Supabase 只读复核状态为 `ACTIVE_HEALTHY`；
+- 生产与测试 ref：不同；
+- 预览构建：恢复、密钥隔离和运行时校验完成前保持禁止。
 
-因此项目 ref 合同检查可以通过，但会同时输出
-readiness=BLOCKED reason=test-project-not-provisioned。这只证明本地声明没有把生产伪装成测试，不证明测试环境已建立，也不解除 G0 阻塞。
+因此项目 ref 合同可以证明独立项目已登记且没有把生产伪装成测试，但仍会如实输出 `readiness=BLOCKED reason=isolated-restore-not-validated`；它不证明数据库/Auth/Storage 已恢复，也不解除 G0 阻塞。
 
 ## 迁移清单边界
 

@@ -7,16 +7,16 @@
 
 | 检查项 | 当前结果 |
 | --- | --- |
-| 可见 Supabase 项目 | 仅 `canwinos` 1 个 |
+| 可见 Supabase 项目 | 生产 `canwinos` 与独立测试 `canwinos-team-os-4-p0-test` |
 | 当前组织/方案 | `yccanwin's Org` / Free |
-| 当前项目 ref | `agygfhmkazcbqaqwmljb` |
+| 生产项目 ref | `agygfhmkazcbqaqwmljb` |
 | 区域 | `ap-northeast-1` |
 | 数据库版本 | PostgreSQL 17.6.1 |
 | 项目状态 | `ACTIVE_HEALTHY` |
-| 本地 `supabase/config.toml` | 仍指向当前唯一项目 |
+| 本地 `supabase/config.toml` | 仍只声明生产项目；测试项目不写入默认链接配置 |
 | 生产迁移历史 | 69；版本和名称与本地精确匹配 |
 | 本地迁移文件 | 69；已有版本/文件名/SHA256 清单和纯静态校验 |
-| 独立测试项目 | 未发现/未创建 |
+| 独立测试项目 | `adzerzckgxxibadxkhcr`；`ap-northeast-1`；`ACTIVE_HEALTHY`；2026-07-19 已创建并只读复核 |
 | 数据库备份文件及校验和 | 未提供本轮证据 |
 | Auth/岗位关系导出 | 未提供本轮证据 |
 | Storage 对象备份 | 未提供本轮证据 |

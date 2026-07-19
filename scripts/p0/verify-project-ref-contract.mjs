@@ -23,6 +23,7 @@ if (hasTestProject) {
     ['test project ref has valid syntax', /^[a-z0-9]{20}$/.test(contract.testProjectRef)],
     ['test and production refs differ', contract.testProjectRef !== contract.productionProjectRef],
     ['test project status is declared', contract.testProjectStatus === 'declared'],
+    ['preview stays disabled before isolated restore validation', contract.previewBuildAllowed === false],
   )
 } else {
   checks.push(
@@ -53,6 +54,8 @@ console.log(
 )
 if (!hasTestProject) {
   console.log('[p0:project-ref] readiness=BLOCKED reason=test-project-not-provisioned')
+} else if (!contract.previewBuildAllowed) {
+  console.log('[p0:project-ref] readiness=BLOCKED reason=isolated-restore-not-validated')
 }
 
 if (passed !== checks.length) process.exit(1)
