@@ -19,6 +19,16 @@ const exactSet = (actual, expected) =>
 
 const expectedCategories = { database: 7, permission: 10, business: 9 }
 const expectedCatalog = { publicTables: 103, publicRoutines: 162, publicViews: 11, storageBuckets: 1 }
+const expectedCrmLeadsVisibleColumns = [
+  'id', 'read_scope', 'store_name', 'contact_name', 'masked_phone', 'district_name',
+  'business_type', 'source', 'created_at', 'next_action_at', 'stage', 'facts',
+  'lead_status', 'owner_display_name', 'claimable', 'active_opportunity_id',
+  'recycle_risk', 'recycle_due_at', 'recycle_paused', 'address',
+]
+const expectedCrmLeadsVisibleColumnAssertionFiles = new Set([
+  'supabase/tests/crm_core.sql',
+  'supabase/tests/sales_automation.sql',
+])
 const expectedRollbackFixtures = new Set([
   'supabase/tests/customer_import_behavior.sql',
   'supabase/tests/hardware_inventory_behavior.sql',
@@ -400,6 +410,14 @@ function findFormattingSensitiveDefinitionAssertions(sql) {
     .filter((fragment) => /\s(?:=|<>|>=|<=|>|<|\+|-)\s/.test(fragment) || fragment.includes('count(DISTINCT'))
 }
 
+function findExactViewColumnAssertions(sql) {
+  const pattern = /if\s*\(\s*select\s+array_agg\s*\(\s*column_name::text\s+order\s+by\s+ordinal_position\s*\)\s*from\s+information_schema\.columns\s+where\s+table_schema\s*=\s*'public'\s*and\s*table_name\s*=\s*'([a-z0-9_]+)'\s*\)\s*is\s+distinct\s+from\s+array\s*\[([\s\S]*?)\]\s*then/gi
+  return [...sql.matchAll(pattern)].map((match) => ({
+    view: match[1].toLowerCase(),
+    columns: [...match[2].matchAll(/'((?:''|[^'])*)'/g)].map((column) => column[1].replace(/''/g, "'")),
+  }))
+}
+
 function findMatchingSqlParen(sql, openIndex) {
   let depth = 0
   let inString = false
@@ -498,6 +516,14 @@ const definitionResolutionProbeSourcesPassed = definitionResolutionProbeAssertio
 })
 const viewIntervalNormalizationProbePassed =
   normalizeDefinitionText("interval '48 hours'") === normalizeDefinitionText("interval '48:00:00'")
+const exactViewColumnAssertionProbe = findExactViewColumnAssertions(`
+if (select array_agg(column_name::text order by ordinal_position)
+    from information_schema.columns where table_schema='public' and table_name='p0_column_probe')
+  is distinct from array['id','name'] then raise exception 'drift';end if;
+`)
+const exactViewColumnAssertionProbePassed = exactViewColumnAssertionProbe.length === 1
+  && exactViewColumnAssertionProbe[0].view === 'p0_column_probe'
+  && JSON.stringify(exactViewColumnAssertionProbe[0].columns) === JSON.stringify(['id', 'name'])
 
 function validate(candidate) {
   const failures = []
@@ -540,6 +566,7 @@ function validate(candidate) {
   check(counts.postInstallCatalogAssertions === 4, 'catalog assertion count drift')
   check(counts.definitionReferencedObjects === 54, 'definition referenced object count drift')
   check(counts.redefinedDefinitionReferencedObjects === 28, 'redefined definition object count drift')
+  check(counts.crmLeadsVisibleExactColumnAssertions === 2, 'crm_leads_visible exact column assertion count drift')
   check(counts.directDealOrderFixtureFiles === 2, 'direct deal order fixture file count drift')
   check(counts.directDealOrderInsertStatements === 2, 'direct deal order insert statement count drift')
   check(sourceRules.doKeywordSeparatedFromDollarQuote === true, 'DO dollar-quote separator rule drift')
@@ -550,11 +577,13 @@ function validate(candidate) {
   check(sourceRules.definitionStatementParserHandlesQuotedSemicolons === true, 'definition statement parser source rule drift')
   check(sourceRules.definitionReferencesResolveAssignmentsOverloadsAndRenames === true, 'definition reference resolution source rule drift')
   check(sourceRules.viewIntervalLiteralsNormalizeInputAndCanonicalOutput === true, 'view interval normalization source rule drift')
+  check(sourceRules.crmLeadsVisibleExactColumnAssertionsMatchFinalContract === true, 'crm_leads_visible exact column source rule drift')
   check(sourceRules.directDealOrderFixturesIncludeFinalRequiredOrderNumber === true, 'direct deal order required number source rule drift')
   check(statementParserProbePassed, 'definition statement parser probe failed')
   check(definitionResolutionProbeTargetsPassed, `definition assignment/overload target probe failed actual=${definitionResolutionProbeAssertions.map(definitionTargetKey).join(',')}`)
   check(definitionResolutionProbeSourcesPassed, 'definition overload/rename source probe failed')
   check(viewIntervalNormalizationProbePassed, 'view interval input/output normalization probe failed')
+  check(exactViewColumnAssertionProbePassed, 'exact view column assertion parser probe failed')
   check(directDealOrderInsertProbePassed, 'direct deal order insert parser probe failed')
   check(tests.length === counts.total, 'test entry count drift')
   check(exactSet(tests.map((entry) => entry.path), tests.map((entry) => entry.path)), 'duplicate test path')
@@ -574,6 +603,8 @@ function validate(candidate) {
   ), 'rollback fixture set drift')
 
   const definitionTargets = new Map()
+  const crmLeadsVisibleColumnAssertionFiles = new Set()
+  let crmLeadsVisibleExactColumnAssertions = 0
   const directDealOrderFixtureFiles = new Set()
   let directDealOrderInsertStatements = 0
   for (const entry of tests) {
@@ -588,6 +619,12 @@ function validate(candidate) {
     check(!/\bdo\$\$/i.test(sql), `DO keyword must be separated from dollar quote ${entry.path}`)
     check(findPolicyPresenceWriteAssertions(sql).length === 0, `policy presence misclassified as write grant ${entry.path}`)
     check(findFormattingSensitiveDefinitionAssertions(sql).length === 0, `definition fragment assertion depends on source formatting ${entry.path}`)
+    for (const assertion of findExactViewColumnAssertions(sql)) {
+      if (assertion.view !== 'crm_leads_visible') continue
+      crmLeadsVisibleColumnAssertionFiles.add(entry.path)
+      crmLeadsVisibleExactColumnAssertions += 1
+      check(JSON.stringify(assertion.columns) === JSON.stringify(expectedCrmLeadsVisibleColumns), `crm_leads_visible exact column assertion does not match final contract ${entry.path}`)
+    }
     const directDealOrderInserts = findDirectInsertColumns(sql, 'public.deal_orders')
     if (directDealOrderInserts.length > 0) directDealOrderFixtureFiles.add(entry.path)
     directDealOrderInsertStatements += directDealOrderInserts.length
@@ -614,6 +651,8 @@ function validate(candidate) {
     .filter((target) => findObjectDefinitions(migrationSources, target).length > 1)
   check(definitionTargets.size === counts.definitionReferencedObjects, `definition referenced object inventory drift expected=${counts.definitionReferencedObjects} actual=${definitionTargets.size}`)
   check(redefinedDefinitionTargets.length === counts.redefinedDefinitionReferencedObjects, `redefined definition object inventory drift expected=${counts.redefinedDefinitionReferencedObjects} actual=${redefinedDefinitionTargets.length}`)
+  check(crmLeadsVisibleExactColumnAssertions === counts.crmLeadsVisibleExactColumnAssertions, `crm_leads_visible exact column assertion inventory drift expected=${counts.crmLeadsVisibleExactColumnAssertions} actual=${crmLeadsVisibleExactColumnAssertions}`)
+  check(exactSet([...crmLeadsVisibleColumnAssertionFiles], [...expectedCrmLeadsVisibleColumnAssertionFiles]), 'crm_leads_visible exact column assertion file set drift')
   check(directDealOrderFixtureFiles.size === counts.directDealOrderFixtureFiles, `direct deal order fixture file inventory drift expected=${counts.directDealOrderFixtureFiles} actual=${directDealOrderFixtureFiles.size}`)
   check(directDealOrderInsertStatements === counts.directDealOrderInsertStatements, `direct deal order insert inventory drift expected=${counts.directDealOrderInsertStatements} actual=${directDealOrderInsertStatements}`)
 
@@ -649,14 +688,8 @@ function validate(candidate) {
   check(crmCoreTestSql.includes("crm_is_valid_opportunity('E',true,true,null) is distinct from false"), 'post-chain invalid-grade test missing')
   check(!crmCoreTestSql.includes('Qualification rule skeleton failed'), 'obsolete strict qualification assertion returned')
   const leadsView = candidate.historicalChainExpectations?.crmLeadsVisible ?? {}
-  const expectedLeadColumns = [
-    'id', 'read_scope', 'store_name', 'contact_name', 'masked_phone', 'district_name',
-    'business_type', 'source', 'created_at', 'next_action_at', 'stage', 'facts',
-    'lead_status', 'owner_display_name', 'claimable', 'active_opportunity_id',
-    'recycle_risk', 'recycle_due_at', 'recycle_paused', 'address',
-  ]
   check(leadsView.finalMigration === 'supabase/migrations/20260717184206_add_quick_lead_address.sql', 'lead view final migration drift')
-  check(JSON.stringify(leadsView.after69Columns) === JSON.stringify(expectedLeadColumns), 'lead view final column order drift')
+  check(JSON.stringify(leadsView.after69Columns) === JSON.stringify(expectedCrmLeadsVisibleColumns), 'lead view final column order drift')
   check(leadsView.addressHiddenFromOtherOwner === true, 'lead view address privacy drift')
   check(leadsView.rawPhoneColumnForbidden === true, 'lead view raw phone boundary drift')
   const finalLeadViewSql = normalizeLf(readFileSync(resolve(repoRoot, leadsView.finalMigration ?? 'missing'), 'utf8')).replace(/\s+/g, '').toLowerCase()
@@ -725,7 +758,7 @@ function validate(candidate) {
   check(boundary.repositorySecretsRequired === false, 'repository secrets must not be required')
 
   const attempts = candidate.formalAttemptHistory ?? []
-  check(attempts.length === 13, 'formal attempt history count drift')
+  check(attempts.length === 14, 'formal attempt history count drift')
   const failedAttempt = attempts[0] ?? {}
   check(failedAttempt.runId === '29680934378', 'failed run id drift')
   check(failedAttempt.jobId === '88176860842', 'failed job id drift')
@@ -947,6 +980,25 @@ function validate(candidate) {
   check(viewIntervalAttempt.productionReadPerformed === false, 'view interval run production read must remain false')
   check(viewIntervalAttempt.productionWritePerformed === false, 'view interval run production write must remain false')
   check(viewIntervalAttempt.rerunOfFailedRun === false, 'view interval run must remain a new candidate')
+  const leadColumnAttempt = attempts[13] ?? {}
+  check(leadColumnAttempt.runId === '29685099429', 'lead column run id drift')
+  check(leadColumnAttempt.jobId === '88187913476', 'lead column run job id drift')
+  check(leadColumnAttempt.headSha === '473a69df42cda1bc5c928b894e1624881206c7a3', 'lead column run head SHA drift')
+  check(leadColumnAttempt.conclusion === 'failure', 'lead column run conclusion drift')
+  check(leadColumnAttempt.failedStep === 'Run database permission and business gates', 'lead column run failed step drift')
+  check(leadColumnAttempt.rootCauseCode === 'sales_automation_expected_pre_address_view_columns', 'lead column run root cause drift')
+  check(leadColumnAttempt.databaseStartupPassed === true, 'lead column run database startup evidence missing')
+  check(leadColumnAttempt.baselinePassed === true, 'lead column run baseline evidence missing')
+  check(leadColumnAttempt.migrationsPassed === 69, 'lead column run migration count drift')
+  check(leadColumnAttempt.sqlTestsStarted === 26 && leadColumnAttempt.sqlTestsPassed === 25, 'lead column run test count drift')
+  check(leadColumnAttempt.databaseTestsPassed === 7 && leadColumnAttempt.permissionTestsPassed === 10 && leadColumnAttempt.businessTestsPassed === 8, 'lead column run category evidence drift')
+  check(leadColumnAttempt.firstFailedTest === 'supabase/tests/sales_automation.sql', 'lead column first failed test drift')
+  check(leadColumnAttempt.priorViewIntervalAssertionPassed === true, 'lead column prior interval assertion evidence missing')
+  check(leadColumnAttempt.classwideExactAssertionsAudited === 2, 'lead column classwide audit evidence drift')
+  check(leadColumnAttempt.cleanupPassed === true, 'lead column run cleanup evidence missing')
+  check(leadColumnAttempt.productionReadPerformed === false, 'lead column run production read must remain false')
+  check(leadColumnAttempt.productionWritePerformed === false, 'lead column run production write must remain false')
+  check(leadColumnAttempt.rerunOfFailedRun === false, 'lead column run must remain a new candidate')
   return failures
 }
 
@@ -975,6 +1027,7 @@ const negativeCases = [
   ['definition statement parser source rule', (value) => { value.testSourceRules.definitionStatementParserHandlesQuotedSemicolons = false }],
   ['definition assignment overload source rule', (value) => { value.testSourceRules.definitionReferencesResolveAssignmentsOverloadsAndRenames = false }],
   ['view interval normalization source rule', (value) => { value.testSourceRules.viewIntervalLiteralsNormalizeInputAndCanonicalOutput = false }],
+  ['crm lead view exact columns source rule', (value) => { value.testSourceRules.crmLeadsVisibleExactColumnAssertionsMatchFinalContract = false }],
   ['direct deal order fixture source rule', (value) => { value.testSourceRules.directDealOrderFixturesIncludeFinalRequiredOrderNumber = false }],
   ['definition target inventory', (value) => { value.expectedCounts.definitionReferencedObjects = 51 }],
   ['repository secret', (value) => { value.acceptanceBoundary.repositorySecretsRequired = true }],
@@ -997,5 +1050,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `P0_CI_DATABASE_CONTRACT_OK baseline=1 migrations=69 tests=${contract.tests.length} database=7 permission=10 business=9 catalog=4 definitions=${contract.expectedCounts.definitionReferencedObjects} redefined=${contract.expectedCounts.redefinedDefinitionReferencedObjects} negative=${negativePassed}/${negativeCases.length} localOnly=true repositorySecrets=0 productionReads=0 productionWrites=0 actualGithubRun=pending`,
+  `P0_CI_DATABASE_CONTRACT_OK baseline=1 migrations=69 tests=${contract.tests.length} database=7 permission=10 business=9 catalog=4 definitions=${contract.expectedCounts.definitionReferencedObjects} redefined=${contract.expectedCounts.redefinedDefinitionReferencedObjects} crmLeadColumnAssertions=${contract.expectedCounts.crmLeadsVisibleExactColumnAssertions} directOrderFixtures=${contract.expectedCounts.directDealOrderFixtureFiles} negative=${negativePassed}/${negativeCases.length} localOnly=true repositorySecrets=0 productionReads=0 productionWrites=0 actualGithubRun=pending`,
 )
