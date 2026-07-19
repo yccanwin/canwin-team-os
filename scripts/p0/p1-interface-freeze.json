@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "manifestType": "canwin-team-os-p1-interface-freeze",
-  "contractStatus": "p1_repair_candidate_pending_remote_runtime",
-  "scope": "Freeze P1 role, permission, app-context, navigation, responsibility-routing and acceptance interfaces; preserve the failed first remote run and track the repaired candidate while isolated remote runtime acceptance is pending and production remains unchanged.",
+  "contractStatus": "p1_ci_passed_page_account_acceptance_pending",
+  "scope": "Freeze P1 role, permission, app-context, navigation, responsibility-routing and acceptance interfaces; preserve the failed first remote run and the successful independent CI candidate while real page and account acceptance remains pending and production remains unchanged.",
   "sources": [
     "docs/CanWin-Team-OS-4.0-最终施工总方案.md",
     "docs/team-os-4.0/p0/p1-app-navigation-contract.json",
@@ -146,19 +146,19 @@
     { "id": "P1-API-012", "actor": "P1-IDN-005", "assertion": "role and scope mutations always create immutable audit evidence" }
   ],
   "workOrders": [
-    { "id": "P1-B1", "team": "backend", "status": "candidate_implemented_pending_remote", "deliverable": "single-company context and current-member resolver without hard-coded team identifiers" },
-    { "id": "P1-B2", "team": "backend", "status": "candidate_implemented_pending_remote", "deliverable": "primary role, additional function, skill, region and member-status model" },
-    { "id": "P1-B3", "team": "backend", "status": "candidate_implemented_pending_remote", "deliverable": "supervisor switch, scope and admin fallback responsibility router" },
-    { "id": "P1-B4", "team": "backend", "status": "candidate_implemented_pending_remote", "deliverable": "server-authoritative app context and minimum field projections" },
-    { "id": "P1-F1", "team": "frontend", "status": "candidate_implemented_pending_remote", "deliverable": "one role-generated workbench shell" },
-    { "id": "P1-F2", "team": "frontend", "status": "candidate_implemented_pending_remote", "deliverable": "role navigation and account-menu work-view switch" },
-    { "id": "P1-F3", "team": "frontend", "status": "candidate_implemented_pending_remote", "deliverable": "warehouse and enabled-supervisor conditional groups" },
-    { "id": "P1-F4", "team": "frontend", "status": "candidate_implemented_pending_remote", "deliverable": "36-route compatibility, redirects and closures without data deletion" },
-    { "id": "P1-Q1", "team": "qa", "status": "candidate_implemented_pending_remote", "deliverable": "five primary role tests without overlays" },
-    { "id": "P1-Q2", "team": "qa", "status": "candidate_implemented_pending_remote", "deliverable": "warehouse and supervisor on-off overlay matrix" },
-    { "id": "P1-Q3", "team": "qa", "status": "candidate_implemented_pending_remote", "deliverable": "direct API overreach and field whitelist matrix" },
-    { "id": "P1-Q4", "team": "qa", "status": "candidate_implemented_pending_remote", "deliverable": "fallback, disabled member, bulk transfer and immutable audit tests" },
-    { "id": "P1-Q5", "team": "qa", "status": "candidate_implemented_pending_remote", "deliverable": "one test entry point with CI database, permission and business test counts" }
+    { "id": "P1-B1", "team": "backend", "status": "candidate_ci_passed_page_account_acceptance_pending", "deliverable": "single-company context and current-member resolver without hard-coded team identifiers" },
+    { "id": "P1-B2", "team": "backend", "status": "candidate_ci_passed_page_account_acceptance_pending", "deliverable": "primary role, additional function, skill, region and member-status model" },
+    { "id": "P1-B3", "team": "backend", "status": "candidate_ci_passed_page_account_acceptance_pending", "deliverable": "supervisor switch, scope and admin fallback responsibility router" },
+    { "id": "P1-B4", "team": "backend", "status": "candidate_ci_passed_page_account_acceptance_pending", "deliverable": "server-authoritative app context and minimum field projections" },
+    { "id": "P1-F1", "team": "frontend", "status": "candidate_ci_passed_page_account_acceptance_pending", "deliverable": "one role-generated workbench shell" },
+    { "id": "P1-F2", "team": "frontend", "status": "candidate_ci_passed_page_account_acceptance_pending", "deliverable": "role navigation and account-menu work-view switch" },
+    { "id": "P1-F3", "team": "frontend", "status": "candidate_ci_passed_page_account_acceptance_pending", "deliverable": "warehouse and enabled-supervisor conditional groups" },
+    { "id": "P1-F4", "team": "frontend", "status": "candidate_ci_passed_page_account_acceptance_pending", "deliverable": "36-route compatibility, redirects and closures without data deletion" },
+    { "id": "P1-Q1", "team": "qa", "status": "candidate_ci_passed_page_account_acceptance_pending", "deliverable": "five primary role tests without overlays" },
+    { "id": "P1-Q2", "team": "qa", "status": "candidate_ci_passed_page_account_acceptance_pending", "deliverable": "warehouse and supervisor on-off overlay matrix" },
+    { "id": "P1-Q3", "team": "qa", "status": "candidate_ci_passed_page_account_acceptance_pending", "deliverable": "direct API overreach and field whitelist matrix" },
+    { "id": "P1-Q4", "team": "qa", "status": "candidate_ci_passed_page_account_acceptance_pending", "deliverable": "fallback, disabled member, bulk transfer and immutable audit tests" },
+    { "id": "P1-Q5", "team": "qa", "status": "candidate_ci_passed_page_account_acceptance_pending", "deliverable": "one test entry point with CI database, permission and business test counts" }
   ],
   "ciContract": {
     "workflowPath": ".github/workflows/p0-static.yml",
@@ -166,15 +166,27 @@
     "secretValuesMayBePrintedOrCommitted": false,
     "databasePermissionAndBusinessTestsRequired": true,
     "actualRemoteRunEvidence": "passed",
-    "p1ActualRemoteRunEvidence": "failed_repair_pending"
+    "p1ActualRemoteRunEvidence": "passed",
+    "p1RunEvidence": {
+      "runId": "29691027458",
+      "linuxJobId": "88203660504",
+      "windowsJobId": "88203660515",
+      "headSha": "ed853ebbab250f562d03f433f4d2df4ada87de4e",
+      "databaseGates": "70/70 migrations, 27/27 SQL, 4/4 catalog",
+      "windowsGates": "15/15 static, 12/12 local, 71/71 P1 app shell",
+      "cleanupPassed": true
+    }
   },
   "acceptanceBoundary": {
     "p1InterfacesFrozen": true,
     "p1WorkOrdersFrozen": true,
     "p1CodeStarted": true,
     "p1CandidateImplemented": true,
+    "ciRuntimeAccepted": true,
+    "pageAccountAcceptancePassed": false,
     "runtimeAccepted": false,
     "g0OverallClaim": true,
+    "g1OverallClaim": false,
     "productionWritePerformed": false,
     "productionMigrationAuthorized": false
   }

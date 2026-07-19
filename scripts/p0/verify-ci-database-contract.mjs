@@ -604,7 +604,7 @@ function validate(candidate) {
 
   check(candidate.schemaVersion === 1, 'schema version must be 1')
   check(candidate.manifestType === 'canwin-team-os-p0-ci-database-tests', 'manifest type drift')
-  check(candidate.contractStatus === 'p1_repair_candidate_pending_actual_github_run', 'contract status drift')
+  check(candidate.contractStatus === 'p1_ci_passed_page_account_acceptance_pending', 'contract status drift')
 
   check(candidate.baseline?.path === 'supabase/schema.sql', 'baseline path drift')
   check(candidate.baseline?.sha256Lf === sha256Lf(resolve(repoRoot, 'supabase', 'schema.sql')), 'baseline hash drift')
@@ -844,14 +844,14 @@ function validate(candidate) {
   check(boundary.contractAccepted === true, 'CI database contract not accepted')
   check(boundary.actualGithubRunEvidence === 'passed', 'actual GitHub run success evidence missing')
   check(boundary.g0OverallClaim === true, 'G0 success claim missing')
-  check(boundary.p1ActualGithubRunEvidence === 'failed_repair_pending', 'P1 failed runtime evidence and repair boundary must remain explicit')
-  check(boundary.g1OverallClaim === false, 'G1 must remain unclaimed while the repaired candidate lacks a successful formal run')
+  check(boundary.p1ActualGithubRunEvidence === 'passed', 'P1 successful GitHub run evidence missing')
+  check(boundary.g1OverallClaim === false, 'G1 must remain unclaimed until real page and account acceptance passes')
   check(boundary.productionReadPerformed === false, 'production read must remain false')
   check(boundary.productionWritePerformed === false, 'production write must remain false')
   check(boundary.repositorySecretsRequired === false, 'repository secrets must not be required')
 
   const attempts = candidate.formalAttemptHistory ?? []
-  check(attempts.length === 17, 'formal attempt history count drift')
+  check(attempts.length === 18, 'formal attempt history count drift')
   const failedAttempt = attempts[0] ?? {}
   check(failedAttempt.runId === '29680934378', 'failed run id drift')
   check(failedAttempt.jobId === '88176860842', 'failed job id drift')
@@ -1151,6 +1151,31 @@ function validate(candidate) {
   check(p1FixtureAttempt.repositorySecretsRequired === false, 'P1 fixture repository secret boundary drift')
   check(p1FixtureAttempt.productionReadPerformed === false && p1FixtureAttempt.productionWritePerformed === false, 'P1 fixture production boundary drift')
   check(p1FixtureAttempt.rerunOfFailedRun === false, 'P1 fixture attempt must remain an independent candidate')
+  const p1SuccessfulAttempt = attempts[17] ?? {}
+  check(p1SuccessfulAttempt.runId === '29691027458', 'successful P1 run id drift')
+  check(p1SuccessfulAttempt.runUrl === 'https://github.com/yccanwin/canwin-team-os/actions/runs/29691027458', 'successful P1 run URL drift')
+  check(p1SuccessfulAttempt.jobId === '88203660504', 'successful P1 Linux job id drift')
+  check(p1SuccessfulAttempt.windowsJobId === '88203660515', 'successful P1 Windows job id drift')
+  check(p1SuccessfulAttempt.headSha === 'ed853ebbab250f562d03f433f4d2df4ada87de4e', 'successful P1 head SHA drift')
+  check(p1SuccessfulAttempt.conclusion === 'success', 'successful P1 conclusion drift')
+  check(p1SuccessfulAttempt.linuxDurationSeconds === 127 && p1SuccessfulAttempt.windowsDurationSeconds === 97, 'successful P1 job duration drift')
+  check(p1SuccessfulAttempt.windowsLocalGatePassed === true, 'successful P1 Windows gate evidence missing')
+  check(p1SuccessfulAttempt.windowsStaticGatesPassed === 15 && p1SuccessfulAttempt.windowsLocalIntegrationPassed === 12, 'successful P1 Windows gate counts drift')
+  check(p1SuccessfulAttempt.p1AppShellAssertionsPassed === 71, 'successful P1 app-shell assertion count drift')
+  check(p1SuccessfulAttempt.frontendModulesBuilt === 1975, 'successful P1 frontend module count drift')
+  check(p1SuccessfulAttempt.frontendArtifactFiles === 66, 'successful P1 frontend artifact file count drift')
+  check(p1SuccessfulAttempt.frontendArtifactSha256 === '33505fcddc4b814379906406287b1fa715677b1e218497e1fe5a1693f50fc21b', 'successful P1 frontend artifact hash drift')
+  check(p1SuccessfulAttempt.databaseStartupPassed === true && p1SuccessfulAttempt.baselinePassed === true, 'successful P1 database startup or baseline evidence missing')
+  check(p1SuccessfulAttempt.migrationsPassed === 70, 'successful P1 migration count drift')
+  check(p1SuccessfulAttempt.sqlTestsStarted === 27 && p1SuccessfulAttempt.sqlTestsPassed === 27, 'successful P1 SQL test count drift')
+  check(p1SuccessfulAttempt.databaseTestsPassed === 7 && p1SuccessfulAttempt.permissionTestsPassed === 11 && p1SuccessfulAttempt.businessTestsPassed === 9, 'successful P1 test-category evidence drift')
+  check(p1SuccessfulAttempt.catalogAssertionsPassed === 4, 'successful P1 catalog assertion count drift')
+  check(p1SuccessfulAttempt.successMarker === 'P0_CI_DATABASE_GATES_OK', 'successful P1 marker drift')
+  check(p1SuccessfulAttempt.cleanupPassed === true, 'successful P1 cleanup evidence missing')
+  check(p1SuccessfulAttempt.repositorySecretsRequired === false, 'successful P1 repository-secret boundary drift')
+  check(p1SuccessfulAttempt.productionReadPerformed === false && p1SuccessfulAttempt.productionWritePerformed === false, 'successful P1 production boundary drift')
+  check(p1SuccessfulAttempt.rerunOfFailedRun === false, 'successful P1 run must remain an independent candidate')
+  check(p1SuccessfulAttempt.pageAccountAcceptancePassed === false, 'successful CI must not claim real page/account acceptance')
   return failures
 }
 
@@ -1186,7 +1211,9 @@ const negativeCases = [
   ['repository secret', (value) => { value.acceptanceBoundary.repositorySecretsRequired = true }],
   ['production write', (value) => { value.acceptanceBoundary.productionWritePerformed = true }],
   ['G0 success evidence erased', (value) => { value.acceptanceBoundary.g0OverallClaim = false }],
-  ['failed evidence erased', (value) => { value.formalAttemptHistory.pop() }],
+  ['P1 CI success erased', (value) => { value.acceptanceBoundary.p1ActualGithubRunEvidence = 'failed_repair_pending' }],
+  ['G1 falsely claimed', (value) => { value.acceptanceBoundary.g1OverallClaim = true }],
+  ['successful P1 attempt erased', (value) => { value.formalAttemptHistory.pop() }],
 ]
 let negativePassed = 0
 for (const [name, mutate] of negativeCases) {
@@ -1203,5 +1230,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `P0_CI_DATABASE_CONTRACT_OK baseline=1 migrations=70 tests=${contract.tests.length} database=7 permission=11 business=9 catalog=4 definitions=${contract.expectedCounts.definitionReferencedObjects} redefined=${contract.expectedCounts.redefinedDefinitionReferencedObjects} crmLeadColumnAssertions=${contract.expectedCounts.crmLeadsVisibleExactColumnAssertions} directOrderFixtures=${contract.expectedCounts.directDealOrderFixtureFiles} finalFunctionIdentities=${contract.expectedCounts.finalPublicFunctionIdentities} functionIdentityReferences=${contract.expectedCounts.functionIdentityReferences} negative=${negativePassed}/${negativeCases.length} localOnly=true repositorySecrets=0 productionReads=0 productionWrites=0 actualGithubRun=passed g0=true p1ActualGithubRun=failed_repair_pending g1=false`,
+  `P0_CI_DATABASE_CONTRACT_OK baseline=1 migrations=70 tests=${contract.tests.length} database=7 permission=11 business=9 catalog=4 definitions=${contract.expectedCounts.definitionReferencedObjects} redefined=${contract.expectedCounts.redefinedDefinitionReferencedObjects} crmLeadColumnAssertions=${contract.expectedCounts.crmLeadsVisibleExactColumnAssertions} directOrderFixtures=${contract.expectedCounts.directDealOrderFixtureFiles} finalFunctionIdentities=${contract.expectedCounts.finalPublicFunctionIdentities} functionIdentityReferences=${contract.expectedCounts.functionIdentityReferences} negative=${negativePassed}/${negativeCases.length} localOnly=true repositorySecrets=0 productionReads=0 productionWrites=0 actualGithubRun=passed g0=true p1ActualGithubRun=passed pageAccountAcceptance=false g1=false`,
 )

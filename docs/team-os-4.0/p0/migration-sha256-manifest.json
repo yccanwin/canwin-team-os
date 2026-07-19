@@ -4,7 +4,7 @@
     "hashMode":  "utf8-lf",
     "expectedCount":  70,
     "migrationDirectory":  "supabase/migrations",
-    "generatedFromCommit":  "9d7ec273c3802768fca87469f6a110d78570ed2a",
+    "generatedFromCommit":  "ed853ebbab250f562d03f433f4d2df4ada87de4e",
     "entries":  [
                     {
                         "version":  "20260710024500",

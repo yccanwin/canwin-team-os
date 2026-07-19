@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "manifestType": "canwin-team-os-p0-ci-database-tests",
-  "contractStatus": "p1_repair_candidate_pending_actual_github_run",
+  "contractStatus": "p1_ci_passed_page_account_acceptance_pending",
   "baseline": {
     "path": "supabase/schema.sql",
     "sha256Lf": "4602c1e583174a4dbc6e480aac101d2cf914148651ded71028d9a43abed8c340"
@@ -132,7 +132,7 @@
     "contractAccepted": true,
     "actualGithubRunEvidence": "passed",
     "g0OverallClaim": true,
-    "p1ActualGithubRunEvidence": "failed_repair_pending",
+    "p1ActualGithubRunEvidence": "passed",
     "g1OverallClaim": false,
     "productionReadPerformed": false,
     "productionWritePerformed": false,
@@ -489,6 +489,39 @@
       "productionReadPerformed": false,
       "productionWritePerformed": false,
       "rerunOfFailedRun": false
+    },
+    {
+      "runId": "29691027458",
+      "runUrl": "https://github.com/yccanwin/canwin-team-os/actions/runs/29691027458",
+      "jobId": "88203660504",
+      "windowsJobId": "88203660515",
+      "headSha": "ed853ebbab250f562d03f433f4d2df4ada87de4e",
+      "conclusion": "success",
+      "linuxDurationSeconds": 127,
+      "windowsDurationSeconds": 97,
+      "windowsLocalGatePassed": true,
+      "windowsStaticGatesPassed": 15,
+      "windowsLocalIntegrationPassed": 12,
+      "p1AppShellAssertionsPassed": 71,
+      "frontendModulesBuilt": 1975,
+      "frontendArtifactFiles": 66,
+      "frontendArtifactSha256": "33505fcddc4b814379906406287b1fa715677b1e218497e1fe5a1693f50fc21b",
+      "databaseStartupPassed": true,
+      "baselinePassed": true,
+      "migrationsPassed": 70,
+      "sqlTestsStarted": 27,
+      "sqlTestsPassed": 27,
+      "databaseTestsPassed": 7,
+      "permissionTestsPassed": 11,
+      "businessTestsPassed": 9,
+      "catalogAssertionsPassed": 4,
+      "successMarker": "P0_CI_DATABASE_GATES_OK",
+      "cleanupPassed": true,
+      "repositorySecretsRequired": false,
+      "productionReadPerformed": false,
+      "productionWritePerformed": false,
+      "rerunOfFailedRun": false,
+      "pageAccountAcceptancePassed": false
     }
   ]
 }

@@ -58,9 +58,9 @@ function validate(candidate) {
 
   check(candidate.schemaVersion === 1, 'schema version must be 1')
   check(candidate.manifestType === 'canwin-team-os-p1-interface-freeze', 'manifest type drift')
-  check(candidate.contractStatus === 'p1_repair_candidate_pending_remote_runtime', 'contract status drift')
+  check(candidate.contractStatus === 'p1_ci_passed_page_account_acceptance_pending', 'contract status drift')
   check(physical.contractStatus === 'p0_supervisor_frozen_runtime_not_implemented', 'physical object contract is not frozen')
-  check(navigation.contractStatus === 'p1_repair_candidate_pending_remote_runtime', 'navigation candidate status drift')
+  check(navigation.contractStatus === 'p1_ci_passed_page_account_acceptance_pending', 'navigation candidate status drift')
   check(roleMigration.manualPrimaryRoleDecisions?.status === 'owner-confirmed-isolated-applied-production-unchanged', 'manual role decisions are not frozen and isolated-applied')
 
   check(counts.rpcInterfaces === expectedRpcNames.length && rpcs.length === counts.rpcInterfaces, 'RPC count drift')
@@ -152,7 +152,7 @@ function validate(candidate) {
 
   for (const order of workOrders) {
     check(['backend', 'frontend', 'qa'].includes(order.team), `${order.id} has unknown team`)
-    check(order.status === 'candidate_implemented_pending_remote', `${order.id} must remain candidate_implemented_pending_remote until isolated runtime acceptance`)
+    check(order.status === 'candidate_ci_passed_page_account_acceptance_pending', `${order.id} must remain CI-passed with real page/account acceptance pending`)
     check(Boolean(order.deliverable?.trim()), `${order.id} lacks deliverable`)
   }
   check(workOrders.filter((entry) => entry.team === 'backend').length === 4, 'backend work-order count drift')
@@ -166,15 +166,24 @@ function validate(candidate) {
   check(ci.secretValuesMayBePrintedOrCommitted === false, 'CI secret boundary drift')
   check(ci.databasePermissionAndBusinessTestsRequired === true, 'CI runtime tests must remain required')
   check(ci.actualRemoteRunEvidence === 'passed', 'remote CI evidence must remain accepted after actual proof exists')
-  check(ci.p1ActualRemoteRunEvidence === 'failed_repair_pending', 'P1 failed runtime evidence and repair boundary must remain explicit')
+  check(ci.p1ActualRemoteRunEvidence === 'passed', 'P1 successful remote CI evidence missing')
+  check(ci.p1RunEvidence?.runId === '29691027458', 'P1 run id drift')
+  check(ci.p1RunEvidence?.linuxJobId === '88203660504' && ci.p1RunEvidence?.windowsJobId === '88203660515', 'P1 job ids drift')
+  check(ci.p1RunEvidence?.headSha === 'ed853ebbab250f562d03f433f4d2df4ada87de4e', 'P1 head SHA drift')
+  check(ci.p1RunEvidence?.databaseGates === '70/70 migrations, 27/27 SQL, 4/4 catalog', 'P1 database gate summary drift')
+  check(ci.p1RunEvidence?.windowsGates === '15/15 static, 12/12 local, 71/71 P1 app shell', 'P1 Windows gate summary drift')
+  check(ci.p1RunEvidence?.cleanupPassed === true, 'P1 cleanup evidence missing')
 
   const boundary = candidate.acceptanceBoundary ?? {}
   check(boundary.p1InterfacesFrozen === true, 'P1 interface freeze missing')
   check(boundary.p1WorkOrdersFrozen === true, 'P1 work-order freeze missing')
   check(boundary.p1CodeStarted === true, 'P1 code start must be recorded')
   check(boundary.p1CandidateImplemented === true, 'P1 candidate implementation must be recorded')
+  check(boundary.ciRuntimeAccepted === true, 'P1 CI runtime acceptance must be recorded')
+  check(boundary.pageAccountAcceptancePassed === false, 'real page/account acceptance must remain pending')
   check(boundary.runtimeAccepted === false, 'runtime acceptance must remain false')
   check(boundary.g0OverallClaim === true, 'G0 success evidence is missing')
+  check(boundary.g1OverallClaim === false, 'G1 must remain false before real page/account acceptance')
   check(boundary.productionWritePerformed === false, 'production write must remain false')
   check(boundary.productionMigrationAuthorized === false, 'production migration must remain unauthorized')
 
@@ -195,6 +204,9 @@ const negativeCases = [
   ['write without idempotency', (value) => { value.rpcInterfaces[3].arguments = value.rpcInterfaces[3].arguments.filter((name) => name !== 'p_idempotency_key') }],
   ['work status reverted', (value) => { value.workOrders[0].status = 'frozen_not_started' }],
   ['remote CI success erased', (value) => { value.ciContract.actualRemoteRunEvidence = 'pending' }],
+  ['P1 CI success erased', (value) => { value.ciContract.p1ActualRemoteRunEvidence = 'failed_repair_pending' }],
+  ['page acceptance falsely claimed', (value) => { value.acceptanceBoundary.pageAccountAcceptancePassed = true }],
+  ['G1 falsely claimed', (value) => { value.acceptanceBoundary.g1OverallClaim = true }],
   ['G0 success erased', (value) => { value.acceptanceBoundary.g0OverallClaim = false }],
   ['production write', (value) => { value.acceptanceBoundary.productionWritePerformed = true }],
 ]
@@ -213,5 +225,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `P0_P1_INTERFACE_FREEZE_OK rpcs=${contract.rpcInterfaces.length} whitelists=${Object.keys(contract.fieldWhitelists).length} identities=${contract.baseTestIdentities.length} overlays=${contract.overlayTestCases.length} attacks=${contract.directApiAttackCases.length} workOrders=${contract.workOrders.length} negative=${negativePassed}/${negativeCases.length} p1ActualRemoteRun=failed_repair_pending runtimeAccepted=false g0=true p1CandidateImplemented=true`,
+  `P0_P1_INTERFACE_FREEZE_OK rpcs=${contract.rpcInterfaces.length} whitelists=${Object.keys(contract.fieldWhitelists).length} identities=${contract.baseTestIdentities.length} overlays=${contract.overlayTestCases.length} attacks=${contract.directApiAttackCases.length} workOrders=${contract.workOrders.length} negative=${negativePassed}/${negativeCases.length} p1ActualRemoteRun=passed ciRuntimeAccepted=true pageAccountAcceptance=false runtimeAccepted=false g0=true g1=false p1CandidateImplemented=true`,
 )

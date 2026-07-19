@@ -181,7 +181,7 @@ const appSource = await readUtf8(inventory.sources.routes)
 const routeRows = extractRouteRows(appSource)
 assert(routeRows.length === counts.currentRoutes, `Source route count expected ${counts.currentRoutes}, got ${routeRows.length}.`)
 compareExactSet('Route paths', routeRows.map((route) => route.path), inventory.currentRoutes.map((route) => route.path))
-assert(p1Navigation.contractStatus === 'p1_repair_candidate_pending_remote_runtime', 'P1 navigation repair candidate status drifted.')
+assert(p1Navigation.contractStatus === 'p1_ci_passed_page_account_acceptance_pending', 'P1 navigation CI-passed status drifted.')
 compareExactSet(
   'P1 compatibility route paths',
   p1Navigation.legacyRouteCompatibility.map((route) => route.path),
