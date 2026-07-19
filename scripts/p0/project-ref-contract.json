@@ -10,6 +10,6 @@
     "type": "publishable",
     "sha256": "8689757e34f29a10179bbce63cafeca2c1febb9c29d9e2968b2a56bbca811910"
   },
-  "testProjectStatus": "declared",
+  "testProjectStatus": "restore-validated",
   "previewBuildAllowed": false
 }

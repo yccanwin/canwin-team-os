@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "manifestType": "canwin-team-os-restore-run",
-  "runId": null,
-  "state": "preflight-blocked",
+  "runId": "canwin-team-os-4-p0-20260719T074943659Z-c11fca6bd1-restore-1",
+  "state": "succeeded",
   "progressGate": "G0",
   "source": {
     "environment": "production",
@@ -10,24 +10,24 @@
     "access": "read-only",
     "writeFreeze": {
       "authorization": "approved-when-scheduled",
-      "status": "not-started",
-      "startedAt": null,
-      "verifiedAt": null,
-      "verifiedBy": null,
+      "status": "verified",
+      "startedAt": "2026-07-19T07:49:42.086Z",
+      "verifiedAt": "2026-07-19T07:52:21.976Z",
+      "verifiedBy": "sealed-recovery-reconciliation",
       "releaseOwner": "project-owner",
       "channels": {
-        "frontend": "not-started",
-        "directApi": "not-started",
-        "authChanges": "not-started",
-        "functions": "not-started",
-        "webhooks": "not-started",
-        "cronWorkers": "not-started",
-        "manualAdmin": "not-started"
+        "frontend": "verified",
+        "directApi": "verified",
+        "authChanges": "verified",
+        "functions": "verified",
+        "webhooks": "verified",
+        "cronWorkers": "verified",
+        "manualAdmin": "verified"
       },
-      "sourceBeforeSha256": null,
-      "sourceAfterSha256": null
+      "sourceBeforeSha256": "0ac09fd29639f4be3e4bfba8687df41fdf0fa1086de8f399ef0d6d3c55090c08",
+      "sourceAfterSha256": "0ac09fd29639f4be3e4bfba8687df41fdf0fa1086de8f399ef0d6d3c55090c08"
     },
-    "snapshotAt": null
+    "snapshotAt": "2026-07-19T07:50:15.270Z"
   },
   "target": {
     "environment": "isolated-test",
@@ -46,14 +46,14 @@
     ],
     "realAuthLoginAllowed": false,
     "externalDeliveryAllowed": false,
-    "retentionUntil": null
+    "retentionUntil": "2026-07-22T07:52:21.976Z"
   },
   "authorization": {
     "productionBackupRead": true,
     "productionWriteFreezeApproved": true,
     "targetRestoreWrite": true,
-    "formalAttemptId": null,
-    "formalAttemptStarted": false,
+    "formalAttemptId": "canwin-team-os-4-p0-20260719T074943659Z-c11fca6bd1-restore-1",
+    "formalAttemptStarted": true,
     "maxAttempts": 1,
     "noAutomaticRetry": true
   },
@@ -65,18 +65,18 @@
     "pgDump": { "status": "ready", "path": "C:\\Users\\祁杰1\\scoop\\apps\\postgresql\\18.4-2\\bin\\pg_dump.exe", "version": "18.4" }
   },
   "artifacts": {
-    "backupPackageManifest": null,
-    "backupPackageManifestSha256": null,
-    "evidenceDirectory": null
+    "backupPackageManifest": "D:\\CanWin-Team-OS-4.0-Recovery\\canwin-team-os-4-p0-20260719T074943659Z-c11fca6bd1\\manifest.json",
+    "backupPackageManifestSha256": "f4174b91f51f63e37b42e9d907aea0f72aa907ec31694041081ee06c2f6d20b2",
+    "evidenceDirectory": "D:\\CanWin-Team-OS-4.0-Recovery\\canwin-team-os-4-p0-20260719T074943659Z-c11fca6bd1"
   },
   "steps": {
-    "database": { "status": "not-run", "attempts": 0, "startedAt": null, "finishedAt": null, "exitCode": null, "logPath": null, "logSha256": null },
-    "auth": { "status": "not-run", "attempts": 0, "startedAt": null, "finishedAt": null, "exitCode": null, "logPath": null, "logSha256": null },
-    "storage": { "status": "not-run", "attempts": 0, "startedAt": null, "finishedAt": null, "exitCode": null, "logPath": null, "logSha256": null },
-    "functions": { "status": "not-run", "attempts": 0, "startedAt": null, "finishedAt": null, "exitCode": null, "logPath": null, "logSha256": null },
-    "cron": { "status": "not-run", "attempts": 0, "startedAt": null, "finishedAt": null, "exitCode": null, "logPath": null, "logSha256": null },
-    "featureFlags": { "status": "not-run", "attempts": 0, "startedAt": null, "finishedAt": null, "exitCode": null, "logPath": null, "logSha256": null },
-    "reconciliation": { "status": "not-run", "attempts": 0, "startedAt": null, "finishedAt": null, "exitCode": null, "logPath": null, "logSha256": null }
+    "database": { "status": "succeeded", "attempts": 1, "startedAt": "2026-07-19T07:55:05.686Z", "finishedAt": "2026-07-19T07:58:54.272Z", "exitCode": 0, "logPath": "D:\\CanWin-Team-OS-4.0-Recovery\\canwin-team-os-4-p0-20260719T074943659Z-c11fca6bd1\\restore-evidence.json", "logSha256": "04a6c5d6ac9510747abf5efee27dfe0ecb2a8550191b8ce047b9a1a8d5b458a8" },
+    "auth": { "status": "succeeded", "attempts": 1, "startedAt": "2026-07-19T07:55:05.686Z", "finishedAt": "2026-07-19T07:58:54.272Z", "exitCode": 0, "logPath": "D:\\CanWin-Team-OS-4.0-Recovery\\canwin-team-os-4-p0-20260719T074943659Z-c11fca6bd1\\restore-evidence.json", "logSha256": "04a6c5d6ac9510747abf5efee27dfe0ecb2a8550191b8ce047b9a1a8d5b458a8" },
+    "storage": { "status": "succeeded", "attempts": 1, "startedAt": "2026-07-19T07:58:54.272Z", "finishedAt": "2026-07-19T07:59:14.844Z", "exitCode": 0, "logPath": "D:\\CanWin-Team-OS-4.0-Recovery\\canwin-team-os-4-p0-20260719T074943659Z-c11fca6bd1\\restore-evidence.json", "logSha256": "04a6c5d6ac9510747abf5efee27dfe0ecb2a8550191b8ce047b9a1a8d5b458a8" },
+    "functions": { "status": "succeeded", "attempts": 1, "startedAt": "2026-07-19T07:59:20.001Z", "finishedAt": "2026-07-19T07:59:27.295Z", "exitCode": 0, "logPath": "D:\\CanWin-Team-OS-4.0-Recovery\\canwin-team-os-4-p0-20260719T074943659Z-c11fca6bd1\\restore-evidence.json", "logSha256": "04a6c5d6ac9510747abf5efee27dfe0ecb2a8550191b8ce047b9a1a8d5b458a8" },
+    "cron": { "status": "succeeded", "attempts": 1, "startedAt": "2026-07-19T07:59:20.001Z", "finishedAt": "2026-07-19T07:59:27.295Z", "exitCode": 0, "logPath": "D:\\CanWin-Team-OS-4.0-Recovery\\canwin-team-os-4-p0-20260719T074943659Z-c11fca6bd1\\restore-evidence.json", "logSha256": "04a6c5d6ac9510747abf5efee27dfe0ecb2a8550191b8ce047b9a1a8d5b458a8" },
+    "featureFlags": { "status": "succeeded", "attempts": 1, "startedAt": "2026-07-19T07:59:20.001Z", "finishedAt": "2026-07-19T07:59:27.295Z", "exitCode": 0, "logPath": "D:\\CanWin-Team-OS-4.0-Recovery\\canwin-team-os-4-p0-20260719T074943659Z-c11fca6bd1\\restore-evidence.json", "logSha256": "04a6c5d6ac9510747abf5efee27dfe0ecb2a8550191b8ce047b9a1a8d5b458a8" },
+    "reconciliation": { "status": "succeeded", "attempts": 1, "startedAt": "2026-07-19T07:59:14.844Z", "finishedAt": "2026-07-19T07:59:27.295Z", "exitCode": 0, "logPath": "D:\\CanWin-Team-OS-4.0-Recovery\\canwin-team-os-4-p0-20260719T074943659Z-c11fca6bd1\\restore-evidence.json", "logSha256": "04a6c5d6ac9510747abf5efee27dfe0ecb2a8550191b8ce047b9a1a8d5b458a8" }
   },
   "failurePolicy": {
     "stopOnFirstFailure": true,
