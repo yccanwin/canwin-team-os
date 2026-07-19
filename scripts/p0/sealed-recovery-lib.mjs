@@ -330,17 +330,18 @@ export async function verifyStorageArchive(client, expectedArchive) {
   return summary
 }
 
-export function getReconciliation({ psqlPath, pgEnvironment, sql }) {
+export function getReconciliation({ psqlPath, pgEnvironment, sql, retryReadOnlySessionPooler = false }) {
   const result = parseJson('sealed reconciliation', runPsql({
     psqlPath,
     pgEnvironment,
     sql,
     timeout: 180000,
+    retryReadOnlySessionPooler,
   }))
   return { value: result, canonical: canonicalJson(result), sha256: sha256(canonicalJson(result)) }
 }
 
-export function getStoragePolicySql({ psqlPath, pgEnvironment }) {
+export function getStoragePolicySql({ psqlPath, pgEnvironment, retryReadOnlySessionPooler = false }) {
   const sql = `
 with search_path_locked as materialized (
   select pg_catalog.set_config('search_path','',true) as ignored
@@ -361,10 +362,10 @@ join pg_catalog.pg_class c on c.oid=p.polrelid
 join pg_catalog.pg_namespace n on n.oid=c.relnamespace
 cross join search_path_locked
 where n.nspname in ('auth','storage');`
-  return runPsql({ psqlPath, pgEnvironment, sql }) + '\n'
+  return runPsql({ psqlPath, pgEnvironment, sql, retryReadOnlySessionPooler }) + '\n'
 }
 
-function collectManagedTriggers({ psqlPath, pgEnvironment }) {
+function collectManagedTriggers({ psqlPath, pgEnvironment, retryReadOnlySessionPooler = false }) {
   const sql = `
 with search_path_locked as materialized (
   select pg_catalog.set_config('search_path','',true) as ignored
@@ -385,12 +386,12 @@ join pg_catalog.pg_proc p on p.oid=t.tgfoid
 join pg_catalog.pg_namespace pn on pn.oid=p.pronamespace
 cross join search_path_locked
 where not t.tgisinternal and n.nspname in ('auth','storage');`
-  return parseJson('managed trigger inventory', runPsql({ psqlPath, pgEnvironment, sql }))
+  return parseJson('managed trigger inventory', runPsql({ psqlPath, pgEnvironment, sql, retryReadOnlySessionPooler }))
 }
 
-export function getManagedSchemaCustomizationSql({ psqlPath, sourcePgEnvironment, targetPgEnvironment }) {
-  const source = collectManagedTriggers({ psqlPath, pgEnvironment: sourcePgEnvironment })
-  const target = collectManagedTriggers({ psqlPath, pgEnvironment: targetPgEnvironment })
+export function getManagedSchemaCustomizationSql({ psqlPath, sourcePgEnvironment, targetPgEnvironment, retryReadOnlySessionPooler = false }) {
+  const source = collectManagedTriggers({ psqlPath, pgEnvironment: sourcePgEnvironment, retryReadOnlySessionPooler })
+  const target = collectManagedTriggers({ psqlPath, pgEnvironment: targetPgEnvironment, retryReadOnlySessionPooler })
   const key = (item) => `${item.schema}.${item.table}.${item.trigger}`
   const sourceByKey = new Map(source.map((item) => [key(item), item]))
   const targetByKey = new Map(target.map((item) => [key(item), item]))
@@ -407,7 +408,7 @@ export function getManagedSchemaCustomizationSql({ psqlPath, sourcePgEnvironment
       sourceOnly[0].functionSchema !== 'public' || sourceOnly[0].functionName !== 'handle_new_user') {
     throw new Error('authorized Auth trigger customization is not the only managed trigger difference')
   }
-  const policySql = getStoragePolicySql({ psqlPath, pgEnvironment: sourcePgEnvironment })
+  const policySql = getStoragePolicySql({ psqlPath, pgEnvironment: sourcePgEnvironment, retryReadOnlySessionPooler })
   const triggerSql = sourceOnly.map((item) => item.definition + ';').join('\n\n')
   if (!policySql.includes('FROM public.profiles') || policySql.includes('FROM profiles') ||
       !policySql.includes('public.has_permission(') || !policySql.includes('public.current_profile_role(') ||

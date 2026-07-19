@@ -115,7 +115,12 @@ try {
   const querySha256 = sha256(reconciliationSql)
   const sourceDb = getTemporaryDbEnvironment({ cliPath, projectRef: sourceRef, connectionMode: 'session-pooler' })
   const targetDb = getTemporaryDbEnvironment({ cliPath, projectRef: targetRef, connectionMode: 'session-pooler' })
-  const sourceBefore = getReconciliation({ psqlPath, pgEnvironment: sourceDb, sql: reconciliationSql })
+  const sourceBefore = getReconciliation({
+    psqlPath,
+    pgEnvironment: sourceDb,
+    sql: reconciliationSql,
+    retryReadOnlySessionPooler: true,
+  })
   const snapshotAt = new Date().toISOString()
   const artifactTime = () => new Date().toISOString()
   const artifact = (relativePath, plaintext, options) => writeEncryptedArtifact({
@@ -132,12 +137,14 @@ try {
     pgEnvironment: sourceDb,
     args: toolArgs,
     timeout: 300000,
+    retryReadOnlySessionPooler: true,
   }).stdout
   console.log('[p0:sealed-backup] stage=baseline-ready productionWrites=0')
 
   const applicationPrivateState = parseJson('application private schema inventory', runPsql({
     psqlPath,
     pgEnvironment: sourceDb,
+    retryReadOnlySessionPooler: true,
     sql: `select jsonb_build_object(
       'schemaExists',exists(select 1 from pg_catalog.pg_namespace where nspname='sales_os_private'),
       'dataRelations',(select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid=c.relnamespace where n.nspname='sales_os_private' and c.relkind in('r','p','S','m')),
@@ -190,6 +197,7 @@ try {
     psqlPath,
     pgEnvironment: sourceDb,
     timeout: 180000,
+    retryReadOnlySessionPooler: true,
     sql: `select coalesce(string_agg(
       format('DO $canwin_exact_routine$ BEGIN EXECUTE convert_from(decode(%L,''hex''),''UTF8''); END $canwin_exact_routine$;',encode(convert_to(pg_get_functiondef(p.oid),'UTF8'),'hex')),
       E'\n' order by n.nspname,p.proname,pg_get_function_identity_arguments(p.oid)
@@ -198,6 +206,7 @@ try {
   const exactRelationAclSql = runPsql({
     psqlPath,
     pgEnvironment: sourceDb,
+    retryReadOnlySessionPooler: true,
     sql: `with targets as (
       select n.nspname,c.relname,case when c.relkind='S' then 'SEQUENCE' else 'TABLE' end object_kind,
         coalesce(c.relacl,acldefault(case when c.relkind='S' then 'S'::"char" else 'r'::"char" end,c.relowner)) acl
@@ -218,6 +227,7 @@ try {
   const exactRoutineAclSql = runPsql({
     psqlPath,
     pgEnvironment: sourceDb,
+    retryReadOnlySessionPooler: true,
     sql: `with targets as (
       select n.nspname,p.proname,pg_get_function_identity_arguments(p.oid) identity_args,
         case when p.prokind='p' then 'PROCEDURE' else 'FUNCTION' end object_kind,
@@ -239,6 +249,7 @@ try {
   const exactPrivateSchemaAclSql = runPsql({
     psqlPath,
     pgEnvironment: sourceDb,
+    retryReadOnlySessionPooler: true,
     sql: `with target as (
       select n.nspname,coalesce(n.nspacl,acldefault('n',n.nspowner)) acl from pg_catalog.pg_namespace n where n.nspname='sales_os_private'
     ), lines as (
@@ -294,12 +305,14 @@ try {
     psqlPath,
     sourcePgEnvironment: sourceDb,
     targetPgEnvironment: targetDb,
+    retryReadOnlySessionPooler: true,
   }).sql
   console.log('[p0:sealed-backup] stage=database-dumps-ready productionWrites=0')
 
   const schemaInventory = parseJson('schema inventory', runPsql({
     psqlPath,
     pgEnvironment: sourceDb,
+    retryReadOnlySessionPooler: true,
     sql: `select jsonb_build_object(
       'serverVersion',current_setting('server_version_num')::int,
       'publicTables',(select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind in('r','p')),
@@ -318,6 +331,7 @@ try {
   const roleRows = parseJson('role mapping', runPsql({
     psqlPath,
     pgEnvironment: sourceDb,
+    retryReadOnlySessionPooler: true,
     sql: `select coalesce(jsonb_agg(jsonb_build_object(
       'profileId',p.id,'teamId',p.team_id,'name',p.name,'status',p.status,
       'existingRoleCodes',coalesce((select jsonb_agg(ar.code order by ar.code) from public.profile_access_roles par join public.access_roles ar on ar.id=par.role_id and ar.team_id=par.team_id where par.profile_id=p.id and par.team_id=p.team_id),'[]'::jsonb)
@@ -337,6 +351,7 @@ try {
     const available = Number(runPsql({
       psqlPath,
       pgEnvironment: sourceDb,
+      retryReadOnlySessionPooler: true,
       sql: `select count(*) from public.access_roles where team_id=${quoteSqlLiteral(item.teamId)} and code=${quoteSqlLiteral(item.targetRoleCode)};`,
     }))
     if (available !== 1) throw new Error('requested target role is unavailable')
@@ -368,16 +383,19 @@ try {
   const cronExists = runPsql({
     psqlPath,
     pgEnvironment: sourceDb,
+    retryReadOnlySessionPooler: true,
     sql: `select case when to_regclass('cron.job') is null then 'false' else 'true' end;`,
   }) === 'true'
   const cronJobs = cronExists ? parseJson('cron manifest', runPsql({
     psqlPath,
     pgEnvironment: sourceDb,
+    retryReadOnlySessionPooler: true,
     sql: `select coalesce(jsonb_agg(to_jsonb(j) order by j.jobid),'[]'::jsonb)::text from cron.job j;`,
   })) : []
   const featureFlags = parseJson('feature flag manifest', runPsql({
     psqlPath,
     pgEnvironment: sourceDb,
+    retryReadOnlySessionPooler: true,
     sql: `select coalesce(jsonb_agg(to_jsonb(f) order by f.team_id,f.key),'[]'::jsonb)::text from public.feature_flags f;`,
   }))
   const frontendArchive = packDirectory(resolve(repoRoot, 'dist'), { rejectEnvironmentFiles: true })
@@ -443,6 +461,7 @@ try {
     psqlPath,
     pgEnvironment: sourceFinalDb,
     sql: reconciliationSql,
+    retryReadOnlySessionPooler: true,
   })
   if (sourceBefore.sha256 !== sourceAfter.sha256) throw new Error('production changed during the verified backup window')
   const storageAfter = storageSummary(await collectStorageArchive(sourceClient))

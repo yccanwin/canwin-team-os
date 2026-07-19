@@ -24,6 +24,8 @@ const pgDumpPath = run.toolchain.pgDump.path
 const pgDumpAllPath = resolve(dirname(pgDumpPath), 'pg_dumpall.exe')
 const preflightDumpRoot = resolve('D:\\CanWin-Team-OS-4.0-Recovery-Preflight')
 const forbiddenTableTriggerTogglePattern = /^ALTER TABLE(?: ONLY)? .+ (?:DISABLE|ENABLE) TRIGGER ALL;$/m
+const runReadOnlyPsql = (options) => runPsql({ ...options, retryReadOnlySessionPooler: true })
+const runReadOnlyPgTool = (options) => runPgTool({ ...options, retryReadOnlySessionPooler: true })
 
 function fail(message) {
   console.error('[p0:sealed-preflight] BLOCKED ' + message)
@@ -134,15 +136,15 @@ select json_build_object(
   'storageColumnsMd5',(select columns_md5 from columns where table_schema='storage'),
   'extensions',(select json_agg(json_build_object('name',extname,'version',extversion) order by extname) from pg_catalog.pg_extension)
 )::text;`
-const source = parseJson('source platform query', runPsql({ psqlPath, pgEnvironment: sourceDb, sql: platformSql }))
-const target = parseJson('target platform query', runPsql({ psqlPath, pgEnvironment: targetDb, sql: platformSql }))
+const source = parseJson('source platform query', runReadOnlyPsql({ psqlPath, pgEnvironment: sourceDb, sql: platformSql }))
+const target = parseJson('target platform query', runReadOnlyPsql({ psqlPath, pgEnvironment: targetDb, sql: platformSql }))
 const optionalTableCount = (pgEnvironment, qualifiedName) => {
-  const exists = runPsql({
+  const exists = runReadOnlyPsql({
     psqlPath,
     pgEnvironment,
     sql: `select case when to_regclass('${qualifiedName}') is null then 'false' else 'true' end;`,
   }) === 'true'
-  return exists ? Number(runPsql({ psqlPath, pgEnvironment, sql: `select count(*) from ${qualifiedName};` })) : 0
+  return exists ? Number(runReadOnlyPsql({ psqlPath, pgEnvironment, sql: `select count(*) from ${qualifiedName};` })) : 0
 }
 source.migrationRows = optionalTableCount(sourceDb, 'supabase_migrations.schema_migrations')
 target.migrationRows = optionalTableCount(targetDb, 'supabase_migrations.schema_migrations')
@@ -183,8 +185,8 @@ select jsonb_build_object(
   'storagePolicies',coalesce((select policy_count from policies where nspname='storage'),0),
   'storagePoliciesMd5',coalesce((select policy_md5 from policies where nspname='storage'),md5(''))
 )::text;`
-const sourceManaged = parseJson('source managed schema query', runPsql({ psqlPath, pgEnvironment: sourceDb, sql: managedSql }))
-const targetManaged = parseJson('target managed schema query', runPsql({ psqlPath, pgEnvironment: targetDb, sql: managedSql }))
+const sourceManaged = parseJson('source managed schema query', runReadOnlyPsql({ psqlPath, pgEnvironment: sourceDb, sql: managedSql }))
+const targetManaged = parseJson('target managed schema query', runReadOnlyPsql({ psqlPath, pgEnvironment: targetDb, sql: managedSql }))
 for (const field of ['storageTriggers', 'storageTriggersMd5', 'authPolicies', 'authPoliciesMd5']) {
   if (sourceManaged[field] !== targetManaged[field]) fail('source and target managed schema differ at ' + field)
 }
@@ -207,18 +209,18 @@ const reconciliationSql = readFileSync(resolve(repoRoot, 'scripts', 'p0', 'seale
 const sourceReconciliation = getReconciliation({ psqlPath, pgEnvironment: sourceDb, sql: reconciliationSql })
 if (Object.keys(sourceReconciliation.value.publicTables ?? {}).length !== source.publicTables) fail('exact reconciliation table inventory drifted')
 
-const dump = (commandPath, args, timeout = 300000) => runPgTool({ commandPath, pgEnvironment: sourceDb, args, timeout }).stdout
+const dump = (commandPath, args, timeout = 300000) => runReadOnlyPgTool({ commandPath, pgEnvironment: sourceDb, args, timeout }).stdout
 const schemaDump = dump(pgDumpPath, ['--schema=public', '--schema=sales_os_private', '--schema-only', '--no-owner', '--no-comments', '--encoding=UTF8', '--role=postgres'])
 if ((schemaDump.match(/CREATE SCHEMA public;/g) ?? []).length !== 1) fail('public schema dump shape is unsupported')
 if ((schemaDump.match(/CREATE SCHEMA sales_os_private;/g) ?? []).length !== 1 || !schemaDump.includes('FUNCTION sales_os_private.refresh_order_performance_state_core(')) fail('application private schema dump is incomplete')
 if (!schemaDump.includes('FUNCTION public.handle_new_user()')) fail('authorized Auth linkage function is absent from the public schema dump')
-const sourceDefaultAclCount = Number(runPsql({
+const sourceDefaultAclCount = Number(runReadOnlyPsql({
   psqlPath,
   pgEnvironment: sourceDb,
   sql: `select count(*) from pg_catalog.pg_default_acl d join pg_catalog.pg_namespace n on n.oid=d.defaclnamespace where n.nspname='public';`,
 }))
 if (sourceDefaultAclCount > 0 && !schemaDump.includes('ALTER DEFAULT PRIVILEGES')) fail('source default privileges are absent from the public schema dump')
-const sourceAclRoles = parseJson('source ACL role inventory', runPsql({
+const sourceAclRoles = parseJson('source ACL role inventory', runReadOnlyPsql({
   psqlPath,
   pgEnvironment: sourceDb,
   sql: `with role_oids as (
@@ -227,7 +229,7 @@ const sourceAclRoles = parseJson('source ACL role inventory', runPsql({
     union select distinct a.grantee from pg_catalog.pg_default_acl d cross join lateral aclexplode(d.defaclacl) a
   ) select coalesce(jsonb_agg(r.rolname order by r.rolname),'[]'::jsonb)::text from role_oids o join pg_catalog.pg_roles r on r.oid=o.grantee;`,
 }))
-const targetRoles = new Set(parseJson('target role inventory', runPsql({
+const targetRoles = new Set(parseJson('target role inventory', runReadOnlyPsql({
   psqlPath,
   pgEnvironment: targetDb,
   sql: `select coalesce(jsonb_agg(rolname order by rolname),'[]'::jsonb)::text from pg_catalog.pg_roles;`,
@@ -245,7 +247,7 @@ function writePreflightDump(commandPath, args, outputPath) {
   if (!isControlledDumpDirectory(outputDirectory)) {
     throw new Error('preflight dump output escaped the controlled directory')
   }
-  runPgTool({
+  runReadOnlyPgTool({
     commandPath,
     pgEnvironment: sourceDb,
     args: [...args, '--file', outputPath],

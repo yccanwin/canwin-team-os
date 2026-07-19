@@ -61,6 +61,11 @@ if (manifest.package.encryptionKeyReference !== `dpapi-file:///E:/CanWin-Team-OS
 }
 const key = readProtectedKey({ repoRoot, keyPath })
 const workingDirectory = mkdtempSync(resolve('D:\\CanWin-Team-OS-4.0-Recovery', `.restore-working-${packageId}-`))
+const clearSensitiveWorkingState = () => {
+  rmSync(workingDirectory, { recursive: true, force: true })
+  key.fill(0)
+}
+process.once('exit', clearSensitiveWorkingState)
 const evidencePath = resolve(packageDirectory, 'restore-evidence.json')
 if (existsSync(evidencePath)) throw new Error('this sealed package already has restore evidence and cannot be attempted again')
 
@@ -149,6 +154,7 @@ const targetDb = getTemporaryDbEnvironment({ cliPath, projectRef: targetRef, con
   const targetState = parseJson('target state', runPsql({
   psqlPath,
   pgEnvironment: targetDb,
+  retryReadOnlySessionPooler: true,
   sql: `select jsonb_build_object(
     'publicTables',(select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind in('r','p')),
     'authUsers',(select count(*) from auth.users),
@@ -163,11 +169,13 @@ const targetDb = getTemporaryDbEnvironment({ cliPath, projectRef: targetRef, con
   const targetMigrationTableExists = runPsql({
     psqlPath,
     pgEnvironment: targetDb,
+    retryReadOnlySessionPooler: true,
     sql: `select case when to_regclass('supabase_migrations.schema_migrations') is null then 'false' else 'true' end;`,
   }) === 'true'
   targetState.migrationRows = targetMigrationTableExists ? Number(runPsql({
     psqlPath,
     pgEnvironment: targetDb,
+    retryReadOnlySessionPooler: true,
     sql: 'select count(*) from supabase_migrations.schema_migrations;',
   })) : 0
 if (Object.values(targetState).some((value) => Number(value) !== 0)) {
@@ -176,6 +184,7 @@ if (Object.values(targetState).some((value) => Number(value) !== 0)) {
 const targetPlatformDefaultPrivileges = parseJson('target platform default privileges', runPsql({
   psqlPath,
   pgEnvironment: targetDb,
+  retryReadOnlySessionPooler: true,
   sql: `select jsonb_build_object(
     'rows',(select count(*) from pg_catalog.pg_default_acl d join pg_catalog.pg_roles r on r.oid=d.defaclrole left join pg_catalog.pg_namespace n on n.oid=d.defaclnamespace where r.rolname='supabase_admin' and n.nspname='public'),
     'md5',(select md5(coalesce(string_agg(r.rolname||'|'||coalesce(n.nspname,'')||'|'||d.defaclobjtype::text||'|'||d.defaclacl::text,E'\n' order by r.rolname,n.nspname,d.defaclobjtype),'')) from pg_catalog.pg_default_acl d join pg_catalog.pg_roles r on r.oid=d.defaclrole left join pg_catalog.pg_namespace n on n.oid=d.defaclnamespace where r.rolname='supabase_admin' and n.nspname='public')
@@ -281,7 +290,12 @@ try {
   record('storage', 'completed', targetStorage)
 
   record('reconciliation-before-role-overlay', 'started')
-  const targetBase = getReconciliation({ psqlPath, pgEnvironment: targetDb, sql: reconciliationSql })
+  const targetBase = getReconciliation({
+    psqlPath,
+    pgEnvironment: targetDb,
+    sql: reconciliationSql,
+    retryReadOnlySessionPooler: true,
+  })
   if (targetBase.sha256 !== manifest.reconciliation.sourceBeforeSha256) {
     throw new Error('base target reconciliation does not equal the sealed production snapshot')
   }
@@ -310,6 +324,7 @@ try {
   const roleAcceptance = parseJson('role overlay acceptance', runPsql({
     psqlPath,
     pgEnvironment: targetDb,
+    retryReadOnlySessionPooler: true,
     sql: `select jsonb_agg(jsonb_build_object('profileId',p.id,'roleCode',ar.code) order by p.id)::text
       from public.profiles p join public.profile_access_roles par on par.profile_id=p.id and par.team_id=p.team_id
       join public.access_roles ar on ar.id=par.role_id and ar.team_id=par.team_id
@@ -320,7 +335,12 @@ try {
   record('owner-role-overlay', 'completed', { decisionsApplied: 2, sales: 1, admin: 1, productionRoleWrites: 0 })
 
   record('final-reconciliation', 'started')
-  const targetFinal = getReconciliation({ psqlPath, pgEnvironment: targetDb, sql: reconciliationSql })
+  const targetFinal = getReconciliation({
+    psqlPath,
+    pgEnvironment: targetDb,
+    sql: reconciliationSql,
+    retryReadOnlySessionPooler: true,
+  })
   const expectedFinal = structuredClone(targetBase.value)
   expectedFinal.publicTables.profile_access_roles = Number(expectedFinal.publicTables.profile_access_roles) + 2
   expectedFinal.auth.roleAssignments = Number(expectedFinal.auth.roleAssignments) + 2
@@ -333,6 +353,7 @@ try {
   const bannedUsers = Number(runPsql({
     psqlPath,
     pgEnvironment: targetDb,
+    retryReadOnlySessionPooler: true,
     sql: `select count(*) from auth.users where banned_until > now() + interval '99 years';`,
   }))
   if (bannedUsers !== manifest.auth.counts.authUsers) throw new Error('restored real users are not all disabled')
@@ -342,11 +363,13 @@ try {
   const cronExists = runPsql({
     psqlPath,
     pgEnvironment: targetDb,
+    retryReadOnlySessionPooler: true,
     sql: `select case when to_regclass('cron.job') is null then 'false' else 'true' end;`,
   }) === 'true'
   const cronCount = cronExists ? Number(runPsql({
     psqlPath,
     pgEnvironment: targetDb,
+    retryReadOnlySessionPooler: true,
     sql: `select count(*) from cron.job;`,
   })) : 0
   if (cronCount !== 0) throw new Error('target cron execution is not disabled')
@@ -387,6 +410,6 @@ try {
   })
   throw error
 } finally {
-  rmSync(workingDirectory, { recursive: true, force: true })
-  key.fill(0)
+  clearSensitiveWorkingState()
+  process.removeListener('exit', clearSensitiveWorkingState)
 }

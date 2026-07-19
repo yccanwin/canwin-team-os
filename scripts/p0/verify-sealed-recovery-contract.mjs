@@ -1,7 +1,11 @@
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { parseTemporaryPgEnvironment, useSessionPooler } from './temporary-db-access.mjs'
+import {
+  isTransientSessionPoolerFailure,
+  parseTemporaryPgEnvironment,
+  useSessionPooler,
+} from './temporary-db-access.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const read = (name) => readFileSync(resolve(repoRoot, 'scripts', 'p0', name), 'utf8')
@@ -62,9 +66,16 @@ check('temporary Session Pooler metadata is project-bound and uses port 5432',
   )))
 check('temporary Session Pooler access enables Supabase JIT authentication',
   databaseAccess.includes("PGOPTIONS: '-c jit=true'") &&
+  databaseAccess.includes('bounded read-only reconnect=1/1') &&
+  databaseAccess.includes('retryReadOnlySessionPooler = false') &&
+  isTransientSessionPoolerFailure({ stderr: 'FATAL: (EAUTHQUERY) auth_query secret check timed out' }) &&
+  isTransientSessionPoolerFailure({ stderr: 'Connection timed out (0x0000274C/10060)' }) &&
+  !isTransientSessionPoolerFailure({ stderr: 'password authentication failed' }) &&
   preflight.match(/connectionMode: 'session-pooler'/g)?.length === 2 &&
   backup.match(/connectionMode: 'session-pooler'/g)?.length === 3 &&
-  restore.match(/connectionMode: 'session-pooler'/g)?.length === 1)
+  restore.match(/connectionMode: 'session-pooler'/g)?.length === 1 &&
+  restore.slice(restore.indexOf('formalAttemptStarted = true'), restore.indexOf("record('database', 'completed'"))
+    .includes('retryReadOnlySessionPooler') === false)
 check('all sealed-recovery child tools run with Supabase telemetry disabled',
   databaseAccess.slice(databaseAccess.indexOf('function run('), databaseAccess.indexOf('export function runExternal'))
     .includes("SUPABASE_TELEMETRY_DISABLED: '1'") &&
@@ -193,7 +204,11 @@ check('target default table privileges are revoked before schema restore', resto
 check('real restored users are banned in the database transaction', restore.includes("update auth.users set banned_until = now() + interval '100 years'"))
 check('Functions and secrets remain absent', restore.includes('finalFunctions.length !== 0') && restore.includes('finalSecrets.length !== 0'))
 check('Cron remains disabled', restore.includes("target cron execution is not disabled"))
-check('first failure preserves target and forbids retry', restore.includes('targetPreserved: true') && restore.includes('retryAllowed: false'))
+check('first failure preserves target, forbids retry and clears decrypted working state',
+  restore.includes('targetPreserved: true') && restore.includes('retryAllowed: false') &&
+  restore.includes("process.once('exit', clearSensitiveWorkingState)") &&
+  restore.indexOf("process.once('exit', clearSensitiveWorkingState)") < restore.indexOf('const targetDb = getTemporaryDbEnvironment') &&
+  restore.includes("process.removeListener('exit', clearSensitiveWorkingState)"))
 check('role overlay is limited to one sales and one admin', restore.includes("targetRoleCode === 'sales'") && restore.includes("targetRoleCode === 'admin'") && restore.includes('decisionsApplied: 2'))
 
 for (const token of [

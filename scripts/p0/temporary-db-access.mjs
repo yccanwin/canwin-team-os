@@ -47,6 +47,20 @@ function requireSuccess(label, result) {
   throw new Error(label + ' failed: ' + redact(result.stderr || result.stdout || result.error?.message))
 }
 
+export function isTransientSessionPoolerFailure(result) {
+  const detail = [result.stderr, result.stdout, result.error?.message].filter(Boolean).join('\n')
+  return /(?:EAUTHQUERY)[\s\S]*auth_query secret check timed out|Connection timed out[\s\S]*(?:10060)|failed to receive message[\s\S]*timeout|connection request[\s\S]*timed out/i.test(detail)
+}
+
+function runReadOnlyWithOnePoolerRetry(command, args, options, enabled) {
+  let result = run(command, args, options)
+  if (enabled && (result.status !== 0 || result.error) && isTransientSessionPoolerFailure(result)) {
+    console.warn('[p0:db-access] transient Session Pooler failure; bounded read-only reconnect=1/1')
+    result = run(command, args, options)
+  }
+  return result
+}
+
 export function parseTemporaryPgEnvironment(text, projectRef, { requireHostMatch = true } = {}) {
   const values = {}
   for (const name of requiredPgVariables) {
@@ -109,24 +123,25 @@ export function getTemporaryDbEnvironment({ cliPath, projectRef, connectionMode 
   }
 }
 
-export function runPsql({ psqlPath, pgEnvironment, sql, timeout = 60000 }) {
+export function runPsql({ psqlPath, pgEnvironment, sql, timeout = 60000, retryReadOnlySessionPooler = false }) {
   if (/[^\x00-\x7F]/.test(sql)) {
     throw new Error('inline psql SQL must be ASCII-safe on Windows')
   }
-  const result = run(
+  const result = runReadOnlyWithOnePoolerRetry(
     resolve(psqlPath),
     ['--no-psqlrc', '--quiet', '--set', 'ON_ERROR_STOP=1', '--tuples-only', '--no-align', '--command', `set role postgres;\n${sql}`],
     { timeout, env: { ...process.env, ...pgEnvironment } },
+    retryReadOnlySessionPooler,
   )
   requireSuccess('psql', result)
   return result.stdout.split(/\r?\n/).filter((line) => line.trim() !== 'SET').join('\n').trim()
 }
 
-export function runPgTool({ commandPath, pgEnvironment, args, timeout = 300000 }) {
-  const result = run(resolve(commandPath), args, {
+export function runPgTool({ commandPath, pgEnvironment, args, timeout = 300000, retryReadOnlySessionPooler = false }) {
+  const result = runReadOnlyWithOnePoolerRetry(resolve(commandPath), args, {
     timeout,
     env: { ...process.env, ...pgEnvironment },
-  })
+  }, retryReadOnlySessionPooler)
   requireSuccess(resolve(commandPath).split(/[\\/]/).pop(), result)
   return result
 }
