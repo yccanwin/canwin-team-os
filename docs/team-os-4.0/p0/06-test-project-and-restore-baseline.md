@@ -1,13 +1,13 @@
 # P0-06 测试项目与备份恢复基线
 
-> 状态：阻塞，G0 未通过
+> 状态：已验收，G0 通过
 > 本文件不登记密钥值，只登记环境标识、变量名、证据位置和校验结果。
 
 ## 当前事实
 
 | 检查项 | 当前结果 |
 | --- | --- |
-| 可见 Supabase 项目 | 生产 `canwinos` 与独立测试 `canwinos-team-os-4-p0-test` |
+| 可见 Supabase 项目 | 生产 `canwinos` 与独立测试 `canwinos-team-os-4-p0-test-3`；两个失败测试项目已暂停保留 |
 | 当前组织/方案 | `yccanwin's Org` / Free |
 | 生产项目 ref | `agygfhmkazcbqaqwmljb` |
 | 区域 | `ap-northeast-1` |
@@ -18,11 +18,11 @@
 | 本地迁移文件 | 69；已有版本/文件名/SHA256 清单和纯静态校验 |
 | 独立测试项目 | `gktelqueikmbhtmdbjnh`；`ap-northeast-1`；`ACTIVE_HEALTHY`；2026-07-19 已创建；月费确认值 0 |
 | 失败现场保留 | 测试项目 `adzerzckgxxibadxkhcr`、`xlpkvjojuqwaqtahaksm` 均已暂停为 `INACTIVE`；分别保留第 9、12 个候选的数据库/事务现场、Storage 与失败证据，不删除、不复用 |
-| 数据库备份文件及校验和 | 未提供本轮证据 |
-| Auth/岗位关系导出 | 未提供本轮证据 |
-| Storage 对象备份 | 未提供本轮证据 |
-| 独立恢复演练 | 未执行 |
-| 空库安装预检 | 未执行 |
+| 数据库备份文件及校验和 | 成功包 `D:\CanWin-Team-OS-4.0-Recovery\canwin-team-os-4-p0-20260719T064719486Z-d6799976f3`；manifest SHA256 `e80c164636a57e6fd14469ef0bdfafeac65f6dded730f757e46deac06b9325bb` |
+| Auth/岗位关系导出 | 7 用户、7 identities 已恢复并全部禁登；卢宣丞=销售、朱浩=管理员；会话/令牌/JWT secret 未复制 |
+| Storage 对象备份 | 1 bucket、32 objects、1,700,978 bytes，恢复内容聚合 SHA256 已核对 |
+| 独立恢复演练 | 正式封闭恢复 1/1 已完成；基础快照完全一致，最终仅增加两项授权岗位 |
+| 空库安装预检 | 已通过；恢复前 public/Auth/Storage/迁移/Functions/Secrets 均为 0，平台兼容性 EXACT |
 
 因此，“项目健康”和“迁移版本/名称相同”都不能证明远端 SQL 正文一致、备份可恢复，也不能证明测试与生产隔离。
 

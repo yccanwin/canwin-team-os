@@ -32,12 +32,12 @@ if (hasTestProject) {
   checks.push(
     ['test project ref has valid syntax', /^[a-z0-9]{20}$/.test(contract.testProjectRef)],
     ['test and production refs differ', contract.testProjectRef !== contract.productionProjectRef],
-    ['test project status is declared', contract.testProjectStatus === 'declared'],
+    ['test project status is supported', ['declared', 'restore-validated'].includes(contract.testProjectStatus)],
     ['test frontend key has exact fields', exactKeys(contract.testFrontendKey, ['type', 'sha256'])],
     ['test frontend key type is declared', ['legacy-anon', 'publishable'].includes(contract.testFrontendKey?.type)],
     ['test frontend key fingerprint is valid', /^[a-f0-9]{64}$/.test(contract.testFrontendKey?.sha256 ?? '')],
     ['production and test frontend fingerprints differ', contract.testFrontendKey?.sha256 !== contract.productionFrontendKey?.sha256],
-    ['preview stays disabled before isolated restore validation', contract.previewBuildAllowed === false],
+    ['preview remains an explicit separate gate', contract.previewBuildAllowed === false],
   )
 } else {
   checks.push(
@@ -68,8 +68,10 @@ console.log(
 )
 if (!hasTestProject) {
   console.log('[p0:project-ref] readiness=BLOCKED reason=test-project-not-provisioned')
-} else if (!contract.previewBuildAllowed) {
+} else if (contract.testProjectStatus !== 'restore-validated') {
   console.log('[p0:project-ref] readiness=BLOCKED reason=isolated-restore-not-validated')
+} else {
+  console.log('[p0:project-ref] readiness=READY restore=validated preview=disabled')
 }
 
 if (passed !== checks.length) process.exit(1)

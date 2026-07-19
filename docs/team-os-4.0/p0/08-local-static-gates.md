@@ -1,6 +1,6 @@
 # P0-08 本地静态门禁与统一集成入口
 
-> 状态：本地资产已建立；G0 仍未通过。
+> 状态：本地资产已建立；独立恢复证据已完成，G0 通过。
 > 范围：统一校验入口只读取仓库文件并执行本地前端构建，不连接数据库或业务网络，不运行 SQL 夹具，不部署，不发布。GitHub Actions 的 checkout、Node 设置和 `npm ci` 依赖安装仍会访问 GitHub/npm 包源。
 
 ## 资产
@@ -46,11 +46,11 @@ npm.cmd run test:p0:local
 
 - 已知生产 ref：与 supabase/config.toml 一致；
 - 测试 ref：`gktelqueikmbhtmdbjnh`；
-- 测试项目状态：`declared`，Supabase 只读复核状态为 `ACTIVE_HEALTHY`；
+- 测试项目状态：`restore-validated`，Supabase 复核状态为 `ACTIVE_HEALTHY`；
 - 生产与测试 ref：不同；
 - 预览构建：恢复、密钥隔离和运行时校验完成前保持禁止。
 
-因此项目 ref 合同可以证明独立项目已登记且没有把生产伪装成测试，但仍会如实输出 `readiness=BLOCKED reason=isolated-restore-not-validated`；它不证明数据库/Auth/Storage 已恢复，也不解除 G0 阻塞。
+项目 ref 合同现在输出 `readiness=READY restore=validated preview=disabled`。数据库/Auth/Storage 的正式恢复和全量对账证据登记在 `restore-run.p0-test.json`；预览仍是独立门禁，没有随恢复自动开放。
 
 ## 迁移清单边界
 
@@ -82,4 +82,4 @@ npm.cmd run test:p0:local
 - Advisor/外键风险：Security 143、Performance 315；外键 309、覆盖 104、未覆盖 205，优先级候选 P1A/P1B/P2=137/31/37；业务行读取和数据库写入均为 0，验收决定为 0；
 - 测试环境就绪状态仍为 BLOCKED。
 
-本地命令或 CI 绿色只证明仓库静态合同和前端 build 通过。它不包含数据库执行、真实岗位权限、业务流程、页面运行时或远端测试，不证明远端迁移 SQL 正文一致，不证明生产安全顾问已清零，也不证明数据库、Auth 或 Storage 已在独立项目恢复成功，因此不能声称 G0 通过。
+本地命令或 CI 绿色本身仍只证明仓库静态合同和前端 build 通过，不能替代远端证据。本次 G0 通过依据是独立测试项目的正式恢复 1/1、基础快照一致、两项授权岗位覆盖和最终全量对账；它仍不等于页面运行时、六身份业务流程、生产迁移或最终发布验收。
