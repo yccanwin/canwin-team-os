@@ -45,11 +45,12 @@ check('backup uses an external DPAPI key', backup.includes('createProtectedKey')
 check('backup encrypts every declared artifact', backup.includes('writeEncryptedArtifact') && backup.includes('artifacts/${relativePath}.enc'))
 check('backup captures target-aware managed customizations', backup.includes('getManagedSchemaCustomizationSql') && backup.includes('targetPgEnvironment: targetDb'))
 check('backup captures Auth users and identities without sessions', backup.includes("'--table=auth.users'") && backup.includes("'--table=auth.identities'") && !backup.includes("'--table=auth.sessions'"))
-check('Auth dump relies on session-level trigger suppression instead of protected table toggles',
+check('all production data dumps rely on session-level trigger suppression instead of protected table toggles',
   authDumpDefinition.includes("'--table=auth.users'") &&
   authDumpDefinition.includes("'--table=auth.identities'") &&
   !authDumpDefinition.includes("'--disable-triggers'") &&
-  authDumpDefinition.includes('Auth dump contains protected managed-schema trigger toggles'))
+  !backup.includes("'--disable-triggers'") &&
+  backup.includes('dump contains forbidden table trigger toggles'))
 check('backup preserves public and application-private ACL statements',
   backup.includes("'--schema=public', `--schema=${applicationPrivateSchema}`, '--schema-only', '--no-owner', '--no-comments'") &&
   !backup.includes("`--schema=${applicationPrivateSchema}`, '--schema-only', '--no-owner', '--no-privileges'"))
@@ -79,10 +80,12 @@ check('backup records early connection failures and clears sensitive working sta
 check('managed trigger difference is frozen exactly', library.includes("auth.users.on_auth_user_created") && library.includes("public") && library.includes("handle_new_user"))
 check('managed trigger DDL is restored after public function availability', restore.indexOf("files.schema") < restore.indexOf("files.policies") && restore.indexOf("files.data") < restore.indexOf("files.policies"))
 check('database restore is a single transaction', restore.includes("'--single-transaction'") && restore.includes("'ON_ERROR_STOP=1'"))
-check('runtime package gate decrypts Auth data and rejects protected trigger toggles',
+check('runtime package gate decrypts every data dump and rejects protected trigger toggles',
   packageRuntime.includes('readProtectedKey') &&
   packageRuntime.includes('readEncryptedArtifact') &&
-    packageRuntime.includes('Auth dump omits protected managed-schema trigger toggles'))
+  packageRuntime.includes('artifact: manifest.database?.dataDump') &&
+  packageRuntime.includes('artifact: manifest.database?.migrationHistoryDataDump') &&
+  packageRuntime.includes('all data dumps omit protected table trigger toggles'))
 check('runtime package gate decrypts and validates the application private schema',
   packageRuntime.includes("artifact: manifest.database?.schemaDump") &&
   packageRuntime.includes("artifact: manifest.database?.schemaInventory") &&
@@ -92,8 +95,10 @@ check('runtime package gate validates the immutable platform default-privilege b
   packageRuntime.includes('supabaseAdminPublicDefaultPrivilegeRows') &&
   packageRuntime.includes('supabaseAdminPublicDefaultPrivilegesMd5') &&
   packageRuntime.includes('Supabase platform default privileges are baseline-only and sealed by fingerprint'))
-check('restore rejects protected Auth trigger toggles before target access',
-  restore.indexOf("sealed Auth dump contains forbidden managed-schema trigger toggles") <
+check('restore rejects protected trigger toggles in every data dump before target access',
+  restore.includes("['public data', decrypted.get('database.dataDump')]") &&
+  restore.includes("['migration history data', decrypted.get('database.migrationHistoryDataDump')]") &&
+  restore.indexOf('dump contains forbidden table trigger toggles') <
     restore.indexOf('const targetDb = getTemporaryDbEnvironment'))
 check('restore rejects an incomplete application private schema before target access',
   restore.indexOf('sealed application schema is outside the function-only recovery contract') <
@@ -127,8 +132,11 @@ check('reconciliation excludes the intentional Auth ban timestamp', reconciliati
 check('reconciliation contains no raw non-ASCII command literals', !/[^\x00-\x7F]/.test(reconciliation))
 check('local synthetic restore uses session-level trigger suppression without Auth table toggles',
   runtimeTest.includes('set session_replication_role = replica') &&
-  runtimeTest.includes('synthetic Auth dump contains protected managed-schema trigger toggles') &&
-  !runtimeTest.slice(runtimeTest.indexOf("'--schema=auth'"), runtimeTest.indexOf("'--schema=public'")).includes("'--disable-triggers'"))
+  runtimeTest.includes('synthetic data dump contains protected table trigger toggles') &&
+  !runtimeTest.includes("'--disable-triggers'"))
+check('remote preflight rejects table trigger toggles from every real-file dump',
+  !preflight.includes("'--disable-triggers'") &&
+  preflight.includes('preflight dump contains forbidden table trigger toggles'))
 check('local synthetic restore models the application private trigger dependency',
   runtimeTest.includes('create schema sales_os_private') &&
   runtimeTest.includes("'--schema=sales_os_private'") &&

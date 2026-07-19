@@ -13,6 +13,7 @@ const requiredApplicationPrivateRoutines = [
   'refresh_performance_after_reversal',
   'refresh_performance_after_cancellation',
 ]
+const forbiddenTableTriggerTogglePattern = /^ALTER TABLE(?: ONLY)? .+ (?:DISABLE|ENABLE) TRIGGER ALL;$/m
 const artifactPaths = [
   'database.rolesDump',
   'database.schemaDump',
@@ -177,7 +178,7 @@ for (const path of artifactPaths) {
 }
 
 let packageKey = null
-let authDumpOmitsProtectedTriggerToggles = false
+let dataDumpsOmitProtectedTriggerToggles = false
 let applicationSchemaIsComplete = false
 let applicationSchemaInventoryIsSafe = false
 let platformDefaultPrivilegeBaselineIsSafe = false
@@ -191,8 +192,18 @@ try {
     artifact: manifest.auth?.identitiesDump,
     key: packageKey,
   }).toString('utf8')
-  authDumpOmitsProtectedTriggerToggles =
-    !/^ALTER TABLE auth\.(?:users|identities) (?:DISABLE|ENABLE) TRIGGER ALL;$/m.test(authDump)
+  const publicDataDump = readEncryptedArtifact({
+    packageDirectory,
+    artifact: manifest.database?.dataDump,
+    key: packageKey,
+  }).toString('utf8')
+  const migrationDataDump = readEncryptedArtifact({
+    packageDirectory,
+    artifact: manifest.database?.migrationHistoryDataDump,
+    key: packageKey,
+  }).toString('utf8')
+  dataDumpsOmitProtectedTriggerToggles = [authDump, publicDataDump, migrationDataDump]
+    .every((sql) => !forbiddenTableTriggerTogglePattern.test(sql))
   const applicationSchemaDump = readEncryptedArtifact({
     packageDirectory,
     artifact: manifest.database?.schemaDump,
@@ -217,14 +228,14 @@ try {
     Number(schemaInventory.supabaseAdminPublicDefaultPrivilegeRows) > 0 &&
     /^[a-f0-9]{32}$/.test(schemaInventory.supabaseAdminPublicDefaultPrivilegesMd5 ?? '')
 } catch {
-  authDumpOmitsProtectedTriggerToggles = false
+  dataDumpsOmitProtectedTriggerToggles = false
   applicationSchemaIsComplete = false
   applicationSchemaInventoryIsSafe = false
   platformDefaultPrivilegeBaselineIsSafe = false
 } finally {
   if (packageKey) packageKey.fill(0)
 }
-check('Auth dump omits protected managed-schema trigger toggles', authDumpOmitsProtectedTriggerToggles)
+check('all data dumps omit protected table trigger toggles', dataDumpsOmitProtectedTriggerToggles)
 check('application private schema dump is complete and function-only', applicationSchemaIsComplete)
 check('application private schema inventory has no unsealed data relations', applicationSchemaInventoryIsSafe)
 check('Supabase platform default privileges are baseline-only and sealed by fingerprint', platformDefaultPrivilegeBaselineIsSafe)

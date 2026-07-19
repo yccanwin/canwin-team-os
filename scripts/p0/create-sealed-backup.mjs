@@ -37,6 +37,7 @@ import {
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const applicationPrivateSchema = 'sales_os_private'
+const forbiddenTableTriggerTogglePattern = /^ALTER TABLE(?: ONLY)? .+ (?:DISABLE|ENABLE) TRIGGER ALL;$/m
 const requiredApplicationPrivateRoutines = [
   'refresh_order_performance_state_core',
   'refresh_performance_after_payment',
@@ -186,7 +187,7 @@ try {
   schemaDumpText = schemaDumpText.replace(/^ALTER SCHEMA (?:public|sales_os_private) OWNER TO .*;\r?\n/gm, '')
 
   const dataDumpText = pgText(pgDumpPath, [
-    '--schema=public', '--data-only', '--inserts', '--rows-per-insert=100', '--disable-triggers',
+    '--schema=public', '--data-only', '--inserts', '--rows-per-insert=100',
     '--no-owner', '--no-privileges', '--encoding=UTF8', '--role=postgres',
   ])
   let migrationSchemaDumpText = pgText(pgDumpPath, [
@@ -198,15 +199,21 @@ try {
     .replace('CREATE SCHEMA supabase_migrations;', 'CREATE SCHEMA IF NOT EXISTS supabase_migrations;')
     .replace(/^ALTER SCHEMA supabase_migrations OWNER TO .*;\r?\n/gm, '')
   const migrationDataDumpText = pgText(pgDumpPath, [
-    '--schema=supabase_migrations', '--data-only', '--inserts', '--rows-per-insert=100', '--disable-triggers',
+    '--schema=supabase_migrations', '--data-only', '--inserts', '--rows-per-insert=100',
     '--no-owner', '--no-privileges', '--encoding=UTF8', '--role=postgres',
   ])
   const identitiesDumpText = pgText(pgDumpPath, [
     '--schema=auth', '--table=auth.users', '--table=auth.identities', '--data-only', '--column-inserts',
     '--no-owner', '--no-privileges', '--encoding=UTF8', '--role=postgres',
   ])
-  if (/^ALTER TABLE auth\.(?:users|identities) (?:DISABLE|ENABLE) TRIGGER ALL;$/m.test(identitiesDumpText)) {
-    throw new Error('Auth dump contains protected managed-schema trigger toggles')
+  for (const [label, sql] of [
+    ['public data', dataDumpText],
+    ['migration history data', migrationDataDumpText],
+    ['Auth data', identitiesDumpText],
+  ]) {
+    if (forbiddenTableTriggerTogglePattern.test(sql)) {
+      throw new Error(label + ' dump contains forbidden table trigger toggles')
+    }
   }
   const authStorageSchemaDiffText = getManagedSchemaCustomizationSql({
     psqlPath,

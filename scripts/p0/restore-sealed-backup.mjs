@@ -25,6 +25,7 @@ import {
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const applicationPrivateSchema = 'sales_os_private'
+const forbiddenTableTriggerTogglePattern = /^ALTER TABLE(?: ONLY)? .+ (?:DISABLE|ENABLE) TRIGGER ALL;$/m
 const requiredApplicationPrivateRoutines = [
   'refresh_order_performance_state_core',
   'refresh_performance_after_payment',
@@ -91,8 +92,14 @@ for (const [label, artifact] of artifactEntries) {
   decrypted.set(label, readEncryptedArtifact({ packageDirectory, artifact, key }))
 }
 const authIdentitiesDump = decrypted.get('auth.identitiesDump')
-if (/^ALTER TABLE auth\.(?:users|identities) (?:DISABLE|ENABLE) TRIGGER ALL;$/m.test(authIdentitiesDump.toString('utf8'))) {
-  throw new Error('sealed Auth dump contains forbidden managed-schema trigger toggles')
+for (const [label, sql] of [
+  ['public data', decrypted.get('database.dataDump')],
+  ['migration history data', decrypted.get('database.migrationHistoryDataDump')],
+  ['Auth data', authIdentitiesDump],
+]) {
+  if (forbiddenTableTriggerTogglePattern.test(sql.toString('utf8'))) {
+    throw new Error('sealed ' + label + ' dump contains forbidden table trigger toggles')
+  }
 }
 const applicationSchemaDump = decrypted.get('database.schemaDump').toString('utf8')
 if ((applicationSchemaDump.match(/CREATE SCHEMA sales_os_private;/g) ?? []).length !== 1 ||

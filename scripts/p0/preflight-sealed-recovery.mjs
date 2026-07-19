@@ -23,6 +23,7 @@ const psqlPath = run.toolchain.psql.path
 const pgDumpPath = run.toolchain.pgDump.path
 const pgDumpAllPath = resolve(dirname(pgDumpPath), 'pg_dumpall.exe')
 const preflightDumpRoot = resolve('D:\\CanWin-Team-OS-4.0-Recovery-Preflight')
+const forbiddenTableTriggerTogglePattern = /^ALTER TABLE(?: ONLY)? .+ (?:DISABLE|ENABLE) TRIGGER ALL;$/m
 
 function fail(message) {
   console.error('[p0:sealed-preflight] BLOCKED ' + message)
@@ -248,6 +249,9 @@ function writePreflightDump(commandPath, args, outputPath) {
   if (!existsSync(outputPath) || !statSync(outputPath).isFile() || statSync(outputPath).size <= 0) {
     throw new Error('preflight dump did not create a non-empty real file')
   }
+  if (forbiddenTableTriggerTogglePattern.test(readFileSync(outputPath, 'utf8'))) {
+    throw new Error('preflight dump contains forbidden table trigger toggles')
+  }
 }
 
 mkdirSync(preflightDumpRoot, { recursive: true })
@@ -262,12 +266,12 @@ try {
   )
   writePreflightDump(
     pgDumpPath,
-    ['--schema=public', '--data-only', '--inserts', '--rows-per-insert=100', '--disable-triggers', '--no-owner', '--no-privileges', '--encoding=UTF8', '--role=postgres'],
+    ['--schema=public', '--data-only', '--inserts', '--rows-per-insert=100', '--no-owner', '--no-privileges', '--encoding=UTF8', '--role=postgres'],
     join(preflightDumpDirectory, 'public-data.sql'),
   )
   writePreflightDump(
     pgDumpPath,
-    ['--schema=auth', '--table=auth.users', '--table=auth.identities', '--data-only', '--column-inserts', '--disable-triggers', '--no-owner', '--no-privileges', '--encoding=UTF8', '--role=postgres'],
+    ['--schema=auth', '--table=auth.users', '--table=auth.identities', '--data-only', '--column-inserts', '--no-owner', '--no-privileges', '--encoding=UTF8', '--role=postgres'],
     join(preflightDumpDirectory, 'auth-durable-data.sql'),
   )
 } catch (error) {
@@ -288,7 +292,7 @@ if (!isControlledDumpDirectory(migrationDumpDirectory)) fail('migration dump dir
 try {
   writePreflightDump(
     pgDumpPath,
-    ['--schema=supabase_migrations', '--data-only', '--inserts', '--rows-per-insert=100', '--disable-triggers', '--no-owner', '--no-privileges', '--encoding=UTF8', '--role=postgres'],
+    ['--schema=supabase_migrations', '--data-only', '--inserts', '--rows-per-insert=100', '--no-owner', '--no-privileges', '--encoding=UTF8', '--role=postgres'],
     join(migrationDumpDirectory, 'migration-data.sql'),
   )
 } catch (error) {

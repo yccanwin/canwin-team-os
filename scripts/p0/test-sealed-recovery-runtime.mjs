@@ -130,17 +130,18 @@ try {
   const files = Object.fromEntries(['auth', 'schema', 'data', 'migrations', 'policies', 'pre', 'post'].map((name) => [name, resolve(workdir, `${name}.sql`)]))
   runPgTool({ commandPath: paths.pgDumpAll, pgEnvironment: sourceEnv, args: ['--roles-only', '--no-role-passwords', '--no-privileges', '--no-comments', '--role=postgres', '--file', resolve(workdir, 'roles.sql')] })
   runPgTool({ commandPath: paths.pgDump, pgEnvironment: sourceEnv, args: ['--schema=auth', '--table=auth.users', '--table=auth.identities', '--data-only', '--column-inserts', '--no-owner', '--no-privileges', '--role=postgres', '--file', files.auth] })
-  if (/^ALTER TABLE auth\.(?:users|identities) (?:DISABLE|ENABLE) TRIGGER ALL;$/m.test(readFileSync(files.auth, 'utf8'))) {
-    throw new Error('synthetic Auth dump contains protected managed-schema trigger toggles')
-  }
   runPgTool({ commandPath: paths.pgDump, pgEnvironment: sourceEnv, args: ['--schema=public', '--schema=sales_os_private', '--schema-only', '--no-owner', '--no-comments', '--role=postgres', '--file', files.schema] })
   let schema = readFileSync(files.schema, 'utf8')
   if ((schema.match(/CREATE SCHEMA public;/g) ?? []).length !== 1) throw new Error('pg_dump public schema shape is unsupported')
   if ((schema.match(/CREATE SCHEMA sales_os_private;/g) ?? []).length !== 1 || !schema.includes('FUNCTION sales_os_private.refresh_sample(')) throw new Error('synthetic application private schema is incomplete')
   schema = schema.replace('CREATE SCHEMA public;', 'CREATE SCHEMA IF NOT EXISTS public;').replace(/^ALTER SCHEMA (?:public|sales_os_private) OWNER TO .*;\r?\n/gm, '')
   writeFileSync(files.schema, schema)
-  runPgTool({ commandPath: paths.pgDump, pgEnvironment: sourceEnv, args: ['--schema=public', '--data-only', '--inserts', '--rows-per-insert=100', '--disable-triggers', '--no-owner', '--no-privileges', '--role=postgres', '--file', files.data] })
-  runPgTool({ commandPath: paths.pgDump, pgEnvironment: sourceEnv, args: ['--schema=supabase_migrations', '--data-only', '--inserts', '--rows-per-insert=100', '--disable-triggers', '--no-owner', '--no-privileges', '--role=postgres', '--file', files.migrations] })
+  runPgTool({ commandPath: paths.pgDump, pgEnvironment: sourceEnv, args: ['--schema=public', '--data-only', '--inserts', '--rows-per-insert=100', '--no-owner', '--no-privileges', '--role=postgres', '--file', files.data] })
+  runPgTool({ commandPath: paths.pgDump, pgEnvironment: sourceEnv, args: ['--schema=supabase_migrations', '--data-only', '--inserts', '--rows-per-insert=100', '--no-owner', '--no-privileges', '--role=postgres', '--file', files.migrations] })
+  const forbiddenTableTriggerTogglePattern = /^ALTER TABLE(?: ONLY)? .+ (?:DISABLE|ENABLE) TRIGGER ALL;$/m
+  if ([files.auth, files.data, files.migrations].some((path) => forbiddenTableTriggerTogglePattern.test(readFileSync(path, 'utf8')))) {
+    throw new Error('synthetic data dump contains protected table trigger toggles')
+  }
   writeFileSync(files.policies, getStoragePolicySql({ psqlPath: paths.psql, pgEnvironment: sourceEnv }), { flag: 'wx' })
   writeFileSync(files.pre, 'set role postgres;\nset session_replication_role = replica;\n', { flag: 'wx' })
   writeFileSync(files.post, "update auth.users set banned_until=now()+interval '100 years';\nset session_replication_role=origin;\n", { flag: 'wx' })
