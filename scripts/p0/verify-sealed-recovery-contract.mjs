@@ -50,7 +50,15 @@ check('Auth dump relies on session-level trigger suppression instead of protecte
   authDumpDefinition.includes("'--table=auth.identities'") &&
   !authDumpDefinition.includes("'--disable-triggers'") &&
   authDumpDefinition.includes('Auth dump contains protected managed-schema trigger toggles'))
-check('backup preserves public ACL statements', backup.includes("'--schema=public', '--schema-only', '--no-owner', '--no-comments'") && !backup.includes("'--schema=public', '--schema-only', '--no-owner', '--no-privileges'"))
+check('backup preserves public and application-private ACL statements',
+  backup.includes("'--schema=public', `--schema=${applicationPrivateSchema}`, '--schema-only', '--no-owner', '--no-comments'") &&
+  !backup.includes("`--schema=${applicationPrivateSchema}`, '--schema-only', '--no-owner', '--no-privileges'"))
+check('backup seals the function-only application private schema',
+  backup.includes("const applicationPrivateSchema = 'sales_os_private'") &&
+  backup.includes("'dataRelations'") &&
+  backup.includes('application private schema is outside the sealed function-only recovery contract') &&
+  backup.includes('CREATE SCHEMA sales_os_private;') &&
+  backup.includes('application private schema dump omits a required performance routine'))
 check('backup verifies source database and Storage stability', backup.includes('sourceBefore.sha256 !== sourceAfter.sha256') && backup.includes('production Storage changed'))
 check('backup refreshes short-lived credentials before final freeze reconciliation',
   backup.indexOf('const sourceFinalDb = getTemporaryDbEnvironment') < backup.indexOf('const sourceAfter = getReconciliation') &&
@@ -69,10 +77,22 @@ check('database restore is a single transaction', restore.includes("'--single-tr
 check('runtime package gate decrypts Auth data and rejects protected trigger toggles',
   packageRuntime.includes('readProtectedKey') &&
   packageRuntime.includes('readEncryptedArtifact') &&
-  packageRuntime.includes('Auth dump omits protected managed-schema trigger toggles'))
+    packageRuntime.includes('Auth dump omits protected managed-schema trigger toggles'))
+check('runtime package gate decrypts and validates the application private schema',
+  packageRuntime.includes("artifact: manifest.database?.schemaDump") &&
+  packageRuntime.includes("artifact: manifest.database?.schemaInventory") &&
+  packageRuntime.includes('application private schema dump is complete and function-only') &&
+  packageRuntime.includes('application private schema inventory has no unsealed data relations'))
 check('restore rejects protected Auth trigger toggles before target access',
   restore.indexOf("sealed Auth dump contains forbidden managed-schema trigger toggles") <
     restore.indexOf('const targetDb = getTemporaryDbEnvironment'))
+check('restore rejects an incomplete application private schema before target access',
+  restore.indexOf('sealed application schema is outside the function-only recovery contract') <
+    restore.indexOf('const targetDb = getTemporaryDbEnvironment'))
+check('restore requires the isolated target application private schema to be absent',
+  restore.includes("'applicationPrivateObjects'") &&
+  restore.includes("nspname='sales_os_private'") &&
+  restore.indexOf('applicationPrivateObjects') < restore.indexOf('formalAttemptStarted = true'))
 check('target default table privileges are revoked before schema restore', restore.includes('alter default privileges in schema public revoke all on tables from anon, authenticated'))
 check('real restored users are banned in the database transaction', restore.includes("update auth.users set banned_until = now() + interval '100 years'"))
 check('Functions and secrets remain absent', restore.includes('finalFunctions.length !== 0') && restore.includes('finalSecrets.length !== 0'))
@@ -85,6 +105,8 @@ for (const token of [
   'publicColumnsMd5', 'publicConstraintsMd5', 'publicIndexesMd5',
   'publicTableAclMd5', 'publicRoutinesMd5', 'publicPoliciesMd5',
   'publicTriggersMd5', 'managedCustomizationsMd5', 'defaultPrivilegesMd5',
+  'salesOsPrivateSchemaAclMd5', 'salesOsPrivateDataRelations',
+  'salesOsPrivateRoutines', 'salesOsPrivateRoutinesMd5',
 ]) {
   check('reconciliation includes ' + token, reconciliation.includes("'" + token + "'"))
 }
@@ -94,7 +116,18 @@ check('local synthetic restore uses session-level trigger suppression without Au
   runtimeTest.includes('set session_replication_role = replica') &&
   runtimeTest.includes('synthetic Auth dump contains protected managed-schema trigger toggles') &&
   !runtimeTest.slice(runtimeTest.indexOf("'--schema=auth'"), runtimeTest.indexOf("'--schema=public'")).includes("'--disable-triggers'"))
+check('local synthetic restore models the application private trigger dependency',
+  runtimeTest.includes('create schema sales_os_private') &&
+  runtimeTest.includes("'--schema=sales_os_private'") &&
+  runtimeTest.includes('execute function sales_os_private.refresh_sample()') &&
+  runtimeTest.includes("result !== '1|1|1|1|1|1|1'"))
 check('local PostgreSQL skip is explicit and owner-authorized', runtimeTest.includes('owner-authorized-windows-account-encoding') && runtimeTest.includes('--skip-local-postgres'))
+check('remote preflight inventories the application private schema on both projects',
+  preflight.includes("'salesOsPrivateSchemas'") &&
+  preflight.includes("'salesOsPrivateDataRelations'") &&
+  preflight.includes("'salesOsPrivateRoutines'") &&
+  preflight.includes("'--schema=sales_os_private'") &&
+  preflight.includes('production application private schema is outside the function-only recovery contract'))
 check('package exposes runtime, preflight, backup and restore commands', [
   'test:p0:sealed-recovery-runtime', 'preflight:p0:sealed-recovery',
   'backup:p0:sealed-recovery', 'restore:p0:sealed-recovery',

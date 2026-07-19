@@ -96,6 +96,22 @@ select jsonb_build_object(
       select md5(coalesce(string_agg(pg_get_functiondef(p.oid)||'|ACL='||coalesce(p.proacl::text,''),E'\n' order by p.oid::regprocedure::text),''))
       from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid=p.pronamespace where n.nspname='public'
     ),
+    'salesOsPrivateSchemaAclMd5', (
+      select md5(coalesce(string_agg(n.nspname||'|'||coalesce(n.nspacl::text,''),E'\n' order by n.nspname),''))
+      from pg_catalog.pg_namespace n where n.nspname='sales_os_private'
+    ),
+    'salesOsPrivateDataRelations', (
+      select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid=c.relnamespace
+      where n.nspname='sales_os_private' and c.relkind in('r','p','S','m')
+    ),
+    'salesOsPrivateRoutines', (
+      select count(*) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid=p.pronamespace
+      where n.nspname='sales_os_private'
+    ),
+    'salesOsPrivateRoutinesMd5', (
+      select md5(coalesce(string_agg(pg_get_functiondef(p.oid)||'|ACL='||coalesce(p.proacl::text,''),E'\n' order by p.oid::regprocedure::text),''))
+      from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid=p.pronamespace where n.nspname='sales_os_private'
+    ),
     'publicPoliciesMd5', (
       select md5(coalesce(string_agg(p.polname||'|'||p.polcmd::text||'|'||coalesce(pg_get_expr(p.polqual,p.polrelid),'')||'|'||coalesce(pg_get_expr(p.polwithcheck,p.polrelid),''),E'\n' order by c.relname,p.polname),''))
       from pg_catalog.pg_policy p join pg_catalog.pg_class c on c.oid=p.polrelid

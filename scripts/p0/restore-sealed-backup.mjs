@@ -24,6 +24,13 @@ import {
 } from './temporary-db-access.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
+const applicationPrivateSchema = 'sales_os_private'
+const requiredApplicationPrivateRoutines = [
+  'refresh_order_performance_state_core',
+  'refresh_performance_after_payment',
+  'refresh_performance_after_reversal',
+  'refresh_performance_after_cancellation',
+]
 const args = process.argv.slice(2)
 const manifestIndex = args.indexOf('--manifest')
 const manifestPath = manifestIndex >= 0 ? resolve(args[manifestIndex + 1] ?? '') : null
@@ -87,6 +94,12 @@ const authIdentitiesDump = decrypted.get('auth.identitiesDump')
 if (/^ALTER TABLE auth\.(?:users|identities) (?:DISABLE|ENABLE) TRIGGER ALL;$/m.test(authIdentitiesDump.toString('utf8'))) {
   throw new Error('sealed Auth dump contains forbidden managed-schema trigger toggles')
 }
+const applicationSchemaDump = decrypted.get('database.schemaDump').toString('utf8')
+if ((applicationSchemaDump.match(/CREATE SCHEMA sales_os_private;/g) ?? []).length !== 1 ||
+    requiredApplicationPrivateRoutines.some((name) => !applicationSchemaDump.includes(`CREATE FUNCTION ${applicationPrivateSchema}.${name}(`)) ||
+    /^CREATE (?:TABLE|SEQUENCE|MATERIALIZED VIEW) sales_os_private\./m.test(applicationSchemaDump)) {
+  throw new Error('sealed application schema is outside the function-only recovery contract')
+}
 
 const cliPath = runContract.toolchain.supabaseCli.path
 const psqlPath = runContract.toolchain.psql.path
@@ -100,7 +113,11 @@ const targetDb = getTemporaryDbEnvironment({ cliPath, projectRef: targetRef, con
     'publicTables',(select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind in('r','p')),
     'authUsers',(select count(*) from auth.users),
     'storageBuckets',(select count(*) from storage.buckets),
-    'storageObjects',(select count(*) from storage.objects)
+    'storageObjects',(select count(*) from storage.objects),
+    'applicationPrivateObjects',
+      (select count(*) from pg_catalog.pg_namespace where nspname='sales_os_private') +
+      (select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid=c.relnamespace where n.nspname='sales_os_private') +
+      (select count(*) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid=p.pronamespace where n.nspname='sales_os_private')
   )::text;`,
 }))
   const targetMigrationTableExists = runPsql({
@@ -179,7 +196,7 @@ try {
   const files = {
     pre: resolve(workingDirectory, '00-pre.sql'),
     auth: resolve(workingDirectory, '10-auth.sql'),
-    schema: resolve(workingDirectory, '20-public-schema.sql'),
+    schema: resolve(workingDirectory, '20-application-schema.sql'),
     data: resolve(workingDirectory, '30-public-data.sql'),
     migrationSchema: resolve(workingDirectory, '35-migration-history-schema.sql'),
     migrations: resolve(workingDirectory, '40-migration-history-data.sql'),

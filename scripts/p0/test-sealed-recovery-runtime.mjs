@@ -94,6 +94,8 @@ try {
       create schema auth;
       create schema storage;
       create schema supabase_migrations;
+      create schema sales_os_private;
+      revoke all on schema sales_os_private from public;
       create table auth.users(id text primary key,email text,encrypted_password text,banned_until timestamptz);
       create table auth.identities(id text primary key,user_id text not null references auth.users(id),provider text);
       create table storage.objects(id text primary key,name text);
@@ -101,6 +103,9 @@ try {
       create policy "sealed test read" on storage.objects for select to public using (true);
       create table supabase_migrations.schema_migrations(version text primary key);
       create table public.sample(id integer primary key,user_id text references auth.users(id),amount numeric(14,2));
+      create function sales_os_private.refresh_sample() returns trigger language plpgsql security definer set search_path=pg_catalog,public as $private$ begin return new; end $private$;
+      create trigger refresh_sample_after_change after insert or update on public.sample for each row execute function sales_os_private.refresh_sample();
+      revoke all on function sales_os_private.refresh_sample() from public;
       insert into auth.users values('u1','owner@example.invalid','hash',null);
       insert into auth.identities values('i1','u1','email');
       insert into public.sample values(1,'u1',12.34);
@@ -128,10 +133,11 @@ try {
   if (/^ALTER TABLE auth\.(?:users|identities) (?:DISABLE|ENABLE) TRIGGER ALL;$/m.test(readFileSync(files.auth, 'utf8'))) {
     throw new Error('synthetic Auth dump contains protected managed-schema trigger toggles')
   }
-  runPgTool({ commandPath: paths.pgDump, pgEnvironment: sourceEnv, args: ['--schema=public', '--schema-only', '--no-owner', '--no-privileges', '--no-comments', '--role=postgres', '--file', files.schema] })
+  runPgTool({ commandPath: paths.pgDump, pgEnvironment: sourceEnv, args: ['--schema=public', '--schema=sales_os_private', '--schema-only', '--no-owner', '--no-comments', '--role=postgres', '--file', files.schema] })
   let schema = readFileSync(files.schema, 'utf8')
   if ((schema.match(/CREATE SCHEMA public;/g) ?? []).length !== 1) throw new Error('pg_dump public schema shape is unsupported')
-  schema = schema.replace('CREATE SCHEMA public;', 'CREATE SCHEMA IF NOT EXISTS public;').replace(/^ALTER SCHEMA public OWNER TO .*;\r?\n/gm, '')
+  if ((schema.match(/CREATE SCHEMA sales_os_private;/g) ?? []).length !== 1 || !schema.includes('FUNCTION sales_os_private.refresh_sample(')) throw new Error('synthetic application private schema is incomplete')
+  schema = schema.replace('CREATE SCHEMA public;', 'CREATE SCHEMA IF NOT EXISTS public;').replace(/^ALTER SCHEMA (?:public|sales_os_private) OWNER TO .*;\r?\n/gm, '')
   writeFileSync(files.schema, schema)
   runPgTool({ commandPath: paths.pgDump, pgEnvironment: sourceEnv, args: ['--schema=public', '--data-only', '--inserts', '--rows-per-insert=100', '--disable-triggers', '--no-owner', '--no-privileges', '--role=postgres', '--file', files.data] })
   runPgTool({ commandPath: paths.pgDump, pgEnvironment: sourceEnv, args: ['--schema=supabase_migrations', '--data-only', '--inserts', '--rows-per-insert=100', '--disable-triggers', '--no-owner', '--no-privileges', '--role=postgres', '--file', files.migrations] })
@@ -146,9 +152,9 @@ try {
   const result = runPsql({
     psqlPath: paths.psql,
     pgEnvironment: targetEnv,
-    sql: `select concat((select count(*) from public.sample),'|',(select count(*) from auth.users where banned_until>now()+interval '99 years'),'|',(select count(*) from auth.identities),'|',(select count(*) from supabase_migrations.schema_migrations),'|',(select count(*) from pg_policies where schemaname='storage'));`,
+    sql: `select concat((select count(*) from public.sample),'|',(select count(*) from auth.users where banned_until>now()+interval '99 years'),'|',(select count(*) from auth.identities),'|',(select count(*) from supabase_migrations.schema_migrations),'|',(select count(*) from pg_policies where schemaname='storage'),'|',(select count(*) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid=p.pronamespace where n.nspname='sales_os_private'),'|',(select count(*) from pg_catalog.pg_trigger t join pg_catalog.pg_class c on c.oid=t.tgrelid join pg_catalog.pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and not t.tgisinternal));`,
   })
-  if (result !== '1|1|1|1|1') throw new Error('synthetic single-transaction restore did not reconcile')
+  if (result !== '1|1|1|1|1|1|1') throw new Error('synthetic single-transaction restore did not reconcile')
   console.log(`[p0:sealed-runtime] READY crypto=PASS dpapi=PASS tamper=PASS bundle=PASS syntheticRestore=PASS port=${port} secretsPrinted=0 writes=local-only`)
   }
 } finally {

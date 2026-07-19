@@ -7,6 +7,12 @@ import { readEncryptedArtifact, readProtectedKey } from './sealed-recovery-lib.m
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const productionProjectRef = 'agygfhmkazcbqaqwmljb'
 const isolatedTestProjectRef = 'adzerzckgxxibadxkhcr'
+const requiredApplicationPrivateRoutines = [
+  'refresh_order_performance_state_core',
+  'refresh_performance_after_payment',
+  'refresh_performance_after_reversal',
+  'refresh_performance_after_cancellation',
+]
 const artifactPaths = [
   'database.rolesDump',
   'database.schemaDump',
@@ -170,26 +176,50 @@ for (const path of artifactPaths) {
   check(path + ' SHA256 matches the file', actualSha256 === artifact.sha256)
 }
 
-let authDumpKey = null
+let packageKey = null
 let authDumpOmitsProtectedTriggerToggles = false
+let applicationSchemaIsComplete = false
+let applicationSchemaInventoryIsSafe = false
 try {
-  authDumpKey = readProtectedKey({
+  packageKey = readProtectedKey({
     repoRoot,
     keyPath: resolve('E:\\CanWin-Team-OS-4.0-Recovery-Keys', `${manifest.package?.packageId}.dpapi`),
   })
   const authDump = readEncryptedArtifact({
     packageDirectory,
     artifact: manifest.auth?.identitiesDump,
-    key: authDumpKey,
+    key: packageKey,
   }).toString('utf8')
   authDumpOmitsProtectedTriggerToggles =
     !/^ALTER TABLE auth\.(?:users|identities) (?:DISABLE|ENABLE) TRIGGER ALL;$/m.test(authDump)
+  const applicationSchemaDump = readEncryptedArtifact({
+    packageDirectory,
+    artifact: manifest.database?.schemaDump,
+    key: packageKey,
+  }).toString('utf8')
+  applicationSchemaIsComplete =
+    (applicationSchemaDump.match(/CREATE SCHEMA sales_os_private;/g) ?? []).length === 1 &&
+    requiredApplicationPrivateRoutines.every((name) => applicationSchemaDump.includes(`CREATE FUNCTION sales_os_private.${name}(`)) &&
+    !/^CREATE (?:TABLE|SEQUENCE|MATERIALIZED VIEW) sales_os_private\./m.test(applicationSchemaDump)
+  const schemaInventory = JSON.parse(readEncryptedArtifact({
+    packageDirectory,
+    artifact: manifest.database?.schemaInventory,
+    key: packageKey,
+  }).toString('utf8'))
+  applicationSchemaInventoryIsSafe =
+    Number(schemaInventory.salesOsPrivateDataRelations) === 0 &&
+    Number(schemaInventory.salesOsPrivateRoutines) >= requiredApplicationPrivateRoutines.length &&
+    Number(schemaInventory.salesOsPrivatePublicTriggerFunctions) === 3
 } catch {
   authDumpOmitsProtectedTriggerToggles = false
+  applicationSchemaIsComplete = false
+  applicationSchemaInventoryIsSafe = false
 } finally {
-  if (authDumpKey) authDumpKey.fill(0)
+  if (packageKey) packageKey.fill(0)
 }
 check('Auth dump omits protected managed-schema trigger toggles', authDumpOmitsProtectedTriggerToggles)
+check('application private schema dump is complete and function-only', applicationSchemaIsComplete)
+check('application private schema inventory has no unsealed data relations', applicationSchemaInventoryIsSafe)
 
 for (const path of [
   'auth.counts.authUsers',

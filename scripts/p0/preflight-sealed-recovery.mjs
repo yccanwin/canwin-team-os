@@ -113,6 +113,10 @@ with columns as (
 select json_build_object(
   'serverVersion',current_setting('server_version_num')::int,
   'publicTables',(select count(*)::int from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind in ('r','p')),
+  'salesOsPrivateSchemas',(select count(*)::int from pg_catalog.pg_namespace where nspname='sales_os_private'),
+  'salesOsPrivateDataRelations',(select count(*)::int from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid=c.relnamespace where n.nspname='sales_os_private' and c.relkind in('r','p','S','m')),
+  'salesOsPrivateRoutines',(select count(*)::int from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid=p.pronamespace where n.nspname='sales_os_private'),
+  'salesOsPrivatePublicTriggerFunctions',(select count(*)::int from pg_catalog.pg_trigger t join pg_catalog.pg_class c on c.oid=t.tgrelid join pg_catalog.pg_namespace tn on tn.oid=c.relnamespace join pg_catalog.pg_proc p on p.oid=t.tgfoid join pg_catalog.pg_namespace pn on pn.oid=p.pronamespace where tn.nspname='public' and pn.nspname='sales_os_private' and not t.tgisinternal),
   'authUsers',(select count(*)::int from auth.users),
   'storageObjects',(select count(*)::int from storage.objects),
   'storageBuckets',(select count(*)::int from storage.buckets),
@@ -141,7 +145,8 @@ source.migrationRows = optionalTableCount(sourceDb, 'supabase_migrations.schema_
 target.migrationRows = optionalTableCount(targetDb, 'supabase_migrations.schema_migrations')
 
 if (source.publicTables !== 103) fail('production public table count drifted')
-if (target.publicTables !== 0 || target.authUsers !== 0 || target.storageBuckets !== 0 || target.storageObjects !== 0 || target.migrationRows !== 0) fail('isolated target is not empty')
+if (source.salesOsPrivateSchemas !== 1 || source.salesOsPrivateDataRelations !== 0 || source.salesOsPrivateRoutines < 4 || source.salesOsPrivatePublicTriggerFunctions !== 3) fail('production application private schema is outside the function-only recovery contract')
+if (target.publicTables !== 0 || target.salesOsPrivateSchemas !== 0 || target.salesOsPrivateDataRelations !== 0 || target.salesOsPrivateRoutines !== 0 || target.authUsers !== 0 || target.storageBuckets !== 0 || target.storageObjects !== 0 || target.migrationRows !== 0) fail('isolated target is not empty')
 for (const field of [
   'serverVersion', 'authTables', 'authTablesMd5', 'authColumns', 'authColumnsMd5',
   'storageTables', 'storageTablesMd5', 'storageColumns', 'storageColumnsMd5',
@@ -194,8 +199,9 @@ const sourceReconciliation = getReconciliation({ psqlPath, pgEnvironment: source
 if (Object.keys(sourceReconciliation.value.publicTables ?? {}).length !== source.publicTables) fail('exact reconciliation table inventory drifted')
 
 const dump = (commandPath, args, timeout = 300000) => runPgTool({ commandPath, pgEnvironment: sourceDb, args, timeout }).stdout
-const schemaDump = dump(pgDumpPath, ['--schema=public', '--schema-only', '--no-owner', '--no-comments', '--encoding=UTF8', '--role=postgres'])
+const schemaDump = dump(pgDumpPath, ['--schema=public', '--schema=sales_os_private', '--schema-only', '--no-owner', '--no-comments', '--encoding=UTF8', '--role=postgres'])
 if ((schemaDump.match(/CREATE SCHEMA public;/g) ?? []).length !== 1) fail('public schema dump shape is unsupported')
+if ((schemaDump.match(/CREATE SCHEMA sales_os_private;/g) ?? []).length !== 1 || !schemaDump.includes('FUNCTION sales_os_private.refresh_order_performance_state_core(')) fail('application private schema dump is incomplete')
 if (!schemaDump.includes('FUNCTION public.handle_new_user()')) fail('authorized Auth linkage function is absent from the public schema dump')
 const sourceDefaultAclCount = Number(runPsql({
   psqlPath,

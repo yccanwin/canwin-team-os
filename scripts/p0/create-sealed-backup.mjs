@@ -36,6 +36,13 @@ import {
 } from './temporary-db-access.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
+const applicationPrivateSchema = 'sales_os_private'
+const requiredApplicationPrivateRoutines = [
+  'refresh_order_performance_state_core',
+  'refresh_performance_after_payment',
+  'refresh_performance_after_reversal',
+  'refresh_performance_after_cancellation',
+]
 const args = process.argv.slice(2)
 const valueAfter = (flag) => {
   const index = args.indexOf(flag)
@@ -127,18 +134,44 @@ try {
   }).stdout
   console.log('[p0:sealed-backup] stage=baseline-ready productionWrites=0')
 
+  const applicationPrivateState = parseJson('application private schema inventory', runPsql({
+    psqlPath,
+    pgEnvironment: sourceDb,
+    sql: `select jsonb_build_object(
+      'schemaExists',exists(select 1 from pg_catalog.pg_namespace where nspname='sales_os_private'),
+      'dataRelations',(select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid=c.relnamespace where n.nspname='sales_os_private' and c.relkind in('r','p','S','m')),
+      'routines',(select count(*) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid=p.pronamespace where n.nspname='sales_os_private'),
+      'requiredRoutines',(select count(distinct p.proname) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid=p.pronamespace where n.nspname='sales_os_private' and p.proname in('refresh_order_performance_state_core','refresh_performance_after_payment','refresh_performance_after_reversal','refresh_performance_after_cancellation')),
+      'publicTriggerFunctions',(select count(*) from pg_catalog.pg_trigger t join pg_catalog.pg_class c on c.oid=t.tgrelid join pg_catalog.pg_namespace tn on tn.oid=c.relnamespace join pg_catalog.pg_proc p on p.oid=t.tgfoid join pg_catalog.pg_namespace pn on pn.oid=p.pronamespace where tn.nspname='public' and pn.nspname='sales_os_private' and not t.tgisinternal)
+    )::text;`,
+  }))
+  if (applicationPrivateState.schemaExists !== true ||
+      Number(applicationPrivateState.dataRelations) !== 0 ||
+      Number(applicationPrivateState.requiredRoutines) !== requiredApplicationPrivateRoutines.length ||
+      Number(applicationPrivateState.publicTriggerFunctions) !== 3) {
+    throw new Error('application private schema is outside the sealed function-only recovery contract')
+  }
+
   const rolesDumpText = pgText(pgDumpAllPath, [
     '--roles-only', '--no-role-passwords', '--no-privileges', '--no-comments', '--role=postgres',
   ])
   assertNoSecretLiterals('roles dump', rolesDumpText)
 
   let schemaDumpText = pgText(pgDumpPath, [
-    '--schema=public', '--schema-only', '--no-owner', '--no-comments', '--encoding=UTF8', '--role=postgres',
+    '--schema=public', `--schema=${applicationPrivateSchema}`, '--schema-only', '--no-owner', '--no-comments', '--encoding=UTF8', '--role=postgres',
   ])
   const createSchemaMatches = schemaDumpText.match(/CREATE SCHEMA public;/g) ?? []
   if (createSchemaMatches.length !== 1) throw new Error('public schema dump shape is not recognized')
+  const createPrivateSchemaMatches = schemaDumpText.match(/CREATE SCHEMA sales_os_private;/g) ?? []
+  if (createPrivateSchemaMatches.length !== 1) throw new Error('application private schema dump shape is not recognized')
+  if (requiredApplicationPrivateRoutines.some((name) => !schemaDumpText.includes(`CREATE FUNCTION ${applicationPrivateSchema}.${name}(`))) {
+    throw new Error('application private schema dump omits a required performance routine')
+  }
+  if (/^CREATE (?:TABLE|SEQUENCE|MATERIALIZED VIEW) sales_os_private\./m.test(schemaDumpText)) {
+    throw new Error('application private schema unexpectedly contains data-bearing relations')
+  }
   schemaDumpText = schemaDumpText.replace('CREATE SCHEMA public;', 'CREATE SCHEMA IF NOT EXISTS public;')
-  schemaDumpText = schemaDumpText.replace(/^ALTER SCHEMA public OWNER TO .*;\r?\n/gm, '')
+  schemaDumpText = schemaDumpText.replace(/^ALTER SCHEMA (?:public|sales_os_private) OWNER TO .*;\r?\n/gm, '')
 
   const dataDumpText = pgText(pgDumpPath, [
     '--schema=public', '--data-only', '--inserts', '--rows-per-insert=100', '--disable-triggers',
@@ -178,7 +211,10 @@ try {
       'publicTables',(select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind in('r','p')),
       'publicRoutines',(select count(*) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid=p.pronamespace where n.nspname='public'),
       'publicPolicies',(select count(*) from pg_catalog.pg_policy p join pg_catalog.pg_class c on c.oid=p.polrelid join pg_catalog.pg_namespace n on n.oid=c.relnamespace where n.nspname='public'),
-      'storagePolicies',(select count(*) from pg_catalog.pg_policy p join pg_catalog.pg_class c on c.oid=p.polrelid join pg_catalog.pg_namespace n on n.oid=c.relnamespace where n.nspname='storage')
+      'storagePolicies',(select count(*) from pg_catalog.pg_policy p join pg_catalog.pg_class c on c.oid=p.polrelid join pg_catalog.pg_namespace n on n.oid=c.relnamespace where n.nspname='storage'),
+      'salesOsPrivateDataRelations',(select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid=c.relnamespace where n.nspname='sales_os_private' and c.relkind in('r','p','S','m')),
+      'salesOsPrivateRoutines',(select count(*) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid=p.pronamespace where n.nspname='sales_os_private'),
+      'salesOsPrivatePublicTriggerFunctions',(select count(*) from pg_catalog.pg_trigger t join pg_catalog.pg_class c on c.oid=t.tgrelid join pg_catalog.pg_namespace tn on tn.oid=c.relnamespace join pg_catalog.pg_proc p on p.oid=t.tgfoid join pg_catalog.pg_namespace pn on pn.oid=p.pronamespace where tn.nspname='public' and pn.nspname='sales_os_private' and not t.tgisinternal)
     )::text;`,
   }))
 
@@ -252,7 +288,7 @@ try {
 
   const database = {
     rolesDump: artifact('database-roles.sql', rolesDumpText, { contentType: 'application/sql', format: 'postgresql-plain-sql', tool: 'pg_dumpall', toolVersion: '18.4' }),
-    schemaDump: artifact('database-public-schema.sql', schemaDumpText, { contentType: 'application/sql', format: 'postgresql-plain-sql', tool: 'pg_dump', toolVersion: '18.4' }),
+    schemaDump: artifact('database-application-schema.sql', schemaDumpText, { contentType: 'application/sql', format: 'postgresql-plain-sql', tool: 'pg_dump', toolVersion: '18.4' }),
     dataDump: artifact('database-public-data.sql', dataDumpText, { contentType: 'application/sql', format: 'postgresql-plain-sql', tool: 'pg_dump', toolVersion: '18.4' }),
     migrationHistorySchemaDump: artifact('migration-history-schema.sql', migrationSchemaDumpText, { contentType: 'application/sql', format: 'postgresql-plain-sql', tool: 'pg_dump', toolVersion: '18.4' }),
     migrationHistoryDataDump: artifact('migration-history-data.sql', migrationDataDumpText, { contentType: 'application/sql', format: 'postgresql-plain-sql', tool: 'pg_dump', toolVersion: '18.4' }),
