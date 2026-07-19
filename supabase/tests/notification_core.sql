@@ -7,7 +7,12 @@ do $$begin
  if has_function_privilege('authenticated','public.claim_wecom_notification_jobs(integer,timestamp with time zone)','EXECUTE')or has_function_privilege('anon','public.claim_wecom_notification_jobs(integer,timestamp with time zone)','EXECUTE')then raise exception'Notification worker RPC exposed';end if;
  if(select count(*)from pg_policies where schemaname='public'and tablename like'notification_%'and policyname='sales os v3 server gate'and permissive='RESTRICTIVE')<>3 then raise exception'Notification core gates missing';end if;
  if not exists(select 1 from pg_constraint where conrelid='public.notification_jobs'::regclass and contype='c'and pg_get_constraintdef(oid)like'%phone%amount%profit%')then raise exception'Sensitive payload guard missing';end if;
- if exists(select 1 from pg_policies where schemaname='public'and tablename='notification_attempts'and cmd in('INSERT','UPDATE','DELETE','ALL'))then raise exception'Attempt history client-mutable';end if;
+ if exists(select 1 from pg_policies where schemaname='public'and tablename='notification_attempts'
+  and permissive='PERMISSIVE'and cmd in('INSERT','UPDATE','DELETE','ALL'))then raise exception'Attempt history permissive write policy found';end if;
+ if exists(select 1 from(values('anon'),('authenticated'))as r(role_name)
+  cross join(values('INSERT'),('UPDATE'),('DELETE'))as p(privilege_name)
+  where has_table_privilege(r.role_name,'public.notification_attempts',p.privilege_name))then
+  raise exception'Attempt history direct client write privilege found';end if;
  if to_regclass('public.notification_channel_status')is null then raise exception'Notification channel status missing';end if;
  if not exists(select 1 from information_schema.columns where table_schema='public'and table_name='notification_jobs'and column_name='manual_retry_count')then raise exception'Manual retry guard missing';end if;
  if not exists(select 1 from pg_constraint where conrelid='public.notification_attempts'::regclass and pg_get_constraintdef(oid)like'%job_id, retry_cycle, attempt_no%')then raise exception'Retry cycle attempt uniqueness missing';end if;

@@ -24,6 +24,14 @@ const expectedRollbackFixtures = new Set([
 const allowedModes = new Set(['read_only', 'rollback_fixture'])
 const forbiddenSqlBoundary = /(?:^|\W)(?:dblink_connect|postgres_fdw|postgresql_fdw|http_get|http_post|net\.http_)(?:\W|$)/i
 
+function findPolicyPresenceWriteAssertions(sql) {
+  const compact = sql.replace(/\s+/g, '')
+  return [...compact.matchAll(/ifexists\(select1frompg_policies[\s\S]*?\)thenraiseexception/gi)]
+    .map((match) => match[0])
+    .filter((assertion) => /cmdin\([^)]*'(?:INSERT|UPDATE|DELETE|ALL)'/i.test(assertion))
+    .filter((assertion) => !/permissive='PERMISSIVE'/i.test(assertion))
+}
+
 function validate(candidate) {
   const failures = []
   const check = (condition, message) => { if (!condition) failures.push(message) }
@@ -61,6 +69,7 @@ function validate(candidate) {
   check(counts.postInstallCatalogAssertions === 4, 'catalog assertion count drift')
   check(sourceRules.doKeywordSeparatedFromDollarQuote === true, 'DO dollar-quote separator rule drift')
   check(sourceRules.forbiddenUnseparatedToken === 'do$$', 'DO dollar-quote forbidden token drift')
+  check(sourceRules.policyWriteAssertionsRequirePermissiveFilter === true, 'policy write assertion source rule drift')
   check(tests.length === counts.total, 'test entry count drift')
   check(exactSet(tests.map((entry) => entry.path), tests.map((entry) => entry.path)), 'duplicate test path')
 
@@ -85,6 +94,7 @@ function validate(candidate) {
     check(!/^\s*\\/m.test(sql), `psql meta-command forbidden ${entry.path}`)
     check(!forbiddenSqlBoundary.test(sql), `remote SQL boundary forbidden ${entry.path}`)
     check(!/\bdo\$\$/i.test(sql), `DO keyword must be separated from dollar quote ${entry.path}`)
+    check(findPolicyPresenceWriteAssertions(sql).length === 0, `policy presence misclassified as write grant ${entry.path}`)
     if (entry.executionMode === 'rollback_fixture') {
       check(/^\s*(?:--[^\n]*\n\s*)*begin\s*;/i.test(sql), `fixture must begin a transaction ${entry.path}`)
       check(/rollback\s*;\s*$/i.test(sql), `fixture must end with rollback ${entry.path}`)
@@ -201,7 +211,7 @@ function validate(candidate) {
   check(boundary.repositorySecretsRequired === false, 'repository secrets must not be required')
 
   const attempts = candidate.formalAttemptHistory ?? []
-  check(attempts.length === 6, 'formal attempt history count drift')
+  check(attempts.length === 7, 'formal attempt history count drift')
   const failedAttempt = attempts[0] ?? {}
   check(failedAttempt.runId === '29680934378', 'failed run id drift')
   check(failedAttempt.jobId === '88176860842', 'failed job id drift')
@@ -297,6 +307,24 @@ function validate(candidate) {
   check(importPolicyAttempt.productionReadPerformed === false, 'import policy run production read must remain false')
   check(importPolicyAttempt.productionWritePerformed === false, 'import policy run production write must remain false')
   check(importPolicyAttempt.rerunOfFailedRun === false, 'import policy run must remain a new candidate')
+  const dealPolicyAttempt = attempts[6] ?? {}
+  check(dealPolicyAttempt.runId === '29682072414', 'deal policy run id drift')
+  check(dealPolicyAttempt.jobId === '88179873895', 'deal policy job id drift')
+  check(dealPolicyAttempt.headSha === '28bac3035f30e725ed7d77bab7fe2c319873fa2a', 'deal policy run head SHA drift')
+  check(dealPolicyAttempt.conclusion === 'failure', 'deal policy run conclusion drift')
+  check(dealPolicyAttempt.failedStep === 'Run database permission and business gates', 'deal policy run failed step drift')
+  check(dealPolicyAttempt.rootCauseCode === 'restrictive_all_deal_history_policy_misclassified_as_write_grant', 'deal policy run root cause drift')
+  check(dealPolicyAttempt.databaseStartupPassed === true, 'deal policy run database startup evidence missing')
+  check(dealPolicyAttempt.baselinePassed === true, 'deal policy run baseline evidence missing')
+  check(dealPolicyAttempt.migrationsPassed === 69, 'deal policy run migration count drift')
+  check(dealPolicyAttempt.sqlTestsStarted === 4 && dealPolicyAttempt.sqlTestsPassed === 3, 'deal policy run test count drift')
+  check(dealPolicyAttempt.firstFailedTest === 'supabase/tests/deal_core.sql', 'deal policy first failed test drift')
+  check(dealPolicyAttempt.priorImportPolicyAssertionPassed === true, 'deal policy prior import assertion evidence missing')
+  check(dealPolicyAttempt.classwideAffectedFiles === 5 && dealPolicyAttempt.classwideOccurrences === 6, 'deal policy classwide evidence drift')
+  check(dealPolicyAttempt.cleanupPassed === true, 'deal policy run cleanup evidence missing')
+  check(dealPolicyAttempt.productionReadPerformed === false, 'deal policy run production read must remain false')
+  check(dealPolicyAttempt.productionWritePerformed === false, 'deal policy run production write must remain false')
+  check(dealPolicyAttempt.rerunOfFailedRun === false, 'deal policy run must remain a new candidate')
   return failures
 }
 
@@ -319,6 +347,7 @@ const negativeCases = [
   ['pre-relaxation final qualification', (value) => { value.historicalChainExpectations.crmOpportunityQualification.after69RequiredAdvisoryFacts = true }],
   ['pre-address lead view', (value) => { value.historicalChainExpectations.crmLeadsVisible.after69Columns.pop() }],
   ['import direct client write', (value) => { value.historicalChainExpectations.customerImportHistoryAccess.directClientWritePrivilegesAllowed = true }],
+  ['policy write assertion source rule', (value) => { value.testSourceRules.policyWriteAssertionsRequirePermissiveFilter = false }],
   ['repository secret', (value) => { value.acceptanceBoundary.repositorySecretsRequired = true }],
   ['production write', (value) => { value.acceptanceBoundary.productionWritePerformed = true }],
   ['G0 falsely claimed', (value) => { value.acceptanceBoundary.g0OverallClaim = true }],

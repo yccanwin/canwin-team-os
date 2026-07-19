@@ -10,7 +10,20 @@ do $$begin
  if position('deal_payments' in pg_get_functiondef('public.get_order_sales_ledger(text,uuid)'::regprocedure))=0 or position('deal_payment_reversals' in pg_get_functiondef('public.get_order_sales_ledger(text,uuid)'::regprocedure))=0 or position('internal_due' in pg_get_functiondef('public.get_order_sales_ledger(text,uuid)'::regprocedure))=0 or position('deal_sales_expenses' in pg_get_functiondef('public.get_order_sales_ledger(text,uuid)'::regprocedure))=0 then raise exception'Sales margin formula incomplete';end if;
  if position('recipient_type' in pg_get_functiondef('public.get_order_sales_ledger(text,uuid)'::regprocedure))>0 then raise exception'Customer payment path changes sales ownership formula';end if;
  if position('profile_id = auth.uid()' in pg_get_viewdef('public.personal_performance_summary'::regclass,true))=0 then raise exception'Personal summary isolation missing';end if;
- if exists(select 1 from pg_policies where schemaname='public'and tablename in('performance_target_events','official_reconciliation_lines','profit_adjustments')and cmd in('UPDATE','DELETE','ALL'))then raise exception'Performance history client-mutable';end if;
+ if(select count(*)from pg_policies where schemaname='public'
+  and tablename in('performance_target_events','official_reconciliation_lines','profit_adjustments')
+  and policyname='sales os v3 server gate'and permissive='RESTRICTIVE'and cmd='ALL'
+  and'authenticated'=any(roles))<>3 then raise exception'Performance history restrictive gates missing';end if;
+ if exists(select 1 from pg_policies where schemaname='public'
+  and tablename in('performance_target_events','official_reconciliation_lines','profit_adjustments')
+  and permissive='PERMISSIVE'and cmd in('INSERT','UPDATE','DELETE','ALL'))then
+  raise exception'Performance history permissive write policy found';end if;
+ if exists(select 1
+  from(values('anon'),('authenticated'))as r(role_name)
+  cross join(values('public.performance_target_events'),('public.official_reconciliation_lines'),('public.profit_adjustments'))as t(table_name)
+  cross join(values('INSERT'),('UPDATE'),('DELETE'))as p(privilege_name)
+  where has_table_privilege(r.role_name,t.table_name,p.privilege_name))then
+  raise exception'Performance history direct client write privilege found';end if;
  if position('for update' in lower(pg_get_functiondef('public.confirm_official_reconciliation(uuid)'::regprocedure)))=0 then raise exception'Reconciliation confirmation lock missing';end if;
  if has_table_privilege('anon','public.company_profit_summary','SELECT')or has_function_privilege('anon','public.add_profit_adjustment(text,numeric,date,text,uuid)','EXECUTE')then raise exception'Financial reporting exposed to anon';end if;
  if(select count(*)from pg_policies where schemaname='public'and tablename in('performance_quarterly_targets','official_reconciliation_batches','profit_adjustments')and policyname='sales os v3 server gate'and permissive='RESTRICTIVE')<>3 then raise exception'Performance server gates missing';end if;

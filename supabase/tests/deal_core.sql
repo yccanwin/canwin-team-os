@@ -9,7 +9,20 @@ do $$ declare missing int; begin
   if position('QUOTE_EXPIRED' in pg_get_functiondef('public.confirm_deal_deposit(uuid,numeric,text,uuid,text)'::regprocedure))=0
     or position('DEPOSIT_EXCEEDS_QUOTE_TOTAL' in pg_get_functiondef('public.confirm_deal_deposit(uuid,numeric,text,uuid,text)'::regprocedure))=0 then raise exception 'Deposit expiry/amount cap missing'; end if;
   if position('INTERNAL_PAYMENT_EXCEEDS_DUE' in pg_get_functiondef('public.confirm_deal_internal_payment(uuid,numeric,text,uuid,text)'::regprocedure))=0 then raise exception 'Internal settlement cap missing'; end if;
-  if exists(select 1 from pg_policies where schemaname='public' and tablename in('deal_payments','deal_payment_reversals','deal_internal_settlements') and cmd in('UPDATE','DELETE','ALL')) then raise exception 'Financial history is mutable'; end if;
+  if(select count(*)from pg_policies where schemaname='public'
+    and tablename in('deal_payments','deal_payment_reversals','deal_internal_settlements')
+    and policyname='sales os v3 server gate'and permissive='RESTRICTIVE'and cmd='ALL'
+    and'authenticated'=any(roles))<>3 then raise exception'Financial history restrictive gates missing';end if;
+  if exists(select 1 from pg_policies where schemaname='public'
+    and tablename in('deal_payments','deal_payment_reversals','deal_internal_settlements')
+    and permissive='PERMISSIVE'and cmd in('INSERT','UPDATE','DELETE','ALL'))then
+    raise exception'Financial history permissive write policy found';end if;
+  if exists(select 1
+    from(values('anon'),('authenticated'))as r(role_name)
+    cross join(values('public.deal_payments'),('public.deal_payment_reversals'),('public.deal_internal_settlements'))as t(table_name)
+    cross join(values('INSERT'),('UPDATE'),('DELETE'))as p(privilege_name)
+    where has_table_privilege(r.role_name,t.table_name,p.privilege_name))then
+    raise exception'Financial history direct client write privilege found';end if;
   if not exists(select 1 from pg_constraint where conrelid='public.deal_quote_lines'::regclass and contype='f') or not exists(select 1 from pg_constraint where conrelid='public.deal_payments'::regclass and contype='f') then raise exception 'Cross-team composite references missing'; end if;
   if has_function_privilege('anon','public.confirm_deal_deposit(uuid,numeric,text,uuid,text)','EXECUTE') then raise exception 'Anon can confirm deposit'; end if;
   if exists(select 1 from pg_policies where schemaname='public' and tablename in('deal_payments','deal_payment_reversals','deal_internal_settlements')
@@ -22,6 +35,19 @@ do $$ declare missing int; begin
     or not exists(select 1 from information_schema.columns where table_schema='public'and table_name='deal_internal_settlements'and column_name='method')then raise exception'Dual-ledger routing fields missing';end if;
   if position('cash_remitted' in pg_get_functiondef('public.confirm_deal_internal_payment(uuid,numeric,text,uuid,text)'::regprocedure))=0
     or position('withheld_from_company_receipt' in pg_get_functiondef('public.confirm_deal_internal_payment(uuid,numeric,text,uuid,text)'::regprocedure))=0 then raise exception'Internal settlement methods missing';end if;
-  if exists(select 1 from pg_policies where schemaname='public'and tablename in('deal_procurement_cost_payments','deal_sales_expenses')and cmd in('INSERT','UPDATE','DELETE','ALL'))then raise exception'Dual-ledger history client-mutable';end if;
+  if(select count(*)from pg_policies where schemaname='public'
+    and tablename in('deal_procurement_cost_payments','deal_sales_expenses')
+    and policyname='sales os v3 server gate'and permissive='RESTRICTIVE'and cmd='ALL'
+    and'authenticated'=any(roles))<>2 then raise exception'Dual-ledger history restrictive gates missing';end if;
+  if exists(select 1 from pg_policies where schemaname='public'
+    and tablename in('deal_procurement_cost_payments','deal_sales_expenses')
+    and permissive='PERMISSIVE'and cmd in('INSERT','UPDATE','DELETE','ALL'))then
+    raise exception'Dual-ledger history permissive write policy found';end if;
+  if exists(select 1
+    from(values('anon'),('authenticated'))as r(role_name)
+    cross join(values('public.deal_procurement_cost_payments'),('public.deal_sales_expenses'))as t(table_name)
+    cross join(values('INSERT'),('UPDATE'),('DELETE'))as p(privilege_name)
+    where has_table_privilege(r.role_name,t.table_name,p.privilege_name))then
+    raise exception'Dual-ledger history direct client write privilege found';end if;
 end $$;
 select 'deal_core_ok' result;
