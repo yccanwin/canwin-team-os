@@ -195,7 +195,7 @@ try {
     runPsqlFile(`test:${test.category}:${test.path.split('/').at(-1)}`, test.path, test.executionMode === 'read_only')
   }
   runCatalogAssertions()
-  console.log('P0_CI_DATABASE_GATES_OK baseline=1 migrations=69 tests=26 database=7 permission=10 business=9 catalog=4 repositorySecrets=0 productionReads=0 productionWrites=0')
+  console.log('P0_CI_DATABASE_GATES_OK baseline=1 migrations=70 tests=27 database=7 permission=11 business=9 catalog=4 repositorySecrets=0 productionReads=0 productionWrites=0')
 } catch (error) {
   console.error(`P0_CI_DATABASE_GATES_FAILED\n${redact(error instanceof Error ? error.message : error)}`)
   process.exit(1)

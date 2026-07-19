@@ -44,6 +44,11 @@ const steps = [
     args: [p0Script('verify-p1-app-navigation-contract.mjs')],
   },
   {
+    name: 'p1-app-shell',
+    command: process.execPath,
+    args: [resolve(repoRoot, 'scripts', 'p1', 'verify-app-shell.mjs')],
+  },
+  {
     name: 'catalog-readonly-selftest',
     command: powershellExe,
     args: [

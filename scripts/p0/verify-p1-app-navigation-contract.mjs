@@ -45,7 +45,7 @@ const plan = await readFile(resolve(repoRoot, contract.sources.plan), 'utf8')
 const counts = contract.expectedCounts
 
 assert(contract.schemaVersion === 1, `Unsupported schemaVersion ${contract.schemaVersion}.`)
-assert(contract.contractStatus === 'p0_supervisor_frozen_execution_locked_until_g0', 'Contract must remain frozen but locked until G0; it must not claim P1 UI completion.')
+assert(contract.contractStatus === 'p1_candidate_implemented_pending_remote_runtime', 'Contract must record the implemented P1 candidate without claiming remote runtime acceptance.')
 for (const marker of contract.planAssertions) assert(plan.includes(marker), `Plan assertion drifted: ${marker}`)
 
 const expectedPrimaryRoleIds = ['sales', 'implementation', 'operations', 'finance', 'admin']

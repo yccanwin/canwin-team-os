@@ -2,9 +2,9 @@
     "schemaVersion":  1,
     "algorithm":  "sha256",
     "hashMode":  "utf8-lf",
-    "expectedCount":  69,
+    "expectedCount":  70,
     "migrationDirectory":  "supabase/migrations",
-    "generatedFromCommit":  "69877841ccac22ce498d2ea6d6b7f0554a98f0cb",
+    "generatedFromCommit":  "9d7ec273c3802768fca87469f6a110d78570ed2a",
     "entries":  [
                     {
                         "version":  "20260710024500",
@@ -350,6 +350,11 @@
                         "version":  "20260718010119",
                         "file":  "20260718010119_complete_performance_center_snapshot.sql",
                         "sha256":  "2e969ed0e47b2316f6d48d2da367239a016417984916dcbc9e7a1251a4273954"
+                    },
+                    {
+                        "version":  "20260719130910",
+                        "file":  "20260719130910_team_os_4_p1_access_shell.sql",
+                        "sha256":  "aeb65af4bfb014eeefedec6226def2a28873371c93936954277656a10119efad"
                     }
                 ]
 }

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "manifestType": "canwin-team-os-p0-ci-database-tests",
-  "contractStatus": "p0_g0_actual_github_run_accepted",
+  "contractStatus": "p1_candidate_pending_actual_github_run",
   "baseline": {
     "path": "supabase/schema.sql",
     "sha256Lf": "4602c1e583174a4dbc6e480aac101d2cf914148651ded71028d9a43abed8c340"
@@ -9,21 +9,21 @@
   "migrations": {
     "directory": "supabase/migrations",
     "sha256Manifest": "docs/team-os-4.0/p0/migration-sha256-manifest.json",
-    "expectedCount": 69
+    "expectedCount": 70
   },
   "expectedCounts": {
     "database": 7,
-    "permission": 10,
+    "permission": 11,
     "business": 9,
-    "total": 26,
+    "total": 27,
     "postInstallCatalogAssertions": 4,
     "definitionReferencedObjects": 54,
     "redefinedDefinitionReferencedObjects": 28,
     "crmLeadsVisibleExactColumnAssertions": 2,
     "directDealOrderFixtureFiles": 2,
     "directDealOrderInsertStatements": 2,
-    "finalPublicFunctionIdentities": 162,
-    "functionIdentityReferences": 189
+    "finalPublicFunctionIdentities": 168,
+    "functionIdentityReferences": 206
   },
   "testSourceRules": {
     "doKeywordSeparatedFromDollarQuote": true,
@@ -40,7 +40,7 @@
   },
   "postInstallCatalog": {
     "publicTables": 103,
-    "publicRoutines": 162,
+    "publicRoutines": 168,
     "publicViews": 11,
     "storageBuckets": 1
   },
@@ -100,6 +100,7 @@
     { "path": "supabase/tests/photo_policy_role_helper_alignment.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "f12435a942c2124298419ce391eb51d3455e176c120fb7b4bc1f039323204cf8" },
     { "path": "supabase/tests/quote_draft_hardening.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "69ee5d9480e3d23546889089726e32c7756083ea24ab6e2d0d81b9814e07d2b8" },
     { "path": "supabase/tests/team_photo_persistence_security.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "e41c6c682080772d492331ca8c3a997664dcf080be5c73c26092a4f4119da757" },
+    { "path": "supabase/tests/team_os_4_p1_access_shell.sql", "category": "permission", "executionMode": "rollback_fixture", "sha256Lf": "e68192bf893567cade4729807af55452f71bcdf67bd12d2c1ce27ac440b2328d" },
 
     { "path": "supabase/tests/crm_qualification_append_only.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "2142d6d579772dc2ffb807ce5a2bb0b5d991fd9d4c553ecb5ae13aec910e330c" },
     { "path": "supabase/tests/crm_qualification_promotion_audit.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "297edf4c24d8de04279f60cc17f1d87658c08601180c0d8c6b8a0e0ec3774a98" },
@@ -131,6 +132,8 @@
     "contractAccepted": true,
     "actualGithubRunEvidence": "passed",
     "g0OverallClaim": true,
+    "p1ActualGithubRunEvidence": "pending",
+    "g1OverallClaim": false,
     "productionReadPerformed": false,
     "productionWritePerformed": false,
     "repositorySecretsRequired": false

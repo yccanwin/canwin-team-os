@@ -377,15 +377,7 @@ export function SalesWorkbench({
   const leadAllowsActivity = demoMode || Boolean(followupContext && !['nurturing', 'supervisor_review'].includes(followupContext.leadStatus))
 
   return (
-    <section className="sales-workbench" aria-label={`CanWin 3.0 销售工作台${demoMode ? '演示' : ''}`}>
-      <aside className="sw-desktop-nav" aria-label="销售工作台一级导航">
-        <div className="sw-brand-mark"><span>CANWIN</span><strong>销售工作台</strong></div>
-        <div className="sw-desktop-nav-items">
-          {tabs.map(({ id, label, icon: Icon }) => <button key={id} className={activeTab === id ? 'is-active' : ''} onClick={() => activateTab(id)}><Icon size={19} /><span>{label}</span></button>)}
-        </div>
-        <div className="sw-account-card"><div className="sw-avatar" title={salespersonName}>销</div><span><strong>{salespersonName}</strong><small>{demoMode ? '演示模式' : '真实数据'}</small></span></div>
-      </aside>
-
+    <section className="sales-workbench" aria-label={`CanWin 4.0 销售业务${demoMode ? '演示' : ''}`}>
       <div className="sw-workspace">
         <header className="sw-header">
           <div>
@@ -531,9 +523,6 @@ export function SalesWorkbench({
         </main>
       </div>
 
-      <nav className="sw-bottom-nav" aria-label="销售工作台导航">
-        {tabs.map(({ id, label, icon: Icon }) => <button key={id} className={activeTab === id ? 'is-active' : ''} onClick={() => activateTab(id)}><Icon size={21} /><span>{label}</span></button>)}
-      </nav>
     </section>
   )
 }

@@ -251,10 +251,14 @@ $migrationStatus = & git -C $repoRoot status --porcelain=v1 --untracked-files=al
 if ($LASTEXITCODE -ne 0) {
   throw "Unable to inspect historical migration changes: $($migrationStatus -join [Environment]::NewLine)"
 }
-if (@($migrationStatus).Count -gt 0) {
-  throw "Historical migrations have worktree changes; candidate validation stops:`n$($migrationStatus -join [Environment]::NewLine)"
+$allowedP1CandidatePattern = '^(?:\?\?|A )\s+supabase/migrations/20260719130910_team_os_4_p1_access_shell\.sql$'
+$unexpectedMigrationStatus = @(@($migrationStatus) | Where-Object {
+  -not ([string]$_ -match $allowedP1CandidatePattern)
+})
+if ($unexpectedMigrationStatus.Count -gt 0) {
+  throw "Historical migrations or an undeclared candidate have worktree changes; candidate validation stops:`n$($unexpectedMigrationStatus -join [Environment]::NewLine)"
 }
 
 Write-Output "P0_SECURITY_INVOKER_COMMENT_REGRESSION_OK cases=$($commentRegressionCases.Count) formats=lf,crlf,mixed,comment-semicolon"
 Write-Output "P0_SECURITY_INVOKER_CANDIDATE_STATIC_SELFTEST_OK cases=$($commentRegressionCases.Count + $negativeCases.Count) positive=$($commentRegressionCases.Count) negative=$($negativeCases.Count)"
-Write-Output 'P0_SECURITY_INVOKER_CANDIDATE_OK views=3 policies=4 callers=3 migrations=clean database_calls=0'
+Write-Output 'P0_SECURITY_INVOKER_CANDIDATE_OK views=3 policies=4 callers=3 migrations=historical-clean-p1-candidate-allowed database_calls=0'

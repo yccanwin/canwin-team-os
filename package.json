@@ -36,6 +36,7 @@
     "test:p0:ci-database": "node scripts/p0/run-ci-database-gates.mjs",
     "test:p0:static": "node scripts/p0/run-static-gates.mjs",
     "test:p0:local": "node scripts/p0/run-local-integration.mjs",
+    "test:p1:app-shell": "node scripts/p1/verify-app-shell.mjs",
     "verify:build-target": "node scripts/p0/verify-build-target.mjs",
     "verify:build-artifact": "node scripts/p0/verify-build-target.mjs --artifact dist",
     "verify:build-artifact:static": "node scripts/p0/verify-build-target.mjs --artifact-compile-only dist-p0-static",

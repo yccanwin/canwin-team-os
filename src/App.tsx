@@ -1,63 +1,35 @@
 import { Suspense, lazy, useEffect } from 'react'
-import { Navigate, Routes, Route } from 'react-router-dom'
+import { Link, Navigate, Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
 import AuthGate from './components/AuthGate'
 import { useUserStore } from './stores/useUserStore'
 import { useTaskStore } from './stores/useTaskStore'
 import { useFinanceStore } from './stores/useFinanceStore'
 import { useInventoryStore } from './stores/useInventoryStore'
-import { useVoteStore } from './stores/useVoteStore'
 import { useGoalStore } from './stores/useGoalStore'
 import { usePersonalGoalStore } from './stores/usePersonalGoalStore'
 import { useCalendarStore } from './stores/useCalendarStore'
-import { useTimelineStore } from './stores/useTimelineStore'
-import { useAchievementStore } from './stores/useAchievementStore'
-import { usePhotoStore } from './stores/usePhotoStore'
 import { useAssetStore } from './stores/useAssetStore'
-import { useToolboxStore } from './stores/useToolboxStore'
-import { useWarRoomStore } from './stores/useWarRoomStore'
 import { useSkillStore } from './stores/useSkillStore'
 import { useSalesStore } from './stores/useSalesStore'
 import { isCaptainRole, isFinanceRole, isWarehouseRole, loadTeamProfiles } from './services/profile'
 import { loadTasks } from './services/tasks'
 import { loadFinancePublicSummary, loadFinanceRecords } from './services/finance'
 import { loadInventory, loadInventoryPublic } from './services/inventory'
-import { loadVotes } from './services/votes'
 import { loadGoals } from './services/goals'
 import { loadPersonalGoals } from './services/personalGoals'
 import { loadCalendarEvents } from './services/calendar'
-import { loadTimelineEvents } from './services/timeline'
-import { loadAchievements } from './services/achievements'
-import { loadPhotos } from './services/photos'
 import { loadAssets, loadPublicAssets } from './services/assets'
-import { loadTools } from './services/toolbox'
-import { loadWarRoomPolicies } from './services/warroom'
 import { loadSkills, loadUserSkills } from './services/skills'
 import { loadSalesAssessments, loadSalesProducts, loadSalesScoreRecords } from './services/sales'
 
 // 懒加载页面
 const Dashboard = lazy(() => import('./pages/Dashboard'))
-const Tasks = lazy(() => import('./pages/Tasks'))
-const Goals = lazy(() => import('./pages/Goals'))
 const Work = lazy(() => import('./pages/Work'))
-const Votes = lazy(() => import('./pages/Votes'))
-const VoteDetail = lazy(() => import('./pages/Votes/VoteDetail'))
-const Inventory = lazy(() => import('./pages/Inventory'))
 const Finance = lazy(() => import('./pages/Finance'))
-const SalesCenter = lazy(() => import('./pages/SalesCenter'))
-const Timeline = lazy(() => import('./pages/Timeline'))
-const Achievements = lazy(() => import('./pages/Achievements'))
-const Photos = lazy(() => import('./pages/Photos'))
-const Assets = lazy(() => import('./pages/Assets'))
 const Profile = lazy(() => import('./pages/Profile'))
-const Members = lazy(() => import('./pages/Members'))
 const Calendar = lazy(() => import('./pages/Calendar'))
-const Toolbox = lazy(() => import('./pages/Toolbox'))
-const WarRoom = lazy(() => import('./pages/WarRoom'))
-const Skills = lazy(() => import('./pages/Skills'))
-const Settings = lazy(() => import('./pages/Settings'))
 const AssetCenter = lazy(() => import('./pages/AssetCenter'))
-const CultureCenter = lazy(() => import('./pages/CultureCenter'))
 const FeatureFlagGate = lazy(() => import('./features/v3'))
 const SalesWorkbenchV3 = lazy(() => import('./features/sales-workbench/SalesWorkbenchRealRoute'))
 const OperationsLeadIntake = lazy(() => import('./features/sales-workbench/OperationsLeadIntakeRoute'))
@@ -72,22 +44,26 @@ const PackageAdminRealV3 = lazy(() => import('./features/system-settings/Package
 const CustomerImportRealV3 = lazy(() => import('./features/system-settings/CustomerImportRealRoute'))
 const NotificationAdminRealV3 = lazy(() => import('./features/notification-admin/NotificationAdminRealRoute'))
 
+function ClosedLegacyRoute() {
+  return (
+    <div className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+      <h1 className="text-xl font-semibold text-slate-900">这个3.0入口已暂停</h1>
+      <p className="mt-3 text-sm leading-6 text-slate-600">原有数据和附件仍完整保留，没有删除。相关有效内容会从4.0的新入口继续使用。</p>
+      <Link to="/dashboard" className="mt-5 inline-flex rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white">返回我的工作台</Link>
+    </div>
+  )
+}
+
 function App() {
   const currentUser = useUserStore((s) => s.currentUser)
   const setUsers = useUserStore((s) => s.setUsers)
   const setTasks = useTaskStore((s) => s.setTasks)
   const setRecords = useFinanceStore((s) => s.setRecords)
   const setInventoryData = useInventoryStore((s) => s.setInventoryData)
-  const setVotes = useVoteStore((s) => s.setVotes)
   const setGoals = useGoalStore((s) => s.setGoals)
   const setPersonalGoals = usePersonalGoalStore((s) => s.setPersonalGoals)
   const setEvents = useCalendarStore((s) => s.setEvents)
-  const setTimelineEvents = useTimelineStore((s) => s.setEvents)
-  const setAchievements = useAchievementStore((s) => s.setAchievements)
-  const setPhotos = usePhotoStore((s) => s.setPhotos)
   const setAssets = useAssetStore((s) => s.setAssets)
-  const setTools = useToolboxStore((s) => s.setTools)
-  const setPolicies = useWarRoomStore((s) => s.setPolicies)
   const setSkillData = useSkillStore((s) => s.setSkillData)
   const setSalesData = useSalesStore((s) => s.setSalesData)
 
@@ -119,13 +95,9 @@ function App() {
           () => (isWarehouseRole(currentUser.role) ? loadInventory() : loadInventoryPublic()),
           setInventoryData
         ),
-        loadModule('votes', loadVotes, setVotes),
         loadModule('goals', loadGoals, setGoals),
         loadModule('personal goals', loadPersonalGoals, setPersonalGoals),
         loadModule('calendar events', loadCalendarEvents, setEvents),
-        loadModule('timeline events', loadTimelineEvents, setTimelineEvents),
-        loadModule('achievements', loadAchievements, setAchievements),
-        loadModule('photos', loadPhotos, setPhotos),
         loadModule(
           'assets',
           () =>
@@ -134,8 +106,6 @@ function App() {
               : loadPublicAssets(),
           setAssets
         ),
-        loadModule('tools', loadTools, setTools),
-        loadModule('war room policies', loadWarRoomPolicies, setPolicies),
         loadModule(
           'skills',
           async () => {
@@ -170,22 +140,16 @@ function App() {
     }
   }, [
     currentUser,
-    setAchievements,
     setAssets,
     setEvents,
     setGoals,
     setPersonalGoals,
     setInventoryData,
-    setPhotos,
     setRecords,
     setTasks,
-    setTools,
-    setTimelineEvents,
-    setPolicies,
     setSkillData,
     setSalesData,
     setUsers,
-    setVotes,
   ])
 
   if (!currentUser) {
@@ -195,29 +159,29 @@ function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
-        <Route path="/" element={<Suspense fallback={null}><Dashboard /></Suspense>} />
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<Suspense fallback={null}><Dashboard /></Suspense>} />
         <Route path="/work" element={<Suspense fallback={null}><Work /></Suspense>} />
-        <Route path="/tasks" element={<Suspense fallback={null}><Tasks /></Suspense>} />
-        <Route path="/goals" element={<Suspense fallback={null}><Goals /></Suspense>} />
-        <Route path="/votes" element={<Suspense fallback={null}><Votes /></Suspense>} />
-        <Route path="/votes/:voteId" element={<Suspense fallback={null}><VoteDetail /></Suspense>} />
-        <Route path="/inventory" element={<Suspense fallback={null}><Inventory /></Suspense>} />
+        <Route path="/tasks" element={<Navigate to="/work" replace />} />
+        <Route path="/goals" element={<Navigate to="/profile?view=goals" replace />} />
+        <Route path="/votes" element={<ClosedLegacyRoute />} />
+        <Route path="/votes/:voteId" element={<ClosedLegacyRoute />} />
+        <Route path="/inventory" element={<Navigate to="/asset-center?view=inventory" replace />} />
         <Route path="/finance" element={<Suspense fallback={null}><Finance /></Suspense>} />
-        <Route path="/sales" element={<Suspense fallback={null}><SalesCenter /></Suspense>} />
-        <Route path="/timeline" element={<Suspense fallback={null}><Timeline /></Suspense>} />
-        <Route path="/achievements" element={<Suspense fallback={null}><Achievements /></Suspense>} />
-        <Route path="/photos" element={<Suspense fallback={null}><Photos /></Suspense>} />
-        <Route path="/assets" element={<Suspense fallback={null}><Assets /></Suspense>} />
+        <Route path="/sales" element={<Navigate to="/profile?view=earnings" replace />} />
+        <Route path="/timeline" element={<ClosedLegacyRoute />} />
+        <Route path="/achievements" element={<Navigate to="/management-v3?view=case-candidates" replace />} />
+        <Route path="/photos" element={<ClosedLegacyRoute />} />
+        <Route path="/assets" element={<Navigate to="/asset-center?view=assets" replace />} />
         <Route path="/calendar" element={<Suspense fallback={null}><Calendar /></Suspense>} />
-        <Route path="/toolbox" element={<Suspense fallback={null}><Toolbox /></Suspense>} />
-        <Route path="/skills" element={<Suspense fallback={null}><Skills /></Suspense>} />
-        <Route path="/warroom" element={<Suspense fallback={null}><WarRoom /></Suspense>} />
-        <Route path="/members" element={<Suspense fallback={null}><Members /></Suspense>} />
+        <Route path="/toolbox" element={<ClosedLegacyRoute />} />
+        <Route path="/skills" element={<Navigate to="/settings-v3/access?view=skills" replace />} />
+        <Route path="/warroom" element={<ClosedLegacyRoute />} />
+        <Route path="/members" element={<Navigate to="/settings-v3/access?view=members" replace />} />
         <Route path="/profile" element={<Suspense fallback={null}><Profile /></Suspense>} />
-        <Route path="/settings" element={<Suspense fallback={null}><Settings /></Suspense>} />
+        <Route path="/settings" element={<Navigate to="/settings-v3" replace />} />
         <Route path="/asset-center" element={<Suspense fallback={null}><AssetCenter /></Suspense>} />
-        <Route path="/culture-center" element={<Suspense fallback={null}><CultureCenter /></Suspense>} />
+        <Route path="/culture-center" element={<ClosedLegacyRoute />} />
         <Route path="/sales-v3" element={<Suspense fallback={null}><FeatureFlagGate flagKey="sales_os_v3"><SalesWorkbenchV3 /></FeatureFlagGate></Suspense>} />
         <Route path="/operations/lead-intake" element={<Suspense fallback={null}><FeatureFlagGate flagKey="sales_os_v3"><OperationsLeadIntake /></FeatureFlagGate></Suspense>} />
         <Route path="/orders-v3" element={<Suspense fallback={null}><FeatureFlagGate flagKey="sales_os_v3"><OrderDeliveryWorkbenchV3 /></FeatureFlagGate></Suspense>} />

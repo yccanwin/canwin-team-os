@@ -17,8 +17,8 @@ const exactSet = (actual, expected) =>
   Array.isArray(actual) && actual.length === new Set(actual).size &&
   JSON.stringify([...actual].sort()) === JSON.stringify([...expected].sort())
 
-const expectedCategories = { database: 7, permission: 10, business: 9 }
-const expectedCatalog = { publicTables: 103, publicRoutines: 162, publicViews: 11, storageBuckets: 1 }
+const expectedCategories = { database: 7, permission: 11, business: 9 }
+const expectedCatalog = { publicTables: 103, publicRoutines: 168, publicViews: 11, storageBuckets: 1 }
 const expectedCrmLeadsVisibleColumns = [
   'id', 'read_scope', 'store_name', 'contact_name', 'masked_phone', 'district_name',
   'business_type', 'source', 'created_at', 'next_action_at', 'stage', 'facts',
@@ -33,6 +33,7 @@ const expectedRollbackFixtures = new Set([
   'supabase/tests/customer_import_behavior.sql',
   'supabase/tests/hardware_inventory_behavior.sql',
   'supabase/tests/hardware_shipping_chain_behavior.sql',
+  'supabase/tests/team_os_4_p1_access_shell.sql',
 ])
 const allowedModes = new Set(['read_only', 'rollback_fixture'])
 const forbiddenSqlBoundary = /(?:^|\W)(?:dblink_connect|postgres_fdw|postgresql_fdw|http_get|http_post|net\.http_)(?:\W|$)/i
@@ -603,13 +604,13 @@ function validate(candidate) {
 
   check(candidate.schemaVersion === 1, 'schema version must be 1')
   check(candidate.manifestType === 'canwin-team-os-p0-ci-database-tests', 'manifest type drift')
-  check(candidate.contractStatus === 'p0_g0_actual_github_run_accepted', 'contract status drift')
+  check(candidate.contractStatus === 'p1_candidate_pending_actual_github_run', 'contract status drift')
 
   check(candidate.baseline?.path === 'supabase/schema.sql', 'baseline path drift')
   check(candidate.baseline?.sha256Lf === sha256Lf(resolve(repoRoot, 'supabase', 'schema.sql')), 'baseline hash drift')
   check(candidate.migrations?.directory === 'supabase/migrations', 'migration directory drift')
   check(candidate.migrations?.sha256Manifest === 'docs/team-os-4.0/p0/migration-sha256-manifest.json', 'migration manifest path drift')
-  check(candidate.migrations?.expectedCount === 69, 'migration expected count drift')
+  check(candidate.migrations?.expectedCount === 70, 'migration expected count drift')
 
   const manifest = readJson(resolve(repoRoot, candidate.migrations?.sha256Manifest ?? 'missing'))
   const migrationFiles = readdirSync(resolve(repoRoot, candidate.migrations?.directory ?? 'missing'))
@@ -626,8 +627,8 @@ function validate(candidate) {
     statements: splitSqlStatements(baselineSql),
   }, ...migrationSources]
   const finalFunctionIdentities = findFinalFunctionIdentities(installationSources)
-  check(manifest.expectedCount === 69 && manifest.entries?.length === 69, 'migration manifest count drift')
-  check(migrationFiles.length === 69, 'migration directory count drift')
+  check(manifest.expectedCount === 70 && manifest.entries?.length === 70, 'migration manifest count drift')
+  check(migrationFiles.length === 70, 'migration directory count drift')
   check(exactSet(migrationFiles, (manifest.entries ?? []).map((entry) => entry.file)), 'migration file set drift')
   for (const entry of manifest.entries ?? []) {
     check(entry.sha256 === sha256Lf(resolve(repoRoot, candidate.migrations.directory, entry.file)), `migration hash drift ${entry.file}`)
@@ -636,15 +637,15 @@ function validate(candidate) {
   check(counts.database === expectedCategories.database, 'database expected count drift')
   check(counts.permission === expectedCategories.permission, 'permission expected count drift')
   check(counts.business === expectedCategories.business, 'business expected count drift')
-  check(counts.total === 26, 'total expected count drift')
+  check(counts.total === 27, 'total expected count drift')
   check(counts.postInstallCatalogAssertions === 4, 'catalog assertion count drift')
   check(counts.definitionReferencedObjects === 54, 'definition referenced object count drift')
   check(counts.redefinedDefinitionReferencedObjects === 28, 'redefined definition object count drift')
   check(counts.crmLeadsVisibleExactColumnAssertions === 2, 'crm_leads_visible exact column assertion count drift')
   check(counts.directDealOrderFixtureFiles === 2, 'direct deal order fixture file count drift')
   check(counts.directDealOrderInsertStatements === 2, 'direct deal order insert statement count drift')
-  check(counts.finalPublicFunctionIdentities === 162, 'final public function identity count drift')
-  check(counts.functionIdentityReferences === 189, 'function identity reference count drift')
+  check(counts.finalPublicFunctionIdentities === 168, 'final public function identity count drift')
+  check(counts.functionIdentityReferences === 206, 'function identity reference count drift')
   check(sourceRules.doKeywordSeparatedFromDollarQuote === true, 'DO dollar-quote separator rule drift')
   check(sourceRules.forbiddenUnseparatedToken === 'do$$', 'DO dollar-quote forbidden token drift')
   check(sourceRules.policyWriteAssertionsRequirePermissiveFilter === true, 'policy write assertion source rule drift')
@@ -843,6 +844,8 @@ function validate(candidate) {
   check(boundary.contractAccepted === true, 'CI database contract not accepted')
   check(boundary.actualGithubRunEvidence === 'passed', 'actual GitHub run success evidence missing')
   check(boundary.g0OverallClaim === true, 'G0 success claim missing')
+  check(boundary.p1ActualGithubRunEvidence === 'pending', 'P1 candidate evidence must remain pending before the formal run')
+  check(boundary.g1OverallClaim === false, 'G1 must remain unclaimed before the formal run')
   check(boundary.productionReadPerformed === false, 'production read must remain false')
   check(boundary.productionWritePerformed === false, 'production write must remain false')
   check(boundary.repositorySecretsRequired === false, 'repository secrets must not be required')
@@ -1182,5 +1185,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `P0_CI_DATABASE_CONTRACT_OK baseline=1 migrations=69 tests=${contract.tests.length} database=7 permission=10 business=9 catalog=4 definitions=${contract.expectedCounts.definitionReferencedObjects} redefined=${contract.expectedCounts.redefinedDefinitionReferencedObjects} crmLeadColumnAssertions=${contract.expectedCounts.crmLeadsVisibleExactColumnAssertions} directOrderFixtures=${contract.expectedCounts.directDealOrderFixtureFiles} finalFunctionIdentities=${contract.expectedCounts.finalPublicFunctionIdentities} functionIdentityReferences=${contract.expectedCounts.functionIdentityReferences} negative=${negativePassed}/${negativeCases.length} localOnly=true repositorySecrets=0 productionReads=0 productionWrites=0 actualGithubRun=passed g0=true`,
+  `P0_CI_DATABASE_CONTRACT_OK baseline=1 migrations=70 tests=${contract.tests.length} database=7 permission=11 business=9 catalog=4 definitions=${contract.expectedCounts.definitionReferencedObjects} redefined=${contract.expectedCounts.redefinedDefinitionReferencedObjects} crmLeadColumnAssertions=${contract.expectedCounts.crmLeadsVisibleExactColumnAssertions} directOrderFixtures=${contract.expectedCounts.directDealOrderFixtureFiles} finalFunctionIdentities=${contract.expectedCounts.finalPublicFunctionIdentities} functionIdentityReferences=${contract.expectedCounts.functionIdentityReferences} negative=${negativePassed}/${negativeCases.length} localOnly=true repositorySecrets=0 productionReads=0 productionWrites=0 actualGithubRun=passed g0=true p1ActualGithubRun=pending g1=false`,
 )

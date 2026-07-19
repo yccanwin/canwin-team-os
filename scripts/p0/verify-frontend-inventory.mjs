@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(scriptDir, '..', '..')
 const inventoryPath = resolve(repoRoot, 'docs/team-os-4.0/p0/frontend-inventory.json')
+const p1NavigationPath = resolve(repoRoot, 'docs/team-os-4.0/p0/p1-app-navigation-contract.json')
 const failures = []
 
 function fail(message) {
@@ -153,6 +154,7 @@ function extractLiteralStorageCalls(source) {
 }
 
 const inventory = JSON.parse(await readFile(inventoryPath, 'utf8'))
+const p1Navigation = JSON.parse(await readFile(p1NavigationPath, 'utf8'))
 const counts = inventory.expectedCounts
 
 assert(inventory.schemaVersion === 1, `Unsupported inventory schemaVersion: ${inventory.schemaVersion}`)
@@ -179,9 +181,28 @@ const appSource = await readUtf8(inventory.sources.routes)
 const routeRows = extractRouteRows(appSource)
 assert(routeRows.length === counts.currentRoutes, `Source route count expected ${counts.currentRoutes}, got ${routeRows.length}.`)
 compareExactSet('Route paths', routeRows.map((route) => route.path), inventory.currentRoutes.map((route) => route.path))
+assert(p1Navigation.contractStatus === 'p1_candidate_implemented_pending_remote_runtime', 'P1 navigation candidate status drifted.')
+compareExactSet(
+  'P1 compatibility route paths',
+  p1Navigation.legacyRouteCompatibility.map((route) => route.path),
+  inventory.currentRoutes.map((route) => route.path),
+)
 for (const expectedRoute of inventory.currentRoutes) {
   const actualRoute = routeRows.find((route) => route.path === expectedRoute.path)
-  assert(actualRoute?.source.includes(expectedRoute.elementToken), `Route ${expectedRoute.path} no longer contains element token ${expectedRoute.elementToken}.`)
+  const compatibility = p1Navigation.legacyRouteCompatibility.find((route) => route.path === expectedRoute.path)
+  assert(compatibility?.inventoryMappingId === expectedRoute.section48MappingId, `Route ${expectedRoute.path} P1 mapping differs from the frozen P0 inventory.`)
+  if (compatibility?.compatibilityState === 'redirect') {
+    assert(
+      actualRoute?.source.includes('<Navigate') &&
+        actualRoute.source.includes(`to="${compatibility.canonicalTarget}"`) &&
+        actualRoute.source.includes('replace'),
+      `Route ${expectedRoute.path} no longer redirects to ${compatibility.canonicalTarget}.`,
+    )
+  } else if (compatibility?.compatibilityState === 'close_route_preserve_data') {
+    assert(actualRoute?.source.includes('ClosedLegacyRoute'), `Route ${expectedRoute.path} no longer closes the legacy page while preserving data.`)
+  } else {
+    assert(actualRoute?.source.includes(expectedRoute.elementToken), `Route ${expectedRoute.path} no longer contains retained element token ${expectedRoute.elementToken}.`)
+  }
 }
 
 const planSource = await readUtf8(inventory.sources.plan)

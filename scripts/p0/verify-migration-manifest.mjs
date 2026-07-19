@@ -26,7 +26,7 @@ try {
   process.exit(1)
 }
 
-const expectedCount = 69
+const expectedCount = 70
 const migrationDirectory = resolve(repoRoot, manifest.migrationDirectory ?? '')
 const migrationFiles = readdirSync(migrationDirectory, { withFileTypes: true })
   .filter((entry) => entry.isFile() && entry.name.endsWith('.sql'))
