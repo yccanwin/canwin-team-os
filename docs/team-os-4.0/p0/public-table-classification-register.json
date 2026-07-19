@@ -11,6 +11,9 @@
     "livePerRoutineEvidenceSql": "scripts/p0/public-routine-live-evidence.sql",
     "livePerRoutineEvidence": "docs/team-os-4.0/p0/public-routine-live-evidence.json",
     "localRoutineCallerCrosscheck": "docs/team-os-4.0/p0/public-routine-caller-crosscheck.json",
+    "liveForeignKeyRiskEvidenceSql": "scripts/p0/public-foreign-key-risk-live-evidence.sql",
+    "liveForeignKeyRiskEvidence": "docs/team-os-4.0/p0/public-foreign-key-risk-live-evidence.json",
+    "advisorRiskPriorityEvidence": "docs/team-os-4.0/p0/advisor-risk-priority-evidence.json",
     "localSchema": "supabase/schema.sql",
     "localMigrations": "supabase/migrations"
   },
@@ -92,6 +95,34 @@
       "functionBodyDependencyReview",
       "sixIdentityRuntimeTests",
       "dynamicCallerWrapperReview",
+      "classificationCrossReview",
+      "supervisorFreezeAcceptance"
+    ]
+  },
+  "liveAdvisorRiskEvidence": {
+    "status": "candidate_captured_prioritized_unaccepted",
+    "projectRef": "agygfhmkazcbqaqwmljb",
+    "catalogCapturedAtUtc": "2026-07-19T02:02:45.890Z",
+    "advisorAssembledAtUtc": "2026-07-19T02:03:59.840Z",
+    "metadataOnly": true,
+    "businessRowsRead": false,
+    "writePerformed": false,
+    "securityFindingCount": 143,
+    "performanceFindingCount": 315,
+    "foreignKeyCount": 309,
+    "catalogCoveredForeignKeyCount": 104,
+    "advisorUnindexedForeignKeyCount": 205,
+    "unindexedPriorityCandidateCounts": {
+      "P1A-hot-chain": 137,
+      "P1B-active-chain": 31,
+      "P2-history-observation": 37
+    },
+    "acceptedRiskDecisionCount": 0,
+    "remainingRiskEvidence": [
+      "queryPlans",
+      "lockEvidence",
+      "writeAmplification",
+      "sixIdentitySecurityTests",
       "classificationCrossReview",
       "supervisorFreezeAcceptance"
     ]
@@ -283,6 +314,21 @@
         "pendingTableCount": 0,
         "candidateTableMappingCount": 103,
         "acceptedTableMappingCount": 0
+      },
+      "indexes": {
+        "status": "candidate_prioritized_unaccepted",
+        "scope": "all_advisor_unindexed_foreign_keys",
+        "catalogIndexObjectCount": 248,
+        "foreignKeyCount": 309,
+        "catalogCoveredForeignKeyCount": 104,
+        "advisorUnindexedForeignKeyCount": 205,
+        "priorityCandidateCounts": {
+          "P1A-hot-chain": 137,
+          "P1B-active-chain": 31,
+          "P2-history-observation": 37
+        },
+        "pendingRuntimeDecisionCount": 205,
+        "acceptedIndexDecisionCount": 0
       }
     }
   }

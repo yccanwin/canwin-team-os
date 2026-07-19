@@ -7,7 +7,9 @@ param(
 
   [switch]$LiveTableEvidence,
 
-  [switch]$LiveRoutineEvidence
+  [switch]$LiveRoutineEvidence,
+
+  [switch]$LiveForeignKeyEvidence
 )
 
 Set-StrictMode -Version Latest
@@ -160,13 +162,13 @@ if ($SelfTest) {
 
 $resolvedSqlPath = (Resolve-Path -LiteralPath $SqlPath).Path
 $sqlText = Get-Content -Raw -LiteralPath $resolvedSqlPath -Encoding UTF8
-if ($LiveTableEvidence -and $LiveRoutineEvidence) {
+if (@($LiveTableEvidence, $LiveRoutineEvidence, $LiveForeignKeyEvidence).Where({ $_ }).Count -gt 1) {
   Write-Error 'Choose only one live-evidence mode.'
   exit 1
 }
 
 $safetyErrors = @(
-  Get-SqlSafetyErrors -SqlText $sqlText -RequireSnapshotContract (-not ($LiveTableEvidence -or $LiveRoutineEvidence))
+  Get-SqlSafetyErrors -SqlText $sqlText -RequireSnapshotContract (-not ($LiveTableEvidence -or $LiveRoutineEvidence -or $LiveForeignKeyEvidence))
 )
 
 if ($LiveTableEvidence) {
@@ -205,6 +207,25 @@ if ($LiveRoutineEvidence) {
   foreach ($marker in $requiredLiveRoutineMarkers) {
     if (-not $sqlText.Contains($marker)) {
       $safetyErrors += "Required live-routine evidence marker is missing: $marker"
+    }
+  }
+}
+
+if ($LiveForeignKeyEvidence) {
+  $requiredLiveForeignKeyMarkers = @(
+    "'production-readonly-public-foreign-key-catalog'",
+    "'businessRowsRead', false",
+    "'writePerformed', false",
+    "'foreignKeys'",
+    "'sourceColumns'",
+    "'targetColumns'",
+    "'catalogCoveringIndex'",
+    "'sourceEstimatedRows'",
+    "'targetEstimatedRows'"
+  )
+  foreach ($marker in $requiredLiveForeignKeyMarkers) {
+    if (-not $sqlText.Contains($marker)) {
+      $safetyErrors += "Required live-foreign-key evidence marker is missing: $marker"
     }
   }
 }

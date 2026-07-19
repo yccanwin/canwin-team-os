@@ -17,6 +17,7 @@
     "test:p0:live-table-evidence": "node scripts/p0/verify-public-table-live-evidence.mjs",
     "test:p0:live-routine-evidence": "node scripts/p0/verify-public-routine-live-evidence.mjs",
     "test:p0:routine-callers": "node scripts/p0/verify-routine-caller-crosscheck.mjs",
+    "test:p0:advisor-risk": "node scripts/p0/verify-advisor-risk-priority-evidence.mjs",
     "test:p0:build-target": "node scripts/p0/verify-build-target.mjs --self-test",
     "test:p0:backup-contract": "node scripts/p0/verify-backup-manifest-contract.mjs",
     "verify:p0:backup-package": "node scripts/p0/verify-backup-package-runtime.mjs",

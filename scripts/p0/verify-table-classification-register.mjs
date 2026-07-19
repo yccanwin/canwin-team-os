@@ -38,6 +38,10 @@ function compareExactSet(failures, label, actualValues, expectedValues) {
   }
 }
 
+function exactObject(actual, expected) {
+  return JSON.stringify(actual) === JSON.stringify(expected)
+}
+
 function parseLedger(markdown) {
   const rows = []
   const rowPattern = /^\|\s*(\d+)\s*\|\s*`([a-z_][a-z0-9_]*)`\s*\|\s*([^|]+?)\s*\|\s*(保留|扩展|只读|淘汰候选)\s*\|/u
@@ -90,6 +94,9 @@ function collectFailures(register, context) {
     livePerRoutineEvidenceSql: 'scripts/p0/public-routine-live-evidence.sql',
     livePerRoutineEvidence: 'docs/team-os-4.0/p0/public-routine-live-evidence.json',
     localRoutineCallerCrosscheck: 'docs/team-os-4.0/p0/public-routine-caller-crosscheck.json',
+    liveForeignKeyRiskEvidenceSql: 'scripts/p0/public-foreign-key-risk-live-evidence.sql',
+    liveForeignKeyRiskEvidence: 'docs/team-os-4.0/p0/public-foreign-key-risk-live-evidence.json',
+    advisorRiskPriorityEvidence: 'docs/team-os-4.0/p0/advisor-risk-priority-evidence.json',
     localSchema: 'supabase/schema.sql',
     localMigrations: 'supabase/migrations',
   }
@@ -155,6 +162,26 @@ function collectFailures(register, context) {
     ['authorizationAndScopeReview', 'functionBodyDependencyReview', 'sixIdentityRuntimeTests', 'dynamicCallerWrapperReview', 'classificationCrossReview', 'supervisorFreezeAcceptance'],
   )
 
+  const liveRiskEvidence = register.liveAdvisorRiskEvidence ?? {}
+  fail(liveRiskEvidence.status === 'candidate_captured_prioritized_unaccepted', 'Live advisor risk evidence must remain an unaccepted priority candidate.')
+  fail(liveRiskEvidence.projectRef === 'agygfhmkazcbqaqwmljb', 'Live advisor risk project ref drifted.')
+  fail(Number.isFinite(Date.parse(liveRiskEvidence.catalogCapturedAtUtc)) && Number.isFinite(Date.parse(liveRiskEvidence.advisorAssembledAtUtc)), 'Live advisor risk timestamps must be ISO-compatible.')
+  fail(liveRiskEvidence.metadataOnly === true && liveRiskEvidence.businessRowsRead === false && liveRiskEvidence.writePerformed === false, 'Live advisor risk evidence must remain metadata-only and write-free.')
+  fail(liveRiskEvidence.securityFindingCount === 143 && liveRiskEvidence.performanceFindingCount === 315, 'Live advisor totals drifted.')
+  fail(liveRiskEvidence.foreignKeyCount === 309 && liveRiskEvidence.catalogCoveredForeignKeyCount === 104 && liveRiskEvidence.advisorUnindexedForeignKeyCount === 205, 'Live foreign-key risk totals drifted.')
+  fail(exactObject(liveRiskEvidence.unindexedPriorityCandidateCounts, {
+    'P1A-hot-chain': 137,
+    'P1B-active-chain': 31,
+    'P2-history-observation': 37,
+  }), 'Live unindexed priority candidate counts drifted.')
+  fail(liveRiskEvidence.acceptedRiskDecisionCount === 0, 'No advisor risk decision may be marked accepted.')
+  compareExactSet(
+    failures,
+    'remaining advisor risk evidence',
+    liveRiskEvidence.remainingRiskEvidence ?? [],
+    ['queryPlans', 'lockEvidence', 'writeAmplification', 'sixIdentitySecurityTests', 'classificationCrossReview', 'supervisorFreezeAcceptance'],
+  )
+
   const counts = register.expectedCounts ?? {}
   fail(counts.publicTables === 103, `Expected publicTables=103, got ${counts.publicTables}.`)
   fail(counts.retain === 47 && counts.extend === 37 && counts.readOnly === 17 && counts.retirementCandidate === 2, 'Expected classification counts drifted.')
@@ -210,6 +237,15 @@ function collectFailures(register, context) {
   fail(related.functions?.catalogObjectCount === 162, 'Function catalog count must remain 162.')
   fail(related.policies?.catalogObjectCount === 229, 'Policy catalog count must remain 229.')
   fail(related.triggers?.catalogObjectCount === 29 && related.triggers?.catalogEventRowCount === 46, 'Trigger catalog counts must remain 29 objects / 46 event rows.')
+  const indexGap = related.indexes ?? {}
+  fail(indexGap.status === 'candidate_prioritized_unaccepted' && indexGap.scope === 'all_advisor_unindexed_foreign_keys', 'Index risk status/scope drifted.')
+  fail(indexGap.catalogIndexObjectCount === 248 && indexGap.foreignKeyCount === 309 && indexGap.catalogCoveredForeignKeyCount === 104 && indexGap.advisorUnindexedForeignKeyCount === 205, 'Index risk catalog counts drifted.')
+  fail(exactObject(indexGap.priorityCandidateCounts, {
+    'P1A-hot-chain': 137,
+    'P1B-active-chain': 31,
+    'P2-history-observation': 37,
+  }), 'Index risk priority counts drifted.')
+  fail(indexGap.pendingRuntimeDecisionCount === 205 && indexGap.acceptedIndexDecisionCount === 0, 'Index risk decisions must remain 205 pending / 0 accepted.')
   compareExactSet(
     failures,
     'known zero-policy decision-pending tables',
@@ -275,6 +311,7 @@ const selfTests = [
   ['false-live-acceptance', (copy) => { copy.livePerTableEvidence.supervisorAcceptedTableCount = 103 }],
   ['false-routine-acceptance', (copy) => { copy.livePerRoutineEvidence.supervisorAcceptedRoutineCount = 162 }],
   ['zero-policy-gap-drift', (copy) => { copy.openGaps.relatedObjects.policies.knownZeroPolicyDecisionPendingTableNames.pop() }],
+  ['false-index-acceptance', (copy) => { copy.openGaps.relatedObjects.indexes.acceptedIndexDecisionCount = 1 }],
 ]
 
 for (const [name, mutate] of selfTests) {
@@ -288,4 +325,4 @@ for (const [name, mutate] of selfTests) {
 
 console.log(`P0_TABLE_CLASSIFICATION_REGISTER_SELFTEST_OK cases=${selfTests.length}`)
 console.log('P0_TABLE_CLASSIFICATION_REGISTER_OK tables=103 retain=47 extend=37 readOnly=17 retirementCandidate=2 candidate=103 accepted=0')
-console.log('P0_TABLE_CLASSIFICATION_GAPS_OPEN requiredAudit=103 routinesAuthorization=162 routinesBodyDependency=162 policies=0 triggers=0 zeroPolicyDecisions=3 g0=false databaseCalls=0')
+console.log('P0_TABLE_CLASSIFICATION_GAPS_OPEN requiredAudit=103 routinesAuthorization=162 routinesBodyDependency=162 policies=0 triggers=0 indexRuntimeDecisions=205 zeroPolicyDecisions=3 g0=false databaseCalls=0')

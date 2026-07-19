@@ -1,8 +1,8 @@
 # 103 张 public 表四分类机器清单运行手册
 
 > 机器清单：`public-table-classification-register.json`
-> 只读校验器：`scripts/p0/verify-table-classification-register.mjs`、`scripts/p0/verify-public-table-live-evidence.mjs`、`scripts/p0/verify-public-routine-live-evidence.mjs`、`scripts/p0/verify-routine-caller-crosscheck.mjs`
-> 当前状态：103/103 候选分类和逐表现网元数据、162/162 函数签名及本地调用方候选已取证，监理冻结验收 0/103、0/162，G0 未通过。
+> 只读校验器：`scripts/p0/verify-table-classification-register.mjs`、`scripts/p0/verify-public-table-live-evidence.mjs`、`scripts/p0/verify-public-routine-live-evidence.mjs`、`scripts/p0/verify-routine-caller-crosscheck.mjs`、`scripts/p0/verify-advisor-risk-priority-evidence.mjs`
+> 当前状态：103/103 候选分类和逐表现网元数据、162/162 函数签名及本地调用方、205/205 未覆盖外键优先级候选已取证，监理冻结验收仍为 0，G0 未通过。
 
 ## 1. 清单证明什么
 
@@ -34,20 +34,23 @@ node .\scripts\p0\verify-table-classification-register.mjs
 node .\scripts\p0\verify-public-table-live-evidence.mjs
 node .\scripts\p0\verify-public-routine-live-evidence.mjs
 node .\scripts\p0\verify-routine-caller-crosscheck.mjs
+node .\scripts\p0\verify-advisor-risk-priority-evidence.mjs
 ```
 
 预期输出：
 
 ```text
-P0_TABLE_CLASSIFICATION_REGISTER_SELFTEST_OK cases=9
+P0_TABLE_CLASSIFICATION_REGISTER_SELFTEST_OK cases=10
 P0_TABLE_CLASSIFICATION_REGISTER_OK tables=103 retain=47 extend=37 readOnly=17 retirementCandidate=2 candidate=103 accepted=0
-P0_TABLE_CLASSIFICATION_GAPS_OPEN requiredAudit=103 routinesAuthorization=162 routinesBodyDependency=162 policies=0 triggers=0 zeroPolicyDecisions=3 g0=false databaseCalls=0
+P0_TABLE_CLASSIFICATION_GAPS_OPEN requiredAudit=103 routinesAuthorization=162 routinesBodyDependency=162 policies=0 triggers=0 indexRuntimeDecisions=205 zeroPolicyDecisions=3 g0=false databaseCalls=0
 P0_PUBLIC_TABLE_LIVE_EVIDENCE_SELFTEST_OK cases=8
 P0_PUBLIC_TABLE_LIVE_EVIDENCE_OK tables=103 rls=103 policies=229 triggers=29 indexes=248 outgoingFks=309 candidate=103 accepted=0 businessRowsRead=0 writes=0
 P0_PUBLIC_ROUTINE_LIVE_EVIDENCE_SELFTEST_OK cases=8
 P0_PUBLIC_ROUTINE_LIVE_EVIDENCE_OK routines=162 securityDefiner=148 authenticatedSecurityDefiner=135 triggerFunctions=19 anonExecutable=7 missingSearchPath=1 candidate=162 accepted=0 businessRowsRead=0 writes=0 bodiesReturned=0
 P0_ROUTINE_CALLER_CROSSCHECK_SELFTEST_OK cases=4
 P0_ROUTINE_CALLER_CROSSCHECK_OK files=215 literalReferences=105 literalNames=99 orphanNames=0 dynamicSites=1 referencedSignatures=102
+P0_ADVISOR_RISK_PRIORITY_EVIDENCE_SELFTEST_OK cases=7
+P0_ADVISOR_RISK_PRIORITY_EVIDENCE_OK security=143 performance=315 foreignKeys=309 covered=104 unindexed=205 priority=P1A:137,P1B:31,P2:37 businessRowsRead=0 writes=0 accepted=0
 ```
 
 任何非零退出或集合差异都立即停止；不要修改历史迁移来迎合清单，也不要把候选分类改写成已验收。
@@ -56,7 +59,7 @@ P0_ROUTINE_CALLER_CROSSCHECK_OK files=215 literalReferences=105 literalNames=99 
 
 清单绿灯不等于 103 张表四分类完成。现网逐表 owner、行数估计、RLS、GRANT、策略、触发器、索引、外键、依赖视图和 catalog 可见函数依赖已经取证。以下缺口仍是 103/103 待办：
 
-- 前端/函数真实读写入口、必要表精确行数、函数正文运行时依赖和索引风险结论；
+- 前端/函数真实读写入口、必要表精确行数、函数正文运行时依赖；205 个外键虽已形成优先级候选，仍缺查询计划、锁和写放大证据，运行时决定为 0/205；
 - 4.0 映射、兼容动作、逐表验收证据和负责人；
 - 162 个函数/过程的签名、owner、ACL、定义指纹和本地调用方候选已登记；仍需函数正文依赖、49 个 authenticated 可执行但无本地调用方签名、7 个 anon 可执行签名、1 个动态包装点，以及全部身份/岗位/EXECUTE 语义审计；
 - 229 条策略已逐表列出，其中 `crm_lead_conversions`、`deal_catalog_version_requests`、`deal_package_admin_requests` 仍需判定 RPC-only 或缺失策略；
