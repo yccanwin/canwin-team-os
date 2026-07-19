@@ -14,11 +14,16 @@ function redact(text) {
 }
 
 function run(command, args, options = {}) {
+  const childEnvironment = options.env ?? process.env
   const result = spawnSync(command, args, {
     encoding: 'utf8',
     windowsHide: true,
     timeout: options.timeout ?? 60000,
-    env: options.env ?? process.env,
+    env: {
+      ...childEnvironment,
+      SUPABASE_TELEMETRY_DISABLED: '1',
+      DO_NOT_TRACK: '1',
+    },
     cwd: options.cwd,
     input: options.input,
   })

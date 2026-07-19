@@ -34,6 +34,11 @@ check('temporary Session Pooler access enables Supabase JIT authentication',
   preflight.match(/connectionMode: 'session-pooler'/g)?.length === 2 &&
   backup.match(/connectionMode: 'session-pooler'/g)?.length === 3 &&
   restore.match(/connectionMode: 'session-pooler'/g)?.length === 1)
+check('all sealed-recovery child tools run with Supabase telemetry disabled',
+  databaseAccess.slice(databaseAccess.indexOf('function run('), databaseAccess.indexOf('export function runExternal'))
+    .includes("SUPABASE_TELEMETRY_DISABLED: '1'") &&
+  databaseAccess.slice(databaseAccess.indexOf('function run('), databaseAccess.indexOf('export function runExternal'))
+    .includes("DO_NOT_TRACK: '1'"))
 check('Windows dump preflight forbids the NUL device', !preflight.includes('--file=NUL'))
 check('Windows dump preflight uses controlled non-empty D drive files',
   preflight.includes('D:\\\\CanWin-Team-OS-4.0-Recovery-Preflight') &&
