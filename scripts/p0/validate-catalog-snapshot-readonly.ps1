@@ -3,7 +3,9 @@ param(
   [Parameter(Position = 0)]
   [string]$SqlPath = '',
 
-  [switch]$SelfTest
+  [switch]$SelfTest,
+
+  [switch]$LiveTableEvidence
 )
 
 Set-StrictMode -Version Latest
@@ -156,7 +158,28 @@ if ($SelfTest) {
 
 $resolvedSqlPath = (Resolve-Path -LiteralPath $SqlPath).Path
 $sqlText = Get-Content -Raw -LiteralPath $resolvedSqlPath -Encoding UTF8
-$safetyErrors = @(Get-SqlSafetyErrors -SqlText $sqlText)
+$safetyErrors = @(Get-SqlSafetyErrors -SqlText $sqlText -RequireSnapshotContract (-not $LiveTableEvidence))
+
+if ($LiveTableEvidence) {
+  $requiredLiveEvidenceMarkers = @(
+    "'production-readonly-public-table-catalog'",
+    "'businessRowsRead', false",
+    "'writePerformed', false",
+    "'effectiveClientGrants'",
+    "'policies'",
+    "'triggers'",
+    "'indexes'",
+    "'outgoingForeignKeys'",
+    "'incomingForeignKeys'",
+    "'dependentViews'",
+    "'catalogRoutineDependencies'"
+  )
+  foreach ($marker in $requiredLiveEvidenceMarkers) {
+    if (-not $sqlText.Contains($marker)) {
+      $safetyErrors += "Required live-table evidence marker is missing: $marker"
+    }
+  }
+}
 
 if ($safetyErrors.Count -gt 0) {
   foreach ($safetyError in $safetyErrors) {

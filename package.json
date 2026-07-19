@@ -14,6 +14,7 @@
     "test:p0:project-ref": "node scripts/p0/verify-project-ref-contract.mjs",
     "test:p0:core-business": "node scripts/p0/verify-core-business-contract.mjs",
     "test:p0:role-migration": "node scripts/p0/verify-role-migration-contract.mjs",
+    "test:p0:live-table-evidence": "node scripts/p0/verify-public-table-live-evidence.mjs",
     "test:p0:build-target": "node scripts/p0/verify-build-target.mjs --self-test",
     "test:p0:backup-contract": "node scripts/p0/verify-backup-manifest-contract.mjs",
     "verify:p0:backup-package": "node scripts/p0/verify-backup-package-runtime.mjs",

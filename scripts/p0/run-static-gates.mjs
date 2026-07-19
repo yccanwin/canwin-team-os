@@ -8,6 +8,7 @@ const gates = [
   ['project-ref-contract', resolve(repoRoot, 'scripts', 'p0', 'verify-project-ref-contract.mjs')],
   ['core-business-contract', resolve(repoRoot, 'scripts', 'p0', 'verify-core-business-contract.mjs')],
   ['role-migration-contract', resolve(repoRoot, 'scripts', 'p0', 'verify-role-migration-contract.mjs')],
+  ['public-table-live-evidence', resolve(repoRoot, 'scripts', 'p0', 'verify-public-table-live-evidence.mjs')],
   ['backup-manifest-contract', resolve(repoRoot, 'scripts', 'p0', 'verify-backup-manifest-contract.mjs')],
   ['restore-run-contract', resolve(repoRoot, 'scripts', 'p0', 'verify-restore-run-contract.mjs')],
 ]

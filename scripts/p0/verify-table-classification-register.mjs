@@ -85,6 +85,8 @@ function collectFailures(register, context) {
     humanLedger: 'docs/team-os-4.0/p0/01-database-object-classification.md',
     catalogSnapshotQuery: 'scripts/p0/catalog-snapshot.sql',
     catalogSnapshotRunbook: 'docs/team-os-4.0/p0/backend-catalog-snapshot-runbook.md',
+    livePerTableEvidenceSql: 'scripts/p0/public-table-live-evidence.sql',
+    livePerTableEvidence: 'docs/team-os-4.0/p0/public-table-live-evidence.json',
     localSchema: 'supabase/schema.sql',
     localMigrations: 'supabase/migrations',
   }
@@ -111,6 +113,25 @@ function collectFailures(register, context) {
   for (const [key, expected] of Object.entries(expectedCatalogCounts)) {
     fail(register.catalogSnapshot?.counts?.[key] === expected, `Catalog count ${key} expected ${expected}, got ${register.catalogSnapshot?.counts?.[key]}.`)
   }
+
+  const liveEvidence = register.livePerTableEvidence ?? {}
+  fail(liveEvidence.status === 'candidate_captured_unaccepted', 'Live per-table evidence must remain a candidate.')
+  fail(liveEvidence.projectRef === 'agygfhmkazcbqaqwmljb', 'Live evidence project ref drifted.')
+  fail(Number.isFinite(Date.parse(liveEvidence.capturedAtUtc)), 'Live evidence capture time must be ISO-compatible.')
+  fail(liveEvidence.metadataOnly === true && liveEvidence.businessRowsRead === false && liveEvidence.writePerformed === false, 'Live evidence must remain metadata-only and write-free.')
+  fail(liveEvidence.candidateTableCount === 103 && liveEvidence.supervisorAcceptedTableCount === 0, 'Live evidence must remain 103 candidate / 0 accepted.')
+  compareExactSet(
+    failures,
+    'live evidence field coverage',
+    liveEvidence.fieldCoverage ?? [],
+    ['tableName', 'owner', 'estimatedRows', 'rls', 'grants', 'policies', 'triggers', 'indexes', 'foreignKeys', 'dependentViews', 'catalogRoutineDependencies'],
+  )
+  compareExactSet(
+    failures,
+    'remaining per-table evidence',
+    liveEvidence.remainingPerTableEvidence ?? [],
+    ['frontendFunctionReadWriteEntrypoints', 'exactRowCountWhereRequired', 'functionBodyDependencies', 'indexRiskDecision', 'classificationCrossReview', 'supervisorFreezeAcceptance'],
+  )
 
   const counts = register.expectedCounts ?? {}
   fail(counts.publicTables === 103, `Expected publicTables=103, got ${counts.publicTables}.`)
@@ -148,16 +169,20 @@ function collectFailures(register, context) {
   }
 
   const audit = register.openGaps?.requiredPerTableAudit ?? {}
-  fail(audit.status === 'pending_all_tables', 'Required per-table audit must remain pending for all tables.')
+  fail(audit.status === 'partial_live_metadata_captured', 'Required per-table audit must record partial live metadata coverage.')
   fail(audit.completedTableCount === 0 && audit.pendingTableCount === 103, 'Required per-table audit counts must remain 0/103 complete/pending.')
   fail(Array.isArray(audit.requiredFields) && audit.requiredFields.length === 17, 'Required per-table audit must list all 17 fields from 01.')
 
   const related = register.openGaps?.relatedObjects ?? {}
-  for (const kind of ['functions', 'policies', 'triggers']) {
+  const functionGap = related.functions ?? {}
+  fail(functionGap.status === 'catalog_dependency_candidate_function_body_audit_pending', 'Function gap status drifted.')
+  fail(functionGap.scope === 'all_manifest_tables', 'Function gap must cover all manifest tables.')
+  fail(functionGap.pendingTableCount === 103 && functionGap.candidateCatalogMappingCount === 103 && functionGap.acceptedTableMappingCount === 0, 'Function mapping counts must remain 103 pending / 103 catalog candidate / 0 accepted.')
+  for (const kind of ['policies', 'triggers']) {
     const gap = related[kind] ?? {}
-    fail(gap.status === 'pending_per_table_mapping', `${kind} mapping gap must remain pending.`)
+    fail(gap.status === 'candidate_mapped_unaccepted', `${kind} mapping must remain candidate_mapped_unaccepted.`)
     fail(gap.scope === 'all_manifest_tables', `${kind} mapping gap must explicitly cover all manifest tables.`)
-    fail(gap.pendingTableCount === 103 && gap.acceptedTableMappingCount === 0, `${kind} mapping counts must remain 103/0 pending/accepted.`)
+    fail(gap.pendingTableCount === 0 && gap.candidateTableMappingCount === 103 && gap.acceptedTableMappingCount === 0, `${kind} mapping counts must remain 0 pending / 103 candidate / 0 accepted.`)
   }
   fail(related.functions?.catalogObjectCount === 162, 'Function catalog count must remain 162.')
   fail(related.policies?.catalogObjectCount === 229, 'Policy catalog count must remain 229.')
@@ -170,9 +195,9 @@ function collectFailures(register, context) {
   )
 
   for (const marker of [
-    '> 状态：103/103 候选分类完成，监理冻结未验收',
-    '> 当前口径：表名发现 103/103；拟分类 103/103；冻结验收 0/103。',
-    '在以上字段未逐表完成和交叉审查前，不得报告“103 张表四分类完成”。',
+    '> 状态：103/103 候选分类和逐表现网元数据取证完成，监理冻结未验收',
+    '> 当前口径：表名发现 103/103；拟分类 103/103；逐表元数据 103/103；冻结验收 0/103。',
+    '在这些字段未完成和交叉审查前，不得报告“103 张表四分类完成”。',
   ]) {
     fail(context.ledgerMarkdown.includes(marker), `01 candidate/unaccepted marker drifted: ${marker}`)
   }
@@ -224,6 +249,7 @@ const selfTests = [
   ['false-acceptance', (copy) => { copy.classificationAcceptance.acceptedTableCount = 1; copy.classificationAcceptance.acceptedTableNames = ['teams'] }],
   ['false-g0', (copy) => { copy.g0.status = 'achieved'; copy.g0.claim = true }],
   ['hidden-function-gap', (copy) => { copy.openGaps.relatedObjects.functions.status = 'complete' }],
+  ['false-live-acceptance', (copy) => { copy.livePerTableEvidence.supervisorAcceptedTableCount = 103 }],
   ['zero-policy-gap-drift', (copy) => { copy.openGaps.relatedObjects.policies.knownZeroPolicyDecisionPendingTableNames.pop() }],
 ]
 
@@ -238,4 +264,4 @@ for (const [name, mutate] of selfTests) {
 
 console.log(`P0_TABLE_CLASSIFICATION_REGISTER_SELFTEST_OK cases=${selfTests.length}`)
 console.log('P0_TABLE_CLASSIFICATION_REGISTER_OK tables=103 retain=47 extend=37 readOnly=17 retirementCandidate=2 candidate=103 accepted=0')
-console.log('P0_TABLE_CLASSIFICATION_GAPS_OPEN requiredAudit=103 functions=103 policies=103 triggers=103 zeroPolicyDecisions=3 g0=false databaseCalls=0')
+console.log('P0_TABLE_CLASSIFICATION_GAPS_OPEN requiredAudit=103 functions=103 policies=0 triggers=0 zeroPolicyDecisions=3 g0=false databaseCalls=0')

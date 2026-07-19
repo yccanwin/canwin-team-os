@@ -6,6 +6,8 @@
     "humanLedger": "docs/team-os-4.0/p0/01-database-object-classification.md",
     "catalogSnapshotQuery": "scripts/p0/catalog-snapshot.sql",
     "catalogSnapshotRunbook": "docs/team-os-4.0/p0/backend-catalog-snapshot-runbook.md",
+    "livePerTableEvidenceSql": "scripts/p0/public-table-live-evidence.sql",
+    "livePerTableEvidence": "docs/team-os-4.0/p0/public-table-live-evidence.json",
     "localSchema": "supabase/schema.sql",
     "localMigrations": "supabase/migrations"
   },
@@ -28,6 +30,37 @@
       "publicTriggerEventRows": 46,
       "appliedMigrations": 69
     }
+  },
+  "livePerTableEvidence": {
+    "status": "candidate_captured_unaccepted",
+    "projectRef": "agygfhmkazcbqaqwmljb",
+    "capturedAtUtc": "2026-07-19T01:36:12.826Z",
+    "metadataOnly": true,
+    "businessRowsRead": false,
+    "writePerformed": false,
+    "candidateTableCount": 103,
+    "supervisorAcceptedTableCount": 0,
+    "fieldCoverage": [
+      "tableName",
+      "owner",
+      "estimatedRows",
+      "rls",
+      "grants",
+      "policies",
+      "triggers",
+      "indexes",
+      "foreignKeys",
+      "dependentViews",
+      "catalogRoutineDependencies"
+    ],
+    "remainingPerTableEvidence": [
+      "frontendFunctionReadWriteEntrypoints",
+      "exactRowCountWhereRequired",
+      "functionBodyDependencies",
+      "indexRiskDecision",
+      "classificationCrossReview",
+      "supervisorFreezeAcceptance"
+    ]
   },
   "expectedCounts": {
     "publicTables": 103,
@@ -161,7 +194,7 @@
   },
   "openGaps": {
     "requiredPerTableAudit": {
-      "status": "pending_all_tables",
+      "status": "partial_live_metadata_captured",
       "completedTableCount": 0,
       "pendingTableCount": 103,
       "requiredFields": [
@@ -186,17 +219,19 @@
     },
     "relatedObjects": {
       "functions": {
-        "status": "pending_per_table_mapping",
+        "status": "catalog_dependency_candidate_function_body_audit_pending",
         "scope": "all_manifest_tables",
         "catalogObjectCount": 162,
         "pendingTableCount": 103,
+        "candidateCatalogMappingCount": 103,
         "acceptedTableMappingCount": 0
       },
       "policies": {
-        "status": "pending_per_table_mapping",
+        "status": "candidate_mapped_unaccepted",
         "scope": "all_manifest_tables",
         "catalogObjectCount": 229,
-        "pendingTableCount": 103,
+        "pendingTableCount": 0,
+        "candidateTableMappingCount": 103,
         "acceptedTableMappingCount": 0,
         "knownZeroPolicyDecisionPendingTableNames": [
           "crm_lead_conversions",
@@ -205,11 +240,12 @@
         ]
       },
       "triggers": {
-        "status": "pending_per_table_mapping",
+        "status": "candidate_mapped_unaccepted",
         "scope": "all_manifest_tables",
         "catalogObjectCount": 29,
         "catalogEventRowCount": 46,
-        "pendingTableCount": 103,
+        "pendingTableCount": 0,
+        "candidateTableMappingCount": 103,
         "acceptedTableMappingCount": 0
       }
     }
