@@ -180,6 +180,7 @@ let packageKey = null
 let authDumpOmitsProtectedTriggerToggles = false
 let applicationSchemaIsComplete = false
 let applicationSchemaInventoryIsSafe = false
+let platformDefaultPrivilegeBaselineIsSafe = false
 try {
   packageKey = readProtectedKey({
     repoRoot,
@@ -200,7 +201,8 @@ try {
   applicationSchemaIsComplete =
     (applicationSchemaDump.match(/CREATE SCHEMA sales_os_private;/g) ?? []).length === 1 &&
     requiredApplicationPrivateRoutines.every((name) => applicationSchemaDump.includes(`CREATE FUNCTION sales_os_private.${name}(`)) &&
-    !/^CREATE (?:TABLE|SEQUENCE|MATERIALIZED VIEW) sales_os_private\./m.test(applicationSchemaDump)
+    !/^CREATE (?:TABLE|SEQUENCE|MATERIALIZED VIEW) sales_os_private\./m.test(applicationSchemaDump) &&
+    !/^ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin /m.test(applicationSchemaDump)
   const schemaInventory = JSON.parse(readEncryptedArtifact({
     packageDirectory,
     artifact: manifest.database?.schemaInventory,
@@ -210,16 +212,22 @@ try {
     Number(schemaInventory.salesOsPrivateDataRelations) === 0 &&
     Number(schemaInventory.salesOsPrivateRoutines) >= requiredApplicationPrivateRoutines.length &&
     Number(schemaInventory.salesOsPrivatePublicTriggerFunctions) === 3
+  platformDefaultPrivilegeBaselineIsSafe =
+    Number.isSafeInteger(Number(schemaInventory.supabaseAdminPublicDefaultPrivilegeRows)) &&
+    Number(schemaInventory.supabaseAdminPublicDefaultPrivilegeRows) > 0 &&
+    /^[a-f0-9]{32}$/.test(schemaInventory.supabaseAdminPublicDefaultPrivilegesMd5 ?? '')
 } catch {
   authDumpOmitsProtectedTriggerToggles = false
   applicationSchemaIsComplete = false
   applicationSchemaInventoryIsSafe = false
+  platformDefaultPrivilegeBaselineIsSafe = false
 } finally {
   if (packageKey) packageKey.fill(0)
 }
 check('Auth dump omits protected managed-schema trigger toggles', authDumpOmitsProtectedTriggerToggles)
 check('application private schema dump is complete and function-only', applicationSchemaIsComplete)
 check('application private schema inventory has no unsealed data relations', applicationSchemaInventoryIsSafe)
+check('Supabase platform default privileges are baseline-only and sealed by fingerprint', platformDefaultPrivilegeBaselineIsSafe)
 
 for (const path of [
   'auth.counts.authUsers',

@@ -59,6 +59,11 @@ check('backup seals the function-only application private schema',
   backup.includes('application private schema is outside the sealed function-only recovery contract') &&
   backup.includes('CREATE SCHEMA sales_os_private;') &&
   backup.includes('application private schema dump omits a required performance routine'))
+check('backup strips only immutable Supabase platform-owned default privileges',
+  backup.includes('schema dump contains an unclassified default-privilege owner') &&
+  backup.includes('FOR ROLE (?:postgres|supabase_admin)') &&
+  backup.includes('ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA') &&
+  backup.includes('schema dump retains an unchangeable Supabase platform default privilege'))
 check('backup verifies source database and Storage stability', backup.includes('sourceBefore.sha256 !== sourceAfter.sha256') && backup.includes('production Storage changed'))
 check('backup refreshes short-lived credentials before final freeze reconciliation',
   backup.indexOf('const sourceFinalDb = getTemporaryDbEnvironment') < backup.indexOf('const sourceAfter = getReconciliation') &&
@@ -83,6 +88,10 @@ check('runtime package gate decrypts and validates the application private schem
   packageRuntime.includes("artifact: manifest.database?.schemaInventory") &&
   packageRuntime.includes('application private schema dump is complete and function-only') &&
   packageRuntime.includes('application private schema inventory has no unsealed data relations'))
+check('runtime package gate validates the immutable platform default-privilege baseline',
+  packageRuntime.includes('supabaseAdminPublicDefaultPrivilegeRows') &&
+  packageRuntime.includes('supabaseAdminPublicDefaultPrivilegesMd5') &&
+  packageRuntime.includes('Supabase platform default privileges are baseline-only and sealed by fingerprint'))
 check('restore rejects protected Auth trigger toggles before target access',
   restore.indexOf("sealed Auth dump contains forbidden managed-schema trigger toggles") <
     restore.indexOf('const targetDb = getTemporaryDbEnvironment'))
@@ -93,6 +102,10 @@ check('restore requires the isolated target application private schema to be abs
   restore.includes("'applicationPrivateObjects'") &&
   restore.includes("nspname='sales_os_private'") &&
   restore.indexOf('applicationPrivateObjects') < restore.indexOf('formalAttemptStarted = true'))
+check('restore compares immutable platform default privileges before the formal attempt',
+  restore.includes('target platform default privileges') &&
+  restore.includes('isolated target Supabase platform default privileges differ from the sealed source baseline') &&
+  restore.indexOf('targetPlatformDefaultPrivileges') < restore.indexOf('formalAttemptStarted = true'))
 check('target default table privileges are revoked before schema restore', restore.includes('alter default privileges in schema public revoke all on tables from anon, authenticated'))
 check('real restored users are banned in the database transaction', restore.includes("update auth.users set banned_until = now() + interval '100 years'"))
 check('Functions and secrets remain absent', restore.includes('finalFunctions.length !== 0') && restore.includes('finalSecrets.length !== 0'))
@@ -128,6 +141,10 @@ check('remote preflight inventories the application private schema on both proje
   preflight.includes("'salesOsPrivateRoutines'") &&
   preflight.includes("'--schema=sales_os_private'") &&
   preflight.includes('production application private schema is outside the function-only recovery contract'))
+check('remote preflight compares immutable platform default privileges',
+  preflight.includes("'supabaseAdminPublicDefaultPrivilegeRows'") &&
+  preflight.includes("'supabaseAdminPublicDefaultPrivilegesMd5'") &&
+  preflight.includes('source[field] !== target[field]'))
 check('package exposes runtime, preflight, backup and restore commands', [
   'test:p0:sealed-recovery-runtime', 'preflight:p0:sealed-recovery',
   'backup:p0:sealed-recovery', 'restore:p0:sealed-recovery',

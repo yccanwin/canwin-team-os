@@ -170,6 +170,18 @@ try {
   if (/^CREATE (?:TABLE|SEQUENCE|MATERIALIZED VIEW) sales_os_private\./m.test(schemaDumpText)) {
     throw new Error('application private schema unexpectedly contains data-bearing relations')
   }
+  const defaultPrivilegeStatements = schemaDumpText.match(/^ALTER DEFAULT PRIVILEGES FOR ROLE [^;]+;$/gm) ?? []
+  if (defaultPrivilegeStatements.some((statement) =>
+    !/^ALTER DEFAULT PRIVILEGES FOR ROLE (?:postgres|supabase_admin) IN SCHEMA (?:public|sales_os_private) /.test(statement))) {
+    throw new Error('schema dump contains an unclassified default-privilege owner')
+  }
+  const platformDefaultPrivileges = defaultPrivilegeStatements.filter((statement) =>
+    statement.startsWith('ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA '))
+  if (platformDefaultPrivileges.length === 0) throw new Error('Supabase platform default privileges are absent from the schema dump')
+  schemaDumpText = schemaDumpText.replace(/^ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA (?:public|sales_os_private) [^;]+;\r?\n/gm, '')
+  if (/^ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin /m.test(schemaDumpText)) {
+    throw new Error('schema dump retains an unchangeable Supabase platform default privilege')
+  }
   schemaDumpText = schemaDumpText.replace('CREATE SCHEMA public;', 'CREATE SCHEMA IF NOT EXISTS public;')
   schemaDumpText = schemaDumpText.replace(/^ALTER SCHEMA (?:public|sales_os_private) OWNER TO .*;\r?\n/gm, '')
 
@@ -214,7 +226,9 @@ try {
       'storagePolicies',(select count(*) from pg_catalog.pg_policy p join pg_catalog.pg_class c on c.oid=p.polrelid join pg_catalog.pg_namespace n on n.oid=c.relnamespace where n.nspname='storage'),
       'salesOsPrivateDataRelations',(select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid=c.relnamespace where n.nspname='sales_os_private' and c.relkind in('r','p','S','m')),
       'salesOsPrivateRoutines',(select count(*) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid=p.pronamespace where n.nspname='sales_os_private'),
-      'salesOsPrivatePublicTriggerFunctions',(select count(*) from pg_catalog.pg_trigger t join pg_catalog.pg_class c on c.oid=t.tgrelid join pg_catalog.pg_namespace tn on tn.oid=c.relnamespace join pg_catalog.pg_proc p on p.oid=t.tgfoid join pg_catalog.pg_namespace pn on pn.oid=p.pronamespace where tn.nspname='public' and pn.nspname='sales_os_private' and not t.tgisinternal)
+      'salesOsPrivatePublicTriggerFunctions',(select count(*) from pg_catalog.pg_trigger t join pg_catalog.pg_class c on c.oid=t.tgrelid join pg_catalog.pg_namespace tn on tn.oid=c.relnamespace join pg_catalog.pg_proc p on p.oid=t.tgfoid join pg_catalog.pg_namespace pn on pn.oid=p.pronamespace where tn.nspname='public' and pn.nspname='sales_os_private' and not t.tgisinternal),
+      'supabaseAdminPublicDefaultPrivilegeRows',(select count(*) from pg_catalog.pg_default_acl d join pg_catalog.pg_roles r on r.oid=d.defaclrole left join pg_catalog.pg_namespace n on n.oid=d.defaclnamespace where r.rolname='supabase_admin' and n.nspname='public'),
+      'supabaseAdminPublicDefaultPrivilegesMd5',(select md5(coalesce(string_agg(r.rolname||'|'||coalesce(n.nspname,'')||'|'||d.defaclobjtype::text||'|'||d.defaclacl::text,E'\n' order by r.rolname,n.nspname,d.defaclobjtype),'')) from pg_catalog.pg_default_acl d join pg_catalog.pg_roles r on r.oid=d.defaclrole left join pg_catalog.pg_namespace n on n.oid=d.defaclnamespace where r.rolname='supabase_admin' and n.nspname='public')
     )::text;`,
   }))
 

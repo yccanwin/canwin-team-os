@@ -117,6 +117,8 @@ select json_build_object(
   'salesOsPrivateDataRelations',(select count(*)::int from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid=c.relnamespace where n.nspname='sales_os_private' and c.relkind in('r','p','S','m')),
   'salesOsPrivateRoutines',(select count(*)::int from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid=p.pronamespace where n.nspname='sales_os_private'),
   'salesOsPrivatePublicTriggerFunctions',(select count(*)::int from pg_catalog.pg_trigger t join pg_catalog.pg_class c on c.oid=t.tgrelid join pg_catalog.pg_namespace tn on tn.oid=c.relnamespace join pg_catalog.pg_proc p on p.oid=t.tgfoid join pg_catalog.pg_namespace pn on pn.oid=p.pronamespace where tn.nspname='public' and pn.nspname='sales_os_private' and not t.tgisinternal),
+  'supabaseAdminPublicDefaultPrivilegeRows',(select count(*)::int from pg_catalog.pg_default_acl d join pg_catalog.pg_roles r on r.oid=d.defaclrole left join pg_catalog.pg_namespace n on n.oid=d.defaclnamespace where r.rolname='supabase_admin' and n.nspname='public'),
+  'supabaseAdminPublicDefaultPrivilegesMd5',(select md5(coalesce(string_agg(r.rolname||'|'||coalesce(n.nspname,'')||'|'||d.defaclobjtype::text||'|'||d.defaclacl::text,E'\n' order by r.rolname,n.nspname,d.defaclobjtype),'')) from pg_catalog.pg_default_acl d join pg_catalog.pg_roles r on r.oid=d.defaclrole left join pg_catalog.pg_namespace n on n.oid=d.defaclnamespace where r.rolname='supabase_admin' and n.nspname='public'),
   'authUsers',(select count(*)::int from auth.users),
   'storageObjects',(select count(*)::int from storage.objects),
   'storageBuckets',(select count(*)::int from storage.buckets),
@@ -150,6 +152,7 @@ if (target.publicTables !== 0 || target.salesOsPrivateSchemas !== 0 || target.sa
 for (const field of [
   'serverVersion', 'authTables', 'authTablesMd5', 'authColumns', 'authColumnsMd5',
   'storageTables', 'storageTablesMd5', 'storageColumns', 'storageColumnsMd5',
+  'supabaseAdminPublicDefaultPrivilegeRows', 'supabaseAdminPublicDefaultPrivilegesMd5',
 ]) {
   if (source[field] !== target[field]) fail('source and target platform schema differ at ' + field)
 }

@@ -100,6 +100,15 @@ if ((applicationSchemaDump.match(/CREATE SCHEMA sales_os_private;/g) ?? []).leng
     /^CREATE (?:TABLE|SEQUENCE|MATERIALIZED VIEW) sales_os_private\./m.test(applicationSchemaDump)) {
   throw new Error('sealed application schema is outside the function-only recovery contract')
 }
+if (/^ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin /m.test(applicationSchemaDump)) {
+  throw new Error('sealed schema contains an unchangeable Supabase platform default privilege')
+}
+const sealedSchemaInventory = parseJson('sealed schema inventory', decrypted.get('database.schemaInventory').toString('utf8'))
+if (!Number.isSafeInteger(Number(sealedSchemaInventory.supabaseAdminPublicDefaultPrivilegeRows)) ||
+    Number(sealedSchemaInventory.supabaseAdminPublicDefaultPrivilegeRows) <= 0 ||
+    !/^[a-f0-9]{32}$/.test(sealedSchemaInventory.supabaseAdminPublicDefaultPrivilegesMd5 ?? '')) {
+  throw new Error('sealed Supabase platform default-privilege baseline is invalid')
+}
 
 const cliPath = runContract.toolchain.supabaseCli.path
 const psqlPath = runContract.toolchain.psql.path
@@ -132,6 +141,18 @@ const targetDb = getTemporaryDbEnvironment({ cliPath, projectRef: targetRef, con
   })) : 0
 if (Object.values(targetState).some((value) => Number(value) !== 0)) {
   throw new Error('isolated target is no longer empty; formal attempt was not started')
+}
+const targetPlatformDefaultPrivileges = parseJson('target platform default privileges', runPsql({
+  psqlPath,
+  pgEnvironment: targetDb,
+  sql: `select jsonb_build_object(
+    'rows',(select count(*) from pg_catalog.pg_default_acl d join pg_catalog.pg_roles r on r.oid=d.defaclrole left join pg_catalog.pg_namespace n on n.oid=d.defaclnamespace where r.rolname='supabase_admin' and n.nspname='public'),
+    'md5',(select md5(coalesce(string_agg(r.rolname||'|'||coalesce(n.nspname,'')||'|'||d.defaclobjtype::text||'|'||d.defaclacl::text,E'\n' order by r.rolname,n.nspname,d.defaclobjtype),'')) from pg_catalog.pg_default_acl d join pg_catalog.pg_roles r on r.oid=d.defaclrole left join pg_catalog.pg_namespace n on n.oid=d.defaclnamespace where r.rolname='supabase_admin' and n.nspname='public')
+  )::text;`,
+}))
+if (Number(targetPlatformDefaultPrivileges.rows) !== Number(sealedSchemaInventory.supabaseAdminPublicDefaultPrivilegeRows) ||
+    targetPlatformDefaultPrivileges.md5 !== sealedSchemaInventory.supabaseAdminPublicDefaultPrivilegesMd5) {
+  throw new Error('isolated target Supabase platform default privileges differ from the sealed source baseline')
 }
 const targetFunctions = runSupabaseJson({ cliPath, args: ['functions', 'list', '--project-ref', targetRef] })
 const targetSecrets = runSupabaseJson({ cliPath, args: ['secrets', 'list', '--project-ref', targetRef] })
