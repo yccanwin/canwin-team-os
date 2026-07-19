@@ -58,7 +58,7 @@ function validate(candidate) {
 
   check(candidate.schemaVersion === 1, 'schema version must be 1')
   check(candidate.manifestType === 'canwin-team-os-p1-interface-freeze', 'manifest type drift')
-  check(candidate.contractStatus === 'p1_ci_passed_local_pg_repair_accepted_isolated_retry_pending', 'contract status drift')
+  check(candidate.contractStatus === 'p1_repair_ci_linux_accepted_windows_portable_selftest_pending', 'contract status drift')
   check(physical.contractStatus === 'p0_supervisor_frozen_runtime_not_implemented', 'physical object contract is not frozen')
   check(navigation.contractStatus === 'p1_ci_passed_page_account_acceptance_pending', 'navigation candidate status drift')
   check(roleMigration.manualPrimaryRoleDecisions?.status === 'owner-confirmed-isolated-applied-production-unchanged', 'manual role decisions are not frozen and isolated-applied')
@@ -152,7 +152,7 @@ function validate(candidate) {
 
   for (const order of workOrders) {
     check(['backend', 'frontend', 'qa'].includes(order.team), `${order.id} has unknown team`)
-    check(order.status === 'candidate_ci_passed_isolated_apply_failed_repair_pending', `${order.id} must preserve CI success and the isolated-apply repair boundary`)
+    check(order.status === 'candidate_linux_accepted_windows_portable_selftest_repair_pending', `${order.id} must preserve Linux acceptance and Windows portability repair boundary`)
     check(Boolean(order.deliverable?.trim()), `${order.id} lacks deliverable`)
   }
   check(workOrders.filter((entry) => entry.team === 'backend').length === 4, 'backend work-order count drift')
@@ -173,6 +173,16 @@ function validate(candidate) {
   check(ci.p1RunEvidence?.databaseGates === '70/70 migrations, 27/27 SQL, 4/4 catalog', 'P1 database gate summary drift')
   check(ci.p1RunEvidence?.windowsGates === '15/15 static, 12/12 local, 71/71 P1 app shell', 'P1 Windows gate summary drift')
   check(ci.p1RunEvidence?.cleanupPassed === true, 'P1 cleanup evidence missing')
+  const repairCi = ci.repairCandidateRunEvidence ?? {}
+  check(repairCi.runId === '29693556452' && repairCi.headSha === 'b9bcca61b826c641e550c6c070f09c4adc407cbe', 'repair CI run identity drift')
+  check(repairCi.linuxJobId === '88210359113' && repairCi.windowsJobId === '88210359107', 'repair CI job ids drift')
+  check(repairCi.overallStatus === 'failed_preserved_without_rerun' && repairCi.rerunPerformed === false, 'repair CI failure preservation drift')
+  check(repairCi.ciRepairCandidateLinuxAccepted === true && repairCi.linuxDatabaseGates === '70/70 migrations, 27/27 SQL, 4/4 catalog, cleanup passed', 'repair CI Linux acceptance drift')
+  check(repairCi.windowsStatic === '16/17', 'repair CI Windows static count drift')
+  check(repairCi.windowsFailure === 'static gate 17 PG selftest required D:/CanWinP1Postgres18 tools on the GitHub runner', 'repair CI Windows failure drift')
+  check(repairCi.windowsLocalRemainingStepsExecuted === 0 && repairCi.windowsLocalRemainingStepsNotExecuted === 11, 'repair CI Windows stop boundary drift')
+  check(repairCi.portableSelftestRepairPending === true, 'portable self-test repair must remain pending')
+  check(repairCi.productionReadPerformed === false && repairCi.productionWritePerformed === false, 'repair CI production boundary drift')
 
   const isolated = candidate.isolatedTestProjectEvidence ?? {}
   check(isolated.targetProjectRef === 'zdmuaqokndhhbarudhtw', 'isolated target ref drift')
@@ -198,10 +208,10 @@ function validate(candidate) {
   check(repair.hashMode === 'utf8-lf', 'repair candidate hash mode must remain utf8-lf')
   check(repair.migrationSha256Lf === 'acc7f15afa502d7a124c2a13d74d0a71c2b98c11664d58de2d4639081d5a7597', 'repair migration LF SHA drift')
   check(repair.testSha256Lf === 'bed07c4d494ac3e7f7e993e12090194ed413b0e92d681aea0adb3eb381f430fb', 'repair SQL test LF SHA drift')
-  check(repair.runtimeContractSha256Lf === '9cbfac0c7242b64e7e3fac2afa20c77de4d14159bef07fa0a158f5eb9065dadd', 'runtime contract LF SHA drift')
+  check(repair.runtimeContractSha256Lf === 'd6d978e79f2c5e1083a46b2cf04e2e91d1825fb52bb559c93cc0c9615a0b2518', 'runtime contract LF SHA drift')
   check(repair.runnerSha256Lf === 'ac22d2d935d4b557314b5e7c61dfdf54e4af8c3dfe178ad047de1b2cf5955248', 'runtime runner LF SHA drift')
-  check(repair.runnerValidatorSha256Lf === '83ded52f12f1672ad7cc76fdc582d92074a7e6023fda41402611ef14fcb3f062', 'runtime validator LF SHA drift')
-  check(repair.postgresRegressionSha256Lf === 'd2799a76bffd11be59d4ae6d7e4e01033be15c1981d9a50e68f427b98cefec85', 'local Postgres regression LF SHA drift')
+  check(repair.runnerValidatorSha256Lf === '5a95b5ae91caa3d9de964d4c8227575f1e6d37e394073321397492ebab092fe9', 'runtime validator LF SHA drift')
+  check(repair.postgresRegressionSha256Lf === 'f4f54d77436b1b91035cd8fff7572dd52f4375aa75f52325a664426d0b9cf3ea', 'local Postgres regression LF SHA drift')
   check(repair.localPostgresAccepted === true && repair.isolatedRemoteApply === 'pending', 'local repair acceptance or isolated remote pending boundary drift')
   check(localPg.path === 'D:\\CanWinP1LocalPgRuns\\p1-pending-trigger-iWUhfO', 'local Postgres evidence path drift')
   check(localPg.resultSha256 === '9c16a2d8934f75c0f6a59641a090f3fa65fbf909d07e3d6bde1743a107614af7', 'local Postgres result SHA drift')
@@ -215,6 +225,9 @@ function validate(candidate) {
   check(boundary.p1CodeStarted === true, 'P1 code start must be recorded')
   check(boundary.p1CandidateImplemented === true, 'P1 candidate implementation must be recorded')
   check(boundary.ciRuntimeAccepted === true, 'P1 CI runtime acceptance must be recorded')
+  check(boundary.ciRepairCandidateLinuxAccepted === true, 'repair candidate Linux acceptance must be recorded')
+  check(boundary.ciRepairCandidateWindowsStatic === '16/17', 'repair candidate Windows static boundary drift')
+  check(boundary.portableSelftestRepairPending === true, 'portable self-test repair must remain pending')
   check(boundary.localPostgresAccepted === true, 'local PostgreSQL repair acceptance must be recorded')
   check(boundary.repairCandidateIsolatedRemoteApply === 'pending', 'isolated remote repair candidate must remain pending')
   check(boundary.isolatedTestProjectApply === 'failed_repair_pending', 'isolated apply failure boundary missing')
@@ -246,6 +259,9 @@ const negativeCases = [
   ['work status reverted', (value) => { value.workOrders[0].status = 'frozen_not_started' }],
   ['remote CI success erased', (value) => { value.ciContract.actualRemoteRunEvidence = 'pending' }],
   ['P1 CI success erased', (value) => { value.ciContract.p1ActualRemoteRunEvidence = 'failed_repair_pending' }],
+  ['repair CI Linux acceptance erased', (value) => { value.acceptanceBoundary.ciRepairCandidateLinuxAccepted = false }],
+  ['repair CI Windows falsely all green', (value) => { value.acceptanceBoundary.ciRepairCandidateWindowsStatic = '17/17' }],
+  ['portable repair falsely completed', (value) => { value.acceptanceBoundary.portableSelftestRepairPending = false }],
   ['isolated failure erased', (value) => { value.isolatedTestProjectEvidence.applyStatus = 'passed' }],
   ['isolated write falsely zero', (value) => { value.acceptanceBoundary.isolatedTestProjectWriteAttempts = 0 }],
   ['isolated rollback falsely verified', (value) => { value.acceptanceBoundary.isolatedTestProjectRollbackVerified = true }],
@@ -272,5 +288,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `P0_P1_INTERFACE_FREEZE_OK rpcs=${contract.rpcInterfaces.length} whitelists=${Object.keys(contract.fieldWhitelists).length} identities=${contract.baseTestIdentities.length} overlays=${contract.overlayTestCases.length} attacks=${contract.directApiAttackCases.length} workOrders=${contract.workOrders.length} negative=${negativePassed}/${negativeCases.length} hashMode=utf8-lf p1ActualRemoteRun=passed ciRuntimeAccepted=true localPostgresAccepted=true isolatedTestProjectApply=failed_repair_pending repairCandidateIsolatedRemoteApply=pending testProjectWriteAttempts=1 rollbackVerified=false reconciliation=false pageAccountAcceptance=false runtimeAccepted=false g0=true g1=false p1CandidateImplemented=true`,
+  `P0_P1_INTERFACE_FREEZE_OK rpcs=${contract.rpcInterfaces.length} whitelists=${Object.keys(contract.fieldWhitelists).length} identities=${contract.baseTestIdentities.length} overlays=${contract.overlayTestCases.length} attacks=${contract.directApiAttackCases.length} workOrders=${contract.workOrders.length} negative=${negativePassed}/${negativeCases.length} hashMode=utf8-lf p1ActualRemoteRun=passed ciRuntimeAccepted=true ciRepairCandidateLinuxAccepted=true windowsStatic=16/17 portableSelftestRepairPending=true localPostgresAccepted=true isolatedTestProjectApply=failed_repair_pending repairCandidateIsolatedRemoteApply=pending testProjectWriteAttempts=1 rollbackVerified=false reconciliation=false pageAccountAcceptance=false runtimeAccepted=false g0=true g1=false p1CandidateImplemented=true`,
 )

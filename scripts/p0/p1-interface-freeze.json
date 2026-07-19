@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "manifestType": "canwin-team-os-p1-interface-freeze",
-  "contractStatus": "p1_ci_passed_local_pg_repair_accepted_isolated_retry_pending",
-  "scope": "Freeze P1 role, permission, app-context, navigation, responsibility-routing and acceptance interfaces; preserve successful independent CI evidence and the first failed isolated test-project apply, accept only the repaired candidate's local PostgreSQL regression, and keep isolated remote apply, rollback verification, reconciliation, and page/account acceptance pending while production remains unchanged.",
+  "contractStatus": "p1_repair_ci_linux_accepted_windows_portable_selftest_pending",
+  "scope": "Freeze P1 role, permission, app-context, navigation, responsibility-routing and acceptance interfaces; preserve prior successful CI, the first failed isolated test-project apply, and repair run 29693556452 without rerun; accept its Linux database lane only while Windows portability repair, isolated remote apply, reconciliation, and page/account acceptance remain pending and production remains unchanged.",
   "sources": [
     "docs/CanWin-Team-OS-4.0-最终施工总方案.md",
     "docs/team-os-4.0/p0/p1-app-navigation-contract.json",
@@ -147,19 +147,19 @@
     { "id": "P1-API-012", "actor": "P1-IDN-005", "assertion": "role and scope mutations always create immutable audit evidence" }
   ],
   "workOrders": [
-    { "id": "P1-B1", "team": "backend", "status": "candidate_ci_passed_isolated_apply_failed_repair_pending", "deliverable": "single-company context and current-member resolver without hard-coded team identifiers" },
-    { "id": "P1-B2", "team": "backend", "status": "candidate_ci_passed_isolated_apply_failed_repair_pending", "deliverable": "primary role, additional function, skill, region and member-status model" },
-    { "id": "P1-B3", "team": "backend", "status": "candidate_ci_passed_isolated_apply_failed_repair_pending", "deliverable": "supervisor switch, scope and admin fallback responsibility router" },
-    { "id": "P1-B4", "team": "backend", "status": "candidate_ci_passed_isolated_apply_failed_repair_pending", "deliverable": "server-authoritative app context and minimum field projections" },
-    { "id": "P1-F1", "team": "frontend", "status": "candidate_ci_passed_isolated_apply_failed_repair_pending", "deliverable": "one role-generated workbench shell" },
-    { "id": "P1-F2", "team": "frontend", "status": "candidate_ci_passed_isolated_apply_failed_repair_pending", "deliverable": "role navigation and account-menu work-view switch" },
-    { "id": "P1-F3", "team": "frontend", "status": "candidate_ci_passed_isolated_apply_failed_repair_pending", "deliverable": "warehouse and enabled-supervisor conditional groups" },
-    { "id": "P1-F4", "team": "frontend", "status": "candidate_ci_passed_isolated_apply_failed_repair_pending", "deliverable": "36-route compatibility, redirects and closures without data deletion" },
-    { "id": "P1-Q1", "team": "qa", "status": "candidate_ci_passed_isolated_apply_failed_repair_pending", "deliverable": "five primary role tests without overlays" },
-    { "id": "P1-Q2", "team": "qa", "status": "candidate_ci_passed_isolated_apply_failed_repair_pending", "deliverable": "warehouse and supervisor on-off overlay matrix" },
-    { "id": "P1-Q3", "team": "qa", "status": "candidate_ci_passed_isolated_apply_failed_repair_pending", "deliverable": "direct API overreach and field whitelist matrix" },
-    { "id": "P1-Q4", "team": "qa", "status": "candidate_ci_passed_isolated_apply_failed_repair_pending", "deliverable": "fallback, disabled member, bulk transfer and immutable audit tests" },
-    { "id": "P1-Q5", "team": "qa", "status": "candidate_ci_passed_isolated_apply_failed_repair_pending", "deliverable": "one test entry point with CI database, permission and business test counts" }
+    { "id": "P1-B1", "team": "backend", "status": "candidate_linux_accepted_windows_portable_selftest_repair_pending", "deliverable": "single-company context and current-member resolver without hard-coded team identifiers" },
+    { "id": "P1-B2", "team": "backend", "status": "candidate_linux_accepted_windows_portable_selftest_repair_pending", "deliverable": "primary role, additional function, skill, region and member-status model" },
+    { "id": "P1-B3", "team": "backend", "status": "candidate_linux_accepted_windows_portable_selftest_repair_pending", "deliverable": "supervisor switch, scope and admin fallback responsibility router" },
+    { "id": "P1-B4", "team": "backend", "status": "candidate_linux_accepted_windows_portable_selftest_repair_pending", "deliverable": "server-authoritative app context and minimum field projections" },
+    { "id": "P1-F1", "team": "frontend", "status": "candidate_linux_accepted_windows_portable_selftest_repair_pending", "deliverable": "one role-generated workbench shell" },
+    { "id": "P1-F2", "team": "frontend", "status": "candidate_linux_accepted_windows_portable_selftest_repair_pending", "deliverable": "role navigation and account-menu work-view switch" },
+    { "id": "P1-F3", "team": "frontend", "status": "candidate_linux_accepted_windows_portable_selftest_repair_pending", "deliverable": "warehouse and enabled-supervisor conditional groups" },
+    { "id": "P1-F4", "team": "frontend", "status": "candidate_linux_accepted_windows_portable_selftest_repair_pending", "deliverable": "36-route compatibility, redirects and closures without data deletion" },
+    { "id": "P1-Q1", "team": "qa", "status": "candidate_linux_accepted_windows_portable_selftest_repair_pending", "deliverable": "five primary role tests without overlays" },
+    { "id": "P1-Q2", "team": "qa", "status": "candidate_linux_accepted_windows_portable_selftest_repair_pending", "deliverable": "warehouse and supervisor on-off overlay matrix" },
+    { "id": "P1-Q3", "team": "qa", "status": "candidate_linux_accepted_windows_portable_selftest_repair_pending", "deliverable": "direct API overreach and field whitelist matrix" },
+    { "id": "P1-Q4", "team": "qa", "status": "candidate_linux_accepted_windows_portable_selftest_repair_pending", "deliverable": "fallback, disabled member, bulk transfer and immutable audit tests" },
+    { "id": "P1-Q5", "team": "qa", "status": "candidate_linux_accepted_windows_portable_selftest_repair_pending", "deliverable": "one test entry point with CI database, permission and business test counts" }
   ],
   "ciContract": {
     "workflowPath": ".github/workflows/p0-static.yml",
@@ -176,6 +176,23 @@
       "databaseGates": "70/70 migrations, 27/27 SQL, 4/4 catalog",
       "windowsGates": "15/15 static, 12/12 local, 71/71 P1 app shell",
       "cleanupPassed": true
+    },
+    "repairCandidateRunEvidence": {
+      "runId": "29693556452",
+      "headSha": "b9bcca61b826c641e550c6c070f09c4adc407cbe",
+      "linuxJobId": "88210359113",
+      "windowsJobId": "88210359107",
+      "overallStatus": "failed_preserved_without_rerun",
+      "ciRepairCandidateLinuxAccepted": true,
+      "linuxDatabaseGates": "70/70 migrations, 27/27 SQL, 4/4 catalog, cleanup passed",
+      "windowsStatic": "16/17",
+      "windowsFailure": "static gate 17 PG selftest required D:/CanWinP1Postgres18 tools on the GitHub runner",
+      "windowsLocalRemainingStepsExecuted": 0,
+      "windowsLocalRemainingStepsNotExecuted": 11,
+      "portableSelftestRepairPending": true,
+      "rerunPerformed": false,
+      "productionReadPerformed": false,
+      "productionWritePerformed": false
     }
   },
   "isolatedTestProjectEvidence": {
@@ -210,10 +227,10 @@
     "hashMode": "utf8-lf",
     "migrationSha256Lf": "acc7f15afa502d7a124c2a13d74d0a71c2b98c11664d58de2d4639081d5a7597",
     "testSha256Lf": "bed07c4d494ac3e7f7e993e12090194ed413b0e92d681aea0adb3eb381f430fb",
-    "runtimeContractSha256Lf": "9cbfac0c7242b64e7e3fac2afa20c77de4d14159bef07fa0a158f5eb9065dadd",
+    "runtimeContractSha256Lf": "d6d978e79f2c5e1083a46b2cf04e2e91d1825fb52bb559c93cc0c9615a0b2518",
     "runnerSha256Lf": "ac22d2d935d4b557314b5e7c61dfdf54e4af8c3dfe178ad047de1b2cf5955248",
-    "runnerValidatorSha256Lf": "83ded52f12f1672ad7cc76fdc582d92074a7e6023fda41402611ef14fcb3f062",
-    "postgresRegressionSha256Lf": "d2799a76bffd11be59d4ae6d7e4e01033be15c1981d9a50e68f427b98cefec85",
+    "runnerValidatorSha256Lf": "5a95b5ae91caa3d9de964d4c8227575f1e6d37e394073321397492ebab092fe9",
+    "postgresRegressionSha256Lf": "f4f54d77436b1b91035cd8fff7572dd52f4375aa75f52325a664426d0b9cf3ea",
     "localPostgresAccepted": true,
     "isolatedRemoteApply": "pending",
     "localPostgresEvidence": {
@@ -235,6 +252,9 @@
     "p1CodeStarted": true,
     "p1CandidateImplemented": true,
     "ciRuntimeAccepted": true,
+    "ciRepairCandidateLinuxAccepted": true,
+    "ciRepairCandidateWindowsStatic": "16/17",
+    "portableSelftestRepairPending": true,
     "localPostgresAccepted": true,
     "repairCandidateIsolatedRemoteApply": "pending",
     "isolatedTestProjectApply": "failed_repair_pending",

@@ -604,7 +604,7 @@ function validate(candidate) {
 
   check(candidate.schemaVersion === 1, 'schema version must be 1')
   check(candidate.manifestType === 'canwin-team-os-p0-ci-database-tests', 'manifest type drift')
-  check(candidate.contractStatus === 'p1_ci_passed_page_account_acceptance_pending', 'contract status drift')
+  check(candidate.contractStatus === 'p1_repair_ci_linux_accepted_windows_portable_selftest_pending', 'contract status drift')
 
   check(candidate.baseline?.path === 'supabase/schema.sql', 'baseline path drift')
   check(candidate.baseline?.sha256Lf === sha256Lf(resolve(repoRoot, 'supabase', 'schema.sql')), 'baseline hash drift')
@@ -845,13 +845,16 @@ function validate(candidate) {
   check(boundary.actualGithubRunEvidence === 'passed', 'actual GitHub run success evidence missing')
   check(boundary.g0OverallClaim === true, 'G0 success claim missing')
   check(boundary.p1ActualGithubRunEvidence === 'passed', 'P1 successful GitHub run evidence missing')
+  check(boundary.ciRepairCandidateLinuxAccepted === true, 'repair candidate Linux acceptance evidence missing')
+  check(boundary.ciRepairCandidateWindowsStatic === '16/17', 'repair candidate Windows static count drift')
+  check(boundary.portableSelftestRepairPending === true, 'portable self-test repair must remain pending')
   check(boundary.g1OverallClaim === false, 'G1 must remain unclaimed until real page and account acceptance passes')
   check(boundary.productionReadPerformed === false, 'production read must remain false')
   check(boundary.productionWritePerformed === false, 'production write must remain false')
   check(boundary.repositorySecretsRequired === false, 'repository secrets must not be required')
 
   const attempts = candidate.formalAttemptHistory ?? []
-  check(attempts.length === 18, 'formal attempt history count drift')
+  check(attempts.length === 19, 'formal attempt history count drift')
   const failedAttempt = attempts[0] ?? {}
   check(failedAttempt.runId === '29680934378', 'failed run id drift')
   check(failedAttempt.jobId === '88176860842', 'failed job id drift')
@@ -1176,6 +1179,26 @@ function validate(candidate) {
   check(p1SuccessfulAttempt.productionReadPerformed === false && p1SuccessfulAttempt.productionWritePerformed === false, 'successful P1 production boundary drift')
   check(p1SuccessfulAttempt.rerunOfFailedRun === false, 'successful P1 run must remain an independent candidate')
   check(p1SuccessfulAttempt.pageAccountAcceptancePassed === false, 'successful CI must not claim real page/account acceptance')
+  const portableSelftestAttempt = attempts[18] ?? {}
+  check(portableSelftestAttempt.runId === '29693556452', 'portable self-test run id drift')
+  check(portableSelftestAttempt.jobId === '88210359113' && portableSelftestAttempt.windowsJobId === '88210359107', 'portable self-test job ids drift')
+  check(portableSelftestAttempt.headSha === 'b9bcca61b826c641e550c6c070f09c4adc407cbe', 'portable self-test head SHA drift')
+  check(portableSelftestAttempt.conclusion === 'failure', 'portable self-test run conclusion drift')
+  check(portableSelftestAttempt.failedStep === 'Windows local integration static gate 17', 'portable self-test failed step drift')
+  check(portableSelftestAttempt.rootCauseCode === 'postgres_selftest_required_nonportable_fixed_tool_paths_on_github_windows_runner', 'portable self-test root cause drift')
+  check(portableSelftestAttempt.windowsLocalGatePassed === false, 'portable self-test Windows run must remain failed')
+  check(portableSelftestAttempt.windowsStaticGatesExpected === 17 && portableSelftestAttempt.windowsStaticGatesPassed === 16 && portableSelftestAttempt.windowsStaticGateFailed === 17, 'portable self-test Windows static counts drift')
+  check(portableSelftestAttempt.windowsLocalIntegrationStepsExpected === 12 && portableSelftestAttempt.windowsLocalIntegrationStepsStarted === 1 && portableSelftestAttempt.windowsLocalIntegrationStepsPassed === 0 && portableSelftestAttempt.windowsLocalIntegrationStepsNotExecuted === 11, 'portable self-test Windows local stop boundary drift')
+  check(portableSelftestAttempt.windowsFailure === 'PG selftest required D:/CanWinP1Postgres18/bin/initdb.exe, pg_ctl.exe and psql.exe on the GitHub runner', 'portable self-test Windows failure drift')
+  check(portableSelftestAttempt.ciRepairCandidateLinuxAccepted === true && portableSelftestAttempt.portableSelftestRepairPending === true, 'portable self-test repair acceptance boundary drift')
+  check(portableSelftestAttempt.databaseStartupPassed === true && portableSelftestAttempt.baselinePassed === true, 'portable self-test Linux database startup or baseline evidence missing')
+  check(portableSelftestAttempt.migrationsPassed === 70 && portableSelftestAttempt.sqlTestsStarted === 27 && portableSelftestAttempt.sqlTestsPassed === 27, 'portable self-test Linux migration or SQL counts drift')
+  check(portableSelftestAttempt.databaseTestsPassed === 7 && portableSelftestAttempt.permissionTestsPassed === 11 && portableSelftestAttempt.businessTestsPassed === 9, 'portable self-test Linux category counts drift')
+  check(portableSelftestAttempt.catalogAssertionsPassed === 4 && portableSelftestAttempt.successMarker === 'P0_CI_DATABASE_GATES_OK', 'portable self-test Linux catalog or marker evidence missing')
+  check(portableSelftestAttempt.cleanupPassed === true, 'portable self-test Linux cleanup evidence missing')
+  check(portableSelftestAttempt.repositorySecretsRequired === false && portableSelftestAttempt.productionReadPerformed === false && portableSelftestAttempt.productionWritePerformed === false, 'portable self-test secret or production boundary drift')
+  check(portableSelftestAttempt.rerunOfFailedRun === false && portableSelftestAttempt.preservedWithoutRerun === true, 'portable self-test failed run must remain preserved without rerun')
+  check(portableSelftestAttempt.pageAccountAcceptancePassed === false, 'portable self-test CI must not claim page/account acceptance')
   return failures
 }
 
@@ -1212,8 +1235,11 @@ const negativeCases = [
   ['production write', (value) => { value.acceptanceBoundary.productionWritePerformed = true }],
   ['G0 success evidence erased', (value) => { value.acceptanceBoundary.g0OverallClaim = false }],
   ['P1 CI success erased', (value) => { value.acceptanceBoundary.p1ActualGithubRunEvidence = 'failed_repair_pending' }],
+  ['repair Linux acceptance erased', (value) => { value.acceptanceBoundary.ciRepairCandidateLinuxAccepted = false }],
+  ['repair Windows static falsely passed', (value) => { value.acceptanceBoundary.ciRepairCandidateWindowsStatic = '17/17' }],
+  ['portable repair falsely completed', (value) => { value.acceptanceBoundary.portableSelftestRepairPending = false }],
   ['G1 falsely claimed', (value) => { value.acceptanceBoundary.g1OverallClaim = true }],
-  ['successful P1 attempt erased', (value) => { value.formalAttemptHistory.pop() }],
+  ['portable failure evidence erased', (value) => { value.formalAttemptHistory.pop() }],
 ]
 let negativePassed = 0
 for (const [name, mutate] of negativeCases) {
@@ -1230,5 +1256,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `P0_CI_DATABASE_CONTRACT_OK baseline=1 migrations=70 tests=${contract.tests.length} database=7 permission=11 business=9 catalog=4 definitions=${contract.expectedCounts.definitionReferencedObjects} redefined=${contract.expectedCounts.redefinedDefinitionReferencedObjects} crmLeadColumnAssertions=${contract.expectedCounts.crmLeadsVisibleExactColumnAssertions} directOrderFixtures=${contract.expectedCounts.directDealOrderFixtureFiles} finalFunctionIdentities=${contract.expectedCounts.finalPublicFunctionIdentities} functionIdentityReferences=${contract.expectedCounts.functionIdentityReferences} negative=${negativePassed}/${negativeCases.length} localOnly=true repositorySecrets=0 productionReads=0 productionWrites=0 actualGithubRun=passed g0=true p1ActualGithubRun=passed pageAccountAcceptance=false g1=false`,
+  `P0_CI_DATABASE_CONTRACT_OK baseline=1 migrations=70 tests=${contract.tests.length} database=7 permission=11 business=9 catalog=4 definitions=${contract.expectedCounts.definitionReferencedObjects} redefined=${contract.expectedCounts.redefinedDefinitionReferencedObjects} crmLeadColumnAssertions=${contract.expectedCounts.crmLeadsVisibleExactColumnAssertions} directOrderFixtures=${contract.expectedCounts.directDealOrderFixtureFiles} finalFunctionIdentities=${contract.expectedCounts.finalPublicFunctionIdentities} functionIdentityReferences=${contract.expectedCounts.functionIdentityReferences} negative=${negativePassed}/${negativeCases.length} localOnly=true repositorySecrets=0 productionReads=0 productionWrites=0 actualGithubRun=passed g0=true p1ActualGithubRun=passed ciRepairCandidateLinuxAccepted=true windowsStatic=16/17 portableSelftestRepairPending=true pageAccountAcceptance=false g1=false`,
 )
