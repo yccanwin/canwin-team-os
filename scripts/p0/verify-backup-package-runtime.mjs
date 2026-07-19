@@ -231,8 +231,14 @@ try {
     Number(schemaInventory.salesOsPrivateRoutines) >= requiredApplicationPrivateRoutines.length &&
     Number(schemaInventory.salesOsPrivatePublicTriggerFunctions) === 3
   exactRoutineAndAclOverlayIsComplete =
+    applicationSchemaDump.includes('-- CANWIN EXACT ROUTINE RESOLUTION PATH') &&
+    applicationSchemaDump.includes("SELECT pg_catalog.set_config('search_path', 'public, sales_os_private, pg_catalog', false);") &&
     applicationSchemaDump.includes('-- CANWIN EXACT ROUTINE DEFINITIONS') &&
     applicationSchemaDump.includes('-- CANWIN EXACT APPLICATION ACLS') &&
+    applicationSchemaDump.indexOf("SELECT pg_catalog.set_config('search_path', 'public, sales_os_private, pg_catalog', false);") <
+      applicationSchemaDump.indexOf('-- CANWIN EXACT ROUTINE DEFINITIONS') &&
+    applicationSchemaDump.indexOf("SELECT pg_catalog.set_config('search_path', '', false);", applicationSchemaDump.indexOf('-- CANWIN EXACT ROUTINE DEFINITIONS')) >
+      applicationSchemaDump.indexOf('-- CANWIN EXACT ROUTINE DEFINITIONS') &&
     (applicationSchemaDump.match(/DO \$canwin_exact_routine\$/g) ?? []).length ===
       Number(schemaInventory.publicRoutines) + Number(schemaInventory.salesOsPrivateRoutines)
   platformDefaultPrivilegeBaselineIsSafe =

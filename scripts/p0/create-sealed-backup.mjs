@@ -255,7 +255,7 @@ try {
   if (exactRoutineCount !== Number(sourceBefore.value.schemaSecurity.publicRoutines) + Number(sourceBefore.value.schemaSecurity.salesOsPrivateRoutines)) {
     throw new Error('exact routine definition inventory does not match reconciliation')
   }
-  schemaDumpText += `\n-- CANWIN EXACT ROUTINE DEFINITIONS\n${exactRoutineDefinitionsSql}\n-- CANWIN EXACT APPLICATION ACLS\n${exactRelationAclSql}\n${exactRoutineAclSql}\n${exactPrivateSchemaAclSql}\n`
+  schemaDumpText += `\n-- CANWIN EXACT ROUTINE RESOLUTION PATH\nSELECT pg_catalog.set_config('search_path', 'public, sales_os_private, pg_catalog', false);\n-- CANWIN EXACT ROUTINE DEFINITIONS\n${exactRoutineDefinitionsSql}\nSELECT pg_catalog.set_config('search_path', '', false);\n-- CANWIN EXACT APPLICATION ACLS\n${exactRelationAclSql}\n${exactRoutineAclSql}\n${exactPrivateSchemaAclSql}\n`
 
   const dataDumpText = pgText(pgDumpPath, [
     '--schema=public', '--data-only',

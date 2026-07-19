@@ -125,6 +125,11 @@ if (!Number.isSafeInteger(Number(sealedSchemaInventory.supabaseAdminPublicDefaul
 const sealedExactRoutineCount = (applicationSchemaDump.match(/DO \$canwin_exact_routine\$/g) ?? []).length
 if (!applicationSchemaDump.includes('-- CANWIN EXACT ROUTINE DEFINITIONS') ||
     !applicationSchemaDump.includes('-- CANWIN EXACT APPLICATION ACLS') ||
+    !applicationSchemaDump.includes("-- CANWIN EXACT ROUTINE RESOLUTION PATH\nSELECT pg_catalog.set_config('search_path', 'public, sales_os_private, pg_catalog', false);") ||
+    applicationSchemaDump.indexOf("SELECT pg_catalog.set_config('search_path', 'public, sales_os_private, pg_catalog', false);") >
+      applicationSchemaDump.indexOf('-- CANWIN EXACT ROUTINE DEFINITIONS') ||
+    applicationSchemaDump.indexOf("SELECT pg_catalog.set_config('search_path', '', false);", applicationSchemaDump.indexOf('-- CANWIN EXACT ROUTINE DEFINITIONS')) <
+      applicationSchemaDump.indexOf('-- CANWIN EXACT ROUTINE DEFINITIONS') ||
     sealedExactRoutineCount !== Number(sealedSchemaInventory.publicRoutines) + Number(sealedSchemaInventory.salesOsPrivateRoutines)) {
   throw new Error('sealed schema does not contain the exact routine and ACL overlay')
 }

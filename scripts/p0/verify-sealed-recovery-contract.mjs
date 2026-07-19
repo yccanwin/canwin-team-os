@@ -76,6 +76,8 @@ check('backup appends exact routine definitions and application ACLs',
   backup.includes('exactRoutineDefinitionsSql') &&
   backup.includes('pg_get_functiondef(p.oid)') &&
   backup.includes('DO $canwin_exact_routine$') &&
+  backup.includes('-- CANWIN EXACT ROUTINE RESOLUTION PATH') &&
+  backup.includes("set_config('search_path', 'public, sales_os_private, pg_catalog', false)") &&
   backup.includes('exactRelationAclSql') &&
   backup.includes('exactRoutineAclSql') &&
   backup.includes('exactPrivateSchemaAclSql') &&
@@ -115,6 +117,8 @@ check('runtime package gate decrypts every data dump and rejects protected trigg
 check('runtime package gate validates COPY data and exact schema overlays',
   packageRuntime.includes('dataDumpsUseCopyFormat') &&
   packageRuntime.includes('exactRoutineAndAclOverlayIsComplete') &&
+  packageRuntime.includes('-- CANWIN EXACT ROUTINE RESOLUTION PATH') &&
+  packageRuntime.includes("set_config('search_path', 'public, sales_os_private, pg_catalog', false)") &&
   packageRuntime.includes('public and migration data dumps use line-ending-safe COPY format') &&
   packageRuntime.includes('exact routine definition and application ACL overlay is complete'))
 check('runtime package gate decrypts and validates the application private schema',
@@ -140,6 +144,8 @@ check('restore rejects an incomplete application private schema before target ac
 check('restore rejects non-COPY data or incomplete exact schema overlays before target access',
   restore.includes('sealed data dumps are not using line-ending-safe COPY format') &&
   restore.includes('sealed schema does not contain the exact routine and ACL overlay') &&
+  restore.includes('-- CANWIN EXACT ROUTINE RESOLUTION PATH') &&
+  restore.includes("set_config('search_path', 'public, sales_os_private, pg_catalog', false)") &&
   restore.indexOf('sealedExactRoutineCount') < restore.indexOf('const targetDb = getTemporaryDbEnvironment'))
 check('restore requires the isolated target application private schema to be absent',
   restore.includes("'applicationPrivateObjects'") &&
