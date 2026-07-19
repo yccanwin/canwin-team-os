@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractStatus": "p0_machine_contract_pending_g0_acceptance",
+  "contractStatus": "p0_supervisor_frozen_execution_locked_until_g0",
   "scope": "P1 app shell and navigation contract only; this file does not prove P1 UI implementation or authorize production changes.",
   "sources": {
     "plan": "docs/CanWin-Team-OS-4.0-最终施工总方案.md",

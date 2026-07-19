@@ -16,9 +16,9 @@
 | 本地 `supabase/config.toml` | 仍只声明生产项目；测试项目不写入默认链接配置 |
 | 生产迁移历史 | 69；版本和名称与本地精确匹配 |
 | 本地迁移文件 | 69；已有版本/文件名/SHA256 清单和纯静态校验 |
-| 独立测试项目 | `zdmuaqokndhhbarudhtw`；`ap-northeast-1`；`ACTIVE_HEALTHY`；2026-07-19 已创建；月费确认值 0；等待全新恢复候选 |
+| 独立测试项目 | `zdmuaqokndhhbarudhtw`；`ap-northeast-1`；`ACTIVE_HEALTHY`；2026-07-19 已创建；月费确认值 0；正式封闭恢复 1/1 已成功 |
 | 失败现场保留 | 测试项目 `adzerzckgxxibadxkhcr`、`xlpkvjojuqwaqtahaksm`、`gktelqueikmbhtmdbjnh` 均已暂停为 `INACTIVE`；保留各自恢复/安全验证现场和失败证据，不删除、不复用 |
-| 数据库备份文件及校验和 | 成功包 `D:\CanWin-Team-OS-4.0-Recovery\canwin-team-os-4-p0-20260719T064719486Z-d6799976f3`；manifest SHA256 `e80c164636a57e6fd14469ef0bdfafeac65f6dded730f757e46deac06b9325bb` |
+| 数据库备份文件及校验和 | 成功包 `D:\CanWin-Team-OS-4.0-Recovery\canwin-team-os-4-p0-20260719T074943659Z-c11fca6bd1`；manifest SHA256 `f4174b91f51f63e37b42e9d907aea0f72aa907ec31694041081ee06c2f6d20b2` |
 | Auth/岗位关系导出 | 7 用户、7 identities 已恢复并全部禁登；卢宣丞=销售、朱浩=管理员；会话/令牌/JWT secret 未复制 |
 | Storage 对象备份 | 1 bucket、32 objects、1,700,978 bytes，恢复内容聚合 SHA256 已核对 |
 | 独立恢复演练 | 正式封闭恢复 1/1 已完成；基础快照完全一致，最终仅增加两项授权岗位 |
@@ -35,8 +35,8 @@
 | Q01 权限矩阵 | 红 | 当前数据库种子仍把 `warehouse`、`supervisor` 作为独立角色，前端角色模型又更旧；没有五主岗位 × 附加职能 × 允许/拒绝矩阵 |
 | Q03 迁移历史 | 黄 | 本地与生产 69/69 版本和名称精确匹配；本地 69 项 SHA256 门禁已建立，仍缺远端正文一致性证明和 CI 门禁 |
 | Q04 空库/初始化 | 红 | 当前 Schema 仍依赖固定管理员、固定团队和历史种子；没有 4.0 空白基线、一次性可信初始化器和封口负测 |
-| Q06 安全/Storage/密钥 | 红 | 3 ERROR、137 WARN；图片写策略未收口；CI 无权限/环境标识/历史与产物密钥扫描 |
-| Q09 备份恢复 | 红 | 本地机器合同已建立；仍没有数据库/Auth/Storage/Functions/Cron/运行配置的完整备份与恢复成功证据 |
+| Q06 安全/Storage/密钥 | 黄 | 三视图隔离候选验证通过并回滚；Storage 已备份恢复，但两个最终槽和旧写入拒绝仍待运行态验证，CI 仍缺远端证据 |
+| Q09 备份恢复 | 绿 | 数据库/Auth/Storage/Functions/Cron/运行配置已形成加密包并完成正式封闭恢复 1/1 和全量对账 |
 
 ## 正式备份恢复前的用户决策
 
@@ -85,7 +85,7 @@
 
 ## 统一测试入口现状
 
-当前 `npm.cmd run test:p0:static` 已覆盖迁移 SHA256、项目 ref、核心业务、角色转换、生产逐表元数据、生产逐函数元数据、本地函数调用方、Advisor/外键风险、备份模板和恢复运行实例十项纯静态检查，并输出发现/运行/通过/失败/跳过数量。`npm.cmd run test:p0:local` 还覆盖前端清单、导航、只读 SQL、安全候选、103 表、页面处置、构建目标负测、隔离目标前端编译和产物扫描。真实备份完成后另由 `verify:p0:backup-package` 校验仓库外 21 类制品；`audit:p0:recovery-toolchain` 只读核对本机工具。静态入口只校验已保存证据，不连接数据库；GitHub 的 P0 静态工作流仍缺实际远端运行证据。
+当前 `npm.cmd run test:p0:static` 已覆盖迁移 SHA256、项目 ref、核心业务、4.0物理对象、角色转换、P1接口、生产逐表元数据、生产逐函数元数据、本地函数调用方、Advisor/外键风险、对象分类、备份模板和恢复运行实例共十四项纯静态检查，并输出发现/运行/通过/失败/跳过数量。`npm.cmd run test:p0:local` 还覆盖前端清单、导航、只读 SQL、安全候选、103 表、页面处置、构建目标负测、隔离目标前端编译和产物扫描。仓库外 21 类制品另由 `verify:p0:backup-package` 校验；`audit:p0:recovery-toolchain` 只读核对本机工具。静态入口只校验已保存证据，不连接数据库；GitHub 的 P0 工作流仍缺实际远端运行证据。
 
 G0 前需要一个统一入口，至少输出：
 

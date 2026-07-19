@@ -2,7 +2,7 @@
 
 ## 当前结论
 
-`frontend-disposition-crosscheck.json` 是 P0 静态候选合同，不是 P1 页面完成，也不是生产 Storage 切换许可。
+`frontend-disposition-crosscheck.json` 的页面/媒体处置决策已作为 P0 方案冻结；它不是 P1 页面完成，也不是生产 Storage 切换许可。
 
 它把以下四组已有事实做成一一对应的机器合同：
 
@@ -11,9 +11,9 @@
 - 当前源码 `7/7` 个 `<input type="file">`；
 - 当前源码 `7/7` 个 Storage 命名空间。
 
-每项都有明确候选动作和理由。可复用的核心能力允许低成本重定向；已明确不进入4.0的旧入口关闭且不给任何岗位访问。关闭入口不等于删除源码或数据，旧数据、附件和审计证据仍必须备份并验证可恢复。本合同不修改生产权限。
+每项都有明确动作和理由。可复用的核心能力允许低成本重定向；已明确不进入4.0的旧入口关闭且不给任何岗位访问。关闭入口不等于删除源码或数据，旧数据、附件和审计证据仍必须备份并验证可恢复。本合同不修改生产权限。
 
-每个 4.8 页面项、路由、文件入口、Storage 命名空间和非文件写入口都必须逐项保持 `acceptanceStatus=candidate_unaccepted`。校验器运行时动态统计各组 `accepted` 数量，任何一项静态改成已验收都会失败。
+根级 `p0DispositionPlanAccepted=true` 只签收“怎么处理”的施工决定。每个页面、路由、文件入口、Storage 命名空间和非文件写入口仍保持 `acceptanceStatus=candidate_unaccepted`，该字段现在专指运行态验收；没有真实跳转、403、策略和恢复回归证据前，任何单项静态改成运行态已验收都会失败。
 
 ## 路由兼容与访问边界
 
@@ -24,7 +24,7 @@
 - `/asset-center` 的主岗位边界是管理员；仓库附加职能只能进入分配范围内的 inventory 视图，不能获得商品、资产或系统设置管理权。
 - `/management-v3` 的主岗位边界是管理员；主管例外必须同时满足主管开关开启和已分配范围。
 
-这些都是机器候选边界，不是 403 验收结果。六身份直连 API、匿名拒绝、保留深链、关闭入口和底层数据恢复仍需运行时证据。
+这些是已冻结的施工边界，不是 403 验收结果。六身份直连 API、匿名拒绝、保留深链、关闭入口和底层数据恢复仍需运行时证据。
 
 ## 两个媒体槽与旧命名空间
 
@@ -56,21 +56,20 @@ node scripts/p0/verify-frontend-disposition-crosscheck.mjs
 成功摘要应为：
 
 ```text
-P0_FRONTEND_DISPOSITION_CROSSCHECK_OK assertions=<动态计数> routes=36 section48=22 fileInputs=7 storageNamespaces=7 nonFileWrites=2 mediaSlots=2 orphans=0 acceptedPages=0 acceptedRoutes=0 acceptedFileInputs=0 acceptedNamespaces=0 acceptedNonFileWrites=0 acceptedMediaSlots=0 acceptedTotal=0 candidateTotal=<动态计数> runtimePending=<动态计数>
+P0_FRONTEND_DISPOSITION_CROSSCHECK_OK assertions=<动态计数> planAccepted=true routes=36 section48=22 fileInputs=7 storageNamespaces=7 nonFileWrites=2 mediaSlots=2 orphans=0 acceptedPages=0 acceptedRoutes=0 acceptedFileInputs=0 acceptedNamespaces=0 acceptedNonFileWrites=0 acceptedMediaSlots=0 acceptedTotal=0 candidateTotal=<动态计数> runtimePending=<动态计数>
 ```
 
 校验器会同时读取总方案、03/04 清单、`frontend-inventory.json`、P1 导航合同及当前源码。任何数量、路径、动作、列举关系或源码入口漂移都会失败。
 
 运行时证据 ID 也固定为 8 个精确集合，不能增删、改名或静态标记为通过；全部必须保持 `pending`，直到对应隔离环境证据单独验收。
 
-## 尚未完成
+## 运行态尚未完成
 
 - 未完成五主岗位、附加职能和主管开关的逐页运行时验收；
 - 未执行保留深链、关闭入口、移动端和底层数据恢复回归；
 - 未执行角色越权与匿名访问的 403 矩阵；
 - 未盘点或修改生产 Storage 对象、策略与权限；
 - 未证明旧命名空间的新写与匿名访问已被运行时策略拒绝；
-- 未完成数据库与文件分别备份恢复；
 - 未实现或验收 `case.logo`、`case.miniprogram_code` 两个最终槽位及发布复制、撤权删除流程。
 
-以上证据通过前，本合同必须保持 `p0_candidate_not_accepted`，不能用于报告 P1 UI 完成或生产媒体清理完成。
+数据库/Auth/Storage 的独立备份恢复已经完成；其余运行态证据通过前，本合同必须保持 `p0_disposition_plan_frozen_runtime_pending`，不能用于报告 P1 UI 完成或生产媒体清理完成。

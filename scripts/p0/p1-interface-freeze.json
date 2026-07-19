@@ -1,0 +1,179 @@
+{
+  "schemaVersion": 1,
+  "manifestType": "canwin-team-os-p1-interface-freeze",
+  "contractStatus": "p0_supervisor_frozen_execution_locked_until_g0",
+  "scope": "Freeze P1 role, permission, app-context, navigation, responsibility-routing and acceptance interfaces without implementing them or writing production.",
+  "sources": [
+    "docs/CanWin-Team-OS-4.0-最终施工总方案.md",
+    "docs/team-os-4.0/p0/p1-app-navigation-contract.json",
+    "scripts/p0/role-migration-contract.json",
+    "scripts/p0/core-physical-object-contract.json"
+  ],
+  "expectedCounts": {
+    "rpcInterfaces": 6,
+    "fieldWhitelists": 4,
+    "baseTestIdentities": 6,
+    "overlayTestCases": 16,
+    "directApiAttackCases": 12,
+    "workOrders": 13
+  },
+  "legacyRoleCompatibility": {
+    "owner": { "target": "admin", "kind": "primary_alias", "decision": "read_compatible_no_new_assignment" },
+    "admin": { "target": "admin", "kind": "primary", "decision": "retain" },
+    "sales": { "target": "sales", "kind": "primary", "decision": "retain" },
+    "implementation": { "target": "implementation", "kind": "primary", "decision": "retain" },
+    "operations": { "target": "operations", "kind": "primary", "decision": "retain" },
+    "finance": { "target": "finance", "kind": "primary", "decision": "retain" },
+    "warehouse": { "target": "warehouse", "kind": "additional_function", "decision": "retain_as_overlay" },
+    "supervisor": { "target": "supervisor", "kind": "additional_function", "decision": "retain_as_overlay" },
+    "captain": { "target": "supervisor", "kind": "legacy_profile_alias", "decision": "read_compatible_manual_primary_required" },
+    "member": { "target": null, "kind": "legacy_profile_alias", "decision": "manual_primary_required" }
+  },
+  "authorizationRules": {
+    "serverAuthority": true,
+    "frontendMayDeriveSecondAuthorizationModel": false,
+    "jwtUserMetadataMayAuthorize": false,
+    "legacyProfilesRoleMayAuthorizeNewWrites": false,
+    "inactiveMemberDenied": true,
+    "supervisorDefaultEnabled": false,
+    "supervisorFallbackPrimaryRole": "admin",
+    "switchChangeRewritesHistoricalResponsibility": false,
+    "roleChangeRequiresAudit": true
+  },
+  "rpcInterfaces": [
+    {
+      "name": "get_app_context_v1",
+      "arguments": [],
+      "returnsWhitelist": "app_context",
+      "transaction": "stable_read",
+      "authorization": "authenticated active member"
+    },
+    {
+      "name": "get_navigation_manifest_v1",
+      "arguments": ["p_work_view"],
+      "returnsWhitelist": "navigation_manifest_item",
+      "transaction": "stable_read",
+      "authorization": "authenticated active member; work view must be in app context"
+    },
+    {
+      "name": "resolve_responsible_profile_v1",
+      "arguments": ["p_business_type", "p_region_id", "p_candidate_profile_id", "p_at"],
+      "returnsWhitelist": "responsibility_resolution",
+      "transaction": "stable_read",
+      "authorization": "server-side business transaction only"
+    },
+    {
+      "name": "admin_apply_member_access_v1",
+      "arguments": ["p_profile_id", "p_primary_role", "p_additional_functions", "p_skill_ids", "p_region_scope_ids", "p_warehouse_scope_ids", "p_idempotency_key"],
+      "returnsWhitelist": "role_mutation_result",
+      "transaction": "idempotent_write",
+      "authorization": "admin primary role only"
+    },
+    {
+      "name": "admin_set_supervisor_system_v1",
+      "arguments": ["p_enabled", "p_idempotency_key"],
+      "returnsWhitelist": "role_mutation_result",
+      "transaction": "idempotent_write",
+      "authorization": "admin primary role only"
+    },
+    {
+      "name": "admin_replace_supervisor_scope_v1",
+      "arguments": ["p_supervisor_id", "p_region_ids", "p_user_ids", "p_business_scopes", "p_idempotency_key"],
+      "returnsWhitelist": "role_mutation_result",
+      "transaction": "idempotent_write",
+      "authorization": "admin primary role only"
+    }
+  ],
+  "fieldWhitelists": {
+    "app_context": [
+      "company", "user", "primaryRole", "additionalFunctions", "skills", "regionScopeIds",
+      "warehouseScopeIds", "supervisorScope", "supervisorEnabled", "permissions",
+      "availableWorkViews", "currentWorkView", "navigationRevision"
+    ],
+    "navigation_manifest_item": [
+      "routeId", "label", "order", "group", "canonicalPath", "visible", "enabled", "readOnly"
+    ],
+    "responsibility_resolution": ["profileId", "reason", "fallbackApplied"],
+    "role_mutation_result": ["subjectId", "revision", "auditId"]
+  },
+  "supervisorSummaryWhitelist": [
+    "scopeId", "periodStart", "periodEnd", "activeMemberCount", "openWorkItemCount",
+    "overdueWorkItemCount", "leadCount", "opportunityCount", "quoteCount", "orderCount",
+    "fulfillmentBlockedCount", "renewalDueCount", "paymentReadinessCounts", "lastUpdatedAt"
+  ],
+  "supervisorSummaryForbiddenFields": [
+    "phone", "wechatId", "email", "customerPaymentAmount", "companyActualCost", "companyProfit",
+    "salesProfit", "laborEarning", "otherMemberIncome"
+  ],
+  "baseTestIdentities": [
+    { "id": "P1-IDN-000", "kind": "anonymous", "primaryRole": null, "syntheticOnly": true, "runtimeUserId": null },
+    { "id": "P1-IDN-001", "kind": "authenticated", "primaryRole": "sales", "syntheticOnly": true, "runtimeUserId": null },
+    { "id": "P1-IDN-002", "kind": "authenticated", "primaryRole": "implementation", "syntheticOnly": true, "runtimeUserId": null },
+    { "id": "P1-IDN-003", "kind": "authenticated", "primaryRole": "operations", "syntheticOnly": true, "runtimeUserId": null },
+    { "id": "P1-IDN-004", "kind": "authenticated", "primaryRole": "finance", "syntheticOnly": true, "runtimeUserId": null },
+    { "id": "P1-IDN-005", "kind": "authenticated", "primaryRole": "admin", "syntheticOnly": true, "runtimeUserId": null }
+  ],
+  "overlayTestCases": [
+    { "id": "P1-OVL-001", "baseIdentity": "P1-IDN-001", "additionalFunctions": ["warehouse"], "supervisorEnabled": false, "purpose": "sales with scoped warehouse work" },
+    { "id": "P1-OVL-002", "baseIdentity": "P1-IDN-002", "additionalFunctions": ["warehouse"], "supervisorEnabled": false, "purpose": "implementation with scoped warehouse work" },
+    { "id": "P1-OVL-003", "baseIdentity": "P1-IDN-003", "additionalFunctions": ["warehouse"], "supervisorEnabled": false, "purpose": "operations with scoped warehouse work" },
+    { "id": "P1-OVL-004", "baseIdentity": "P1-IDN-001", "additionalFunctions": ["supervisor"], "supervisorEnabled": false, "purpose": "sales supervisor overlay hidden while global switch is off" },
+    { "id": "P1-OVL-005", "baseIdentity": "P1-IDN-002", "additionalFunctions": ["supervisor"], "supervisorEnabled": false, "purpose": "implementation supervisor overlay hidden while global switch is off" },
+    { "id": "P1-OVL-006", "baseIdentity": "P1-IDN-003", "additionalFunctions": ["supervisor"], "supervisorEnabled": false, "purpose": "operations supervisor overlay hidden while global switch is off" },
+    { "id": "P1-OVL-007", "baseIdentity": "P1-IDN-004", "additionalFunctions": ["supervisor"], "supervisorEnabled": false, "purpose": "finance supervisor overlay hidden while global switch is off" },
+    { "id": "P1-OVL-008", "baseIdentity": "P1-IDN-005", "additionalFunctions": ["supervisor"], "supervisorEnabled": false, "purpose": "admin retains fallback actions while global switch is off" },
+    { "id": "P1-OVL-009", "baseIdentity": "P1-IDN-001", "additionalFunctions": ["supervisor"], "supervisorEnabled": true, "purpose": "sales supervisor sees assigned scope only" },
+    { "id": "P1-OVL-010", "baseIdentity": "P1-IDN-002", "additionalFunctions": ["supervisor"], "supervisorEnabled": true, "purpose": "implementation supervisor sees assigned scope only" },
+    { "id": "P1-OVL-011", "baseIdentity": "P1-IDN-003", "additionalFunctions": ["supervisor"], "supervisorEnabled": true, "purpose": "operations supervisor sees assigned scope only" },
+    { "id": "P1-OVL-012", "baseIdentity": "P1-IDN-004", "additionalFunctions": ["supervisor"], "supervisorEnabled": true, "purpose": "finance supervisor does not gain unrelated personal income" },
+    { "id": "P1-OVL-013", "baseIdentity": "P1-IDN-005", "additionalFunctions": ["supervisor"], "supervisorEnabled": true, "purpose": "admin remains global fallback" },
+    { "id": "P1-OVL-014", "baseIdentity": "P1-IDN-005", "additionalFunctions": [], "supervisorEnabled": true, "purpose": "no matching supervisor falls back to admin" },
+    { "id": "P1-OVL-015", "baseIdentity": "P1-IDN-005", "additionalFunctions": [], "supervisorEnabled": true, "purpose": "inactive or departed supervisor falls back to admin" },
+    { "id": "P1-OVL-016", "baseIdentity": "P1-IDN-005", "additionalFunctions": [], "supervisorEnabled": false, "purpose": "admin completes every approval after closing the supervisor system" }
+  ],
+  "directApiAttackCases": [
+    { "id": "P1-API-001", "actor": "P1-IDN-000", "assertion": "all protected interfaces reject anonymous access" },
+    { "id": "P1-API-002", "actor": "P1-IDN-001", "assertion": "sales cannot read out-of-scope customers" },
+    { "id": "P1-API-003", "actor": "P1-IDN-002", "assertion": "implementation cannot read unassigned contact details" },
+    { "id": "P1-API-004", "actor": "P1-IDN-003", "assertion": "operations cannot read unrelated contact details" },
+    { "id": "P1-API-005", "actor": "P1-IDN-004", "assertion": "finance cannot mutate organization access" },
+    { "id": "P1-API-006", "actor": "P1-IDN-001", "assertion": "sales cannot read company actual cost or company profit" },
+    { "id": "P1-API-007", "actor": "P1-IDN-002", "assertion": "implementation cannot read another member earnings" },
+    { "id": "P1-API-008", "actor": "P1-IDN-003", "assertion": "operations cannot read another member earnings" },
+    { "id": "P1-API-009", "actor": "P1-OVL-001", "assertion": "warehouse overlay stays inside assigned inventory scope" },
+    { "id": "P1-API-010", "actor": "P1-OVL-004", "assertion": "disabled supervisor system denies supervisor actions" },
+    { "id": "P1-API-011", "actor": "synthetic_disabled_member", "assertion": "disabled member cannot start a new session or call sensitive RPCs" },
+    { "id": "P1-API-012", "actor": "P1-IDN-005", "assertion": "role and scope mutations always create immutable audit evidence" }
+  ],
+  "workOrders": [
+    { "id": "P1-B1", "team": "backend", "status": "frozen_not_started", "deliverable": "single-company context and current-member resolver without hard-coded team identifiers" },
+    { "id": "P1-B2", "team": "backend", "status": "frozen_not_started", "deliverable": "primary role, additional function, skill, region and member-status model" },
+    { "id": "P1-B3", "team": "backend", "status": "frozen_not_started", "deliverable": "supervisor switch, scope and admin fallback responsibility router" },
+    { "id": "P1-B4", "team": "backend", "status": "frozen_not_started", "deliverable": "server-authoritative app context and minimum field projections" },
+    { "id": "P1-F1", "team": "frontend", "status": "frozen_not_started", "deliverable": "one role-generated workbench shell" },
+    { "id": "P1-F2", "team": "frontend", "status": "frozen_not_started", "deliverable": "role navigation and account-menu work-view switch" },
+    { "id": "P1-F3", "team": "frontend", "status": "frozen_not_started", "deliverable": "warehouse and enabled-supervisor conditional groups" },
+    { "id": "P1-F4", "team": "frontend", "status": "frozen_not_started", "deliverable": "36-route compatibility, redirects and closures without data deletion" },
+    { "id": "P1-Q1", "team": "qa", "status": "frozen_not_started", "deliverable": "five primary role tests without overlays" },
+    { "id": "P1-Q2", "team": "qa", "status": "frozen_not_started", "deliverable": "warehouse and supervisor on-off overlay matrix" },
+    { "id": "P1-Q3", "team": "qa", "status": "frozen_not_started", "deliverable": "direct API overreach and field whitelist matrix" },
+    { "id": "P1-Q4", "team": "qa", "status": "frozen_not_started", "deliverable": "fallback, disabled member, bulk transfer and immutable audit tests" },
+    { "id": "P1-Q5", "team": "qa", "status": "frozen_not_started", "deliverable": "one test entry point with CI database, permission and business test counts" }
+  ],
+  "ciContract": {
+    "workflowPath": ".github/workflows/p0-static.yml",
+    "isolatedProjectRefSource": "scripts/p0/project-ref-contract.json:testProjectRef",
+    "secretValuesMayBePrintedOrCommitted": false,
+    "databasePermissionAndBusinessTestsRequired": true,
+    "actualRemoteRunEvidence": "pending"
+  },
+  "acceptanceBoundary": {
+    "p1InterfacesFrozen": true,
+    "p1WorkOrdersFrozen": true,
+    "p1CodeStarted": false,
+    "runtimeAccepted": false,
+    "g0OverallClaim": false,
+    "productionWritePerformed": false,
+    "productionMigrationAuthorized": false
+  }
+}

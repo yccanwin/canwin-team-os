@@ -52,12 +52,15 @@ exactKeys('population', contract.population, [
 ])
 exactKeys('manualPrimaryRoleDecisions', contract.manualPrimaryRoleDecisions, [
   'required', 'resolved', 'status', 'allowedPrimaryRoles', 'resolutionSummary',
-  'liveMatchEvidence', 'productionAssignmentsWritten',
+  'liveMatchEvidence', 'isolatedApplicationEvidence', 'productionAssignmentsWritten',
 ])
 exactKeys('manualPrimaryRoleDecisions.resolutionSummary', contract.manualPrimaryRoleDecisions?.resolutionSummary, expectedPrimaryRoles)
 exactKeys('manualPrimaryRoleDecisions.liveMatchEvidence', contract.manualPrimaryRoleDecisions?.liveMatchEvidence, [
   'verifiedAt', 'projectRef', 'requestedPeople', 'uniqueActiveMatches',
   'requiredRoleCodesAvailable', 'readOnly', 'writePerformed',
+])
+exactKeys('manualPrimaryRoleDecisions.isolatedApplicationEvidence', contract.manualPrimaryRoleDecisions?.isolatedApplicationEvidence, [
+  'projectRef', 'assignmentsWritten', 'restoreStatus', 'restoreEvidenceSha256', 'finishedAt',
 ])
 
 check('schema version is supported', contract.schemaVersion === 1)
@@ -134,9 +137,12 @@ check(
   contract.manualPrimaryRoleDecisions?.required ===
     population?.activeWithoutPrimaryRole + population?.activeWithMultiplePrimaryRoles,
 )
-check('manual decisions are owner-confirmed but not written to production',
+check('manual decisions are owner-confirmed, applied only in isolation and not written to production',
   contract.manualPrimaryRoleDecisions?.resolved === 2 &&
-  contract.manualPrimaryRoleDecisions?.status === 'owner-confirmed-awaiting-isolated-application' &&
+  contract.manualPrimaryRoleDecisions?.status === 'owner-confirmed-isolated-applied-production-unchanged' &&
+  contract.manualPrimaryRoleDecisions?.isolatedApplicationEvidence?.assignmentsWritten === 2 &&
+  contract.manualPrimaryRoleDecisions?.isolatedApplicationEvidence?.restoreStatus === 'succeeded' &&
+  contract.manualPrimaryRoleDecisions?.isolatedApplicationEvidence?.restoreEvidenceSha256 === '04a6c5d6ac9510747abf5efee27dfe0ecb2a8550191b8ce047b9a1a8d5b458a8' &&
   contract.manualPrimaryRoleDecisions?.productionAssignmentsWritten === 0)
 check(
   'manual decisions allow exactly the five primary roles',

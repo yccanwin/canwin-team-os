@@ -1,0 +1,260 @@
+{
+  "schemaVersion": 1,
+  "manifestType": "canwin-team-os-core-physical-objects",
+  "contractStatus": "p0_supervisor_frozen_runtime_not_implemented",
+  "scope": "Freeze the additive Team OS 4.0 physical object, field and dictionary names after the accepted 103-table inventory. This contract is not a migration and performs no database write.",
+  "sources": [
+    "docs/CanWin-Team-OS-4.0-最终施工总方案.md",
+    "scripts/p0/core-business-contract.json",
+    "docs/team-os-4.0/p0/public-object-classification-freeze.json"
+  ],
+  "expectedCounts": {
+    "logicalEntities": 22,
+    "existingTableExtensions": 7,
+    "newTables": 11,
+    "dictionaries": 16,
+    "invariantBindings": 12
+  },
+  "safetyBoundary": {
+    "additiveMigrationsOnly": true,
+    "renameExistingTable": false,
+    "dropExistingTable": false,
+    "rewriteHistoricalMigration": false,
+    "bulkRewriteHistoricalRows": false,
+    "productionWritePerformed": false,
+    "implementationAuthorizedByThisContract": false
+  },
+  "securityRequirements": {
+    "rlsForEveryNewOrExtendedExposedTable": true,
+    "explicitGrantsForEveryNewOrExtendedExposedTable": true,
+    "migrationBundlesTableRlsGrantAndPolicy": true,
+    "anonymousBusinessAccess": "deny",
+    "defaultClientWrites": "deny_unless_named_transaction_rpc",
+    "sensitiveWrites": "idempotent_transaction_rpc",
+    "securityDefinerSchema": "private",
+    "revokePublicExecute": true,
+    "clientMayContainServiceRole": false
+  },
+  "indexRequirements": {
+    "everyForeignKeyReviewed": true,
+    "commonScopeAndStatusFiltersIndexed": true,
+    "expiryAndWorkQueueOrderingIndexed": true,
+    "partialUniqueInvariantsIndexed": true,
+    "queryPlanRequiredBeforeFinalIndexAcceptance": true
+  },
+  "status": {
+    "existing103TableMapping": "supervisor_frozen",
+    "newPhysicalTableNames": "supervisor_frozen",
+    "newPhysicalFieldNames": "supervisor_frozen",
+    "dictionaryNamesAndValues": "supervisor_frozen",
+    "migrationSql": "not_started",
+    "isolatedRuntimeValidation": "pending"
+  },
+  "dictionaries": [
+    { "id": "primary_role_id", "storage": "text_check_dictionary", "values": ["sales", "implementation", "operations", "finance", "admin"] },
+    { "id": "additional_function_id", "storage": "text_check_dictionary", "values": ["warehouse", "supervisor"] },
+    { "id": "role_assignment_kind", "storage": "text_check_dictionary", "values": ["primary", "additional_function"] },
+    { "id": "settlement_customer_status", "storage": "text_check_dictionary", "values": ["active", "inactive", "archived"] },
+    { "id": "product_item_type", "storage": "text_check_dictionary", "values": ["software", "hardware", "service"] },
+    { "id": "work_item_status", "storage": "text_check_dictionary", "values": ["pending", "in_progress", "waiting_other", "completed", "cancelled"] },
+    { "id": "work_item_kind", "storage": "text_check_dictionary", "values": ["reminder", "business_action"] },
+    { "id": "schedule_event_kind", "storage": "text_check_dictionary", "values": ["meeting", "visit", "rest", "other"] },
+    { "id": "subscription_expiry_state", "storage": "text_check_dictionary", "values": ["known", "unknown"] },
+    { "id": "fulfillment_unit_status", "storage": "text_check_dictionary", "values": ["pending", "ready", "in_progress", "accepted", "cancelled"] },
+    { "id": "money_event_type", "storage": "text_check_dictionary", "values": ["accrual", "reversal", "adjustment"] },
+    { "id": "case_candidate_status", "storage": "text_check_dictionary", "values": ["internal_candidate", "pending_review", "approved", "archived"] },
+    { "id": "case_authorization_action", "storage": "text_check_dictionary", "values": ["grant", "revoke"] },
+    { "id": "case_publication_status", "storage": "text_check_dictionary", "values": ["draft", "published", "withdrawn", "archived"] },
+    { "id": "case_media_slot", "storage": "text_check_dictionary", "values": ["logo", "miniprogram_code"] },
+    { "id": "case_media_status", "storage": "text_check_dictionary", "values": ["private_draft", "published", "withdrawn"] }
+  ],
+  "entityMappings": [
+    { "logicalEntity": "company", "decision": "extend_existing", "physicalTables": ["teams"], "grain": "single deployment company" },
+    { "logicalEntity": "member_role", "decision": "extend_existing", "physicalTables": ["profiles", "access_roles", "profile_access_roles"], "grain": "one active member with exactly one primary role" },
+    { "logicalEntity": "responsibility_route", "decision": "reuse_existing", "physicalTables": ["feature_flags", "performance_supervisor_assignments", "access_delegations"], "grain": "business type and scope at decision time" },
+    { "logicalEntity": "settlement_customer", "decision": "new_additive", "physicalTables": ["crm_settlement_customers"], "grain": "contracting, payment, refund and invoice entity" },
+    { "logicalEntity": "brand", "decision": "extend_existing", "physicalTables": ["crm_brands"], "grain": "brand under one settlement customer" },
+    { "logicalEntity": "store", "decision": "extend_existing", "physicalTables": ["crm_stores"], "grain": "delivery, renewal and case business unit" },
+    { "logicalEntity": "contact_store_relationship", "decision": "new_additive", "physicalTables": ["crm_contacts", "crm_contact_store_links"], "grain": "one contact by one store" },
+    { "logicalEntity": "store_product_subscription", "decision": "extend_with_additive_terms", "physicalTables": ["customer_product_subscriptions", "customer_product_subscription_terms"], "grain": "one store by one product subscription term" },
+    { "logicalEntity": "catalog_version", "decision": "reuse_existing", "physicalTables": ["deal_catalog_versions", "deal_catalog_items", "deal_packages", "deal_package_items"], "grain": "immutable published catalog version" },
+    { "logicalEntity": "quote_snapshot", "decision": "extend_existing", "physicalTables": ["deal_quotes", "deal_quote_lines"], "grain": "one immutable quote version and its product lines" },
+    { "logicalEntity": "order_line_store_allocation", "decision": "new_additive", "physicalTables": ["deal_order_line_store_allocations"], "grain": "one formal order line by one store" },
+    { "logicalEntity": "fulfillment_unit", "decision": "new_additive", "physicalTables": ["fulfillment_deliveries", "fulfillment_units"], "grain": "one store by one formal order line" },
+    { "logicalEntity": "inventory_ledger", "decision": "reuse_existing", "physicalTables": ["fulfillment_inventory_stock", "fulfillment_inventory_reservations", "fulfillment_inventory_movements", "fulfillment_inventory_operations"], "grain": "warehouse stock item and append-only movement" },
+    { "logicalEntity": "customer_funds_event", "decision": "extend_existing", "physicalTables": ["deal_payments", "deal_payment_reversals"], "grain": "one confirmed customer payment or reversal event" },
+    { "logicalEntity": "internal_funds_event", "decision": "extend_existing", "physicalTables": ["deal_internal_settlements", "deal_procurement_cost_payments"], "grain": "one confirmed internal coverage, subsidy or cost payment event" },
+    { "logicalEntity": "sales_profit_event", "decision": "new_additive", "physicalTables": ["sales_profit_events", "profit_adjustments"], "grain": "one salesperson, order and immutable profit event" },
+    { "logicalEntity": "labor_earning_event", "decision": "new_additive", "physicalTables": ["labor_earning_events"], "grain": "one accepted fulfillment unit, worker and immutable earning event" },
+    { "logicalEntity": "work_item", "decision": "extend_existing", "physicalTables": ["tasks"], "grain": "one source business record, assignee and unique generation key" },
+    { "logicalEntity": "schedule_event", "decision": "extend_existing", "physicalTables": ["calendar_events"], "grain": "one independent meeting, visit or rest event" },
+    { "logicalEntity": "case_candidate", "decision": "new_additive", "physicalTables": ["case_candidates", "case_display_authorizations"], "grain": "one accepted store fulfillment unit" },
+    { "logicalEntity": "case_public_projection", "decision": "new_additive", "physicalTables": ["case_publications"], "grain": "one sanitized publication revision" },
+    { "logicalEntity": "case_image_slot", "decision": "new_additive", "physicalTables": ["case_media_assets"], "grain": "one case candidate and one allowed media slot" }
+  ],
+  "existingTableExtensions": [
+    {
+      "table": "profile_access_roles",
+      "addColumns": [
+        { "name": "assignment_kind", "type": "text", "dictionary": "role_assignment_kind", "requiredForNewWrites": true }
+      ],
+      "addConstraints": ["one primary assignment per active profile", "additional functions never become a primary role"],
+      "compatibility": "Keep all historical role rows; backfill in the isolated project before enforcing the new-write rule."
+    },
+    {
+      "table": "crm_brands",
+      "addColumns": [
+        { "name": "settlement_customer_id", "type": "uuid", "references": "crm_settlement_customers.id", "requiredForNewWrites": true }
+      ],
+      "addConstraints": ["brand and settlement customer must share team_id"],
+      "compatibility": "Historical brands remain readable while their settlement customer is mapped."
+    },
+    {
+      "table": "customer_product_subscriptions",
+      "addColumns": [
+        { "name": "current_term_id", "type": "uuid", "references": "customer_product_subscription_terms.id", "requiredForNewWrites": true }
+      ],
+      "addConstraints": ["current term belongs to the same subscription"],
+      "compatibility": "The existing table remains the stable subscription identity and current-state projection."
+    },
+    {
+      "table": "deal_catalog_items",
+      "addColumns": [
+        { "name": "sales_internal_price", "type": "numeric(14,2)", "requiredForNewWrites": true }
+      ],
+      "addConstraints": ["sales_internal_price is non-negative"],
+      "compatibility": "customer_list_price remains customer sale price; procurement_cost remains company actual cost."
+    },
+    {
+      "table": "deal_quote_lines",
+      "addColumns": [
+        { "name": "company_actual_cost_snapshot", "type": "numeric(14,2)", "requiredForNewWrites": true },
+        { "name": "profit_rule_snapshot", "type": "jsonb", "requiredForNewWrites": true },
+        { "name": "labor_earning_rule_snapshot", "type": "jsonb", "requiredForNewWrites": true }
+      ],
+      "addConstraints": ["company_actual_cost_snapshot is non-negative", "snapshot JSON values are objects"],
+      "compatibility": "customer_unit_price and internal_unit_price keep their existing names and map to customer sale and sales internal prices."
+    },
+    {
+      "table": "tasks",
+      "addColumns": [
+        { "name": "work_item_kind", "type": "text", "dictionary": "work_item_kind", "requiredForNewWrites": true },
+        { "name": "work_item_status", "type": "text", "dictionary": "work_item_status", "requiredForNewWrites": true },
+        { "name": "source_type", "type": "text", "requiredForNewWrites": true },
+        { "name": "source_id", "type": "uuid", "requiredForNewWrites": false },
+        { "name": "assigned_primary_role", "type": "text", "dictionary": "primary_role_id", "requiredForNewWrites": true },
+        { "name": "generation_key", "type": "text", "requiredForNewWrites": true },
+        { "name": "blocked_reason", "type": "text", "requiredForNewWrites": false },
+        { "name": "completed_by_transaction_id", "type": "uuid", "requiredForNewWrites": false }
+      ],
+      "addConstraints": ["unique team_id plus generation_key", "business_action cannot be generically completed"],
+      "compatibility": "Historical tasks remain visible through the 4.0 work-item adapter."
+    },
+    {
+      "table": "calendar_events",
+      "addColumns": [
+        { "name": "schedule_event_kind", "type": "text", "dictionary": "schedule_event_kind", "requiredForNewWrites": true }
+      ],
+      "addConstraints": ["calendar events contain only independent schedules and never copied tasks"],
+      "compatibility": "Independent calendar events remain schedule events; work items are projected read-only without inserting calendar rows."
+    }
+  ],
+  "newTables": [
+    {
+      "table": "crm_settlement_customers",
+      "grain": "one contracting entity",
+      "columns": ["id", "team_id", "display_name", "legal_name", "status", "created_by", "created_at", "updated_at"],
+      "dictionaryBindings": { "status": "settlement_customer_status" },
+      "constraints": ["unique team_id plus normalized legal_name", "RLS and explicit grants in the same migration"]
+    },
+    {
+      "table": "crm_contact_store_links",
+      "grain": "one contact by one store",
+      "columns": ["id", "team_id", "contact_id", "store_id", "is_primary", "relationship_role", "created_by", "created_at"],
+      "constraints": ["unique contact_id plus store_id", "at most one is_primary row per contact", "all references share team_id"]
+    },
+    {
+      "table": "customer_product_subscription_terms",
+      "grain": "one store product subscription term",
+      "columns": ["id", "team_id", "subscription_id", "source_order_id", "activated_on", "expires_on", "expiry_state", "next_verification_at", "created_at"],
+      "dictionaryBindings": { "expiry_state": "subscription_expiry_state" },
+      "constraints": ["expiry_state uses subscription_expiry_state", "known expiry requires expires_on", "unknown expiry requires next_verification_at", "terms are append-only"]
+    },
+    {
+      "table": "deal_order_line_store_allocations",
+      "grain": "one formal order line by one store",
+      "columns": ["id", "team_id", "order_id", "quote_line_id", "store_id", "quantity", "created_by", "created_at"],
+      "constraints": ["unique order_id plus quote_line_id plus store_id", "quantity is positive", "sum per order line equals frozen order-line quantity"]
+    },
+    {
+      "table": "fulfillment_units",
+      "grain": "one store by one formal order line",
+      "columns": ["id", "team_id", "delivery_id", "allocation_id", "order_id", "quote_line_id", "store_id", "item_type", "quantity", "status", "accepted_at", "created_at", "updated_at"],
+      "dictionaryBindings": { "item_type": "product_item_type", "status": "fulfillment_unit_status" },
+      "constraints": ["unique allocation_id", "status uses fulfillment_unit_status", "item and quantity equal the frozen allocation"]
+    },
+    {
+      "table": "sales_profit_events",
+      "grain": "one salesperson order profit event",
+      "columns": ["id", "team_id", "order_id", "salesperson_id", "event_type", "amount", "source_event_key", "idempotency_key", "effective_at", "created_by", "created_at"],
+      "dictionaryBindings": { "event_type": "money_event_type" },
+      "constraints": ["event_type uses money_event_type", "unique team_id plus idempotency_key", "append-only after creation"]
+    },
+    {
+      "table": "labor_earning_events",
+      "grain": "one accepted fulfillment worker earning event",
+      "columns": ["id", "team_id", "fulfillment_unit_id", "worker_id", "event_type", "amount", "source_event_key", "idempotency_key", "accepted_at", "created_by", "created_at"],
+      "dictionaryBindings": { "event_type": "money_event_type" },
+      "constraints": ["event_type uses money_event_type", "unique team_id plus idempotency_key", "append-only and not auto-reversed by customer refund"]
+    },
+    {
+      "table": "case_candidates",
+      "grain": "one accepted store fulfillment unit",
+      "columns": ["id", "team_id", "fulfillment_unit_id", "store_id", "status", "title", "summary", "created_by", "created_at", "updated_at"],
+      "dictionaryBindings": { "status": "case_candidate_status" },
+      "constraints": ["unique fulfillment_unit_id", "status uses case_candidate_status", "completion never auto-publishes"]
+    },
+    {
+      "table": "case_display_authorizations",
+      "grain": "one grant or revoke authorization event",
+      "columns": ["id", "team_id", "case_candidate_id", "action", "evidence_ref", "effective_at", "actor_id", "created_at"],
+      "dictionaryBindings": { "action": "case_authorization_action" },
+      "constraints": ["action is grant or revoke", "append-only", "latest valid action controls publication eligibility"]
+    },
+    {
+      "table": "case_publications",
+      "grain": "one sanitized publication revision",
+      "columns": ["id", "team_id", "case_candidate_id", "revision_no", "status", "sanitized_content", "approved_by", "published_at", "withdrawn_at", "created_at"],
+      "dictionaryBindings": { "status": "case_publication_status" },
+      "constraints": ["unique case_candidate_id plus revision_no", "status uses case_publication_status", "public API reads only published rows from this table"]
+    },
+    {
+      "table": "case_media_assets",
+      "grain": "one case candidate by one allowed media slot",
+      "columns": ["id", "team_id", "case_candidate_id", "slot", "draft_object_path", "public_object_path", "mime_type", "byte_size", "sha256", "status", "created_by", "created_at", "updated_at"],
+      "dictionaryBindings": { "slot": "case_media_slot", "status": "case_media_status" },
+      "constraints": ["unique case_candidate_id plus slot", "slot uses case_media_slot", "paths are server-derived", "withdrawal removes public copy but preserves audit"]
+    }
+  ],
+  "invariantBindings": [
+    { "id": "INV-01", "rule": "one active member has exactly one primary role", "objects": ["profile_access_roles"] },
+    { "id": "INV-02", "rule": "one contact has at most one primary store link", "objects": ["crm_contact_store_links"] },
+    { "id": "INV-03", "rule": "one brand belongs to one settlement customer", "objects": ["crm_brands", "crm_settlement_customers"] },
+    { "id": "INV-04", "rule": "subscription terms retain source order and independent dates", "objects": ["customer_product_subscriptions", "customer_product_subscription_terms"] },
+    { "id": "INV-05", "rule": "quote and order snapshots preserve three distinct prices", "objects": ["deal_catalog_items", "deal_quote_lines"] },
+    { "id": "INV-06", "rule": "allocation quantity sum equals formal order-line quantity", "objects": ["deal_order_line_store_allocations"] },
+    { "id": "INV-07", "rule": "fulfillment grain is store by order line", "objects": ["fulfillment_units"] },
+    { "id": "INV-08", "rule": "confirmed money and earning facts are append-only", "objects": ["deal_payments", "deal_payment_reversals", "sales_profit_events", "labor_earning_events"] },
+    { "id": "INV-09", "rule": "sales profit and labor earnings are separate facts", "objects": ["sales_profit_events", "labor_earning_events"] },
+    { "id": "INV-10", "rule": "workbench, progress and calendar consume one work-item source", "objects": ["tasks", "calendar_events"] },
+    { "id": "INV-11", "rule": "case completion creates an internal candidate and never auto-publishes", "objects": ["case_candidates", "case_publications"] },
+    { "id": "INV-12", "rule": "each case has only logo and miniprogram code media slots", "objects": ["case_media_assets"] }
+  ],
+  "acceptanceBoundary": {
+    "p0PhysicalNamingAccepted": true,
+    "databaseImplementationComplete": false,
+    "runtimeAccepted": false,
+    "g0OverallClaim": false,
+    "productionMigrationAuthorized": false
+  }
+}

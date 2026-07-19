@@ -1,7 +1,7 @@
 # P0-05 核心实体和状态机字典
 
-> 状态：业务语义和现有 103 表对象映射已冻结；新增表、字段和枚举物理名仍须在 P0 内完成冻结，不能拖到功能施工后再决定。
-> 机器合同：`scripts/p0/core-business-contract.json`；校验器：`scripts/p0/verify-core-business-contract.mjs`。
+> 状态：业务语义、现有 103 表映射以及 4.0 新增表/字段/字典物理名均已由监理冻结；数据库迁移尚未开始，运行态仍待后续门禁。
+> 机器合同：`scripts/p0/core-business-contract.json`、`scripts/p0/core-physical-object-contract.json`；校验器：`scripts/p0/verify-core-business-contract.mjs`、`scripts/p0/verify-core-physical-object-contract.mjs`。
 
 ## 核心实体与最小粒度
 
@@ -29,6 +29,17 @@
 | 案例 | 案例候选 | 按门店履约生成，不按整张多门店订单混成一条 |
 | 案例 | 公开投影 | 仅有效展示授权且管理员审核后的脱敏内容 |
 | 案例 | 图片位 | 每案例仅 Logo 和小程序展示码各一张 |
+
+## 物理对象冻结结论
+
+- 现有 103 表不改名、不删除、不改写历史迁移；4.0 直接复用或扩展其中的人、CRM、订单、库存、财务、任务和日历对象。
+- 新增 11 张加法式表，专门补齐现状缺失的结算客户、联系人多门店、订阅期限、订单行分店、细粒度履约、销售利润、劳动收益和案例发布关系。
+- `tasks` 扩展为统一工作项来源，`calendar_events` 只保存独立日程并投影工作项，不再建立第二份待办。
+- `customer_product_subscriptions` 保留订阅身份和当前状态，新增 `customer_product_subscription_terms` 逐期保存原订单、开通日和到期日，避免覆盖历史续费事实。
+- 价格继续保留既有兼容字段：`customer_list_price/customer_unit_price` 对应客户售价，`sales_internal_price/internal_unit_price` 对应销售内部价，`procurement_cost/company_actual_cost_snapshot` 对应公司实际成本。
+- 状态值采用已命名的 `text + check` 字典，不把未来扩展锁死在不可安全收缩的 PostgreSQL enum 中；16 组字典名称和值已冻结。
+- 每张新表或扩展后的暴露表必须在同一迁移交付显式 GRANT、RLS 和最小策略；默认拒绝客户端写入，敏感写入只走幂等事务 RPC，前端禁止 service role。
+- 物理合同含 22 个逻辑实体、7 组现有表扩展、11 张新表、16 组字典和 12 条不变量；13/13 负向自测必须同时通过。
 
 ## 状态与不可绕过条件
 

@@ -321,9 +321,10 @@ const navigation = JSON.parse(await readUtf8(contract.sources.p1NavigationContra
 const counts = contract.expectedCounts
 
 assert(contract.schemaVersion === 1, `Unsupported contract schemaVersion: ${contract.schemaVersion}`)
-assert(contract.contractStatus === 'p0_candidate_not_accepted', `Contract status must remain p0_candidate_not_accepted, got ${contract.contractStatus}.`)
+assert(contract.contractStatus === 'p0_disposition_plan_frozen_runtime_pending', `Contract status must remain p0_disposition_plan_frozen_runtime_pending, got ${contract.contractStatus}.`)
 assert(contract.scope.includes('does not implement P1'), 'Scope must state that P1 is not implemented.')
-assert(contract.acceptanceBoundary?.candidateOnly === true, 'Candidate-only boundary must remain true.')
+assert(contract.acceptanceBoundary?.candidateOnly === false, 'Candidate-only boundary must be false after the P0 plan is frozen.')
+assert(contract.acceptanceBoundary?.p0DispositionPlanAccepted === true, 'P0 disposition-plan acceptance must remain explicit.')
 assert(contract.acceptanceBoundary?.runtimeAccepted === false, 'Runtime acceptance must remain false.')
 assert(contract.acceptanceBoundary?.p1UiComplete === false, 'P1 UI completion must remain false.')
 assert(contract.acceptanceBoundary?.productionStorageChanged === false, 'Production Storage must remain unchanged.')
@@ -728,6 +729,6 @@ if (failures.length) {
   process.exitCode = 1
 } else {
   console.log(
-    `P0_FRONTEND_DISPOSITION_CROSSCHECK_OK assertions=${assertionCount} routes=${counts.routes} section48=${counts.section48Items} fileInputs=${counts.fileInputs} storageNamespaces=${counts.storageNamespaces} nonFileWrites=${counts.nonFileWriteEntrances} mediaSlots=${counts.mediaSlots} orphans=0 acceptedPages=${acceptedCounts.pages} acceptedRoutes=${acceptedCounts.routes} acceptedFileInputs=${acceptedCounts.fileInputs} acceptedNamespaces=${acceptedCounts.namespaces} acceptedNonFileWrites=${acceptedCounts.nonFileWrites} acceptedMediaSlots=${acceptedCounts.mediaSlots} acceptedTotal=${acceptedTotal} candidateTotal=${candidateTotal} runtimePending=${runtimeEvidenceEntries.length}`,
+    `P0_FRONTEND_DISPOSITION_CROSSCHECK_OK assertions=${assertionCount} planAccepted=${contract.acceptanceBoundary.p0DispositionPlanAccepted} routes=${counts.routes} section48=${counts.section48Items} fileInputs=${counts.fileInputs} storageNamespaces=${counts.storageNamespaces} nonFileWrites=${counts.nonFileWriteEntrances} mediaSlots=${counts.mediaSlots} orphans=0 acceptedPages=${acceptedCounts.pages} acceptedRoutes=${acceptedCounts.routes} acceptedFileInputs=${acceptedCounts.fileInputs} acceptedNamespaces=${acceptedCounts.namespaces} acceptedNonFileWrites=${acceptedCounts.nonFileWrites} acceptedMediaSlots=${acceptedCounts.mediaSlots} acceptedTotal=${acceptedTotal} candidateTotal=${candidateTotal} runtimePending=${runtimeEvidenceEntries.length}`,
   )
 }

@@ -74,10 +74,10 @@ check('schema version is supported', contract.schemaVersion === 1)
 check('manifest type is correct', contract.manifestType === 'canwin-team-os-core-business')
 check('business semantics are frozen', contract.status?.businessSemantics === 'frozen')
 check(
-  'existing table map is frozen while new physical names remain P0 pending',
-  contract.status?.physicalTableNames === 'existing-mapping-frozen-new-names-p0-pending',
+  'existing and additive table names are P0 supervisor frozen',
+  contract.status?.physicalTableNames === 'p0-supervisor-frozen',
 )
-check('new physical enum names remain P0 pending', contract.status?.physicalEnumNames === 'new-names-p0-pending')
+check('physical dictionary names are P0 supervisor frozen', contract.status?.physicalEnumNames === 'p0-supervisor-frozen')
 check('deployment is single-company', contract.deployment?.companyCount === 1 && contract.deployment?.multiTenantSwitching === false)
 check('five primary roles are exact', exactSet(contract.identity?.primaryRoles, [
   'sales', 'implementation', 'operations', 'finance', 'admin',

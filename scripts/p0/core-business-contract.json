@@ -3,8 +3,8 @@
   "manifestType": "canwin-team-os-core-business",
   "status": {
     "businessSemantics": "frozen",
-    "physicalTableNames": "existing-mapping-frozen-new-names-p0-pending",
-    "physicalEnumNames": "new-names-p0-pending"
+    "physicalTableNames": "p0-supervisor-frozen",
+    "physicalEnumNames": "p0-supervisor-frozen"
   },
   "deployment": {
     "companyCount": 1,
