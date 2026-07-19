@@ -17,7 +17,7 @@
     "business": 9,
     "total": 26,
     "postInstallCatalogAssertions": 4,
-    "definitionReferencedObjects": 52,
+    "definitionReferencedObjects": 54,
     "redefinedDefinitionReferencedObjects": 28
   },
   "testSourceRules": {
@@ -26,7 +26,8 @@
     "policyWriteAssertionsRequirePermissiveFilter": true,
     "definitionFragmentAssertionsNormalizeFormatting": true,
     "requiredDefinitionFragmentsMatchFinalCreateStatement": true,
-    "definitionStatementParserHandlesQuotedSemicolons": true
+    "definitionStatementParserHandlesQuotedSemicolons": true,
+    "definitionReferencesResolveAssignmentsOverloadsAndRenames": true
   },
   "postInstallCatalog": {
     "publicTables": 103,
@@ -85,7 +86,7 @@
     { "path": "supabase/tests/dual_ledger_secure_upgrade.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "51ef6478cc77992bca67987c846ca056fd545472cdd2572644f9ada56cfb5877" },
     { "path": "supabase/tests/finance_summary_only_owner.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "adb20f2879b82c6b2900e4aef90071ffcd4e6b7f6a7eecc3168830623fe146ce" },
     { "path": "supabase/tests/internal_payment_workbench.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "e824eed8fe4999c04b1fb1cf11a001bc27cae660e8a1695515842b28d675534d" },
-    { "path": "supabase/tests/operations_lead_submission.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "1807f79ac72771198bc53495c0d8c936949ddaf6e25dd558e0567810eb0c1fa0" },
+    { "path": "supabase/tests/operations_lead_submission.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "8fb6906ad500d9e2096ddd972ad3a691e6afeede9f73df26770f1c78d44756b1" },
     { "path": "supabase/tests/performance_dashboard_sales_roles.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "cdeef28a30ddcc2c10111fd0dee1b9cd5c99cbb5e6c9f580eaca7e12a97cf634" },
     { "path": "supabase/tests/photo_policy_role_helper_alignment.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "f12435a942c2124298419ce391eb51d3455e176c120fb7b4bc1f039323204cf8" },
     { "path": "supabase/tests/quote_draft_hardening.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "69ee5d9480e3d23546889089726e32c7756083ea24ab6e2d0d81b9814e07d2b8" },
@@ -311,6 +312,27 @@
       "firstFailedTest": "supabase/tests/performance_core.sql",
       "priorNotificationPassed": true,
       "classwideAffectedTests": 2,
+      "cleanupPassed": true,
+      "productionReadPerformed": false,
+      "productionWritePerformed": false,
+      "rerunOfFailedRun": false
+    },
+    {
+      "runId": "29683422624",
+      "jobId": "88183512644",
+      "headSha": "c13ce512a9304f5b134fe14f8a08d170bbf3ad12",
+      "conclusion": "failure",
+      "failedStep": "Run database permission and business gates",
+      "rootCauseCode": "compatibility_overload_misclassified_as_security_implementation",
+      "databaseStartupPassed": true,
+      "baselinePassed": true,
+      "migrationsPassed": 69,
+      "sqlTestsStarted": 13,
+      "sqlTestsPassed": 12,
+      "databaseTestsPassed": 7,
+      "permissionTestsPassed": 5,
+      "firstFailedTest": "supabase/tests/operations_lead_submission.sql",
+      "overloadLayersAudited": 3,
       "cleanupPassed": true,
       "productionReadPerformed": false,
       "productionWritePerformed": false,
