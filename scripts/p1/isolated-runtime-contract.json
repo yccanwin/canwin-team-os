@@ -15,12 +15,124 @@
     "migrationSha256Lf": "acc7f15afa502d7a124c2a13d74d0a71c2b98c11664d58de2d4639081d5a7597",
     "testPath": "supabase/tests/team_os_4_p1_access_shell.sql",
     "testSha256Lf": "bed07c4d494ac3e7f7e993e12090194ed413b0e92d681aea0adb3eb381f430fb",
-    "remoteExecutionAllowed": true
+    "remoteExecutionAllowed": false
   },
   "referenceSync": {
     "previousMigrationSha256Lf": "8f947d5747862d678014e778737c82dfc8a50a8f9fa273d9b60f5f6822ed012c",
     "previousTestSha256Lf": "ba99f6c01c3f744515b691411aecff9146f526cebe414d3c2ea6824848539fa1",
-    "remoteExecutionRequires": "synchronized-and-qualified"
+    "remoteExecutionRequires": "resume-only-synchronized-and-qualified"
+  },
+  "postApplyResume": {
+    "resumeOnly": true,
+    "remoteExecutionAllowed": false,
+    "signedCiHeadSha": null,
+    "mode": "--resume-post-apply",
+    "sourceRunId": "p1-isolated-20260719T172151689Z-8273f5c69e",
+    "preflightPath": "D:/CanWin-Team-OS-4.0-P1-Validation/p1-isolated-20260719T172151689Z-8273f5c69e/preflight.json",
+    "preflightSha256": "e44d53b72c85a71eff2d7a5359220f86c20af56af02a9bf6c0a81716c6d65b97",
+    "failurePath": "D:/CanWin-Team-OS-4.0-P1-Validation/p1-isolated-20260719T172151689Z-8273f5c69e/failure.json",
+    "failureSha256": "3a8077ad58b1a7ee1fc4a75340ab3db9b8f1c3d5ea772e019ff1282136029774",
+    "sourcePreMigrationRows": 69,
+    "requiredPostMigrationRows": 70,
+    "accessControlTestPath": "supabase/tests/access_control_foundation.sql",
+    "accessControlTestExecutionMode": "rollback_fixture",
+    "accessControlTestSha256Lf": "31fa286b318ad2b24e2d956005c4a5fcc9b0fddfd0269be029330d5c1c3e43f8",
+    "dbPushAllowed": false,
+    "expectedPersistentRemoteWrites": 0,
+    "perTestSnapshotRequired": true
+  },
+  "fullReconciliation": {
+    "backupPackageId": "canwin-team-os-4-p0-20260719T074943659Z-c11fca6bd1",
+    "backupPackageManifestPath": "D:/CanWin-Team-OS-4.0-Recovery/canwin-team-os-4-p0-20260719T074943659Z-c11fca6bd1/manifest.json",
+    "backupPackageManifestSha256": "f4174b91f51f63e37b42e9d907aea0f72aa907ec31694041081ee06c2f6d20b2",
+    "signedArtifacts": {
+      "tableRowCounts": {
+        "path": "artifacts/reconciliation-table-row-counts.json.enc",
+        "sha256": "a265e0f91466b66f0c73b29a830946255c432a281b353d4a6d5e8b42ef3f5383"
+      },
+      "keyAmounts": {
+        "path": "artifacts/reconciliation-key-amounts.json.enc",
+        "sha256": "3aa6776edfd889e45ce8de518e1138d7dbb40ef6e96378ce424ffc64f09a50a9"
+      },
+      "inventory": {
+        "path": "artifacts/reconciliation-inventory.json.enc",
+        "sha256": "9632ed09ffd2fa7e385f3f17820ac1f1444258470d9a55dfbd8b75138e2346f6"
+      },
+      "storageBucketsManifest": {
+        "path": "artifacts/storage-buckets.json.enc",
+        "sha256": "bbaa045db117922054e9b0a671561b434a9344303abcddffec86492cf55bd172"
+      },
+      "storageObjectsManifest": {
+        "path": "artifacts/storage-objects.json.enc",
+        "sha256": "a2e3310005a67b9ea473b0054f28e44898c79d01524c0df60271dc969e2bfff8"
+      },
+      "storageObjectsArchive": {
+        "path": "artifacts/storage-objects-archive.json.enc",
+        "sha256": "daa9262cd9d1bb84772610219db2e849ace6cb0d3afdd153ac37d3d0216e7e0a"
+      }
+    },
+    "reconciliationKeyAmountsArtifactPath": "artifacts/reconciliation-key-amounts.json.enc",
+    "reconciliationKeyAmountsArtifactSha256": "3aa6776edfd889e45ce8de518e1138d7dbb40ef6e96378ce424ffc64f09a50a9",
+    "dpapiKeyReference": "dpapi-file:///E:/CanWin-Team-OS-4.0-Recovery-Keys/canwin-team-os-4-p0-20260719T074943659Z-c11fca6bd1.dpapi",
+    "dpapiKeyPath": "E:/CanWin-Team-OS-4.0-Recovery-Keys/canwin-team-os-4-p0-20260719T074943659Z-c11fca6bd1.dpapi",
+    "restoreEvidencePath": "D:/CanWin-Team-OS-4.0-Recovery/canwin-team-os-4-p0-20260719T074943659Z-c11fca6bd1/restore-evidence.json",
+    "restoreEvidenceSha256": "04a6c5d6ac9510747abf5efee27dfe0ecb2a8550191b8ce047b9a1a8d5b458a8",
+    "sealedSqlPath": "scripts/p0/sealed-reconciliation.sql",
+    "sealedSqlSha256Lf": "ff1d1e457e5427eb6f0a911df275057b86da93eae6c3ea2528cd00457273595e",
+    "expected": {
+      "keyAmountKeys": ["currency", "customerPayments", "internalPayables", "salesProfit", "points", "laborEarnings"],
+      "inventoryKeys": ["onHand", "reserved", "shipped"],
+      "rawLedgerKeys": ["customerPaymentGross", "customerPaymentReversals", "internalDue", "internalPaid", "internalSettlements", "procurementPayments", "salesExpenses", "quarterlyRebates", "companyExpenses"],
+      "auth": {
+        "users": 7,
+        "identities": 7,
+        "profiles": 7,
+        "sourceRoleAssignments": 8,
+        "authorizedRoleAssignmentsApplied": 2,
+        "postOverlayRoleAssignments": 10,
+        "orphanProfiles": 0,
+        "orphanRoleAssignments": 0,
+        "bannedUsers": 7
+      },
+      "storage": {
+        "buckets": 1,
+        "objects": 32,
+        "bytes": 1700978,
+        "aggregateSha256": "12000d53bf395a9637638a372778a61f7a821eea3be622e81bec84051f3b379f"
+      },
+      "migrationRows": 70
+    },
+    "execution": {
+      "initialFullAfterLightSnapshot": true,
+      "fullAfterEverySqlTest": true,
+      "perTestFullSnapshots": 27,
+      "finalFullAfterFreshCredential": true,
+      "beforeAfterCanonicalShaMustMatch": true,
+      "storageArchiveAtInitialAndFinal": true,
+      "temporarySessionOnly": true,
+      "persistentDatabaseWrites": false,
+      "sessionClosedDropsTemp": true
+    },
+    "allowedPersistentContentDifferencesFromSealedSource": [
+      {
+        "table": "profile_access_roles",
+        "effect": "authorized-role-overlay-plus-assignment-kind-backfill",
+        "rowDeltaFromSignedManifest": 2
+      },
+      {
+        "table": "feature_flags",
+        "effect": "one-team-os-4-supervisor-row-per-missing-team",
+        "rowDeltaFromSignedPreflight": 1
+      }
+    ],
+    "expectedSchemaAndHistoryDifference": "exact-signed-P1-migration-only",
+    "unknownDifferencesAllowed": false,
+    "evidenceMode": "summary-hash-counts-only",
+    "sourceArtifactBoundary": {
+      "signedP0TableRowCountsAreCountsOnly": true,
+      "signedP0TargetAfterSha256IsNull": true,
+      "p1InitialAndFinalContentFingerprintsRequired": true
+    }
   },
   "pendingTriggerRepair": {
     "constraintName": "public.profile_access_roles_last_admin",
@@ -59,9 +171,9 @@
   },
   "scriptHardLocks": {
     "runnerPath": "scripts/p1/run-isolated-runtime.mjs",
-    "runnerSha256Lf": "ac22d2d935d4b557314b5e7c61dfdf54e4af8c3dfe178ad047de1b2cf5955248",
+    "runnerSha256Lf": "6bea4b4ff000d140ad783f0dadf7813d4079c1b16169651ab8e256858c3bba98",
     "validatorPath": "scripts/p1/verify-isolated-runtime-runner.mjs",
-    "validatorSha256Lf": "3749561b5bb13f2e725be2447fe43f7d3b34ad745422e99a91b732307e9e6085",
+    "validatorSha256Lf": "842a82a5d11216c200a40efe222135d76f158e3eb11aae9e593e255f06872ae6",
     "postgresRegressionPath": "scripts/p1/verify-pending-trigger-postgres.mjs",
     "postgresRegressionSha256Lf": "f4f54d77436b1b91035cd8fff7572dd52f4375aa75f52325a664426d0b9cf3ea"
   },

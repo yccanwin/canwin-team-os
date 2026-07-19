@@ -76,7 +76,7 @@ function validate(candidate) {
 
   check(candidate.schemaVersion === 1, 'schema version must be 1')
   check(candidate.manifestType === 'canwin-team-os-p1-interface-freeze', 'manifest type drift')
-  check(candidate.contractStatus === 'p1_rollback_evidence_eol_repair_implemented_ci_pending', 'contract status drift')
+  check(candidate.contractStatus === 'p1_post_apply_verification_candidate_pending', 'contract status drift')
   check(physical.contractStatus === 'p0_supervisor_frozen_runtime_not_implemented', 'physical object contract is not frozen')
   check(navigation.contractStatus === 'p1_ci_passed_page_account_acceptance_pending', 'navigation candidate status drift')
   check(roleMigration.manualPrimaryRoleDecisions?.status === 'owner-confirmed-isolated-applied-production-unchanged', 'manual role decisions are not frozen and isolated-applied')
@@ -170,7 +170,7 @@ function validate(candidate) {
 
   for (const order of workOrders) {
     check(['backend', 'frontend', 'qa'].includes(order.team), `${order.id} has unknown team`)
-    check(order.status === 'candidate_rollback_evidence_eol_repair_implemented_ci_pending', `${order.id} must preserve rollback evidence line-ending repair and pending CI boundary`)
+    check(order.status === 'candidate_post_apply_verification_pending', `${order.id} must preserve the pending post-apply verification boundary`)
     check(Boolean(order.deliverable?.trim()), `${order.id} lacks deliverable`)
   }
   check(workOrders.filter((entry) => entry.team === 'backend').length === 4, 'backend work-order count drift')
@@ -249,6 +249,20 @@ function validate(candidate) {
   check(JSON.stringify(independentRepairCi.priorFailedRunIdsPreservedWithoutRerun) === JSON.stringify(['29693556452', '29694104452']), 'failed repair CI preservation drift')
   check(independentRepairCi.repositorySecretsRequired === false && independentRepairCi.productionReadPerformed === false && independentRepairCi.productionWritePerformed === false, 'independent repair CI secret or production boundary drift')
   check(independentRepairCi.isolatedTestProjectPersistentApplyPassed === false && independentRepairCi.reconciliationPassed === false && independentRepairCi.pageAccountAcceptancePassed === false && independentRepairCi.g1OverallClaim === false, 'independent CI must not claim isolated apply, reconciliation, page acceptance or G1')
+  const postRepairCi = ci.postRepairIndependentCiRunEvidence ?? {}
+  check(postRepairCi.runId === '29696529290' && postRepairCi.runUrl === 'https://github.com/yccanwin/canwin-team-os/actions/runs/29696529290', 'post-repair CI run identity drift')
+  check(postRepairCi.headSha === 'e04dfa3ee8a9f569b97c905c87f760d7b76a6e00' && postRepairCi.linuxJobId === '88218121933' && postRepairCi.windowsJobId === '88218121940', 'post-repair CI head or job ids drift')
+  check(postRepairCi.overallStatus === 'success' && postRepairCi.workflowDurationSeconds === 136 && postRepairCi.linuxDurationSeconds === 132 && postRepairCi.windowsDurationSeconds === 76, 'post-repair CI result or duration drift')
+  check(postRepairCi.linuxDatabaseGates === '70/70 migrations, 27/27 SQL (7 database, 11 permission, 9 business), 4/4 catalog, cleanup passed', 'post-repair CI Linux gate summary drift')
+  check(postRepairCi.windowsGates === '19/19 static, 12/12 local, 71/71 P1 app shell', 'post-repair CI Windows gate summary drift')
+  check(postRepairCi.frontendModulesBuilt === 1975 && postRepairCi.frontendArtifactFiles === 66 && postRepairCi.frontendArtifactSha256 === '33505fcddc4b814379906406287b1fa715677b1e218497e1fe5a1693f50fc21b' && postRepairCi.githubUploadedArtifacts === 0, 'post-repair CI frontend artifact evidence drift')
+  check(postRepairCi.realAccountSafetySelfTest === 'passed guards=7 negativeFailureCases=1 accounts=6 evidenceSecrets=0 cleanup=seal-not-delete network=0', 'post-repair CI real-account safety self-test drift')
+  check(postRepairCi.realPageRunnerSelfTest === 'passed without network; real acceptance pending', 'post-repair CI real-page self-test boundary drift')
+  check(postRepairCi.linuxGithubWarningAnnotations === 1 && postRepairCi.windowsGithubWarningAnnotations === 1, 'post-repair CI warning annotation count drift')
+  check(postRepairCi.postRepairIndependentCi === 'passed' && postRepairCi.repositorySecretsRequired === false && postRepairCi.testProjectRemoteReads === 0 && postRepairCi.testProjectRemoteWrites === 0, 'post-repair CI acceptance or test-project remote boundary drift')
+  check(postRepairCi.productionReadPerformed === false && postRepairCi.productionWritePerformed === false, 'post-repair CI production boundary drift')
+  check(JSON.stringify(postRepairCi.priorFailedRunIdsPreservedWithoutRerun) === JSON.stringify(['29693556452', '29694104452', '29695919974']), 'post-repair CI failed-run preservation drift')
+  check(postRepairCi.isolatedTestProjectPersistentApplyPassed === false && postRepairCi.reconciliationPassed === false && postRepairCi.pageAccountAcceptancePassed === false && postRepairCi.g1OverallClaim === false, 'post-repair CI must not claim isolated apply, reconciliation, page acceptance or G1')
 
   const isolated = candidate.isolatedTestProjectEvidence ?? {}
   check(isolated.targetProjectRef === 'zdmuaqokndhhbarudhtw', 'isolated target ref drift')
@@ -294,19 +308,72 @@ function validate(candidate) {
   check(isolated.evidencePath === 'D:\\CanWin-Team-OS-4.0-P1-Validation\\p1-isolated-20260719T150630589Z-ed853ebbab\\failure.json', 'isolated evidence path drift')
   check(isolated.evidenceSha256 === '773bf49d6fa8eb3abbe564969cbec83b22755282153fd11e5d5d0fc161cfc996', 'isolated evidence SHA drift')
 
+  const postApply = candidate.postApplyVerificationFailureEvidence ?? {}
+  const migrationProof = postApply.migrationStageControlFlowProof ?? {}
+  const firstSql = postApply.firstSql ?? {}
+  check(postApply.runId === 'p1-isolated-20260719T172151689Z-8273f5c69e', 'post-apply failure run id drift')
+  check(postApply.evidenceDirectory === 'D:\\CanWin-Team-OS-4.0-P1-Validation\\p1-isolated-20260719T172151689Z-8273f5c69e', 'post-apply failure evidence directory drift')
+  check(postApply.failurePath === `${postApply.evidenceDirectory}\\failure.json` && postApply.failureSha256 === '3a8077ad58b1a7ee1fc4a75340ab3db9b8f1c3d5ea772e019ff1282136029774', 'post-apply failure evidence path or SHA drift')
+  check(postApply.preflightPath === `${postApply.evidenceDirectory}\\preflight.json` && postApply.preflightSha256 === 'e44d53b72c85a71eff2d7a5359220f86c20af56af02a9bf6c0a81716c6d65b97', 'post-apply preflight evidence path or SHA drift')
+  check(postApply.candidateHeadSha === '8273f5c69e09de24c9afbf27b010d60f7b7caddf' && postApply.supervisionHeadSha === 'e04dfa3ee8a9f569b97c905c87f760d7b76a6e00', 'post-apply candidate or supervision SHA drift')
+  check(postApply.startedAtUtc === '2026-07-19T17:21:51.692Z' && postApply.failedAtUtc === '2026-07-19T17:22:06.528Z', 'post-apply evidence timestamp drift')
+  check(postApply.formalAttempts === 1 && postApply.formalAttemptLimit === 1 && postApply.status === 'failed_stop_preserved' && postApply.phase === 'post_apply_verification', 'post-apply formal stop boundary drift')
+  check(postApply.migrationVersion === '20260719130910' && postApply.preflightMigrationRows === 69 && postApply.preflightP1Applied === false, 'post-apply preflight migration inventory drift')
+  check(postApply.preflightP1FixtureRows === 0 && postApply.preflightIdleInTransactionSessions === 0, 'post-apply preflight fixture or transaction boundary drift')
+  check(migrationProof.firstSqlReached === true && migrationProof.requiredP1MigrationApplied === true && migrationProof.requiredMigrationRows === 70, 'post-apply migration-stage control-flow proof missing')
+  check(migrationProof.postMigrationSnapshotSerializedInFailure === false && migrationProof.postFailureRemoteStateRechecked === false, 'post-apply evidence must not claim a durable post snapshot or remote re-read')
+  check(firstSql.order === 1 && firstSql.path === 'supabase/tests/access_control_foundation.sql' && firstSql.currentStep === 'test:database:supabase/tests/access_control_foundation.sql', 'post-apply first SQL identity drift')
+  check(firstSql.errorFileLine === 92 && firstSql.doBlockLine === 53 && firstSql.error === 'Legacy member received implicit customers.manage permission', 'post-apply first SQL error evidence drift')
+  check(firstSql.classification === 'false_positive' && firstSql.passed === false, 'post-apply first SQL classification drift')
+  check(postApply.sqlTestsExpected === 27 && postApply.sqlTestsPassed === 0 && postApply.remainingSqlTestsNotExecuted === 26, 'post-apply SQL stop boundary drift')
+  check(postApply.catalogAssertionsExpected === 4 && postApply.catalogAssertionsExecuted === 0 && postApply.reconciliationExecuted === false, 'post-apply catalog or reconciliation boundary drift')
+  check(postApply.finalPostSnapshotRecorded === false && postApply.successEvidenceWritten === false, 'post-apply evidence must not claim a final snapshot or success marker')
+  check(postApply.targetPreserved === true && postApply.retryPerformed === false && postApply.remoteCleanupPerformed === false, 'post-apply test-project preservation boundary drift')
+  check(JSON.stringify(postApply.evidenceFiles) === JSON.stringify(['preflight.json', 'failure.json']) && postApply.evidenceSecrets === 0, 'post-apply evidence file inventory or secret boundary drift')
+  check(postApply.productionReadPerformed === false && postApply.productionWritePerformed === false, 'post-apply production boundary drift')
+
   const repair = candidate.repairCandidate ?? {}
   const localPg = repair.localPostgresEvidence ?? {}
   check(repair.hashMode === 'utf8-lf', 'repair candidate hash mode must remain utf8-lf')
   check(repair.migrationSha256Lf === 'acc7f15afa502d7a124c2a13d74d0a71c2b98c11664d58de2d4639081d5a7597', 'repair migration LF SHA drift')
   check(repair.testSha256Lf === 'bed07c4d494ac3e7f7e993e12090194ed413b0e92d681aea0adb3eb381f430fb', 'repair SQL test LF SHA drift')
-  check(repair.runtimeContractSha256Lf === 'c1069d2dece65d6f0d6889d8e8cd0ff186e31498686df227a539d0bde706366b', 'runtime contract LF SHA drift')
-  check(repair.runnerSha256Lf === 'ac22d2d935d4b557314b5e7c61dfdf54e4af8c3dfe178ad047de1b2cf5955248', 'runtime runner LF SHA drift')
-  check(repair.runnerValidatorSha256Lf === '3749561b5bb13f2e725be2447fe43f7d3b34ad745422e99a91b732307e9e6085', 'runtime validator LF SHA drift')
+  check(repair.postApplyAccessControlTestSha256Lf === '31fa286b318ad2b24e2d956005c4a5fcc9b0fddfd0269be029330d5c1c3e43f8', 'post-apply access-control test LF SHA drift')
+  check(repair.runtimeContractSha256Lf === '5a9e98cd0e80541c5de09c384ddb26b267eb0ed0ba4dcee61bb20f9a89fd01ca', 'runtime contract LF SHA drift')
+  check(repair.runnerSha256Lf === '6bea4b4ff000d140ad783f0dadf7813d4079c1b16169651ab8e256858c3bba98', 'runtime runner LF SHA drift')
+  check(repair.runnerValidatorSha256Lf === '842a82a5d11216c200a40efe222135d76f158e3eb11aae9e593e255f06872ae6' && repair.runnerValidatorAssertions === '97/97' && repair.fixturePatternsCovered === '4/4', 'runtime validator LF SHA or assertion count drift')
+  check(sha256Utf8Lf(readFileSync(resolve(repoRoot, 'supabase/tests/access_control_foundation.sql'), 'utf8')) === repair.postApplyAccessControlTestSha256Lf, 'post-apply access-control test file SHA mismatch')
+  check(sha256Utf8Lf(readFileSync(resolve(repoRoot, 'scripts/p1/isolated-runtime-contract.json'), 'utf8')) === repair.runtimeContractSha256Lf, 'runtime contract file SHA mismatch')
+  check(sha256Utf8Lf(readFileSync(resolve(repoRoot, 'scripts/p1/run-isolated-runtime.mjs'), 'utf8')) === repair.runnerSha256Lf, 'runtime runner file SHA mismatch')
+  check(sha256Utf8Lf(readFileSync(resolve(repoRoot, 'scripts/p1/verify-isolated-runtime-runner.mjs'), 'utf8')) === repair.runnerValidatorSha256Lf, 'runtime validator file SHA mismatch')
   check(repair.postgresRegressionSha256Lf === 'f4f54d77436b1b91035cd8fff7572dd52f4375aa75f52325a664426d0b9cf3ea', 'local Postgres regression LF SHA drift')
-  check(repair.localPostgresAccepted === true && repair.isolatedRemoteApply === 'pending' && repair.isolatedRemoteEligibility === 'ready_pending_formal_apply', 'local repair acceptance or isolated remote readiness boundary drift')
+  check(repair.localPostgresAccepted === true && repair.isolatedRemoteApply === 'migration_applied_post_apply_verification_failed' && repair.isolatedRemoteEligibility === 'post_apply_resume_prequalified_remote_disabled', 'local repair acceptance or isolated remote readiness boundary drift')
   check(repair.validatorLineEndingRepairImplemented === true && repair.newIndependentCi === 'passed', 'validator line-ending implementation or independent CI boundary drift')
   check(repair.freshCheckoutFailureRunId === '29695919974' && repair.freshCheckoutFailurePreservedWithoutRerun === true, 'fresh-checkout failure preservation missing from repair candidate')
-  check(repair.rollbackEvidenceLineEndingRepairImplemented === true && exactSet(repair.rollbackEvidenceEolFormatsValidated, ['lf', 'crlf', 'cr', 'mixed']) && repair.postRepairIndependentCi === 'pending', 'rollback evidence line-ending repair candidate boundary drift')
+  check(repair.rollbackEvidenceLineEndingRepairImplemented === true && exactSet(repair.rollbackEvidenceEolFormatsValidated, ['lf', 'crlf', 'cr', 'mixed']) && repair.postRepairIndependentCi === 'passed' && repair.postRepairIndependentCiRunId === '29696529290', 'post-repair independent CI candidate boundary drift')
+  const resumePrequalification = repair.resumePrequalification ?? {}
+  check(resumePrequalification.status === 'passed_offline_remote_disabled', 'post-apply resume prequalification status drift')
+  check(resumePrequalification.candidateRemoteExecutionAllowed === false && resumePrequalification.resumeRemoteExecutionAllowed === false && resumePrequalification.resumeSignedCiHeadSha === null, 'post-apply resume must remain offline and unsigned')
+  check(resumePrequalification.dbPushAllowed === false && resumePrequalification.expectedPersistentRemoteWrites === 0 && resumePrequalification.migrationPreviouslyApplied === true && resumePrequalification.resumeVerificationExecuted === false, 'post-apply resume apply/write/execution boundary drift')
+  check(resumePrequalification.productionReadPerformed === false && resumePrequalification.productionWritePerformed === false, 'post-apply resume production boundary drift')
+  const full = resumePrequalification.fullReconciliation ?? {}
+  check(full.exactPostMigrationRows === 70 && full.sqlTests === 27 && full.perTestFullSnapshots === 27 && full.fullSnapshots === 29, 'full reconciliation migration, SQL or snapshot counts drift')
+  check(JSON.stringify(full.fullSnapshotPlan) === JSON.stringify({ initial: 1, afterEachSqlTest: 27, finalAfterFreshCredential: 1 }), 'full reconciliation 29-snapshot plan drift')
+  check(full.storageArchiveSnapshots === 2 && JSON.stringify(full.storageArchivePlan) === JSON.stringify({ initial: 1, final: 1 }), 'full reconciliation Storage archive plan drift')
+  check(full.signedArtifactCount === 6 && Object.keys(full.signedArtifactSha256 ?? {}).length === 6 && Object.values(full.signedArtifactSha256 ?? {}).every((sha) => /^[a-f0-9]{64}$/.test(sha)), 'full reconciliation signed artifact inventory drift')
+  check(exactSet(full.keyAmountKeys, ['customerPayments', 'internalPayables', 'salesProfit', 'points', 'laborEarnings']) && full.currency === 'CNY' && full.decimalPrecision === 2, 'full reconciliation five key-amount contract drift')
+  check(exactSet(full.rawLedgerKeys, ['customerPaymentGross', 'customerPaymentReversals', 'internalDue', 'internalPaid', 'internalSettlements', 'procurementPayments', 'salesExpenses', 'quarterlyRebates', 'companyExpenses']), 'full reconciliation nine raw-ledger keys drift')
+  check(exactSet(full.inventoryKeys, ['onHand', 'reserved', 'shipped']), 'full reconciliation three inventory keys drift')
+  check(JSON.stringify(full.auth) === JSON.stringify({ users: 7, identities: 7, profiles: 7, sourceRoleAssignments: 8, authorizedRoleAssignmentsApplied: 2, postOverlayRoleAssignments: 10, orphanProfiles: 0, orphanRoleAssignments: 0, bannedUsers: 7, sessionsRestored: false, sourceJwtSecretCopied: false }), 'full reconciliation Auth/session isolation drift')
+  check(JSON.stringify(full.storage) === JSON.stringify({ buckets: 1, objects: 32, bytes: 1700978, aggregateSha256: '12000d53bf395a9637638a372778a61f7a821eea3be622e81bec84051f3b379f' }), 'full reconciliation Storage totals/content drift')
+  check(exactSet(full.requiredContentFingerprints, ['publicTableContentMd5', 'auth.usersContentMd5', 'auth.identitiesContentMd5', 'schemaSecurity', 'canonicalSha256']) && full.beforeAfterCanonicalShaMustMatch === true, 'full reconciliation content-fingerprint boundary drift')
+  check(JSON.stringify(full.allowedPersistentContentDifferencesFromSealedSource) === JSON.stringify([
+    { table: 'profile_access_roles', effect: 'authorized-role-overlay-plus-assignment-kind-backfill', rowDeltaFromSignedManifest: 2 },
+    { table: 'feature_flags', effect: 'one-team-os-4-supervisor-row-per-missing-team', rowDeltaFromSignedPreflight: 1 },
+  ]), 'full reconciliation authorized difference inventory drift')
+  check(full.expectedSchemaAndHistoryDifference === 'exact-signed-P1-migration-only' && full.unknownDifferencesAllowed === false, 'full reconciliation schema/history or unknown-difference boundary drift')
+  check(JSON.stringify(full.sourceP0Boundary) === JSON.stringify({ signedP0TableRowCountsAreCountsOnly: true, signedP0TargetAfterSha256IsNull: true, p1InitialAndFinalContentFingerprintsRequired: true }), 'legacy P0 counts-only evidence boundary drift')
+  check(full.temporarySessionOnly === true && full.persistentDatabaseWrites === false && full.sessionClosedDropsTemporaryState === true, 'full reconciliation temporary-session boundary drift')
+  check(full.validationDatabaseCalls === 0 && full.validationStorageCalls === 0 && exactSet(full.fixturePatterns, ['p1-email', 'access-email', 'd400-profile', 'd510-profile']), 'full reconciliation offline validation or fixture-pattern boundary drift')
   check(localPg.path === 'D:\\CanWinP1LocalPgRuns\\p1-pending-trigger-iWUhfO', 'local Postgres evidence path drift')
   check(localPg.resultSha256 === '9c16a2d8934f75c0f6a59641a090f3fa65fbf909d07e3d6bde1743a107614af7', 'local Postgres result SHA drift')
   check(localPg.postgresMajor === 18 && localPg.negativePassed === '1/1' && localPg.positiveRepairPassed === '4/4', 'local Postgres control counts drift')
@@ -327,18 +394,29 @@ function validate(candidate) {
   check(boundary.validatorLineEndingRepairPending === false && boundary.validatorLineEndingRepairImplemented === true, 'validator line-ending implementation boundary drift')
   check(boundary.newIndependentCi === 'passed', 'new independent CI success evidence missing')
   check(boundary.freshCheckoutFailureRunId === '29695919974' && boundary.freshCheckoutFailurePreservedWithoutRerun === true, 'fresh-checkout failure boundary missing')
-  check(boundary.rollbackEvidenceLineEndingRepairImplemented === true && boundary.postRepairIndependentCi === 'pending', 'rollback evidence line-ending repair acceptance boundary drift')
+  check(boundary.rollbackEvidenceLineEndingRepairImplemented === true && boundary.postRepairIndependentCi === 'passed' && boundary.postRepairIndependentCiRunId === '29696529290', 'post-repair independent CI acceptance boundary drift')
   check(boundary.localPostgresAccepted === true, 'local PostgreSQL repair acceptance must be recorded')
-  check(boundary.repairCandidateIsolatedRemoteApply === 'pending', 'isolated remote repair candidate must remain pending')
-  check(boundary.isolatedTestProjectApply === 'failed_repair_pending', 'isolated apply failure boundary missing')
-  check(boundary.isolatedTestProjectWriteAttempts === 1, 'isolated test-project write attempts must not be reported as zero')
-  check(boundary.isolatedTestProjectRollbackVerified === true && boundary.isolatedTestProjectResidualObjects === 0, 'isolated rollback verification or zero-residual boundary missing')
+  check(boundary.repairCandidateIsolatedRemoteApply === 'migration_applied_post_apply_verification_failed' && boundary.postApplyVerificationCandidate === 'pending', 'isolated post-apply verification candidate boundary drift')
+  check(boundary.postApplyResumePrequalification === 'passed_offline_remote_disabled' && boundary.postApplyCandidateRemoteExecutionAllowed === false && boundary.postApplyResumeRemoteExecutionAllowed === false, 'post-apply resume prequalification remote boundary drift')
+  check(boundary.postApplyResumeSignedCiHeadSha === null && boundary.p1MigrationPreviouslyApplied === true && boundary.postApplyResumeVerificationExecuted === false, 'post-apply resume qualification or execution boundary drift')
+  check(boundary.fullReconciliationExactRows === 70 && boundary.fullReconciliationSqlTests === 27 && boundary.fullReconciliationPerTestSnapshots === 27 && boundary.fullReconciliationSnapshots === 29, 'full reconciliation acceptance counts drift')
+  check(boundary.fullReconciliationStorageArchives === 2 && boundary.fullReconciliationSignedArtifacts === 6, 'full reconciliation Storage or artifact acceptance counts drift')
+  check(boundary.fullReconciliationKeyAmounts === 5 && boundary.fullReconciliationRawLedgers === 9 && boundary.fullReconciliationInventoryMeasures === 3, 'full reconciliation business measure acceptance counts drift')
+  check(boundary.fullReconciliationContentFingerprintsRequired === true && boundary.sourceP0CountsOnlyBoundaryRecorded === true, 'full reconciliation fingerprint or legacy P0 boundary missing')
+  check(boundary.fixturePatternsCovered === '4/4' && boundary.runnerValidatorAssertions === '97/97', 'runner fixture-pattern or validator assertion evidence drift')
+  check(boundary.isolatedTestProjectApply === 'migration_applied_post_apply_verification_failed', 'isolated post-apply failure boundary missing')
+  check(boundary.isolatedTestProjectWriteAttempts === 2, 'isolated test-project write attempt history drift')
+  check(boundary.priorFailedApplyRollbackVerified === true && boundary.priorFailedApplyRollbackResidualObjects === 0, 'prior isolated rollback verification boundary missing')
+  check(boundary.postApplyMigrationStageControlFlowP1Applied === true && boundary.postApplyMigrationStageControlFlowRows === 70, 'post-apply migration-stage control-flow boundary missing')
+  check(boundary.postApplyMigrationSnapshotSerializedInFailure === false && boundary.postFailureRemoteStateRechecked === false, 'post-apply boundary must not claim a durable post snapshot or remote re-read')
+  check(boundary.postApplyVerificationSqlTestsPassed === 0 && boundary.postApplyVerificationRemainingSqlTestsNotExecuted === 26 && boundary.postApplyVerificationCatalogAssertionsExecuted === 0, 'post-apply verification stop counts drift')
   check(boundary.isolatedTestProjectReconciliationPerformed === false, 'isolated reconciliation must remain not performed')
   check(boundary.pageAccountAcceptancePassed === false, 'real page/account acceptance must remain pending')
   check(boundary.runtimeAccepted === false, 'runtime acceptance must remain false')
   check(boundary.g0OverallClaim === true, 'G0 success evidence is missing')
   check(boundary.g1OverallClaim === false, 'G1 must remain false before real page/account acceptance')
-  check(boundary.productionWritePerformed === false, 'production write must remain false')
+  check(boundary.overallAcceptedProgressPercent === 25, 'accepted progress must remain 25 percent before G1')
+  check(boundary.productionReadPerformed === false && boundary.productionWritePerformed === false, 'production read/write must remain false')
   check(boundary.productionMigrationAuthorized === false, 'production migration must remain unauthorized')
 
   const serialized = JSON.stringify(candidate)
@@ -368,13 +446,22 @@ const negativeCases = [
   ['new independent CI success erased', (value) => { value.acceptanceBoundary.newIndependentCi = 'pending' }],
   ['fresh-checkout failure preservation erased', (value) => { value.acceptanceBoundary.freshCheckoutFailurePreservedWithoutRerun = false }],
   ['rollback evidence line-ending repair erased', (value) => { value.acceptanceBoundary.rollbackEvidenceLineEndingRepairImplemented = false }],
-  ['post-repair CI falsely accepted', (value) => { value.acceptanceBoundary.postRepairIndependentCi = 'passed' }],
+  ['post-repair CI acceptance erased', (value) => { value.acceptanceBoundary.postRepairIndependentCi = 'pending' }],
   ['isolated failure erased', (value) => { value.isolatedTestProjectEvidence.applyStatus = 'passed' }],
   ['isolated write falsely zero', (value) => { value.acceptanceBoundary.isolatedTestProjectWriteAttempts = 0 }],
-  ['isolated rollback verification erased', (value) => { value.acceptanceBoundary.isolatedTestProjectRollbackVerified = false }],
-  ['isolated rollback residuals falsely added', (value) => { value.acceptanceBoundary.isolatedTestProjectResidualObjects = 1 }],
+  ['prior isolated rollback verification erased', (value) => { value.acceptanceBoundary.priorFailedApplyRollbackVerified = false }],
+  ['prior isolated rollback residuals falsely added', (value) => { value.acceptanceBoundary.priorFailedApplyRollbackResidualObjects = 1 }],
   ['local Postgres acceptance erased', (value) => { value.acceptanceBoundary.localPostgresAccepted = false }],
-  ['remote repair falsely accepted', (value) => { value.acceptanceBoundary.repairCandidateIsolatedRemoteApply = 'passed' }],
+  ['post-apply verification falsely accepted', (value) => { value.acceptanceBoundary.postApplyVerificationCandidate = 'passed' }],
+  ['post-apply candidate remote enabled', (value) => { value.repairCandidate.resumePrequalification.candidateRemoteExecutionAllowed = true }],
+  ['post-apply resume remote enabled', (value) => { value.repairCandidate.resumePrequalification.resumeRemoteExecutionAllowed = true }],
+  ['post-apply resume falsely executed', (value) => { value.repairCandidate.resumePrequalification.resumeVerificationExecuted = true }],
+  ['full reconciliation snapshot count reduced', (value) => { value.repairCandidate.resumePrequalification.fullReconciliation.fullSnapshots = 28 }],
+  ['full reconciliation content fingerprints erased', (value) => { value.repairCandidate.resumePrequalification.fullReconciliation.requiredContentFingerprints = [] }],
+  ['legacy P0 counts-only boundary erased', (value) => { value.repairCandidate.resumePrequalification.fullReconciliation.sourceP0Boundary.signedP0TableRowCountsAreCountsOnly = false }],
+  ['d510 fixture pattern erased', (value) => { value.repairCandidate.resumePrequalification.fullReconciliation.fixturePatterns.pop() }],
+  ['post-apply snapshot falsely claimed', (value) => { value.postApplyVerificationFailureEvidence.migrationStageControlFlowProof.postMigrationSnapshotSerializedInFailure = true }],
+  ['post-apply remaining SQL falsely executed', (value) => { value.acceptanceBoundary.postApplyVerificationRemainingSqlTestsNotExecuted = 0 }],
   ['repair hash mode changed', (value) => { value.repairCandidate.hashMode = 'raw-bytes' }],
   ['page acceptance falsely claimed', (value) => { value.acceptanceBoundary.pageAccountAcceptancePassed = true }],
   ['G1 falsely claimed', (value) => { value.acceptanceBoundary.g1OverallClaim = true }],
@@ -396,5 +483,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `P0_P1_INTERFACE_FREEZE_OK rpcs=${contract.rpcInterfaces.length} whitelists=${Object.keys(contract.fieldWhitelists).length} identities=${contract.baseTestIdentities.length} overlays=${contract.overlayTestCases.length} attacks=${contract.directApiAttackCases.length} workOrders=${contract.workOrders.length} negative=${negativePassed}/${negativeCases.length} hashMode=utf8-lf rollbackEvidenceEolFormats=${Object.keys(rollbackEvidenceEolHashes).join(',')} p1ActualRemoteRun=passed ciRuntimeAccepted=true firstRepairWindowsStatic=16/17 portableSelftestRepairImplemented=true secondRepairLinuxAccepted=true secondRepairWindowsStatic=15/17 validatorLineEndingRepairImplemented=true newIndependentCi=passed independentWindowsStatic=17/17 independentWindowsLocal=12/12 independentLinuxMigrations=70/70 independentLinuxSql=27/27 independentLinuxCatalog=4/4 freshCheckoutFailureRun=29695919974 freshCheckoutWindowsStatic=5/19 freshCheckoutFailedGate=6 freshCheckoutLinuxMigrations=70/70 freshCheckoutLinuxSql=27/27 freshCheckoutLinuxCatalog=4/4 postRepairIndependentCi=pending localPostgresAccepted=true isolatedTestProjectApply=failed_repair_pending repairCandidateIsolatedRemoteApply=pending testProjectWriteAttempts=1 rollbackVerified=true residualObjects=0 reconciliation=false pageAccountAcceptance=false runtimeAccepted=false g0=true g1=false p1CandidateImplemented=true`,
+  `P0_P1_INTERFACE_FREEZE_OK rpcs=${contract.rpcInterfaces.length} whitelists=${Object.keys(contract.fieldWhitelists).length} identities=${contract.baseTestIdentities.length} overlays=${contract.overlayTestCases.length} attacks=${contract.directApiAttackCases.length} workOrders=${contract.workOrders.length} negative=${negativePassed}/${negativeCases.length} hashMode=utf8-lf rollbackEvidenceEolFormats=${Object.keys(rollbackEvidenceEolHashes).join(',')} p1ActualRemoteRun=passed ciRuntimeAccepted=true firstRepairWindowsStatic=16/17 portableSelftestRepairImplemented=true secondRepairLinuxAccepted=true secondRepairWindowsStatic=15/17 validatorLineEndingRepairImplemented=true newIndependentCi=passed independentWindowsStatic=17/17 independentWindowsLocal=12/12 independentLinuxMigrations=70/70 independentLinuxSql=27/27 independentLinuxCatalog=4/4 freshCheckoutFailureRun=29695919974 freshCheckoutWindowsStatic=5/19 freshCheckoutFailedGate=6 freshCheckoutLinuxMigrations=70/70 freshCheckoutLinuxSql=27/27 freshCheckoutLinuxCatalog=4/4 postRepairIndependentCi=passed postRepairRun=29696529290 postRepairWindowsStatic=19/19 postRepairWindowsLocal=12/12 postRepairLinuxMigrations=70/70 postRepairLinuxSql=27/27 postRepairLinuxCatalog=4/4 resumePrequalification=passed_offline_remote_disabled candidateRemote=false resumeRemote=false resumeSigned=null migrationPreviouslyApplied=true resumeVerificationExecuted=false fullExactRows=70 sqlTests=27 perTestFullSnapshots=27 fullSnapshots=29 storageArchives=2 signedArtifacts=6 keyAmounts=5 rawLedgers=9 inventory=3 contentFingerprints=true sourceP0CountsOnly=true fixturePatterns=4/4 runnerValidator=97/97 migration70ControlFlowProof=true failurePostSnapshot=false postApplySql=0/27 postApplyRemainingSql=26 postApplyCatalog=0/4 reconciliation=false postApplyVerificationCandidate=pending testProjectWriteAttempts=2 priorRollbackVerified=true pageAccountAcceptance=false runtimeAccepted=false progress=25 g0=true g1=false p1CandidateImplemented=true`,
 )
