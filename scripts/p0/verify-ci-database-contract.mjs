@@ -103,6 +103,23 @@ function validate(candidate) {
   check(/set\s+enabled\s*=\s*true/i.test(pilotSql), 'pilot enable evidence missing')
   check(accessTestSql.includes('20260713200000') && accessTestSql.includes("if not public.is_feature_enabled('CANWIN_TEAM', 'sales_os_v3')"), 'post-chain feature test semantics drift')
   check(!accessTestSql.includes('sales_os_v3 must default to disabled'), 'obsolete pre-pilot assertion returned')
+  const qualification = candidate.historicalChainExpectations?.crmOpportunityQualification ?? {}
+  check(qualification.foundationMigration === 'supabase/migrations/20260713090000_add_crm_core.sql', 'qualification foundation migration drift')
+  check(exactSet(qualification.foundationAllowedGrades, ['A', 'B', 'C']), 'qualification foundation grades drift')
+  check(qualification.foundationRequiredAdvisoryFacts === true, 'qualification foundation facts drift')
+  check(qualification.finalMigration === 'supabase/migrations/20260716114824_add_package_price_and_relax_qualification.sql', 'qualification final migration drift')
+  check(exactSet(qualification.after69AllowedGrades, ['A', 'B', 'C', 'D']), 'qualification final grades drift')
+  check(qualification.after69RequiredAdvisoryFacts === false, 'qualification final advisory-facts drift')
+  check(qualification.confirmedContactGateFunction === 'public.qualify_crm_lead(uuid)', 'qualification contact gate function drift')
+  const qualificationFoundationSql = normalizeLf(readFileSync(resolve(repoRoot, qualification.foundationMigration ?? 'missing'), 'utf8')).replace(/\s+/g, '').toLowerCase()
+  const qualificationFinalSql = normalizeLf(readFileSync(resolve(repoRoot, qualification.finalMigration ?? 'missing'), 'utf8')).replace(/\s+/g, '').toLowerCase()
+  const crmCoreTestSql = normalizeLf(readFileSync(resolve(repoRoot, 'supabase/tests/crm_core.sql'), 'utf8'))
+  check(qualificationFoundationSql.includes("selecttarget_gradein('a','b','c')") && qualificationFoundationSql.includes('coalesce(target_annual_fee_viable,false)'), 'qualification foundation strict-rule evidence missing')
+  check(qualificationFinalSql.includes("selecttarget_gradein('a','b','c','d')"), 'qualification final grade-rule evidence missing')
+  check(qualificationFinalSql.includes("lead_row.contactability_status<>'ready'") && qualificationFinalSql.includes('public.crm_lead_private'), 'qualification confirmed-contact gate evidence missing')
+  check(crmCoreTestSql.includes('20260716114824') && crmCoreTestSql.includes("crm_is_valid_opportunity('D',false,false,null) is distinct from true"), 'post-chain qualification test semantics drift')
+  check(crmCoreTestSql.includes("crm_is_valid_opportunity('E',true,true,null) is distinct from false"), 'post-chain invalid-grade test missing')
+  check(!crmCoreTestSql.includes('Qualification rule skeleton failed'), 'obsolete strict qualification assertion returned')
   check(runtime.engine === 'supabase-cli-local-postgres', 'runtime engine drift')
   check(runtime.supabaseCliVersion === '2.109.1', 'Supabase CLI pin drift')
   check(runtime.postgresMajor === 17, 'Postgres major drift')
@@ -152,7 +169,7 @@ function validate(candidate) {
   check(boundary.repositorySecretsRequired === false, 'repository secrets must not be required')
 
   const attempts = candidate.formalAttemptHistory ?? []
-  check(attempts.length === 2, 'formal attempt history count drift')
+  check(attempts.length === 3, 'formal attempt history count drift')
   const failedAttempt = attempts[0] ?? {}
   check(failedAttempt.runId === '29680934378', 'failed run id drift')
   check(failedAttempt.jobId === '88176860842', 'failed job id drift')
@@ -181,6 +198,22 @@ function validate(candidate) {
   check(testAttempt.productionReadPerformed === false, 'test run production read must remain false')
   check(testAttempt.productionWritePerformed === false, 'test run production write must remain false')
   check(testAttempt.rerunOfFailedRun === false, 'test run must be a new candidate, not a failed-run rerun')
+  const qualificationAttempt = attempts[2] ?? {}
+  check(qualificationAttempt.runId === '29681350750', 'qualification run id drift')
+  check(qualificationAttempt.jobId === '88177979675', 'qualification job id drift')
+  check(qualificationAttempt.headSha === 'b86b6415d4576bf3095382a2c52d65caf16f6bd4', 'qualification run head SHA drift')
+  check(qualificationAttempt.conclusion === 'failure', 'qualification run conclusion drift')
+  check(qualificationAttempt.failedStep === 'Run database permission and business gates', 'qualification run failed step drift')
+  check(qualificationAttempt.rootCauseCode === 'post_chain_test_expected_pre_relaxation_qualification', 'qualification run root cause drift')
+  check(qualificationAttempt.databaseStartupPassed === true, 'qualification run database startup evidence missing')
+  check(qualificationAttempt.baselinePassed === true, 'qualification run baseline evidence missing')
+  check(qualificationAttempt.migrationsPassed === 69, 'qualification run migration count drift')
+  check(qualificationAttempt.sqlTestsStarted === 2 && qualificationAttempt.sqlTestsPassed === 1, 'qualification run test count drift')
+  check(qualificationAttempt.firstFailedTest === 'supabase/tests/crm_core.sql', 'qualification first failed test drift')
+  check(qualificationAttempt.cleanupPassed === true, 'qualification run cleanup evidence missing')
+  check(qualificationAttempt.productionReadPerformed === false, 'qualification run production read must remain false')
+  check(qualificationAttempt.productionWritePerformed === false, 'qualification run production write must remain false')
+  check(qualificationAttempt.rerunOfFailedRun === false, 'qualification run must remain a new candidate')
   return failures
 }
 
@@ -199,6 +232,7 @@ const negativeCases = [
   ['CLI unpinned', (value) => { value.runtime.supabaseCliVersion = 'latest' }],
   ['full stack startup', (value) => { value.runtime.startup = 'supabase start' }],
   ['pre-pilot final state', (value) => { value.historicalChainExpectations.salesOsV3.after69MigrationsEnabled = false }],
+  ['pre-relaxation final qualification', (value) => { value.historicalChainExpectations.crmOpportunityQualification.after69RequiredAdvisoryFacts = true }],
   ['repository secret', (value) => { value.acceptanceBoundary.repositorySecretsRequired = true }],
   ['production write', (value) => { value.acceptanceBoundary.productionWritePerformed = true }],
   ['G0 falsely claimed', (value) => { value.acceptanceBoundary.g0OverallClaim = true }],

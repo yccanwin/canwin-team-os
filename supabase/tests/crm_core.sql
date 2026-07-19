@@ -47,11 +47,14 @@ begin
     raise exception 'CRM restrictive feature-gate policies missing';
   end if;
 
-  if public.crm_is_valid_opportunity('D',true,true,null)
-    or public.crm_is_valid_opportunity('A',false,true,null)
-    or public.crm_is_valid_opportunity('B',true,false,null)
-    or not public.crm_is_valid_opportunity('C',true,true,null) then
-    raise exception 'Qualification rule skeleton failed';
+  -- 20260716114824 makes confirmed contact the promotion gate. Once this
+  -- helper is reached, A-D grades are eligible and the other facts are
+  -- advisory; an out-of-dictionary grade must still be rejected.
+  if public.crm_is_valid_opportunity('D',false,false,null) is distinct from true
+    or public.crm_is_valid_opportunity('A',false,false,null) is distinct from true
+    or public.crm_is_valid_opportunity('C',true,true,null) is distinct from true
+    or public.crm_is_valid_opportunity('E',true,true,null) is distinct from false then
+    raise exception 'Final-chain qualification rule failed';
   end if;
 
   if not exists (select 1 from information_schema.columns where table_schema='public'
