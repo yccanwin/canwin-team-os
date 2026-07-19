@@ -1,4 +1,4 @@
-do $$declare batch_def text;review_def text;begin
+do $$declare batch_def text;review_def text;supervisor_def text;begin
  if to_regclass('public.crm_contact_attempts')is null or to_regclass('public.crm_recycle_pauses')is null then raise exception 'Automation tables missing';end if;
  if to_regprocedure('public.run_sales_automation_batch(text,timestamp with time zone)')is null then raise exception 'Batch RPC missing';end if;
  batch_def:=lower(regexp_replace(pg_get_functiondef('public.run_sales_automation_batch(text,timestamp with time zone)'::regprocedure),'[[:space:]]+','','g'));
@@ -16,7 +16,8 @@ do $$declare batch_def text;review_def text;begin
   or position('nurture_round<1' in batch_def)=0 then raise exception 'Round 2 expiry/max-round cap missing';end if;
  if position('access_delegations' in pg_get_functiondef('public.crm_lead_recycle_paused(text,uuid,uuid,timestamp with time zone)'::regprocedure))=0 then raise exception 'Pause/delegation exception missing';end if;
  if to_regclass('public.crm_today_actions')is null or to_regclass('public.crm_supervisor_exceptions')is null then raise exception 'Action views missing';end if;
- if position('48 hours' in pg_get_viewdef('public.crm_supervisor_exceptions'::regclass,true))=0 then raise exception 'Supervisor 48h exception rule missing';end if;
+ supervisor_def:=lower(regexp_replace(pg_get_viewdef('public.crm_supervisor_exceptions'::regclass,true),'[[:space:]]+','','g'));
+ if position('48:00:00' in supervisor_def)=0 then raise exception 'Supervisor 48h exception rule missing';end if;
  if has_function_privilege('authenticated','public.run_sales_automation_batch(text,timestamp with time zone)','EXECUTE')or has_function_privilege('anon','public.run_sales_automation_batch(text,timestamp with time zone)','EXECUTE')then raise exception 'Batch RPC exposed';end if;
  if(select count(*)from pg_policies where schemaname='public'and tablename in('crm_contact_attempts','crm_recycle_pauses')and policyname='sales os v3 server gate'and permissive='RESTRICTIVE')<>2 then raise exception 'Automation gates missing';end if;
  if (select array_agg(column_name::text order by ordinal_position)from information_schema.columns where table_schema='public'and table_name='crm_leads_visible')

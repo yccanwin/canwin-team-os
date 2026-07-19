@@ -11,6 +11,7 @@ const clone = (value) => structuredClone(value)
 const normalizeLf = (value) => value.replace(/\r\n?/g, '\n')
 const normalizeDefinitionText = (value) => value.toLowerCase().replace(/\s+/g, '')
   .replace(/setsearch_path(?:to|=)/g, 'setsearch_path=')
+  .replace(/(\d+):00:00/g, '$1hours')
 const sha256Lf = (path) => createHash('sha256').update(normalizeLf(readFileSync(path, 'utf8')), 'utf8').digest('hex')
 const exactSet = (actual, expected) =>
   Array.isArray(actual) && actual.length === new Set(actual).size &&
@@ -495,6 +496,8 @@ const definitionResolutionProbeSourcesPassed = definitionResolutionProbeAssertio
   const finalDefinition = findObjectDefinitions(definitionResolutionProbeSources, assertion).at(-1)
   return finalDefinition?.statement.includes(assertion.fragment)
 })
+const viewIntervalNormalizationProbePassed =
+  normalizeDefinitionText("interval '48 hours'") === normalizeDefinitionText("interval '48:00:00'")
 
 function validate(candidate) {
   const failures = []
@@ -546,10 +549,12 @@ function validate(candidate) {
   check(sourceRules.requiredDefinitionFragmentsMatchFinalCreateStatement === true, 'final definition CREATE statement source rule drift')
   check(sourceRules.definitionStatementParserHandlesQuotedSemicolons === true, 'definition statement parser source rule drift')
   check(sourceRules.definitionReferencesResolveAssignmentsOverloadsAndRenames === true, 'definition reference resolution source rule drift')
+  check(sourceRules.viewIntervalLiteralsNormalizeInputAndCanonicalOutput === true, 'view interval normalization source rule drift')
   check(sourceRules.directDealOrderFixturesIncludeFinalRequiredOrderNumber === true, 'direct deal order required number source rule drift')
   check(statementParserProbePassed, 'definition statement parser probe failed')
   check(definitionResolutionProbeTargetsPassed, `definition assignment/overload target probe failed actual=${definitionResolutionProbeAssertions.map(definitionTargetKey).join(',')}`)
   check(definitionResolutionProbeSourcesPassed, 'definition overload/rename source probe failed')
+  check(viewIntervalNormalizationProbePassed, 'view interval input/output normalization probe failed')
   check(directDealOrderInsertProbePassed, 'direct deal order insert parser probe failed')
   check(tests.length === counts.total, 'test entry count drift')
   check(exactSet(tests.map((entry) => entry.path), tests.map((entry) => entry.path)), 'duplicate test path')
@@ -720,7 +725,7 @@ function validate(candidate) {
   check(boundary.repositorySecretsRequired === false, 'repository secrets must not be required')
 
   const attempts = candidate.formalAttemptHistory ?? []
-  check(attempts.length === 12, 'formal attempt history count drift')
+  check(attempts.length === 13, 'formal attempt history count drift')
   const failedAttempt = attempts[0] ?? {}
   check(failedAttempt.runId === '29680934378', 'failed run id drift')
   check(failedAttempt.jobId === '88176860842', 'failed job id drift')
@@ -924,6 +929,24 @@ function validate(candidate) {
   check(orderFixtureAttempt.productionReadPerformed === false, 'order fixture run production read must remain false')
   check(orderFixtureAttempt.productionWritePerformed === false, 'order fixture run production write must remain false')
   check(orderFixtureAttempt.rerunOfFailedRun === false, 'order fixture run must remain a new candidate')
+  const viewIntervalAttempt = attempts[12] ?? {}
+  check(viewIntervalAttempt.runId === '29684566675', 'view interval run id drift')
+  check(viewIntervalAttempt.jobId === '88186502776', 'view interval run job id drift')
+  check(viewIntervalAttempt.headSha === 'aa71c2d45093dce6bfd37442955d5d28a5bc13fa', 'view interval run head SHA drift')
+  check(viewIntervalAttempt.conclusion === 'failure', 'view interval run conclusion drift')
+  check(viewIntervalAttempt.failedStep === 'Run database permission and business gates', 'view interval run failed step drift')
+  check(viewIntervalAttempt.rootCauseCode === 'view_interval_literal_deparsed_to_canonical_time', 'view interval run root cause drift')
+  check(viewIntervalAttempt.databaseStartupPassed === true, 'view interval run database startup evidence missing')
+  check(viewIntervalAttempt.baselinePassed === true, 'view interval run baseline evidence missing')
+  check(viewIntervalAttempt.migrationsPassed === 69, 'view interval run migration count drift')
+  check(viewIntervalAttempt.sqlTestsStarted === 26 && viewIntervalAttempt.sqlTestsPassed === 25, 'view interval run test count drift')
+  check(viewIntervalAttempt.databaseTestsPassed === 7 && viewIntervalAttempt.permissionTestsPassed === 10 && viewIntervalAttempt.businessTestsPassed === 8, 'view interval run category evidence drift')
+  check(viewIntervalAttempt.firstFailedTest === 'supabase/tests/sales_automation.sql', 'view interval first failed test drift')
+  check(viewIntervalAttempt.priorHardwareTestsPassed === 2, 'view interval prior hardware fixture evidence drift')
+  check(viewIntervalAttempt.cleanupPassed === true, 'view interval run cleanup evidence missing')
+  check(viewIntervalAttempt.productionReadPerformed === false, 'view interval run production read must remain false')
+  check(viewIntervalAttempt.productionWritePerformed === false, 'view interval run production write must remain false')
+  check(viewIntervalAttempt.rerunOfFailedRun === false, 'view interval run must remain a new candidate')
   return failures
 }
 
@@ -951,6 +974,7 @@ const negativeCases = [
   ['final definition CREATE statement source rule', (value) => { value.testSourceRules.requiredDefinitionFragmentsMatchFinalCreateStatement = false }],
   ['definition statement parser source rule', (value) => { value.testSourceRules.definitionStatementParserHandlesQuotedSemicolons = false }],
   ['definition assignment overload source rule', (value) => { value.testSourceRules.definitionReferencesResolveAssignmentsOverloadsAndRenames = false }],
+  ['view interval normalization source rule', (value) => { value.testSourceRules.viewIntervalLiteralsNormalizeInputAndCanonicalOutput = false }],
   ['direct deal order fixture source rule', (value) => { value.testSourceRules.directDealOrderFixturesIncludeFinalRequiredOrderNumber = false }],
   ['definition target inventory', (value) => { value.expectedCounts.definitionReferencedObjects = 51 }],
   ['repository secret', (value) => { value.acceptanceBoundary.repositorySecretsRequired = true }],

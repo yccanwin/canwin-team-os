@@ -30,6 +30,7 @@
     "requiredDefinitionFragmentsMatchFinalCreateStatement": true,
     "definitionStatementParserHandlesQuotedSemicolons": true,
     "definitionReferencesResolveAssignmentsOverloadsAndRenames": true,
+    "viewIntervalLiteralsNormalizeInputAndCanonicalOutput": true,
     "directDealOrderFixturesIncludeFinalRequiredOrderNumber": true
   },
   "postInstallCatalog": {
@@ -103,7 +104,7 @@
     { "path": "supabase/tests/hardware_shipping_chain_behavior.sql", "category": "business", "executionMode": "rollback_fixture", "sha256Lf": "fec9dd843f68815362835e248fabe27653b745d107a91e6a7d4089fc92c7d89c" },
     { "path": "supabase/tests/performance_center_snapshot.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "3a9ccb96bdb01dc2c859ec658a507d89b3d067afb8e9e2cda3ae25eb741ba0e1" },
     { "path": "supabase/tests/quick_lead_uuid_region_selection.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "b3abc316b2bd5611c1137583ce665a74dd6876f56df5af4989b248ad5f3eeca0" },
-    { "path": "supabase/tests/sales_automation.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "fb974fefdb9392a6d62570c2c201a9c4a1f03f4c184e2dee2085f26ffb5e4424" }
+    { "path": "supabase/tests/sales_automation.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "2b7f335c88db5352287e69b150b7b2790e2015e16d9e1cab2e4f17e764ac1fcb" }
   ],
   "runtime": {
     "engine": "supabase-cli-local-postgres",
@@ -358,6 +359,28 @@
       "businessTestsPassed": 4,
       "firstFailedTest": "supabase/tests/hardware_inventory_behavior.sql",
       "classwideAffectedTests": 2,
+      "cleanupPassed": true,
+      "productionReadPerformed": false,
+      "productionWritePerformed": false,
+      "rerunOfFailedRun": false
+    },
+    {
+      "runId": "29684566675",
+      "jobId": "88186502776",
+      "headSha": "aa71c2d45093dce6bfd37442955d5d28a5bc13fa",
+      "conclusion": "failure",
+      "failedStep": "Run database permission and business gates",
+      "rootCauseCode": "view_interval_literal_deparsed_to_canonical_time",
+      "databaseStartupPassed": true,
+      "baselinePassed": true,
+      "migrationsPassed": 69,
+      "sqlTestsStarted": 26,
+      "sqlTestsPassed": 25,
+      "databaseTestsPassed": 7,
+      "permissionTestsPassed": 10,
+      "businessTestsPassed": 8,
+      "firstFailedTest": "supabase/tests/sales_automation.sql",
+      "priorHardwareTestsPassed": 2,
       "cleanupPassed": true,
       "productionReadPerformed": false,
       "productionWritePerformed": false,
