@@ -39,6 +39,8 @@ check('all sealed-recovery child tools run with Supabase telemetry disabled',
     .includes("SUPABASE_TELEMETRY_DISABLED: '1'") &&
   databaseAccess.slice(databaseAccess.indexOf('function run('), databaseAccess.indexOf('export function runExternal'))
     .includes("DO_NOT_TRACK: '1'"))
+check('sealed-recovery child tools allow bounded large encrypted SQL output',
+  databaseAccess.includes('maxBuffer: options.maxBuffer ?? 64 * 1024 * 1024'))
 check('Windows dump preflight forbids the NUL device', !preflight.includes('--file=NUL'))
 check('Windows dump preflight uses controlled non-empty D drive files',
   preflight.includes('D:\\\\CanWin-Team-OS-4.0-Recovery-Preflight') &&
@@ -70,6 +72,19 @@ check('backup strips only immutable Supabase platform-owned default privileges',
   backup.includes('FOR ROLE (?:postgres|supabase_admin)') &&
   backup.includes('ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA') &&
   backup.includes('schema dump retains an unchangeable Supabase platform default privilege'))
+check('backup appends exact routine definitions and application ACLs',
+  backup.includes('exactRoutineDefinitionsSql') &&
+  backup.includes('pg_get_functiondef(p.oid)') &&
+  backup.includes('DO $canwin_exact_routine$') &&
+  backup.includes('exactRelationAclSql') &&
+  backup.includes('exactRoutineAclSql') &&
+  backup.includes('exactPrivateSchemaAclSql') &&
+  backup.includes('-- CANWIN EXACT APPLICATION ACLS'))
+check('backup uses line-ending-safe COPY for public and migration data',
+  backup.includes("'--schema=public', '--data-only'") &&
+  backup.includes("'--schema=supabase_migrations', '--data-only'") &&
+  !backup.includes("'--rows-per-insert=100'") &&
+  backup.includes('data dumps are not using line-ending-safe COPY format'))
 check('backup verifies source database and Storage stability', backup.includes('sourceBefore.sha256 !== sourceAfter.sha256') && backup.includes('production Storage changed'))
 check('backup refreshes short-lived credentials before final freeze reconciliation',
   backup.indexOf('const sourceFinalDb = getTemporaryDbEnvironment') < backup.indexOf('const sourceAfter = getReconciliation') &&
@@ -97,6 +112,11 @@ check('runtime package gate decrypts every data dump and rejects protected trigg
   packageRuntime.includes('artifact: manifest.database?.dataDump') &&
   packageRuntime.includes('artifact: manifest.database?.migrationHistoryDataDump') &&
   packageRuntime.includes('all data dumps omit protected table trigger toggles'))
+check('runtime package gate validates COPY data and exact schema overlays',
+  packageRuntime.includes('dataDumpsUseCopyFormat') &&
+  packageRuntime.includes('exactRoutineAndAclOverlayIsComplete') &&
+  packageRuntime.includes('public and migration data dumps use line-ending-safe COPY format') &&
+  packageRuntime.includes('exact routine definition and application ACL overlay is complete'))
 check('runtime package gate decrypts and validates the application private schema',
   packageRuntime.includes("artifact: manifest.database?.schemaDump") &&
   packageRuntime.includes("artifact: manifest.database?.schemaInventory") &&
@@ -110,13 +130,17 @@ check('runtime package gate validates schema-qualified managed customization dep
   packageRuntime.includes('managedCustomizationDependenciesAreQualified') &&
   packageRuntime.includes('managed customization dependencies are schema-qualified'))
 check('restore rejects protected trigger toggles in every data dump before target access',
-  restore.includes("['public data', decrypted.get('database.dataDump')]") &&
-  restore.includes("['migration history data', decrypted.get('database.migrationHistoryDataDump')]") &&
+  restore.includes("['public data', publicDataDump]") &&
+  restore.includes("['migration history data', migrationDataDump]") &&
   restore.indexOf('dump contains forbidden table trigger toggles') <
     restore.indexOf('const targetDb = getTemporaryDbEnvironment'))
 check('restore rejects an incomplete application private schema before target access',
   restore.indexOf('sealed application schema is outside the function-only recovery contract') <
     restore.indexOf('const targetDb = getTemporaryDbEnvironment'))
+check('restore rejects non-COPY data or incomplete exact schema overlays before target access',
+  restore.includes('sealed data dumps are not using line-ending-safe COPY format') &&
+  restore.includes('sealed schema does not contain the exact routine and ACL overlay') &&
+  restore.indexOf('sealedExactRoutineCount') < restore.indexOf('const targetDb = getTemporaryDbEnvironment'))
 check('restore requires the isolated target application private schema to be absent',
   restore.includes("'applicationPrivateObjects'") &&
   restore.includes("nspname='sales_os_private'") &&
@@ -142,6 +166,7 @@ for (const token of [
   'publicTriggersMd5', 'managedCustomizationsMd5', 'defaultPrivilegesMd5',
   'salesOsPrivateSchemaAclMd5', 'salesOsPrivateDataRelations',
   'salesOsPrivateRoutines', 'salesOsPrivateRoutinesMd5',
+  'publicRoutines',
 ]) {
   check('reconciliation includes ' + token, reconciliation.includes("'" + token + "'"))
 }
@@ -154,6 +179,11 @@ check('local synthetic restore uses session-level trigger suppression without Au
 check('remote preflight rejects table trigger toggles from every real-file dump',
   !preflight.includes("'--disable-triggers'") &&
   preflight.includes('preflight dump contains forbidden table trigger toggles'))
+check('remote preflight and synthetic restore use line-ending-safe COPY data',
+  preflight.includes('preflight data dump is not using line-ending-safe COPY format') &&
+  !preflight.includes("'--rows-per-insert=100'") &&
+  runtimeTest.includes('synthetic data dumps do not use line-ending-safe COPY format') &&
+  !runtimeTest.includes("'--rows-per-insert=100'"))
 check('local synthetic restore models the application private trigger dependency',
   runtimeTest.includes('create schema sales_os_private') &&
   runtimeTest.includes("'--schema=sales_os_private'") &&

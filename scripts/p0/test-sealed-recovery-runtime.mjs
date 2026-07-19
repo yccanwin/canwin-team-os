@@ -136,11 +136,15 @@ try {
   if ((schema.match(/CREATE SCHEMA sales_os_private;/g) ?? []).length !== 1 || !schema.includes('FUNCTION sales_os_private.refresh_sample(')) throw new Error('synthetic application private schema is incomplete')
   schema = schema.replace('CREATE SCHEMA public;', 'CREATE SCHEMA IF NOT EXISTS public;').replace(/^ALTER SCHEMA (?:public|sales_os_private) OWNER TO .*;\r?\n/gm, '')
   writeFileSync(files.schema, schema)
-  runPgTool({ commandPath: paths.pgDump, pgEnvironment: sourceEnv, args: ['--schema=public', '--data-only', '--inserts', '--rows-per-insert=100', '--no-owner', '--no-privileges', '--role=postgres', '--file', files.data] })
-  runPgTool({ commandPath: paths.pgDump, pgEnvironment: sourceEnv, args: ['--schema=supabase_migrations', '--data-only', '--inserts', '--rows-per-insert=100', '--no-owner', '--no-privileges', '--role=postgres', '--file', files.migrations] })
+  runPgTool({ commandPath: paths.pgDump, pgEnvironment: sourceEnv, args: ['--schema=public', '--data-only', '--no-owner', '--no-privileges', '--role=postgres', '--file', files.data] })
+  runPgTool({ commandPath: paths.pgDump, pgEnvironment: sourceEnv, args: ['--schema=supabase_migrations', '--data-only', '--no-owner', '--no-privileges', '--role=postgres', '--file', files.migrations] })
   const forbiddenTableTriggerTogglePattern = /^ALTER TABLE(?: ONLY)? .+ (?:DISABLE|ENABLE) TRIGGER ALL;$/m
   if ([files.auth, files.data, files.migrations].some((path) => forbiddenTableTriggerTogglePattern.test(readFileSync(path, 'utf8')))) {
     throw new Error('synthetic data dump contains protected table trigger toggles')
+  }
+  if (!/^COPY public\./m.test(readFileSync(files.data, 'utf8')) ||
+      !/^COPY supabase_migrations\./m.test(readFileSync(files.migrations, 'utf8'))) {
+    throw new Error('synthetic data dumps do not use line-ending-safe COPY format')
   }
   writeFileSync(files.policies, getStoragePolicySql({ psqlPath: paths.psql, pgEnvironment: sourceEnv }), { flag: 'wx' })
   writeFileSync(files.pre, 'set role postgres;\nset session_replication_role = replica;\n', { flag: 'wx' })

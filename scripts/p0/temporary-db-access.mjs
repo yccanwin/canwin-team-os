@@ -19,6 +19,7 @@ function run(command, args, options = {}) {
     encoding: 'utf8',
     windowsHide: true,
     timeout: options.timeout ?? 60000,
+    maxBuffer: options.maxBuffer ?? 64 * 1024 * 1024,
     env: {
       ...childEnvironment,
       SUPABASE_TELEMETRY_DISABLED: '1',

@@ -179,7 +179,9 @@ for (const path of artifactPaths) {
 
 let packageKey = null
 let dataDumpsOmitProtectedTriggerToggles = false
+let dataDumpsUseCopyFormat = false
 let applicationSchemaIsComplete = false
+let exactRoutineAndAclOverlayIsComplete = false
 let applicationSchemaInventoryIsSafe = false
 let platformDefaultPrivilegeBaselineIsSafe = false
 let managedCustomizationDependenciesAreQualified = false
@@ -205,6 +207,10 @@ try {
   }).toString('utf8')
   dataDumpsOmitProtectedTriggerToggles = [authDump, publicDataDump, migrationDataDump]
     .every((sql) => !forbiddenTableTriggerTogglePattern.test(sql))
+  dataDumpsUseCopyFormat =
+    /^COPY public\./m.test(publicDataDump) &&
+    !/^INSERT INTO public\./m.test(publicDataDump) &&
+    /^COPY supabase_migrations\.schema_migrations/m.test(migrationDataDump)
   const applicationSchemaDump = readEncryptedArtifact({
     packageDirectory,
     artifact: manifest.database?.schemaDump,
@@ -224,6 +230,11 @@ try {
     Number(schemaInventory.salesOsPrivateDataRelations) === 0 &&
     Number(schemaInventory.salesOsPrivateRoutines) >= requiredApplicationPrivateRoutines.length &&
     Number(schemaInventory.salesOsPrivatePublicTriggerFunctions) === 3
+  exactRoutineAndAclOverlayIsComplete =
+    applicationSchemaDump.includes('-- CANWIN EXACT ROUTINE DEFINITIONS') &&
+    applicationSchemaDump.includes('-- CANWIN EXACT APPLICATION ACLS') &&
+    (applicationSchemaDump.match(/DO \$canwin_exact_routine\$/g) ?? []).length ===
+      Number(schemaInventory.publicRoutines) + Number(schemaInventory.salesOsPrivateRoutines)
   platformDefaultPrivilegeBaselineIsSafe =
     Number.isSafeInteger(Number(schemaInventory.supabaseAdminPublicDefaultPrivilegeRows)) &&
     Number(schemaInventory.supabaseAdminPublicDefaultPrivilegeRows) > 0 &&
@@ -241,7 +252,9 @@ try {
     managedCustomizationSql.includes('EXECUTE FUNCTION public.handle_new_user()')
 } catch {
   dataDumpsOmitProtectedTriggerToggles = false
+  dataDumpsUseCopyFormat = false
   applicationSchemaIsComplete = false
+  exactRoutineAndAclOverlayIsComplete = false
   applicationSchemaInventoryIsSafe = false
   platformDefaultPrivilegeBaselineIsSafe = false
   managedCustomizationDependenciesAreQualified = false
@@ -249,7 +262,9 @@ try {
   if (packageKey) packageKey.fill(0)
 }
 check('all data dumps omit protected table trigger toggles', dataDumpsOmitProtectedTriggerToggles)
+check('public and migration data dumps use line-ending-safe COPY format', dataDumpsUseCopyFormat)
 check('application private schema dump is complete and function-only', applicationSchemaIsComplete)
+check('exact routine definition and application ACL overlay is complete', exactRoutineAndAclOverlayIsComplete)
 check('application private schema inventory has no unsealed data relations', applicationSchemaInventoryIsSafe)
 check('Supabase platform default privileges are baseline-only and sealed by fingerprint', platformDefaultPrivilegeBaselineIsSafe)
 check('managed customization dependencies are schema-qualified', managedCustomizationDependenciesAreQualified)

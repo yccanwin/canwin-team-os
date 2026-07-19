@@ -257,6 +257,10 @@ function writePreflightDump(commandPath, args, outputPath) {
   if (forbiddenTableTriggerTogglePattern.test(readFileSync(outputPath, 'utf8'))) {
     throw new Error('preflight dump contains forbidden table trigger toggles')
   }
+  if (['public-data.sql', 'migration-data.sql'].includes(basename(outputPath)) &&
+      !/^COPY (?:public|supabase_migrations)\./m.test(readFileSync(outputPath, 'utf8'))) {
+    throw new Error('preflight data dump is not using line-ending-safe COPY format')
+  }
 }
 
 mkdirSync(preflightDumpRoot, { recursive: true })
@@ -271,7 +275,7 @@ try {
   )
   writePreflightDump(
     pgDumpPath,
-    ['--schema=public', '--data-only', '--inserts', '--rows-per-insert=100', '--no-owner', '--no-privileges', '--encoding=UTF8', '--role=postgres'],
+    ['--schema=public', '--data-only', '--no-owner', '--no-privileges', '--encoding=UTF8', '--role=postgres'],
     join(preflightDumpDirectory, 'public-data.sql'),
   )
   writePreflightDump(
@@ -297,7 +301,7 @@ if (!isControlledDumpDirectory(migrationDumpDirectory)) fail('migration dump dir
 try {
   writePreflightDump(
     pgDumpPath,
-    ['--schema=supabase_migrations', '--data-only', '--inserts', '--rows-per-insert=100', '--no-owner', '--no-privileges', '--encoding=UTF8', '--role=postgres'],
+    ['--schema=supabase_migrations', '--data-only', '--no-owner', '--no-privileges', '--encoding=UTF8', '--role=postgres'],
     join(migrationDumpDirectory, 'migration-data.sql'),
   )
 } catch (error) {

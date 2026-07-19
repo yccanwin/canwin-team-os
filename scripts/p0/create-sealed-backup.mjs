@@ -186,8 +186,79 @@ try {
   schemaDumpText = schemaDumpText.replace('CREATE SCHEMA public;', 'CREATE SCHEMA IF NOT EXISTS public;')
   schemaDumpText = schemaDumpText.replace(/^ALTER SCHEMA (?:public|sales_os_private) OWNER TO .*;\r?\n/gm, '')
 
+  const exactRoutineDefinitionsSql = runPsql({
+    psqlPath,
+    pgEnvironment: sourceDb,
+    timeout: 180000,
+    sql: `select coalesce(string_agg(
+      format('DO $canwin_exact_routine$ BEGIN EXECUTE convert_from(decode(%L,''hex''),''UTF8''); END $canwin_exact_routine$;',encode(convert_to(pg_get_functiondef(p.oid),'UTF8'),'hex')),
+      E'\n' order by n.nspname,p.proname,pg_get_function_identity_arguments(p.oid)
+    ),'') from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid=p.pronamespace where n.nspname in('public','sales_os_private');`,
+  })
+  const exactRelationAclSql = runPsql({
+    psqlPath,
+    pgEnvironment: sourceDb,
+    sql: `with targets as (
+      select n.nspname,c.relname,case when c.relkind='S' then 'SEQUENCE' else 'TABLE' end object_kind,
+        coalesce(c.relacl,acldefault(case when c.relkind='S' then 'S'::"char" else 'r'::"char" end,c.relowner)) acl
+      from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid=c.relnamespace
+      where n.nspname='public' and c.relkind in('r','p','v','m','S')
+    ), lines as (
+      select nspname,relname,object_kind,0 sort_order,'' grantee,
+        format('REVOKE ALL PRIVILEGES ON %s %I.%I FROM PUBLIC, anon, authenticated, service_role, postgres;',object_kind,nspname,relname) sql
+      from targets
+      union all
+      select t.nspname,t.relname,t.object_kind,1,case when a.grantee=0 then 'PUBLIC' else quote_ident(g.rolname) end,
+        format('GRANT %s ON %s %I.%I TO %s%s;',string_agg(a.privilege_type,', ' order by a.privilege_type),t.object_kind,t.nspname,t.relname,
+          case when a.grantee=0 then 'PUBLIC' else quote_ident(g.rolname) end,case when a.is_grantable then ' WITH GRANT OPTION' else '' end) sql
+      from targets t cross join lateral aclexplode(t.acl) a left join pg_catalog.pg_roles g on g.oid=a.grantee
+      group by t.nspname,t.relname,t.object_kind,a.grantee,g.rolname,a.is_grantable
+    ) select coalesce(string_agg(sql,E'\n' order by nspname,relname,object_kind,sort_order,grantee),'') from lines;`,
+  })
+  const exactRoutineAclSql = runPsql({
+    psqlPath,
+    pgEnvironment: sourceDb,
+    sql: `with targets as (
+      select n.nspname,p.proname,pg_get_function_identity_arguments(p.oid) identity_args,
+        case when p.prokind='p' then 'PROCEDURE' else 'FUNCTION' end object_kind,
+        coalesce(p.proacl,acldefault('f',p.proowner)) acl
+      from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid=p.pronamespace
+      where n.nspname in('public','sales_os_private')
+    ), lines as (
+      select nspname,proname,identity_args,object_kind,0 sort_order,'' grantee,
+        format('REVOKE ALL PRIVILEGES ON %s %I.%I(%s) FROM PUBLIC, anon, authenticated, service_role, postgres;',object_kind,nspname,proname,identity_args) sql
+      from targets
+      union all
+      select t.nspname,t.proname,t.identity_args,t.object_kind,1,case when a.grantee=0 then 'PUBLIC' else quote_ident(g.rolname) end,
+        format('GRANT %s ON %s %I.%I(%s) TO %s%s;',string_agg(a.privilege_type,', ' order by a.privilege_type),t.object_kind,t.nspname,t.proname,t.identity_args,
+          case when a.grantee=0 then 'PUBLIC' else quote_ident(g.rolname) end,case when a.is_grantable then ' WITH GRANT OPTION' else '' end) sql
+      from targets t cross join lateral aclexplode(t.acl) a left join pg_catalog.pg_roles g on g.oid=a.grantee
+      group by t.nspname,t.proname,t.identity_args,t.object_kind,a.grantee,g.rolname,a.is_grantable
+    ) select coalesce(string_agg(sql,E'\n' order by nspname,proname,identity_args,object_kind,sort_order,grantee),'') from lines;`,
+  })
+  const exactPrivateSchemaAclSql = runPsql({
+    psqlPath,
+    pgEnvironment: sourceDb,
+    sql: `with target as (
+      select n.nspname,coalesce(n.nspacl,acldefault('n',n.nspowner)) acl from pg_catalog.pg_namespace n where n.nspname='sales_os_private'
+    ), lines as (
+      select 0 sort_order,'' grantee,format('REVOKE ALL PRIVILEGES ON SCHEMA %I FROM PUBLIC, anon, authenticated, service_role, postgres;',nspname) sql from target
+      union all
+      select 1,case when a.grantee=0 then 'PUBLIC' else quote_ident(g.rolname) end,
+        format('GRANT %s ON SCHEMA %I TO %s%s;',string_agg(a.privilege_type,', ' order by a.privilege_type),t.nspname,
+          case when a.grantee=0 then 'PUBLIC' else quote_ident(g.rolname) end,case when a.is_grantable then ' WITH GRANT OPTION' else '' end) sql
+      from target t cross join lateral aclexplode(t.acl) a left join pg_catalog.pg_roles g on g.oid=a.grantee
+      group by t.nspname,a.grantee,g.rolname,a.is_grantable
+    ) select coalesce(string_agg(sql,E'\n' order by sort_order,grantee),'') from lines;`,
+  })
+  const exactRoutineCount = (exactRoutineDefinitionsSql.match(/DO \$canwin_exact_routine\$/g) ?? []).length
+  if (exactRoutineCount !== Number(sourceBefore.value.schemaSecurity.publicRoutines) + Number(sourceBefore.value.schemaSecurity.salesOsPrivateRoutines)) {
+    throw new Error('exact routine definition inventory does not match reconciliation')
+  }
+  schemaDumpText += `\n-- CANWIN EXACT ROUTINE DEFINITIONS\n${exactRoutineDefinitionsSql}\n-- CANWIN EXACT APPLICATION ACLS\n${exactRelationAclSql}\n${exactRoutineAclSql}\n${exactPrivateSchemaAclSql}\n`
+
   const dataDumpText = pgText(pgDumpPath, [
-    '--schema=public', '--data-only', '--inserts', '--rows-per-insert=100',
+    '--schema=public', '--data-only',
     '--no-owner', '--no-privileges', '--encoding=UTF8', '--role=postgres',
   ])
   let migrationSchemaDumpText = pgText(pgDumpPath, [
@@ -199,7 +270,7 @@ try {
     .replace('CREATE SCHEMA supabase_migrations;', 'CREATE SCHEMA IF NOT EXISTS supabase_migrations;')
     .replace(/^ALTER SCHEMA supabase_migrations OWNER TO .*;\r?\n/gm, '')
   const migrationDataDumpText = pgText(pgDumpPath, [
-    '--schema=supabase_migrations', '--data-only', '--inserts', '--rows-per-insert=100',
+    '--schema=supabase_migrations', '--data-only',
     '--no-owner', '--no-privileges', '--encoding=UTF8', '--role=postgres',
   ])
   const identitiesDumpText = pgText(pgDumpPath, [
@@ -214,6 +285,10 @@ try {
     if (forbiddenTableTriggerTogglePattern.test(sql)) {
       throw new Error(label + ' dump contains forbidden table trigger toggles')
     }
+  }
+  if (!/^COPY public\./m.test(dataDumpText) || /^INSERT INTO public\./m.test(dataDumpText) ||
+      !/^COPY supabase_migrations\.schema_migrations/m.test(migrationDataDumpText)) {
+    throw new Error('data dumps are not using line-ending-safe COPY format')
   }
   const authStorageSchemaDiffText = getManagedSchemaCustomizationSql({
     psqlPath,

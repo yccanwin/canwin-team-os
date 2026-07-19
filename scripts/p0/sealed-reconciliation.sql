@@ -88,17 +88,36 @@ select jsonb_build_object(
       where n.nspname='public'
     ),
     'publicTableAclMd5', (
-      select md5(coalesce(string_agg(c.relname||'|'||coalesce(c.relacl::text,''),E'\n' order by c.relname),''))
+      select md5(coalesce(string_agg(
+        c.relname||'|'||case when a.grantee=0 then 'PUBLIC' else g.rolname end||'|'||a.privilege_type||'|'||a.is_grantable::text,
+        E'\n' order by c.relname,case when a.grantee=0 then 'PUBLIC' else g.rolname end,a.privilege_type,a.is_grantable
+      ),''))
       from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid=c.relnamespace
+      cross join lateral aclexplode(coalesce(c.relacl,acldefault(case when c.relkind='S' then 'S'::"char" else 'r'::"char" end,c.relowner))) a
+      left join pg_catalog.pg_roles g on g.oid=a.grantee
       where n.nspname='public' and c.relkind in('r','p','v','m','S')
     ),
+    'publicRoutines', (
+      select count(*) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid=p.pronamespace where n.nspname='public'
+    ),
     'publicRoutinesMd5', (
-      select md5(coalesce(string_agg(pg_get_functiondef(p.oid)||'|ACL='||coalesce(p.proacl::text,''),E'\n' order by p.oid::regprocedure::text),''))
+      select md5(coalesce(string_agg(pg_get_functiondef(p.oid)||'|ACL='||(
+        select coalesce(string_agg(
+          case when a.grantee=0 then 'PUBLIC' else g.rolname end||'|'||a.privilege_type||'|'||a.is_grantable::text,
+          ',' order by case when a.grantee=0 then 'PUBLIC' else g.rolname end,a.privilege_type,a.is_grantable
+        ),'') from aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a left join pg_catalog.pg_roles g on g.oid=a.grantee
+      ),E'\n' order by p.oid::regprocedure::text),''))
       from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid=p.pronamespace where n.nspname='public'
     ),
     'salesOsPrivateSchemaAclMd5', (
-      select md5(coalesce(string_agg(n.nspname||'|'||coalesce(n.nspacl::text,''),E'\n' order by n.nspname),''))
-      from pg_catalog.pg_namespace n where n.nspname='sales_os_private'
+      select md5(coalesce(string_agg(
+        n.nspname||'|'||case when a.grantee=0 then 'PUBLIC' else g.rolname end||'|'||a.privilege_type||'|'||a.is_grantable::text,
+        E'\n' order by n.nspname,case when a.grantee=0 then 'PUBLIC' else g.rolname end,a.privilege_type,a.is_grantable
+      ),''))
+      from pg_catalog.pg_namespace n
+      cross join lateral aclexplode(coalesce(n.nspacl,acldefault('n',n.nspowner))) a
+      left join pg_catalog.pg_roles g on g.oid=a.grantee
+      where n.nspname='sales_os_private'
     ),
     'salesOsPrivateDataRelations', (
       select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid=c.relnamespace
@@ -109,7 +128,12 @@ select jsonb_build_object(
       where n.nspname='sales_os_private'
     ),
     'salesOsPrivateRoutinesMd5', (
-      select md5(coalesce(string_agg(pg_get_functiondef(p.oid)||'|ACL='||coalesce(p.proacl::text,''),E'\n' order by p.oid::regprocedure::text),''))
+      select md5(coalesce(string_agg(pg_get_functiondef(p.oid)||'|ACL='||(
+        select coalesce(string_agg(
+          case when a.grantee=0 then 'PUBLIC' else g.rolname end||'|'||a.privilege_type||'|'||a.is_grantable::text,
+          ',' order by case when a.grantee=0 then 'PUBLIC' else g.rolname end,a.privilege_type,a.is_grantable
+        ),'') from aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a left join pg_catalog.pg_roles g on g.oid=a.grantee
+      ),E'\n' order by p.oid::regprocedure::text),''))
       from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid=p.pronamespace where n.nspname='sales_os_private'
     ),
     'publicPoliciesMd5', (

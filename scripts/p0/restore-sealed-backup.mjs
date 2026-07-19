@@ -92,14 +92,20 @@ for (const [label, artifact] of artifactEntries) {
   decrypted.set(label, readEncryptedArtifact({ packageDirectory, artifact, key }))
 }
 const authIdentitiesDump = decrypted.get('auth.identitiesDump')
+const publicDataDump = decrypted.get('database.dataDump').toString('utf8')
+const migrationDataDump = decrypted.get('database.migrationHistoryDataDump').toString('utf8')
 for (const [label, sql] of [
-  ['public data', decrypted.get('database.dataDump')],
-  ['migration history data', decrypted.get('database.migrationHistoryDataDump')],
+  ['public data', publicDataDump],
+  ['migration history data', migrationDataDump],
   ['Auth data', authIdentitiesDump],
 ]) {
   if (forbiddenTableTriggerTogglePattern.test(sql.toString('utf8'))) {
     throw new Error('sealed ' + label + ' dump contains forbidden table trigger toggles')
   }
+}
+if (!/^COPY public\./m.test(publicDataDump) || /^INSERT INTO public\./m.test(publicDataDump) ||
+    !/^COPY supabase_migrations\.schema_migrations/m.test(migrationDataDump)) {
+  throw new Error('sealed data dumps are not using line-ending-safe COPY format')
 }
 const applicationSchemaDump = decrypted.get('database.schemaDump').toString('utf8')
 if ((applicationSchemaDump.match(/CREATE SCHEMA sales_os_private;/g) ?? []).length !== 1 ||
@@ -115,6 +121,12 @@ if (!Number.isSafeInteger(Number(sealedSchemaInventory.supabaseAdminPublicDefaul
     Number(sealedSchemaInventory.supabaseAdminPublicDefaultPrivilegeRows) <= 0 ||
     !/^[a-f0-9]{32}$/.test(sealedSchemaInventory.supabaseAdminPublicDefaultPrivilegesMd5 ?? '')) {
   throw new Error('sealed Supabase platform default-privilege baseline is invalid')
+}
+const sealedExactRoutineCount = (applicationSchemaDump.match(/DO \$canwin_exact_routine\$/g) ?? []).length
+if (!applicationSchemaDump.includes('-- CANWIN EXACT ROUTINE DEFINITIONS') ||
+    !applicationSchemaDump.includes('-- CANWIN EXACT APPLICATION ACLS') ||
+    sealedExactRoutineCount !== Number(sealedSchemaInventory.publicRoutines) + Number(sealedSchemaInventory.salesOsPrivateRoutines)) {
+  throw new Error('sealed schema does not contain the exact routine and ACL overlay')
 }
 const managedCustomizationSql = decrypted.get('database.authStorageSchemaDiff').toString('utf8')
 if (!managedCustomizationSql.includes('FROM public.profiles') || managedCustomizationSql.includes('FROM profiles') ||
