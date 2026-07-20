@@ -351,18 +351,17 @@
     "expectedChangedFunctions": [
       "public.enqueue_wecom_notification_jobs(text, timestamp with time zone)",
       "public.claim_wecom_notification_jobs(integer, timestamp with time zone)",
-      "public.complete_wecom_notification_job(uuid, boolean, text, text, timestamp with time zone)",
-      "public.manage_profile_access(uuid, text[], uuid[])"
+      "public.complete_wecom_notification_job(uuid, boolean, text, text, timestamp with time zone)"
     ],
-    "expectedChangedFunctionCount": 4,
+    "expectedChangedFunctionCount": 3,
     "changedTests": [
       { "path": "supabase/tests/notification_core.sql", "sha256Lf": "a3d87069899b986b191bc21826f5e23c65fe4734066e52adc4e14753c9e6e5a3" },
       { "path": "supabase/tests/team_os_4_p1_access_shell.sql", "sha256Lf": "c598b4e4ed3c7e26d9411cb4084685bea1233f47ae969c2685e048f480dac09e" }
     ],
     "currentRuntimeArtifacts": {
-      "contract": { "path": "scripts/p1/isolated-runtime-contract.json", "sha256Lf": "e48ddfe92bdb7db9b63937aa34a3933056c0ba83b59fbaf15bfd5f7722e7a9c9" },
-      "runner": { "path": "scripts/p1/run-isolated-runtime.mjs", "sha256Lf": "a4e1325f6593c7c6a2ce15ec15477cf53b8a681a3c218ae757699ff1ed3829c0" },
-      "validator": { "path": "scripts/p1/verify-isolated-runtime-runner.mjs", "sha256Lf": "99c2fb29440eb9757924f4e840d96652bc6876908e2cab1e1ad6ea93834796dd", "assertions": "71/71" }
+      "contract": { "path": "scripts/p1/isolated-runtime-contract.json", "sha256Lf": "63345abebc8128f17cc79ff1e35ed32bd9087f941a520839c3ea34dc146dba91" },
+      "runner": { "path": "scripts/p1/run-isolated-runtime.mjs", "sha256Lf": "c4758bf3ac6c49858059406df5fc8509e7adfbbac465cce499354f0a9e718670" },
+      "validator": { "path": "scripts/p1/verify-isolated-runtime-runner.mjs", "sha256Lf": "e9c94f654d8391e7b2ff9376d51bde139e6a4c5417f01593d8c7cc078407f4cb", "assertions": "74/74" }
     },
     "fullReconciliation": {
       "expected": { "migrationRows": 71 },

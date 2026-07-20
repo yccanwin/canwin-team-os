@@ -44,6 +44,9 @@ const SOURCE_FAILURE_RUN_ID = 'p1-resume-20260719T193911279Z-ea6ed9385d'
 const SOURCE_FAILURE_HEAD = 'ea6ed9385de7c3ceff5cba6c6f8539f883bbea1d'
 const SOURCE_PREFLIGHT_SHA256 = 'e0ea653d3a411cc9baafbd4b98e7d6d458b99316e8da93a1db1600a21e2dc36a'
 const SOURCE_FAILURE_SHA256 = '576a11005285cd708adca5b3486e0b929ace8d97fc3cc3284d657b57519b91ad'
+const APPLIED_FAILURE_RUN_ID = 'p1-acl-repair-20260720T151012163Z-d1f4c5e7c4'
+const APPLIED_FAILURE_SHA256 = '1d49c8e20cc05ea345cfd5204497d4f044f671f1916706381bb6bcea792a3881'
+const APPLIED_PREFLIGHT_SHA256 = 'e7e17ce50461da38e64a7f442019835770c64522223e0965e034a7532001f335'
 const PRIVATE_MEMBER_ACCESS_IDENTITY = 'private.admin_apply_member_access_v1(uuid, text, text[], uuid[], uuid[], text[], uuid)'
 const RETIRED_ACL_REPAIR_CI_RUN_IDS = new Set(['29726897764', '29733854344', '29738966326'])
 const RETIRED_ACL_REPAIR_CI_JOB_IDS = new Set([
@@ -57,7 +60,7 @@ const RETIRED_ACL_REPAIR_EVIDENCE_HEADS = new Set([
   '8fa14988502511d9722bd37add5b51d845f7934f',
 ])
 const mode = process.argv[2]
-const allowedModes = new Set(['--self-test', '--apply-acl-repair'])
+const allowedModes = new Set(['--self-test'])
 const fullReconciliationKeys = [
   'schemaVersion', 'publicTables', 'publicTableContentMd5', 'auth', 'storageMetadata',
   'migrationHistory', 'schemaSecurity', 'keyAmounts', 'rawLedgers', 'inventory',
@@ -111,6 +114,16 @@ function validateRepairRemoteGate(candidateMode, repair, ci) {
     ci?.databaseCiPassed === true && ci?.remoteQualificationAllowed === true &&
     ci?.currentQualificationAllowed === true && ci?.successEvidencePresent === true &&
     ci?.newIndependentCi === true
+}
+
+function validateAppliedReadOnlyResumeGate(candidateMode, resume) {
+  return candidateMode === '--resume-acl-repair-verification' && resume?.mode === '--resume-acl-repair-verification' &&
+    resume?.remoteExecutionAllowed === true && resume?.dbPushAllowed === false &&
+    resume?.persistentDatabaseWritesAllowed === false && resume?.requiredMigrationRows === 71 &&
+    resume?.sqlTestCount === 27 && resume?.fullReconciliationSnapshots === 29 &&
+    resume?.storageArchives === 2 && resume?.sourceFailureRunId === APPLIED_FAILURE_RUN_ID &&
+    resume?.sourceFailureSha256 === APPLIED_FAILURE_SHA256 &&
+    resume?.sourcePreflightSha256 === APPLIED_PREFLIGHT_SHA256
 }
 
 function findRepairSignedCiRun(
@@ -507,6 +520,55 @@ function loadRepairFailureEvidence() {
   return { preflight, failure }
 }
 
+function loadAppliedAclAssertionFailureEvidence() {
+  const expected = contract.appliedAclAssertionFailureEvidence
+  const preflight = parseSignedEvidence(expected.preflightPath, expected.preflightSha256, 'applied ACL failure preflight')
+  const failure = parseSignedEvidence(expected.failurePath, expected.failureSha256, 'applied ACL failure')
+  const evidenceFiles = readdirSync(expected.evidenceDirectory).filter((name) => !name.startsWith('.')).sort()
+  if (expected.runId !== APPLIED_FAILURE_RUN_ID || expected.failureSha256 !== APPLIED_FAILURE_SHA256 ||
+      expected.preflightSha256 !== APPLIED_PREFLIGHT_SHA256 ||
+      JSON.stringify(evidenceFiles) !== JSON.stringify(['failure.json', 'preflight.json']) ||
+      preflight.runId !== APPLIED_FAILURE_RUN_ID || failure.runId !== APPLIED_FAILURE_RUN_ID ||
+      preflight.targetProjectRef !== TARGET_REF || failure.targetProjectRef !== TARGET_REF ||
+      failure.status !== 'failed-stop-preserved' || failure.currentStep !== 'post-apply-fresh-credential' ||
+      failure.message !== 'ACL repair routine difference set is not the exact signed four-function change inventory' ||
+      failure.migrationVersion !== REPAIR_VERSION || failure.migrationAlreadyApplied !== false ||
+      failure.dbPushAttempted !== true || failure.dbPushPerformed !== true ||
+      failure.dbPushOutcome !== 'confirmed-applied' || failure.dbPushAttempts !== 1 ||
+      failure.confirmedPersistentWrites !== 1 || failure.persistentRemoteWrites !== 1 ||
+      failure.persistentRemoteWriteUpperBound !== 1 || failure.formalAttemptStarted !== true ||
+      failure.attempts !== 1 ||
+      failure.verificationStarted !== false || failure.testsPassed?.length !== 0 ||
+      failure.fullReconciliationSnapshotsPassed !== 1 || failure.storageArchivesPassed !== 1 ||
+      failure.privateRoutineDefinitionSnapshotsPassed !== 1 || failure.targetPreserved !== true ||
+      failure.retryPerformed !== false || failure.remoteCleanupPerformed !== false ||
+      failure.productionReads !== 0 || failure.productionWrites !== 0 ||
+      failure.secretsPrinted !== 0 || failure.secretsWritten !== 0) {
+    throw new Error('applied ACL assertion failure evidence boundary drift')
+  }
+  return { preflight, failure }
+}
+
+function assertExact71ReadOnlyBaseline(sourceEvidence, current) {
+  const proof = proveMigrationSets(signedLocalMigrations(), current.migrationHistory, [])
+  const initial = sourceEvidence.failure.initialLightSnapshot
+  if (!current.reachable || proof.localCount !== 71 || proof.remoteCount !== 71 || proof.commonCount !== 71 ||
+      current.migrationVersions.length !== 71 || !current.migrationVersions.includes(REPAIR_VERSION) ||
+      !current.p1MigrationApplied || !current.p1ColumnPresent || Number(current.p1PublicFunctions) !== 6 ||
+      Number(current.authUsers) !== Number(initial.authUsers) ||
+      Number(current.authIdentities) !== Number(initial.authIdentities) ||
+      Number(current.bannedAuthUsers) !== Number(initial.bannedAuthUsers) ||
+      Number(current.storageBuckets) !== Number(initial.storageBuckets) ||
+      Number(current.storageObjects) !== Number(initial.storageObjects) ||
+      Number(current.p1AuthFixtureUsers) !== 0 || Number(current.p1ProfileFixtureRows) !== 0 ||
+      Number(current.p1RegionFixtureRows) !== 0 || Number(current.p1RequestFixtureRows) !== 0 ||
+      Number(current.idleInTransactionSessions) !== 0 || Number(current.teamsMissingP1Flag) !== 0 ||
+      canonicalSha256(current.publicRowCounts) !== initial.publicRowCountsSha256) {
+    throw new Error('read-only continuation target is not the exact preserved 71-migration baseline')
+  }
+  return proof
+}
+
 function assertExact70RepairBaseline(sourceEvidence, current) {
   const proof = proveMigrationSets(signedLocalMigrations(), current.migrationHistory, [REPAIR_VERSION])
   if (!current.reachable || proof.localCount !== contract.aclRepair.postMigrationRows ||
@@ -673,7 +735,7 @@ function assertSignedStorageSummary(baseline, summary) {
 }
 
 function assertFrozenContract() {
-  if (!validateMode(mode)) throw new Error('usage: --self-test or --apply-acl-repair')
+  if (!validateMode(mode)) throw new Error('usage: --self-test (remote apply/resume modes are prequalification-locked)')
   if (contract.target?.projectRef !== TARGET_REF || contract.forbiddenProductionProjectRef !== PRODUCTION_REF ||
       contract.candidate?.migrationVersion !== P1_VERSION || contract.aclRepair?.migrationVersion !== REPAIR_VERSION) {
     throw new Error('P1 isolated runtime contract ref/version drift')
@@ -804,8 +866,22 @@ function assertFrozenContract() {
     ci?.priorQualifiedRunId === '29738966326' &&
     ci?.closedByFormalAclRepairFailureRunId === 'p1-acl-repair-20260720T122757275Z-8fa1498850' &&
     ci?.g1OverallClaim === false
+  const resumePrequalificationPending =
+    contract.contractStatus === 'p1_acl_repair_resume_prequalification_pending' &&
+    repair.remoteExecutionAllowed === false && repair.dbPushAllowed === false &&
+    repair.maxDbPushAttempts === 0 && repair.dryRunRequired === false &&
+    JSON.stringify(repair.pendingMigrationVersions) === JSON.stringify([]) &&
+    contract.aclRepairReadOnlyResume?.mode === '--resume-acl-repair-verification' &&
+    contract.aclRepairReadOnlyResume?.remoteExecutionAllowed === false &&
+    contract.aclRepairReadOnlyResume?.dbPushAllowed === false &&
+    contract.aclRepairReadOnlyResume?.maxDbPushAttempts === 0 &&
+    contract.aclRepairReadOnlyResume?.persistentDatabaseWritesAllowed === false &&
+    contract.aclRepairReadOnlyResumeCiRunEvidence?.status === 'pending-new-signed-run' &&
+    contract.aclRepairReadOnlyResumeCiRunEvidence?.currentQualificationAllowed === false &&
+    contract.aclRepairReadOnlyResumeCiRunEvidence?.successEvidencePresent === false
   const qualificationStateCount = [
     repairCiQualified, repairCiPending, repairFormalFailureClosed, repairDirectDbFailureClosed,
+    resumePrequalificationPending,
   ]
     .filter(Boolean).length
   if (contract.candidate.remoteExecutionAllowed !== false || contract.postApplyResume?.remoteExecutionAllowed !== false ||
@@ -817,9 +893,9 @@ function assertFrozenContract() {
     ['public.enqueue_wecom_notification_jobs(text, timestamp with time zone)', ['service_role']],
     ['public.claim_wecom_notification_jobs(integer, timestamp with time zone)', ['service_role']],
     ['public.complete_wecom_notification_job(uuid, boolean, text, text, timestamp with time zone)', ['service_role']],
-    ['public.manage_profile_access(uuid, text[], uuid[])', []],
-    ['public.admin_replace_profile_roles(uuid, text[], uuid)', []],
-    ['public.admin_replace_supervisor_subordinates(uuid, uuid[], uuid)', []],
+    ['public.manage_profile_access(uuid, text[], uuid[])', ['service_role']],
+    ['public.admin_replace_profile_roles(uuid, text[], uuid)', ['service_role']],
+    ['public.admin_replace_supervisor_subordinates(uuid, uuid[], uuid)', ['service_role']],
   ].map(([identity, requiredGrantRoles]) => ({
     identity, revokeRoles: ['PUBLIC', 'anon', 'authenticated'], requiredGrantRoles,
   }))
@@ -843,11 +919,11 @@ function assertFrozenContract() {
       }) ||
       repair.preMigrationRows !== 70 || repair.postMigrationRows !== 71 ||
       repair.expectedMigrationCount !== 71 || repair.sqlTestCount !== 27 ||
-      repair.maxFormalAttempts !== 1 || repair.maxDbPushAttempts !== 1 || repair.dryRunRequired !== true ||
-      JSON.stringify(repair.pendingMigrationVersions) !== JSON.stringify([REPAIR_VERSION]) ||
+      repair.maxFormalAttempts !== 1 || repair.maxDbPushAttempts !== 0 || repair.dryRunRequired !== false ||
+      JSON.stringify(repair.pendingMigrationVersions) !== JSON.stringify([]) ||
       JSON.stringify(repair.targetFunctions) !== JSON.stringify(expectedFunctions) ||
       JSON.stringify(repair.expectedChangedFunctions) !==
-        JSON.stringify(expectedFunctions.slice(0, 4).map((entry) => entry.identity)) ||
+        JSON.stringify(expectedFunctions.slice(0, 3).map((entry) => entry.identity)) ||
       JSON.stringify(repair.allowedFullReconciliationDifferences) !==
         JSON.stringify(['migrationHistory.schemaMigrations', 'schemaSecurity.publicRoutinesMd5']) ||
       repair.unknownDifferencesAllowed !== false ||
@@ -858,7 +934,7 @@ function assertFrozenContract() {
         ? 'static-passed-prior-database-ci-failed-preserved-new-candidate-pending'
         : 'passed') ||
       atomicCompatibility?.staticPassed !== true ||
-      atomicCompatibility?.databaseCiPassed !== (repairCiQualified ? true : null) ||
+      atomicCompatibility?.databaseCiPassed !== (repairCiQualified || resumePrequalificationPending ? true : null) ||
       atomicCompatibility?.remoteQualificationAllowed !== repairCiQualified ||
       atomicCompatibility?.writeFunction !== PRIVATE_MEMBER_ACCESS_IDENTITY ||
       JSON.stringify(atomicCompatibility?.mappingPrecedence) !== JSON.stringify(expectedAtomicMapping) ||
@@ -1433,24 +1509,26 @@ function runSelfTest() {
   const allIdentities = [...targetIdentities, 'public.synthetic_unchanged()'].sort()
   const beforeRoutineAcls = Object.fromEntries(allIdentities.map((identity) => [
     identity,
-    identity === 'public.synthetic_unchanged()' || !expectedChangedIdentitySet.has(identity)
+    identity === 'public.synthetic_unchanged()'
       ? [aclEntry('postgres')]
-      : [aclEntry('anon'), aclEntry('authenticated'), aclEntry('service_role')],
+      : expectedChangedIdentitySet.has(identity)
+        ? [aclEntry('authenticated'), aclEntry('postgres'), aclEntry('service_role')]
+        : [aclEntry('postgres'), aclEntry('service_role')],
   ]))
   const afterRoutineAcls = Object.fromEntries(allIdentities.map((identity) => [
     identity,
-    identity === 'public.synthetic_unchanged()' || !expectedChangedIdentitySet.has(identity)
+    identity === 'public.synthetic_unchanged()'
       ? [aclEntry('postgres')]
-      : [aclEntry('service_role')],
+      : [aclEntry('postgres'), aclEntry('service_role')],
   ]))
   const beforeEffective = Object.fromEntries(allIdentities.map((identity) => [identity, {
     PUBLIC: false,
-    anon: expectedChangedIdentitySet.has(identity),
+    anon: false,
     authenticated: expectedChangedIdentitySet.has(identity),
-    service_role: expectedChangedIdentitySet.has(identity),
+    service_role: identity !== 'public.synthetic_unchanged()',
   }]))
   const afterEffective = Object.fromEntries(allIdentities.map((identity) => [identity, {
-    PUBLIC: false, anon: false, authenticated: false, service_role: expectedChangedIdentitySet.has(identity),
+    PUBLIC: false, anon: false, authenticated: false, service_role: identity !== 'public.synthetic_unchanged()',
   }]))
   const beforeAcl = { allRoutineAcls: beforeRoutineAcls, allRoutineEffectiveExecute: beforeEffective }
   const afterAcl = { allRoutineAcls: afterRoutineAcls, allRoutineEffectiveExecute: afterEffective }
@@ -1475,6 +1553,57 @@ function runSelfTest() {
       ...afterAcl,
       allRoutineAcls: { ...afterRoutineAcls, [targetIdentities[1]]: beforeRoutineAcls[targetIdentities[1]] },
       allRoutineEffectiveExecute: { ...afterEffective, [targetIdentities[1]]: beforeEffective[targetIdentities[1]] },
+    }),
+    () => assertRoutineAclRepairTransition(beforeAcl, {
+      ...afterAcl,
+      allRoutineAcls: {
+        ...afterRoutineAcls,
+        [targetIdentities[2]]: [...afterRoutineAcls[targetIdentities[2]], aclEntry('auditor')],
+      },
+    }),
+    () => assertRoutineAclRepairTransition(beforeAcl, {
+      ...afterAcl,
+      allRoutineAcls: {
+        ...afterRoutineAcls,
+        [targetIdentities[2]]: [
+          { ...aclEntry('postgres'), grantable: true },
+          aclEntry('service_role'),
+        ],
+      },
+    }),
+    () => assertRoutineAclRepairTransition(beforeAcl, {
+      ...afterAcl,
+      allRoutineAcls: Object.fromEntries(
+        Object.entries(afterRoutineAcls).filter(([identity]) => identity !== targetIdentities[5]),
+      ),
+      allRoutineEffectiveExecute: Object.fromEntries(
+        Object.entries(afterEffective).filter(([identity]) => identity !== targetIdentities[5]),
+      ),
+    }),
+    () => assertRoutineAclRepairTransition(beforeAcl, {
+      ...afterAcl,
+      allRoutineAcls: {
+        ...afterRoutineAcls,
+        'public.synthetic_unchanged()': [aclEntry('postgres'), aclEntry('auditor')],
+      },
+    }),
+    () => assertRoutineAclRepairTransition(beforeAcl, {
+      ...afterAcl,
+      allRoutineEffectiveExecute: {
+        ...afterEffective,
+        'public.synthetic_unchanged()': { ...afterEffective['public.synthetic_unchanged()'], anon: true },
+      },
+    }),
+    () => assertRoutineAclRepairTransition(beforeAcl, {
+      ...afterAcl,
+      allRoutineAcls: {
+        ...afterRoutineAcls,
+        [targetIdentities[0]]: [...afterRoutineAcls[targetIdentities[0]], aclEntry('authenticated')],
+      },
+    }),
+    () => assertRoutineAclRepairTransition(beforeAcl, {
+      ...afterAcl,
+      allRoutineAcls: { ...afterRoutineAcls, [targetIdentities[4]]: [aclEntry('postgres')] },
     }),
   ]
   let aclNegativePassed = 0
@@ -1540,6 +1669,8 @@ function runSelfTest() {
     ...contract.aclRepair,
     remoteExecutionAllowed: true,
     dbPushAllowed: true,
+    maxDbPushAttempts: 1,
+    dryRunRequired: true,
     applicationCompatibility: { status: 'passed', remoteQualificationAllowed: true },
     atomicLegacyRoleCompatibility: {
       status: 'passed', staticPassed: true, databaseCiPassed: true, remoteQualificationAllowed: true,
@@ -1786,11 +1917,12 @@ function runSelfTest() {
       !cleanCommittedBoundary.committedAfterSignedHead || !cleanCommittedBoundary.trackedWorktreeClean ||
       worktreeBoundaryNegativePassed !== 2 ||
       repairGateNegativePassed !== repairGateNegativeCases.length || closedRepairGateNegativePassed !== 3 ||
-      !currentQualifiedRepairGateAccepted || !independentCiHistoryPositive ||
+      currentQualifiedRepairGateAccepted || !independentCiHistoryPositive ||
       independentCiHistoryNegativePassed !== independentCiHistoryNegativeCases.length ||
       relabeledRevivalNegativePassed !== relabeledRevivalNegativeCases.length ||
       relabeledHistoryRevivalNegativePassed !== 2 || !syntheticFailureStopped ||
-      followingSyntheticTestRan || !validateMode('--self-test') || !validateMode('--apply-acl-repair') ||
+      followingSyntheticTestRan || !validateMode('--self-test') || validateMode('--apply-acl-repair') ||
+      validateMode('--resume-acl-repair-verification') ||
       JSON.stringify(authFixtureEmailPatterns) !== JSON.stringify(['p1-%@example.invalid', 'access-%@example.invalid']) ||
       JSON.stringify(profileFixtureIdPatterns) !== JSON.stringify([
         'd4000000-0000-4000-8000-00000000000%', 'd5100000-0000-4000-8000-00000000000%',
@@ -1807,7 +1939,7 @@ function runSelfTest() {
       followingSyntheticTestRan,
     }))
   }
-  console.log('P1_ISOLATED_RUNTIME_SELFTEST_OK targetPositive=1 targetNegative=3/3 migration70to71Positive=1 migrationNegative=6/6 stagedInventoryPositive=71/71 stagedInventoryNegative=3/3 dryRunPositive=2/2 dryRunNegative=4/4 dryRunFailureEvidencePreserved=1 dryRunRawOutputAbsent=1 poolerPushPositive=2/2 poolerPushNegative=7/7 poolerPushPasswordEnvOnly=1 poolerPushSecretsCleared=2/2 poolerDirectDenied=1 credentialPositive=1 credentialNegative=3/3 exact70Accepted=1 exact71Accepted=1 repairBaselineDriftDenied=3/3 fullAclTransitionAccepted=1 reconciliationDriftDenied=7/7 routineAclTargets=6/6 routineAclExactChanged=4/4 routineAclNegative=3/3 privateDefinitionChanged=1/1 privateDefinitionNegative=3/3 atomicMapping=5/5 atomicRollback=2/2 sameTeamStatic=4/4 evidenceNegative=7/7 worktreeBoundaryPositive=1 worktreeBoundaryNegative=2/2 oldApplyModesDenied=3/3 futureQualifiedRepairGatePositive=1 currentQualifiedRepairGateAccepted=1 repairGateNegative=7/7 closedRepairGateNegative=3/3 priorRepairCiRevivalDenied=2/2 relabeledRevivalDenied=5/5 independentCiHistoryPositive=1 independentCiHistoryNegative=5/5 relabeledHistoryRevivalDenied=2/2 atomicGateNegative=2/2 failedPushUnknownStatePreserved=1 fixturePatterns=4/4 firstSqlFailureStops=1 candidateRemoteExecutionAllowed=0 oldResumeRemoteExecutionAllowed=0 repairRemote=1 currentCi=29750768517 databaseCalls=0 storageCalls=0 dEvidenceRequired=0')
+  console.log('P1_ISOLATED_RUNTIME_SELFTEST_OK targetPositive=1 targetNegative=3/3 migration70to71Positive=1 migrationNegative=6/6 stagedInventoryPositive=71/71 stagedInventoryNegative=3/3 dryRunPositive=2/2 dryRunNegative=4/4 dryRunFailureEvidencePreserved=1 dryRunRawOutputAbsent=1 poolerPushPositive=2/2 poolerPushNegative=7/7 poolerPushPasswordEnvOnly=1 poolerPushSecretsCleared=2/2 poolerDirectDenied=1 credentialPositive=1 credentialNegative=3/3 exact70Accepted=1 exact71Accepted=1 repairBaselineDriftDenied=3/3 fullAclTransitionAccepted=1 reconciliationDriftDenied=7/7 routineAclTargets=6/6 routineAclExactChanged=3/3 routineAclExactTerminal=6/6 routineAclNegative=10/10 privateDefinitionChanged=1/1 privateDefinitionNegative=3/3 atomicMapping=5/5 atomicRollback=2/2 sameTeamStatic=4/4 evidenceNegative=7/7 worktreeBoundaryPositive=1 worktreeBoundaryNegative=2/2 oldApplyModesDenied=3/3 futureQualifiedRepairGatePositive=1 currentQualifiedRepairGateAccepted=0 repairGateNegative=7/7 closedRepairGateNegative=3/3 priorRepairCiRevivalDenied=2/2 relabeledRevivalDenied=5/5 independentCiHistoryPositive=1 independentCiHistoryNegative=5/5 relabeledHistoryRevivalDenied=2/2 atomicGateNegative=2/2 failedPushUnknownStatePreserved=1 fixturePatterns=4/4 firstSqlFailureStops=1 applyReachable=0 resumeReachable=0 candidateRemoteExecutionAllowed=0 oldResumeRemoteExecutionAllowed=0 repairRemote=0 currentCi=29750768517 databaseCalls=0 storageCalls=0 dEvidenceRequired=0')
 }
 
 function verifyTemporaryLink(workdir) {
@@ -2239,13 +2371,11 @@ select jsonb_build_object(
   return JSON.parse(value)
 }
 
-function assertRoutineAclRepairTransition(before, after) {
+function routineAclDifference(before, after) {
   assertExactKeys(before, ['allRoutineAcls', 'allRoutineEffectiveExecute'], 'pre-repair routine ACL snapshot')
   assertExactKeys(after, ['allRoutineAcls', 'allRoutineEffectiveExecute'], 'post-repair routine ACL snapshot')
   const beforeIdentities = Object.keys(before.allRoutineAcls).sort()
   const afterIdentities = Object.keys(after.allRoutineAcls).sort()
-  const targetIdentities = contract.aclRepair.targetFunctions.map((entry) => entry.identity).sort()
-  const expectedChangedIdentities = [...contract.aclRepair.expectedChangedFunctions].sort()
   if (JSON.stringify(beforeIdentities) !== JSON.stringify(afterIdentities)) {
     throw new Error('ACL repair changed the public routine identity inventory')
   }
@@ -2256,14 +2386,24 @@ function assertRoutineAclRepairTransition(before, after) {
     canonicalSha256(before.allRoutineEffectiveExecute[identity]) !==
       canonicalSha256(after.allRoutineEffectiveExecute[identity])
   )).sort()
-  if (JSON.stringify(changedDirect) !== JSON.stringify(expectedChangedIdentities) ||
-      JSON.stringify(changedEffective) !== JSON.stringify(expectedChangedIdentities)) {
-    throw new Error('ACL repair routine difference set is not the exact signed four-function change inventory')
-  }
+  return { beforeIdentities, changedDirect, changedEffective }
+}
+
+function assertRoutineAclFinalState(after) {
+  const targetIdentities = contract.aclRepair.targetFunctions.map((entry) => entry.identity).sort()
+  const expectedDirect = [
+    { grantee: 'postgres', privilege: 'EXECUTE', grantable: false },
+    { grantee: 'service_role', privilege: 'EXECUTE', grantable: false },
+  ]
+  const expectedEffective = { PUBLIC: false, anon: false, authenticated: false, service_role: true }
   for (const expected of contract.aclRepair.targetFunctions) {
     const direct = after.allRoutineAcls[expected.identity]
     const effective = after.allRoutineEffectiveExecute[expected.identity]
     if (!Array.isArray(direct) || !effective) throw new Error(`ACL repair target routine is missing: ${expected.identity}`)
+    if (canonicalSha256(direct) !== canonicalSha256(expectedDirect) ||
+        canonicalSha256(effective) !== canonicalSha256(expectedEffective)) {
+      throw new Error(`ACL repair target routine final ACL is not exact: ${expected.identity}`)
+    }
     for (const role of expected.revokeRoles) {
       if (effective[role] !== false || direct.some((entry) => entry.grantee === role && entry.privilege === 'EXECUTE')) {
         throw new Error(`ACL repair left ${expected.identity} executable by ${role}`)
@@ -2275,6 +2415,18 @@ function assertRoutineAclRepairTransition(before, after) {
       }
     }
   }
+  return { targetFunctionsValidated: targetIdentities.length }
+}
+
+function assertRoutineAclRepairTransition(before, after, observed = routineAclDifference(before, after)) {
+  const targetIdentities = contract.aclRepair.targetFunctions.map((entry) => entry.identity).sort()
+  const expectedChangedIdentities = [...contract.aclRepair.expectedChangedFunctions].sort()
+  const { beforeIdentities, changedDirect, changedEffective } = observed
+  if (JSON.stringify(changedDirect) !== JSON.stringify(expectedChangedIdentities) ||
+      JSON.stringify(changedEffective) !== JSON.stringify(expectedChangedIdentities)) {
+    throw new Error('ACL repair routine difference set is not the exact signed three-function change inventory')
+  }
+  assertRoutineAclFinalState(after)
   return {
     routineInventorySha256: canonicalSha256(beforeIdentities),
     beforeRoutineAclsSha256: canonicalSha256(before.allRoutineAcls),
@@ -2503,7 +2655,12 @@ async function executeAclRepair(channel, sourceEvidence, before70, baseline, pro
     const afterApply71 = snapshot(channel.dbEnvironment)
     const proof71 = assertExact71RepairBaseline(before70, afterApply71)
     const afterRoutineAcl = routineAclSnapshot(channel.dbEnvironment)
-    const aclTransition = assertRoutineAclRepairTransition(beforeRoutineAcl, afterRoutineAcl)
+    const observedAclDifference = routineAclDifference(beforeRoutineAcl, afterRoutineAcl)
+    attempt.routineAclObservedDifference = {
+      changedDirect: observedAclDifference.changedDirect,
+      changedEffective: observedAclDifference.changedEffective,
+    }
+    const aclTransition = assertRoutineAclRepairTransition(beforeRoutineAcl, afterRoutineAcl, observedAclDifference)
     const afterPrivateRoutineDefinition = privateRoutineDefinitionSnapshot(channel.dbEnvironment)
     const privateDefinitionTransition = assertPrivateRoutineDefinitionTransition(
       beforePrivateRoutineDefinition,
@@ -2644,25 +2801,7 @@ async function executeAclRepair(channel, sourceEvidence, before70, baseline, pro
 
 async function main() {
   if (mode === '--self-test') return runSelfTest()
-  const qualificationState = assertFrozenContract()
-  if (qualificationState !== 'qualified' ||
-      !validateRepairRemoteGate(mode, contract.aclRepair, contract.repairCiRunEvidence)) {
-    throw new Error('P1_REMOTE_EXECUTION_REFUSED: ACL repair candidate is not dual-platform-CI qualified')
-  }
-  assertRepairSignedCiQualification()
-  const baseline = loadSignedReconciliationBaseline()
-  const sourceEvidence = loadRepairFailureEvidence()
-  runLocalVerifiers()
-  const channel = prepareTemporaryChannel()
-  try {
-    const before70 = snapshot(channel.dbEnvironment)
-    const proof70 = assertExact70RepairBaseline(sourceEvidence, before70)
-    await executeAclRepair(channel, sourceEvidence, before70, baseline, proof70)
-  } finally {
-    clearDbEnvironment(channel.dbEnvironment)
-    channel.dbEnvironment = null
-    rmSync(channel.workdir, { recursive: true, force: true })
-  }
+  throw new Error('P1_REMOTE_EXECUTION_REFUSED: apply and resume are locked pending fresh signed CI')
 }
 
 main().catch((error) => {

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "manifestType": "canwin-team-os-4-p1-isolated-runtime",
-  "contractStatus": "p1_acl_repair_session_pooler_remote_qualified_after_preserved_direct_db_failure",
+  "contractStatus": "p1_acl_repair_resume_prequalification_pending",
   "target": {
     "projectRef": "zdmuaqokndhhbarudhtw",
     "projectName": "canwinos-team-os-4-p0-test-4",
@@ -48,8 +48,8 @@
   },
   "aclRepair": {
     "mode": "--apply-acl-repair",
-    "remoteExecutionAllowed": true,
-    "dbPushAllowed": true,
+    "remoteExecutionAllowed": false,
+    "dbPushAllowed": false,
     "migrationVersion": "20260720015435",
     "migrationPath": "supabase/migrations/20260720015435_harden_server_only_rpc_acl.sql",
     "migrationSha256Lf": "1bb13f29fc0f5512bd00115dc1c953a2c3aaa0ec21522b1cc8cbb45a18a5cdc0",
@@ -66,9 +66,9 @@
     "expectedMigrationCount": 71,
     "sqlTestCount": 27,
     "maxFormalAttempts": 1,
-    "maxDbPushAttempts": 1,
-    "dryRunRequired": true,
-    "pendingMigrationVersions": ["20260720015435"],
+    "maxDbPushAttempts": 0,
+    "dryRunRequired": false,
+    "pendingMigrationVersions": [],
     "currentCiQualification": "qualified-session-pooler-run-29750768517",
     "priorSuccessfulCiEvidenceRef": "priorSuccessfulRepairCiRunEvidence",
     "priorParserFixCiEvidenceRef": "priorParserFixRepairCiRunEvidence",
@@ -98,24 +98,23 @@
       {
         "identity": "public.manage_profile_access(uuid, text[], uuid[])",
         "revokeRoles": ["PUBLIC", "anon", "authenticated"],
-        "requiredGrantRoles": []
+        "requiredGrantRoles": ["service_role"]
       },
       {
         "identity": "public.admin_replace_profile_roles(uuid, text[], uuid)",
         "revokeRoles": ["PUBLIC", "anon", "authenticated"],
-        "requiredGrantRoles": []
+        "requiredGrantRoles": ["service_role"]
       },
       {
         "identity": "public.admin_replace_supervisor_subordinates(uuid, uuid[], uuid)",
         "revokeRoles": ["PUBLIC", "anon", "authenticated"],
-        "requiredGrantRoles": []
+        "requiredGrantRoles": ["service_role"]
       }
     ],
     "expectedChangedFunctions": [
       "public.enqueue_wecom_notification_jobs(text, timestamp with time zone)",
       "public.claim_wecom_notification_jobs(integer, timestamp with time zone)",
-      "public.complete_wecom_notification_job(uuid, boolean, text, text, timestamp with time zone)",
-      "public.manage_profile_access(uuid, text[], uuid[])"
+      "public.complete_wecom_notification_job(uuid, boolean, text, text, timestamp with time zone)"
     ],
     "allowedFullReconciliationDifferences": [
       "migrationHistory.schemaMigrations",
@@ -135,7 +134,7 @@
       "status": "passed",
       "staticPassed": true,
       "databaseCiPassed": true,
-      "remoteQualificationAllowed": true,
+      "remoteQualificationAllowed": false,
       "writeFunction": "private.admin_apply_member_access_v1(uuid, text, text[], uuid[], uuid[], text[], uuid)",
       "mappingPrecedence": [
         { "condition": "primary-admin", "legacyRole": "admin" },
@@ -161,7 +160,7 @@
     },
     "applicationCompatibility": {
       "status": "passed",
-      "remoteQualificationAllowed": true,
+      "remoteQualificationAllowed": false,
       "legacyRpcCallSites": [],
       "resolvedEvidence": {
         "files": [
@@ -187,6 +186,56 @@
       },
       "requiredOutcome": "all-old-role-and-supervisor-writers-replaced-and-accepted"
     }
+  },
+  "aclRepairReadOnlyResume": {
+    "mode": "--resume-acl-repair-verification",
+    "remoteExecutionAllowed": false,
+    "dbPushAllowed": false,
+    "maxDbPushAttempts": 0,
+    "maxFormalAttempts": 1,
+    "pendingMigrationVersions": [],
+    "persistentDatabaseWritesAllowed": false,
+    "expectedPersistentRemoteWrites": 0,
+    "requiredMigrationRows": 71,
+    "sqlTestCount": 27,
+    "fullReconciliationSnapshots": 29,
+    "storageArchives": 2,
+    "sourceFailureRunId": "p1-acl-repair-20260720T151012163Z-d1f4c5e7c4",
+    "sourceFailureSha256": "1d49c8e20cc05ea345cfd5204497d4f044f671f1916706381bb6bcea792a3881",
+    "sourcePreflightSha256": "e7e17ce50461da38e64a7f442019835770c64522223e0965e034a7532001f335",
+    "signedMigrationChainExpectedChangedDirect": [
+      "public.enqueue_wecom_notification_jobs(text, timestamp with time zone)",
+      "public.claim_wecom_notification_jobs(integer, timestamp with time zone)",
+      "public.complete_wecom_notification_job(uuid, boolean, text, text, timestamp with time zone)"
+    ],
+    "signedMigrationChainExpectedChangedEffective": [
+      "public.enqueue_wecom_notification_jobs(text, timestamp with time zone)",
+      "public.claim_wecom_notification_jobs(integer, timestamp with time zone)",
+      "public.complete_wecom_notification_job(uuid, boolean, text, text, timestamp with time zone)"
+    ]
+  },
+  "aclRepairReadOnlyResumeCiRunEvidence": {
+    "status": "pending-new-signed-run",
+    "conclusion": null,
+    "runId": null,
+    "runUrl": null,
+    "headSha": null,
+    "linuxJobId": null,
+    "windowsJobId": null,
+    "qualificationScope": "acl_repair_read_only_resume_prequalification",
+    "databaseCiPassed": null,
+    "remoteQualificationAllowed": false,
+    "currentQualificationAllowed": false,
+    "successEvidencePresent": false,
+    "newIndependentCiRequired": true
+  },
+  "appliedAclAssertionFailureEvidence": {
+    "runId": "p1-acl-repair-20260720T151012163Z-d1f4c5e7c4",
+    "evidenceDirectory": "D:/CanWin-Team-OS-4.0-P1-Validation/p1-acl-repair-20260720T151012163Z-d1f4c5e7c4",
+    "preflightPath": "D:/CanWin-Team-OS-4.0-P1-Validation/p1-acl-repair-20260720T151012163Z-d1f4c5e7c4/preflight.json",
+    "preflightSha256": "e7e17ce50461da38e64a7f442019835770c64522223e0965e034a7532001f335",
+    "failurePath": "D:/CanWin-Team-OS-4.0-P1-Validation/p1-acl-repair-20260720T151012163Z-d1f4c5e7c4/failure.json",
+    "failureSha256": "1d49c8e20cc05ea345cfd5204497d4f044f671f1916706381bb6bcea792a3881"
   },
   "formalResumeFailureEvidence": {
     "runId": "p1-resume-20260719T193911279Z-ea6ed9385d",
@@ -596,9 +645,9 @@
   },
   "scriptHardLocks": {
     "runnerPath": "scripts/p1/run-isolated-runtime.mjs",
-    "runnerSha256Lf": "a4e1325f6593c7c6a2ce15ec15477cf53b8a681a3c218ae757699ff1ed3829c0",
+    "runnerSha256Lf": "c4758bf3ac6c49858059406df5fc8509e7adfbbac465cce499354f0a9e718670",
     "validatorPath": "scripts/p1/verify-isolated-runtime-runner.mjs",
-    "validatorSha256Lf": "99c2fb29440eb9757924f4e840d96652bc6876908e2cab1e1ad6ea93834796dd",
+    "validatorSha256Lf": "e9c94f654d8391e7b2ff9376d51bde139e6a4c5417f01593d8c7cc078407f4cb",
     "postgresRegressionPath": "scripts/p1/verify-pending-trigger-postgres.mjs",
     "postgresRegressionSha256Lf": "f4f54d77436b1b91035cd8fff7572dd52f4375aa75f52325a664426d0b9cf3ea"
   },
