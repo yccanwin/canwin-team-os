@@ -69,10 +69,10 @@ check(contract.referenceSync.remoteExecutionRequires === 'acl-repair-only-dual-p
   'remote qualification boundary is not ACL-repair-only')
 
 const repair = contract.aclRepair
-check(contract.contractStatus === 'p1_acl_repair_formal_dry_run_failed_qualification_closed' &&
-  repair.mode === '--apply-acl-repair' && repair.remoteExecutionAllowed === false &&
-  repair.dbPushAllowed === false && repair.migrationVersion === REPAIR_VERSION,
-  'closed ACL repair remote boundary drift')
+check(contract.contractStatus === 'p1_acl_repair_parser_fix_remote_qualified_after_preserved_formal_dry_run_failure' &&
+  repair.mode === '--apply-acl-repair' && repair.remoteExecutionAllowed === true &&
+  repair.dbPushAllowed === true && repair.migrationVersion === REPAIR_VERSION,
+  'qualified ACL repair remote boundary drift')
 check(repair.migrationPath === 'supabase/migrations/20260720015435_harden_server_only_rpc_acl.sql' &&
   repair.migrationSha256Lf === REPAIR_SHA && sha256Lf(resolve(repoRoot, repair.migrationPath)) === REPAIR_SHA,
   'signed ACL repair migration path/hash drift')
@@ -107,8 +107,8 @@ check(JSON.stringify(privateDefinition?.expectedChangedFunctions) === JSON.strin
   'private member-access routine definition transition contract drift')
 const atomicCompatibility = repair.atomicLegacyRoleCompatibility
 check(atomicCompatibility?.status === 'passed' &&
-  atomicCompatibility?.staticPassed === true && atomicCompatibility?.databaseCiPassed === null &&
-  atomicCompatibility?.remoteQualificationAllowed === false &&
+  atomicCompatibility?.staticPassed === true && atomicCompatibility?.databaseCiPassed === true &&
+  atomicCompatibility?.remoteQualificationAllowed === true &&
   atomicCompatibility?.writeFunction === PRIVATE_MEMBER_ACCESS_IDENTITY &&
   JSON.stringify(atomicCompatibility?.mappingPrecedence) === JSON.stringify(expectedAtomicMapping) &&
   atomicCompatibility?.successfulMappingCases === 5 && atomicCompatibility?.rollbackControls === 2 &&
@@ -126,7 +126,7 @@ check(atomicCompatibility?.sqlTestPath === repair.testPaths.teamOs4P1 &&
   sha256Lf(resolve(repoRoot, atomicCompatibility.staticTestPath)) === atomicCompatibility.staticTestSha256Lf,
   'atomic compatibility source evidence hash drift')
 check(repair.applicationCompatibility?.status === 'passed' &&
-  repair.applicationCompatibility?.remoteQualificationAllowed === false &&
+  repair.applicationCompatibility?.remoteQualificationAllowed === true &&
   repair.applicationCompatibility?.legacyRpcCallSites?.length === 0 &&
   repair.applicationCompatibility?.resolvedEvidence?.staticCallSitesRemaining === 0 &&
   repair.applicationCompatibility?.resolvedEvidence?.appShellAssertionsPassed === 99 &&
@@ -183,12 +183,27 @@ check(priorRepairCi.runId === '29726897764' &&
   priorSuccessfulRepairCi.evidenceScope === 'historical-prior-success-only' &&
   priorSuccessfulRepairCi.currentQualificationAllowed === false,
   'repair CI failure preservation or historical success evidence drift')
-check(repairCi.status === 'pending-new-signed-run' && repairCi.runId === null && repairCi.runUrl === null &&
-  repairCi.headSha === null && repairCi.linuxJobId === null && repairCi.windowsJobId === null &&
-  repairCi.conclusion === null && repairCi.databaseCiPassed === null &&
-  repairCi.remoteQualificationAllowed === false && repairCi.successEvidencePresent === false &&
-  repairCi.closedByFormalAclRepairFailureRunId === 'p1-acl-repair-20260720T104323349Z-4fa8de78a8',
-  'current repair CI qualification is not closed pending a new signed run')
+check(repairCi.runId === '29738966326' &&
+  repairCi.runUrl === 'https://github.com/yccanwin/canwin-team-os/actions/runs/29738966326' &&
+  repairCi.headSha === '070c2e4ca185037d37f65b4d98be617a43e4409d' &&
+  repairCi.linuxJobId === '88340968144' && repairCi.windowsJobId === '88340968119' &&
+  repairCi.status === 'success' && repairCi.conclusion === 'success' &&
+  repairCi.linuxStatus === 'success' && repairCi.windowsStatus === 'success' &&
+  repairCi.qualificationScope === 'acl_repair_parser_fix_prequalification' &&
+  repairCi.migrationsPassed === 71 && repairCi.sqlTestsStarted === 27 && repairCi.sqlTestsPassed === 27 &&
+  repairCi.databaseTestsPassed === 7 && repairCi.permissionTestsPassed === 11 &&
+  repairCi.businessTestsPassed === 9 && repairCi.catalogAssertionsPassed === 4 &&
+  repairCi.windowsStaticExpected === 19 && repairCi.windowsStaticPassed === 19 &&
+  repairCi.windowsLocalExpected === 12 && repairCi.windowsLocalPassed === 12 &&
+  repairCi.linuxDatabaseAccepted === true && repairCi.cleanupPassed === true &&
+  repairCi.productionReadPerformed === false && repairCi.productionWritePerformed === false &&
+  repairCi.retryPerformed === false && repairCi.candidateRemoteExecutionAllowed === false &&
+  repairCi.g1OverallClaim === false && repairCi.databaseCiPassed === true &&
+  repairCi.priorSuccessfulRunPreservedWithoutRerun === '29733854344' &&
+  repairCi.formalAclRepairFailurePreservedWithoutRerun === 'p1-acl-repair-20260720T104323349Z-4fa8de78a8' &&
+  repairCi.remoteQualificationAllowed === true && repairCi.currentQualificationAllowed === true &&
+  repairCi.successEvidencePresent === true,
+  'current repair CI qualification evidence drift')
 check(formalAclRepairFailure.runId === 'p1-acl-repair-20260720T104323349Z-4fa8de78a8' &&
   formalAclRepairFailure.failureSha256 === '16373794dd745ad86422bb59f3966933532cb0bf073251963b519c2b8e367e73' &&
   formalAclRepairFailure.supervisionHeadSha === '4fa8de78a8b05f8285f69fb0d6d9106e20e3cba7' &&
@@ -207,10 +222,15 @@ check(formalAclRepairFailure.runId === 'p1-acl-repair-20260720T104323349Z-4fa8de
   'formal ACL dry-run failure evidence drift')
 check(source.includes('const repairFormalFailureClosed =') &&
   source.includes("contract.contractStatus === 'p1_acl_repair_formal_dry_run_failed_qualification_closed'") &&
+  source.includes("contract.contractStatus === 'p1_acl_repair_parser_fix_remote_qualified_after_preserved_formal_dry_run_failure'") &&
   source.includes('const qualificationStateCount = [repairCiQualified, repairCiPending, repairFormalFailureClosed]') &&
   source.includes('qualificationStateCount !== 1') &&
   source.includes("ci?.evidenceScope !== 'historical-prior-success-only'") &&
   source.includes('ci?.currentQualificationAllowed !== false') &&
+  source.includes("ci?.runId === '29738966326'") &&
+  source.includes("ci?.headSha === '070c2e4ca185037d37f65b4d98be617a43e4409d'") &&
+  source.includes("ci?.linuxJobId === '88340968144'") && source.includes("ci?.windowsJobId === '88340968119'") &&
+  source.includes('currentQualifiedRepairGatePositive=1') &&
   source.includes('formalFailureClosedGateNegative=2/2') &&
   source.includes('priorSuccessfulRepairCiRevivalDenied=1'),
   'runner does not preserve the mutually exclusive closed qualification state or deny historical CI revival')
@@ -455,4 +475,4 @@ if (failures.length > 0) {
   for (const failure of failures) console.error('- ' + failure)
   process.exit(1)
 }
-console.log(`P1_ISOLATED_RUNTIME_RUNNER_OK assertions=${assertionCount} exact70to71=1 signedMigrationInventory=71/71 dryRunOnly71=1 dryRunEvidenceSafe=1 dbPushMax=1 failedPushUnknownState=1 aclTargets=6/6 expectedAclChanges=4/4 privateDefinitionChange=1/1 privateDefinitionSnapshots=3/3 atomicMapping=5/5 atomicRollback=2/2 sameTeamStatic=4/4 atomicGateNegative=2/2 repairGateNegative=5/5 atomicDatabaseCiPassed=0 priorRepairCiFailurePreserved=1 priorSuccessfulRepairCiHistorical=1 formalAclRepairFailurePreserved=1 formalAclRepairAttempts=0 formalAclRepairDbPushAttempts=0 formalAclRepairWrites=0 currentCi=pending fullDifferencePaths=2/2 sqlTests=27 perTestSnapshots=27 fullSnapshots=29 storageArchives=2 signedFailureCounts=5/5/6/1 oldResumeDenied=1 applicationCompatibilityPassed=1 legacyRpcCalls=0 detectorNegative=2/2 appShell=99/99 staticGate16=runner+appShell+accessV1 warehouseBackendRelaxed=0 repairRemote=0 productionDenied=1 validatorDatabaseCalls=0 validatorStorageCalls=0 validatorDEvidenceRequired=0`)
+console.log(`P1_ISOLATED_RUNTIME_RUNNER_OK assertions=${assertionCount} exact70to71=1 signedMigrationInventory=71/71 dryRunOnly71=1 dryRunEvidenceSafe=1 dbPushMax=1 failedPushUnknownState=1 aclTargets=6/6 expectedAclChanges=4/4 privateDefinitionChange=1/1 privateDefinitionSnapshots=3/3 atomicMapping=5/5 atomicRollback=2/2 sameTeamStatic=4/4 atomicGateNegative=2/2 repairGateNegative=5/5 formalFailureClosedGateNegative=2/2 priorSuccessfulRepairCiRevivalDenied=1 atomicDatabaseCiPassed=1 priorRepairCiFailurePreserved=1 priorSuccessfulRepairCiHistorical=1 formalAclRepairFailurePreserved=1 formalAclRepairAttempts=0 formalAclRepairDbPushAttempts=0 formalAclRepairWrites=0 currentCi=29738966326 fullDifferencePaths=2/2 sqlTests=27 perTestSnapshots=27 fullSnapshots=29 storageArchives=2 signedFailureCounts=5/5/6/1 oldResumeDenied=1 applicationCompatibilityPassed=1 legacyRpcCalls=0 detectorNegative=2/2 appShell=99/99 staticGate16=runner+appShell+accessV1 warehouseBackendRelaxed=0 repairRemote=1 productionDenied=1 validatorDatabaseCalls=0 validatorStorageCalls=0 validatorDEvidenceRequired=0`)
