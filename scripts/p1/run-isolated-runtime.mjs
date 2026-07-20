@@ -45,6 +45,17 @@ const SOURCE_FAILURE_HEAD = 'ea6ed9385de7c3ceff5cba6c6f8539f883bbea1d'
 const SOURCE_PREFLIGHT_SHA256 = 'e0ea653d3a411cc9baafbd4b98e7d6d458b99316e8da93a1db1600a21e2dc36a'
 const SOURCE_FAILURE_SHA256 = '576a11005285cd708adca5b3486e0b929ace8d97fc3cc3284d657b57519b91ad'
 const PRIVATE_MEMBER_ACCESS_IDENTITY = 'private.admin_apply_member_access_v1(uuid, text, text[], uuid[], uuid[], text[], uuid)'
+const RETIRED_ACL_REPAIR_CI_RUN_IDS = new Set(['29726897764', '29733854344', '29738966326'])
+const RETIRED_ACL_REPAIR_CI_JOB_IDS = new Set([
+  '88301987239', '88301987280', '88324427055', '88324427244', '88340968144', '88340968119',
+])
+const RETIRED_ACL_REPAIR_EVIDENCE_HEADS = new Set([
+  'e774ead5a2857afb511400a12897e629033cf941',
+  '71b7320b4c303af797ee9e4bf12044518a4fe18a',
+  '070c2e4ca185037d37f65b4d98be617a43e4409d',
+  '4fa8de78a8b05f8285f69fb0d6d9106e20e3cba7',
+  '8fa14988502511d9722bd37add5b51d845f7934f',
+])
 const mode = process.argv[2]
 const allowedModes = new Set(['--self-test', '--apply-acl-repair'])
 const fullReconciliationKeys = [
@@ -67,6 +78,15 @@ function validateMode(candidateMode) {
   return allowedModes.has(candidateMode)
 }
 
+function isRetiredAclRepairEvidence(candidate) {
+  const candidateJobIds = [candidate?.jobId, candidate?.linuxJobId, candidate?.windowsJobId]
+    .filter((value) => value !== undefined && value !== null)
+    .map(String)
+  return RETIRED_ACL_REPAIR_CI_RUN_IDS.has(String(candidate?.runId ?? '')) ||
+    candidateJobIds.some((jobId) => RETIRED_ACL_REPAIR_CI_JOB_IDS.has(jobId)) ||
+    RETIRED_ACL_REPAIR_EVIDENCE_HEADS.has(candidate?.headSha ?? '')
+}
+
 function validateRepairRemoteGate(candidateMode, repair, ci) {
   return candidateMode === '--apply-acl-repair' && repair?.mode === '--apply-acl-repair' &&
     repair?.remoteExecutionAllowed === true && repair?.dbPushAllowed === true &&
@@ -79,16 +99,34 @@ function validateRepairRemoteGate(candidateMode, repair, ci) {
     repair?.atomicLegacyRoleCompatibility?.remoteQualificationAllowed === true &&
     ci?.qualificationScope === 'acl_repair_session_pooler_prequalification' &&
     ci?.requiredConnectionMode === 'session-pooler' &&
-    ci?.evidenceScope !== 'historical-prior-success-only' && ci?.currentQualificationAllowed !== false &&
-    /^[a-f0-9]{40}$/.test(ci?.headSha ?? '') && ci?.status === 'success'
+    ci?.evidenceScope === 'current-independent-session-pooler-ci' &&
+    ci?.priorSuccessfulRunPreservedWithoutRerun === '29733854344' &&
+    ci?.priorParserFixRunPreservedWithoutRerun === '29738966326' &&
+    ci?.formalAclRepairFailurePreservedWithoutRerun ===
+      'p1-acl-repair-20260720T122757275Z-8fa1498850' &&
+    /^[0-9]+$/.test(ci?.runId ?? '') && /^[0-9]+$/.test(ci?.linuxJobId ?? '') &&
+    /^[0-9]+$/.test(ci?.windowsJobId ?? '') && /^[a-f0-9]{40}$/.test(ci?.headSha ?? '') &&
+    ci?.runUrl === `https://github.com/yccanwin/canwin-team-os/actions/runs/${ci.runId}` &&
+    !isRetiredAclRepairEvidence(ci) && ci?.status === 'success' && ci?.conclusion === 'success' &&
+    ci?.databaseCiPassed === true && ci?.remoteQualificationAllowed === true &&
+    ci?.currentQualificationAllowed === true && ci?.successEvidencePresent === true &&
+    ci?.newIndependentCi === true
 }
 
-function findRepairSignedCiRun() {
-  const ci = contract.repairCiRunEvidence
-  return databaseContract.formalAttemptHistory.find((entry) => (
-    entry.runId === ci?.runId && entry.jobId === ci?.linuxJobId &&
+function findRepairSignedCiRun(
+  ci = contract.repairCiRunEvidence,
+  history = databaseContract.formalAttemptHistory,
+) {
+  const matches = history.filter((entry) => (
+    entry.runId === ci?.runId && entry.runUrl === ci?.runUrl && entry.jobId === ci?.linuxJobId &&
     entry.windowsJobId === ci?.windowsJobId && entry.headSha === ci?.headSha &&
     entry.conclusion === ci?.status && entry.conclusion === 'success' &&
+    entry.qualificationScope === 'acl_repair_session_pooler_prequalification' &&
+    entry.qualificationScope === ci?.qualificationScope &&
+    entry.requiredConnectionMode === 'session-pooler' &&
+    entry.requiredConnectionMode === ci?.requiredConnectionMode &&
+    entry.newIndependentCi === true && ci?.newIndependentCi === true &&
+    !isRetiredAclRepairEvidence(entry) && !isRetiredAclRepairEvidence(ci) &&
     entry.windowsLocalGatePassed === true &&
     entry.windowsStaticGatesExpected === ci?.windowsStaticExpected &&
     entry.windowsStaticGatesPassed === ci?.windowsStaticPassed &&
@@ -101,6 +139,7 @@ function findRepairSignedCiRun() {
     entry.businessTestsPassed === contract.expected.businessTests &&
     entry.productionReadPerformed === false && entry.productionWritePerformed === false
   ))
+  return matches.length === 1 ? matches[0] : null
 }
 
 function validateRepairWorktreeBoundary(head, signedCiHead, trackedStatus) {
@@ -125,6 +164,11 @@ function assertRepairSignedCiQualification() {
   if (!worktreeBoundary.trackedWorktreeClean) throw new Error('ACL repair requires a clean tracked worktree')
   requireSuccess('ACL repair signed CI ancestry', run('git', [
     'merge-base', '--is-ancestor', signedCiHead, head,
+  ]))
+  requireSuccess('ACL repair signed CI includes preserved direct DB failure head', run('git', [
+    'merge-base', '--is-ancestor',
+    contract.formalAclRepairFailureEvidence.supervisionHeadSha,
+    signedCiHead,
   ]))
   return signedRun
 }
@@ -692,6 +736,9 @@ function assertFrozenContract() {
     repair.atomicLegacyRoleCompatibility?.remoteQualificationAllowed === true &&
     /^[0-9]+$/.test(ci?.runId ?? '') && /^[a-f0-9]{40}$/.test(ci?.headSha ?? '') &&
     /^[0-9]+$/.test(ci?.linuxJobId ?? '') && /^[0-9]+$/.test(ci?.windowsJobId ?? '') &&
+    repair.signedCiRunId === ci?.runId && repair.signedCiHeadSha === ci?.headSha &&
+    repair.signedCiLinuxJobId === ci?.linuxJobId && repair.signedCiWindowsJobId === ci?.windowsJobId &&
+    repair.signedCiConclusion === ci?.conclusion && !isRetiredAclRepairEvidence(ci) &&
     ci?.status === 'success' && ci?.conclusion === 'success' &&
     ci?.linuxStatus === 'success' && ci?.windowsStatus === 'success' &&
     ci?.qualificationScope === 'acl_repair_session_pooler_prequalification' &&
@@ -707,6 +754,7 @@ function assertFrozenContract() {
     ci?.formalAclRepairFailurePreservedWithoutRerun === 'p1-acl-repair-20260720T122757275Z-8fa1498850' &&
     ci?.databaseCiPassed === true && ci?.remoteQualificationAllowed === true &&
     ci?.currentQualificationAllowed === true && ci?.successEvidencePresent === true &&
+    ci?.newIndependentCi === true &&
     priorSuccessfulRepairCiHistorical && priorFormalAclRepairFailurePreserved &&
     priorParserFixRepairCiHistorical && directDbFormalFailurePreserved && Boolean(findRepairSignedCiRun())
   const repairCiPending = repair.remoteExecutionAllowed === false && repair.dbPushAllowed === false &&
@@ -1498,12 +1546,77 @@ function runSelfTest() {
     },
   }
   const qualifiedCi = {
+    runId: '39999999999',
+    runUrl: 'https://github.com/yccanwin/canwin-team-os/actions/runs/39999999999',
+    linuxJobId: '99999999991',
+    windowsJobId: '99999999992',
     headSha: 'a'.repeat(40),
     status: 'success',
+    conclusion: 'success',
     qualificationScope: 'acl_repair_session_pooler_prequalification',
     requiredConnectionMode: 'session-pooler',
+    evidenceScope: 'current-independent-session-pooler-ci',
+    priorSuccessfulRunPreservedWithoutRerun: '29733854344',
+    priorParserFixRunPreservedWithoutRerun: '29738966326',
+    formalAclRepairFailurePreservedWithoutRerun: 'p1-acl-repair-20260720T122757275Z-8fa1498850',
+    databaseCiPassed: true,
+    remoteQualificationAllowed: true,
     currentQualificationAllowed: true,
+    successEvidencePresent: true,
+    newIndependentCi: true,
+    migrationsPassed: 71,
+    sqlTestsStarted: 27,
+    sqlTestsPassed: 27,
+    databaseTestsPassed: 7,
+    permissionTestsPassed: 11,
+    businessTestsPassed: 9,
+    catalogAssertionsPassed: 4,
+    windowsStaticExpected: 19,
+    windowsStaticPassed: 19,
+    windowsLocalExpected: 12,
+    windowsLocalPassed: 12,
+    linuxDatabaseAccepted: true,
+    cleanupPassed: true,
+    candidateRemoteExecutionAllowed: false,
+    g1OverallClaim: false,
+    productionReadPerformed: false,
+    productionWritePerformed: false,
+    retryPerformed: false,
   }
+  const qualifiedHistoryEntry = {
+    runId: qualifiedCi.runId,
+    runUrl: qualifiedCi.runUrl,
+    jobId: qualifiedCi.linuxJobId,
+    windowsJobId: qualifiedCi.windowsJobId,
+    headSha: qualifiedCi.headSha,
+    conclusion: 'success',
+    qualificationScope: 'acl_repair_session_pooler_prequalification',
+    requiredConnectionMode: 'session-pooler',
+    newIndependentCi: true,
+    windowsLocalGatePassed: true,
+    windowsStaticGatesExpected: 19,
+    windowsStaticGatesPassed: 19,
+    windowsLocalIntegrationStepsExpected: 12,
+    windowsLocalIntegrationStepsPassed: 12,
+    migrationsPassed: 71,
+    sqlTestsPassed: 27,
+    catalogAssertionsPassed: 4,
+    databaseTestsPassed: 7,
+    permissionTestsPassed: 11,
+    businessTestsPassed: 9,
+    productionReadPerformed: false,
+    productionWritePerformed: false,
+  }
+  const independentCiHistoryPositive = findRepairSignedCiRun(qualifiedCi, [qualifiedHistoryEntry]) !== null
+  const independentCiHistoryNegativeCases = [
+    [{ ...qualifiedHistoryEntry, qualificationScope: 'acl_repair_parser_fix_prequalification' }],
+    [{ ...qualifiedHistoryEntry, requiredConnectionMode: 'direct-database-host' }],
+    [{ ...qualifiedHistoryEntry, newIndependentCi: false }],
+    [qualifiedHistoryEntry, { ...qualifiedHistoryEntry }],
+    [{ ...qualifiedHistoryEntry, runUrl: 'https://github.com/yccanwin/canwin-team-os/actions/runs/1' }],
+  ]
+  const independentCiHistoryNegativePassed = independentCiHistoryNegativeCases
+    .filter((history) => findRepairSignedCiRun(qualifiedCi, history) === null).length
   const unqualifiedRepair = { ...qualifiedRepair, remoteExecutionAllowed: false, dbPushAllowed: false }
   const atomicDatabaseUnqualifiedRepair = {
     ...qualifiedRepair,
@@ -1564,6 +1677,63 @@ function runSelfTest() {
   const currentClosedRepairGateDenied = !validateRepairRemoteGate(
     '--apply-acl-repair', contract.aclRepair, contract.repairCiRunEvidence,
   )
+  const relabelAsCurrentSessionPoolerCi = (candidate) => ({
+    ...candidate,
+    status: 'success',
+    conclusion: 'success',
+    qualificationScope: 'acl_repair_session_pooler_prequalification',
+    requiredConnectionMode: 'session-pooler',
+    evidenceScope: 'current-independent-session-pooler-ci',
+    priorSuccessfulRunPreservedWithoutRerun: '29733854344',
+    priorParserFixRunPreservedWithoutRerun: '29738966326',
+    formalAclRepairFailurePreservedWithoutRerun: 'p1-acl-repair-20260720T122757275Z-8fa1498850',
+    databaseCiPassed: true,
+    remoteQualificationAllowed: true,
+    currentQualificationAllowed: true,
+    successEvidencePresent: true,
+    newIndependentCi: true,
+  })
+  const relabeledRevivalNegativeCases = [
+    () => validateRepairRemoteGate(
+      '--apply-acl-repair', qualifiedRepair,
+      relabelAsCurrentSessionPoolerCi(contract.priorRepairCiFailureEvidence),
+    ),
+    () => validateRepairRemoteGate(
+      '--apply-acl-repair', qualifiedRepair,
+      relabelAsCurrentSessionPoolerCi(contract.priorSuccessfulRepairCiRunEvidence),
+    ),
+    () => validateRepairRemoteGate(
+      '--apply-acl-repair', qualifiedRepair,
+      relabelAsCurrentSessionPoolerCi(contract.priorParserFixRepairCiRunEvidence),
+    ),
+    () => validateRepairRemoteGate('--apply-acl-repair', qualifiedRepair, {
+      ...qualifiedCi,
+      headSha: contract.priorFormalAclRepairFailureEvidence.supervisionHeadSha,
+    }),
+    () => validateRepairRemoteGate('--apply-acl-repair', qualifiedRepair, {
+      ...qualifiedCi,
+      headSha: contract.formalAclRepairFailureEvidence.supervisionHeadSha,
+    }),
+  ]
+  const relabeledRevivalNegativePassed = relabeledRevivalNegativeCases
+    .filter((test) => test() === false).length
+  const relabeledParserFixCi = relabelAsCurrentSessionPoolerCi(contract.priorParserFixRepairCiRunEvidence)
+  const relabeledFailureHeadCi = {
+    ...qualifiedCi,
+    headSha: contract.formalAclRepairFailureEvidence.supervisionHeadSha,
+  }
+  const historyEntryFor = (candidate) => ({
+    ...qualifiedHistoryEntry,
+    runId: candidate.runId,
+    runUrl: candidate.runUrl,
+    jobId: candidate.linuxJobId,
+    windowsJobId: candidate.windowsJobId,
+    headSha: candidate.headSha,
+  })
+  const relabeledHistoryRevivalNegativePassed = [
+    findRepairSignedCiRun(relabeledParserFixCi, [historyEntryFor(relabeledParserFixCi)]),
+    findRepairSignedCiRun(relabeledFailureHeadCi, [historyEntryFor(relabeledFailureHeadCi)]),
+  ].filter((candidate) => candidate === null).length
   if (!validateRepairRemoteGate('--apply-acl-repair', qualifiedRepair, qualifiedCi)) {
     throw new Error('qualified ACL repair gate positive self-test failed')
   }
@@ -1616,15 +1786,28 @@ function runSelfTest() {
       !cleanCommittedBoundary.committedAfterSignedHead || !cleanCommittedBoundary.trackedWorktreeClean ||
       worktreeBoundaryNegativePassed !== 2 ||
       repairGateNegativePassed !== repairGateNegativeCases.length || closedRepairGateNegativePassed !== 3 ||
-      !currentClosedRepairGateDenied || !syntheticFailureStopped ||
+      !currentClosedRepairGateDenied || !independentCiHistoryPositive ||
+      independentCiHistoryNegativePassed !== independentCiHistoryNegativeCases.length ||
+      relabeledRevivalNegativePassed !== relabeledRevivalNegativeCases.length ||
+      relabeledHistoryRevivalNegativePassed !== 2 || !syntheticFailureStopped ||
       followingSyntheticTestRan || !validateMode('--self-test') || !validateMode('--apply-acl-repair') ||
       JSON.stringify(authFixtureEmailPatterns) !== JSON.stringify(['p1-%@example.invalid', 'access-%@example.invalid']) ||
       JSON.stringify(profileFixtureIdPatterns) !== JSON.stringify([
         'd4000000-0000-4000-8000-00000000000%', 'd5100000-0000-4000-8000-00000000000%',
     ])) {
-    throw new Error('P1 ACL repair negative self-test failed')
+    throw new Error('P1 ACL repair negative self-test failed: ' + JSON.stringify({
+      repairGateNegativePassed,
+      closedRepairGateNegativePassed,
+      currentClosedRepairGateDenied,
+      independentCiHistoryPositive,
+      independentCiHistoryNegativePassed,
+      relabeledRevivalNegativePassed,
+      relabeledHistoryRevivalNegativePassed,
+      syntheticFailureStopped,
+      followingSyntheticTestRan,
+    }))
   }
-  console.log('P1_ISOLATED_RUNTIME_SELFTEST_OK targetPositive=1 targetNegative=3/3 migration70to71Positive=1 migrationNegative=6/6 stagedInventoryPositive=71/71 stagedInventoryNegative=3/3 dryRunPositive=2/2 dryRunNegative=4/4 dryRunFailureEvidencePreserved=1 dryRunRawOutputAbsent=1 poolerPushPositive=2/2 poolerPushNegative=7/7 poolerPushPasswordEnvOnly=1 poolerPushSecretsCleared=2/2 poolerDirectDenied=1 credentialPositive=1 credentialNegative=3/3 exact70Accepted=1 exact71Accepted=1 repairBaselineDriftDenied=3/3 fullAclTransitionAccepted=1 reconciliationDriftDenied=7/7 routineAclTargets=6/6 routineAclExactChanged=4/4 routineAclNegative=3/3 privateDefinitionChanged=1/1 privateDefinitionNegative=3/3 atomicMapping=5/5 atomicRollback=2/2 sameTeamStatic=4/4 evidenceNegative=7/7 worktreeBoundaryPositive=1 worktreeBoundaryNegative=2/2 oldApplyModesDenied=3/3 futureQualifiedRepairGatePositive=1 currentClosedRepairGateDenied=1 repairGateNegative=7/7 closedRepairGateNegative=3/3 priorRepairCiRevivalDenied=2/2 atomicGateNegative=2/2 failedPushUnknownStatePreserved=1 fixturePatterns=4/4 firstSqlFailureStops=1 candidateRemoteExecutionAllowed=0 oldResumeRemoteExecutionAllowed=0 repairRemote=0 currentCi=pending-session-pooler-new-signed-run databaseCalls=0 storageCalls=0 dEvidenceRequired=0')
+  console.log('P1_ISOLATED_RUNTIME_SELFTEST_OK targetPositive=1 targetNegative=3/3 migration70to71Positive=1 migrationNegative=6/6 stagedInventoryPositive=71/71 stagedInventoryNegative=3/3 dryRunPositive=2/2 dryRunNegative=4/4 dryRunFailureEvidencePreserved=1 dryRunRawOutputAbsent=1 poolerPushPositive=2/2 poolerPushNegative=7/7 poolerPushPasswordEnvOnly=1 poolerPushSecretsCleared=2/2 poolerDirectDenied=1 credentialPositive=1 credentialNegative=3/3 exact70Accepted=1 exact71Accepted=1 repairBaselineDriftDenied=3/3 fullAclTransitionAccepted=1 reconciliationDriftDenied=7/7 routineAclTargets=6/6 routineAclExactChanged=4/4 routineAclNegative=3/3 privateDefinitionChanged=1/1 privateDefinitionNegative=3/3 atomicMapping=5/5 atomicRollback=2/2 sameTeamStatic=4/4 evidenceNegative=7/7 worktreeBoundaryPositive=1 worktreeBoundaryNegative=2/2 oldApplyModesDenied=3/3 futureQualifiedRepairGatePositive=1 currentClosedRepairGateDenied=1 repairGateNegative=7/7 closedRepairGateNegative=3/3 priorRepairCiRevivalDenied=2/2 relabeledRevivalDenied=5/5 independentCiHistoryPositive=1 independentCiHistoryNegative=5/5 relabeledHistoryRevivalDenied=2/2 atomicGateNegative=2/2 failedPushUnknownStatePreserved=1 fixturePatterns=4/4 firstSqlFailureStops=1 candidateRemoteExecutionAllowed=0 oldResumeRemoteExecutionAllowed=0 repairRemote=0 currentCi=pending-session-pooler-new-signed-run databaseCalls=0 storageCalls=0 dEvidenceRequired=0')
 }
 
 function verifyTemporaryLink(workdir) {

@@ -493,9 +493,9 @@
       { "path": "supabase/tests/team_os_4_p1_access_shell.sql", "sha256Lf": "c598b4e4ed3c7e26d9411cb4084685bea1233f47ae969c2685e048f480dac09e" }
     ],
     "currentRuntimeArtifacts": {
-      "contract": { "path": "scripts/p1/isolated-runtime-contract.json", "sha256Lf": "e6b152e9dd98f848ceeac862669a3447e81a87fdc75772b5f027dbef6d15cca3" },
-      "runner": { "path": "scripts/p1/run-isolated-runtime.mjs", "sha256Lf": "417565306ac5b515e11a009b85bc4f615ac99511dd4efc8a2ca65d5f2ee59061" },
-      "validator": { "path": "scripts/p1/verify-isolated-runtime-runner.mjs", "sha256Lf": "bb8c7db55512db69b1d0451cc27c5a2b8532b6afecaf579023cfbed79a54a40a", "assertions": "71/71" }
+      "contract": { "path": "scripts/p1/isolated-runtime-contract.json", "sha256Lf": "1280c815e0b9b953a63e097288b8f016f9170c8f388658f626be478808863284" },
+      "runner": { "path": "scripts/p1/run-isolated-runtime.mjs", "sha256Lf": "8593cc4f52e0b899de75027bd5e8745d9b3286adfda9f25b1b570e5e699911cb" },
+      "validator": { "path": "scripts/p1/verify-isolated-runtime-runner.mjs", "sha256Lf": "4a6c0c64bd53be5761c5541fb35ac5267168de5e5ef2b54f458f4fd69c4ec61e", "assertions": "71/71" }
     },
     "fullReconciliation": {
       "expected": { "migrationRows": 71 },

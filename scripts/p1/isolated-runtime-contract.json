@@ -570,9 +570,9 @@
   },
   "scriptHardLocks": {
     "runnerPath": "scripts/p1/run-isolated-runtime.mjs",
-    "runnerSha256Lf": "417565306ac5b515e11a009b85bc4f615ac99511dd4efc8a2ca65d5f2ee59061",
+    "runnerSha256Lf": "8593cc4f52e0b899de75027bd5e8745d9b3286adfda9f25b1b570e5e699911cb",
     "validatorPath": "scripts/p1/verify-isolated-runtime-runner.mjs",
-    "validatorSha256Lf": "bb8c7db55512db69b1d0451cc27c5a2b8532b6afecaf579023cfbed79a54a40a",
+    "validatorSha256Lf": "4a6c0c64bd53be5761c5541fb35ac5267168de5e5ef2b54f458f4fd69c4ec61e",
     "postgresRegressionPath": "scripts/p1/verify-pending-trigger-postgres.mjs",
     "postgresRegressionSha256Lf": "f4f54d77436b1b91035cd8fff7572dd52f4375aa75f52325a664426d0b9cf3ea"
   },

@@ -247,14 +247,30 @@ check(source.includes('const repairFormalFailureClosed =') &&
   source.includes("contract.contractStatus === 'p1_acl_repair_direct_db_dry_run_timeout_qualification_closed'") &&
   source.includes('repairCiQualified, repairCiPending, repairFormalFailureClosed, repairDirectDbFailureClosed') &&
   source.includes('qualificationStateCount !== 1') &&
-  source.includes("ci?.evidenceScope !== 'historical-prior-success-only'") &&
-  source.includes('ci?.currentQualificationAllowed !== false') &&
+  source.includes("const RETIRED_ACL_REPAIR_CI_RUN_IDS = new Set(['29726897764', '29733854344', '29738966326'])") &&
+  source.includes("'070c2e4ca185037d37f65b4d98be617a43e4409d'") &&
+  source.includes("'4fa8de78a8b05f8285f69fb0d6d9106e20e3cba7'") &&
+  source.includes("'8fa14988502511d9722bd37add5b51d845f7934f'") &&
+  source.includes('function isRetiredAclRepairEvidence(') &&
+  source.includes("ci?.evidenceScope === 'current-independent-session-pooler-ci'") &&
+  source.includes('ci?.currentQualificationAllowed === true') &&
   source.includes("ci?.qualificationScope === 'acl_repair_session_pooler_prequalification'") &&
   source.includes("ci?.requiredConnectionMode === 'session-pooler'") &&
+  source.includes('repair.signedCiRunId === ci?.runId') &&
+  source.includes('repair.signedCiHeadSha === ci?.headSha') &&
+  source.includes("entry.qualificationScope === 'acl_repair_session_pooler_prequalification'") &&
+  source.includes("entry.requiredConnectionMode === 'session-pooler'") &&
+  source.includes('entry.newIndependentCi === true') && source.includes('matches.length === 1') &&
+  source.includes("'merge-base', '--is-ancestor',") &&
+  source.includes('contract.formalAclRepairFailureEvidence.supervisionHeadSha') &&
   source.includes('futureQualifiedRepairGatePositive=1') &&
   source.includes('currentClosedRepairGateDenied=1') &&
   source.includes('closedRepairGateNegative=3/3') &&
-  source.includes('priorRepairCiRevivalDenied=2/2'),
+  source.includes('priorRepairCiRevivalDenied=2/2') &&
+  source.includes('relabeledRevivalDenied=5/5') &&
+  source.includes('independentCiHistoryPositive=1') &&
+  source.includes('independentCiHistoryNegative=5/5') &&
+  source.includes('relabeledHistoryRevivalDenied=2/2'),
   'runner does not preserve the mutually exclusive closed qualification state or deny historical CI revival')
 
 const failed = contract.formalResumeFailureEvidence
@@ -389,8 +405,15 @@ check(remoteGateStart >= 0 && remoteGateEnd > remoteGateStart &&
   remoteGateSource.includes("repair?.atomicLegacyRoleCompatibility?.status === 'passed'") &&
   remoteGateSource.includes('repair?.atomicLegacyRoleCompatibility?.staticPassed === true') &&
   remoteGateSource.includes('repair?.atomicLegacyRoleCompatibility?.databaseCiPassed === true') &&
-  remoteGateSource.includes('repair?.atomicLegacyRoleCompatibility?.remoteQualificationAllowed === true'),
-  'remote gate does not hard-require all four atomic compatibility qualification conditions')
+  remoteGateSource.includes('repair?.atomicLegacyRoleCompatibility?.remoteQualificationAllowed === true') &&
+  remoteGateSource.includes("ci?.evidenceScope === 'current-independent-session-pooler-ci'") &&
+  remoteGateSource.includes('!isRetiredAclRepairEvidence(ci)') &&
+  remoteGateSource.includes('ci?.databaseCiPassed === true') &&
+  remoteGateSource.includes('ci?.remoteQualificationAllowed === true') &&
+  remoteGateSource.includes('ci?.currentQualificationAllowed === true') &&
+  remoteGateSource.includes('ci?.successEvidencePresent === true') &&
+  remoteGateSource.includes('ci?.newIndependentCi === true'),
+  'remote gate does not hard-require atomic, independent Session Pooler CI qualification conditions')
 const gateIndex = index('validateRepairRemoteGate(mode, contract.aclRepair, contract.repairCiRunEvidence)', mainIndex)
 const ciIndex = index('assertRepairSignedCiQualification()', gateIndex)
 const baselineIndex = index('loadSignedReconciliationBaseline()', ciIndex)
@@ -522,4 +545,4 @@ if (failures.length > 0) {
   for (const failure of failures) console.error('- ' + failure)
   process.exit(1)
 }
-console.log(`P1_ISOLATED_RUNTIME_RUNNER_OK assertions=${assertionCount} exact70to71=1 signedMigrationInventory=71/71 dryRunOnly71=1 dryRunEvidenceSafe=1 sessionPoolerPush=2/2 sessionPoolerNegative=7/7 pushSecretEnvOnly=1 pushSecretsCleared=2/2 dbPushMax=1 failedPushUnknownState=1 aclTargets=6/6 expectedAclChanges=4/4 privateDefinitionChange=1/1 privateDefinitionSnapshots=3/3 atomicMapping=5/5 atomicRollback=2/2 sameTeamStatic=4/4 atomicGateNegative=2/2 repairGateNegative=7/7 closedRepairGateNegative=3/3 priorRepairCiRevivalDenied=2/2 atomicDatabaseCiPassed=pending priorRepairCiFailurePreserved=1 priorSuccessfulRepairCiHistorical=1 priorParserFixCiHistorical=1 priorFormalAclRepairFailurePreserved=1 currentFormalAclRepairFailurePreserved=1 formalAclRepairAttempts=0 formalAclRepairDbPushAttempts=0 formalAclRepairWrites=0 currentCi=pending-session-pooler-new-signed-run fullDifferencePaths=2/2 sqlTests=27 perTestSnapshots=27 fullSnapshots=29 storageArchives=2 signedFailureCounts=5/5/6/1 oldResumeDenied=1 applicationCompatibilityPassed=1 legacyRpcCalls=0 detectorNegative=2/2 appShell=99/99 staticGate16=runner+appShell+accessV1 warehouseBackendRelaxed=0 repairRemote=0 productionDenied=1 validatorDatabaseCalls=0 validatorStorageCalls=0 validatorDEvidenceRequired=0`)
+console.log(`P1_ISOLATED_RUNTIME_RUNNER_OK assertions=${assertionCount} exact70to71=1 signedMigrationInventory=71/71 dryRunOnly71=1 dryRunEvidenceSafe=1 sessionPoolerPush=2/2 sessionPoolerNegative=7/7 pushSecretEnvOnly=1 pushSecretsCleared=2/2 dbPushMax=1 failedPushUnknownState=1 aclTargets=6/6 expectedAclChanges=4/4 privateDefinitionChange=1/1 privateDefinitionSnapshots=3/3 atomicMapping=5/5 atomicRollback=2/2 sameTeamStatic=4/4 atomicGateNegative=2/2 repairGateNegative=7/7 closedRepairGateNegative=3/3 priorRepairCiRevivalDenied=2/2 relabeledRevivalDenied=5/5 independentCiHistoryPositive=1 independentCiHistoryNegative=5/5 relabeledHistoryRevivalDenied=2/2 atomicDatabaseCiPassed=pending priorRepairCiFailurePreserved=1 priorSuccessfulRepairCiHistorical=1 priorParserFixCiHistorical=1 priorFormalAclRepairFailurePreserved=1 currentFormalAclRepairFailurePreserved=1 formalAclRepairAttempts=0 formalAclRepairDbPushAttempts=0 formalAclRepairWrites=0 currentCi=pending-session-pooler-new-signed-run fullDifferencePaths=2/2 sqlTests=27 perTestSnapshots=27 fullSnapshots=29 storageArchives=2 signedFailureCounts=5/5/6/1 oldResumeDenied=1 applicationCompatibilityPassed=1 legacyRpcCalls=0 detectorNegative=2/2 appShell=99/99 staticGate16=runner+appShell+accessV1 warehouseBackendRelaxed=0 repairRemote=0 productionDenied=1 validatorDatabaseCalls=0 validatorStorageCalls=0 validatorDEvidenceRequired=0`)
