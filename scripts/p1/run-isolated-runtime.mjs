@@ -701,9 +701,9 @@ function assertFrozenContract() {
       JSON.stringify(privateDefinition?.expectedChangedFunctions) !== JSON.stringify([PRIVATE_MEMBER_ACCESS_IDENTITY]) ||
       privateDefinition?.expectedDefinitionChanges !== 1 || privateDefinition?.identityChangesAllowed !== 0 ||
       privateDefinition?.securityEnvelopeChangesAllowed !== 0 || privateDefinition?.unknownChangesAllowed !== false ||
-      atomicCompatibility?.status !== 'static-passed-prior-database-ci-failed-preserved-new-candidate-pending' ||
-      atomicCompatibility?.staticPassed !== true || atomicCompatibility?.databaseCiPassed !== null ||
-      atomicCompatibility?.remoteQualificationAllowed !== false ||
+      atomicCompatibility?.status !== 'passed' ||
+      atomicCompatibility?.staticPassed !== true || atomicCompatibility?.databaseCiPassed !== true ||
+      atomicCompatibility?.remoteQualificationAllowed !== true ||
       atomicCompatibility?.writeFunction !== PRIVATE_MEMBER_ACCESS_IDENTITY ||
       JSON.stringify(atomicCompatibility?.mappingPrecedence) !== JSON.stringify(expectedAtomicMapping) ||
       atomicCompatibility?.successfulMappingCases !== 5 || atomicCompatibility?.rollbackControls !== 2 ||

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "manifestType": "canwin-team-os-p0-ci-database-tests",
-  "contractStatus": "p1_acl_and_atomic_compatibility_repair_candidate_database_ci_pending",
+  "contractStatus": "p1_acl_and_atomic_compatibility_repair_candidate_remote_qualified",
   "baseline": {
     "path": "supabase/schema.sql",
     "sha256Lf": "4602c1e583174a4dbc6e480aac101d2cf914148651ded71028d9a43abed8c340"
@@ -164,7 +164,7 @@
     "postApplyResumeFailurePreserved": true,
     "aclRepairMigrationPath": "supabase/migrations/20260720015435_harden_server_only_rpc_acl.sql",
     "aclRepairLocalGates": "passed",
-    "aclRepairDatabaseCi": "prior-failure-preserved-new-candidate-pending",
+    "aclRepairDatabaseCi": "passed-signed-run-29733854344",
     "fullReconciliationExactRows": 71,
     "fullReconciliationSqlTests": 27,
     "fullReconciliationPerTestSnapshots": 27,
@@ -306,8 +306,8 @@
   },
   "aclRepairCandidate": {
     "mode": "--apply-acl-repair",
-    "remoteExecutionAllowed": false,
-    "dbPushAllowed": false,
+    "remoteExecutionAllowed": true,
+    "dbPushAllowed": true,
     "migrationVersion": "20260720015435",
     "migrationPath": "supabase/migrations/20260720015435_harden_server_only_rpc_acl.sql",
     "migrationSha256Lf": "1bb13f29fc0f5512bd00115dc1c953a2c3aaa0ec21522b1cc8cbb45a18a5cdc0",
@@ -319,11 +319,11 @@
     "maxDbPushAttempts": 1,
     "dryRunRequired": true,
     "pendingMigrationVersions": ["20260720015435"],
-    "signedCiHeadSha": null,
-    "signedCiRunId": null,
-    "signedCiLinuxJobId": null,
-    "signedCiWindowsJobId": null,
-    "signedCiConclusion": null,
+    "signedCiHeadSha": "71b7320b4c303af797ee9e4bf12044518a4fe18a",
+    "signedCiRunId": "29733854344",
+    "signedCiLinuxJobId": "88324427055",
+    "signedCiWindowsJobId": "88324427244",
+    "signedCiConclusion": "success",
     "functions": [
       { "identity": "public.enqueue_wecom_notification_jobs(text, timestamp with time zone)", "revokeRoles": ["PUBLIC", "anon", "authenticated"], "requiredGrantRoles": ["service_role"] },
       { "identity": "public.claim_wecom_notification_jobs(integer, timestamp with time zone)", "revokeRoles": ["PUBLIC", "anon", "authenticated"], "requiredGrantRoles": ["service_role"] },
@@ -345,9 +345,9 @@
       { "path": "supabase/tests/team_os_4_p1_access_shell.sql", "sha256Lf": "c598b4e4ed3c7e26d9411cb4084685bea1233f47ae969c2685e048f480dac09e" }
     ],
     "currentRuntimeArtifacts": {
-      "contract": { "path": "scripts/p1/isolated-runtime-contract.json", "sha256Lf": "0c0ccc0f72775ee1e6c6d46771846de88c5054a20b3f75b30a77db40ced08991" },
-      "runner": { "path": "scripts/p1/run-isolated-runtime.mjs", "sha256Lf": "690dd490c4c66c84ed1d01654c77cdb6cf8ca068b6625c9f44ed78e32c0098ad" },
-      "validator": { "path": "scripts/p1/verify-isolated-runtime-runner.mjs", "sha256Lf": "bc237b9b35ca6954a9c4cd6e905ff7a02608ad3509fcd439ba64a5a4882b8da3", "assertions": "63/63" }
+      "contract": { "path": "scripts/p1/isolated-runtime-contract.json", "sha256Lf": "4b7db4155637bc349c50948eaa35f2d241e823b3e65c0578e3be083e93344659" },
+      "runner": { "path": "scripts/p1/run-isolated-runtime.mjs", "sha256Lf": "acae6010b6e4efca94d8411b16aa2cf8e1e04118ecf9055a9711ebb55eb3d2bc" },
+      "validator": { "path": "scripts/p1/verify-isolated-runtime-runner.mjs", "sha256Lf": "1aa9341425465a42ae7cd82d434281595723b00733fafc17be3176f73ee5d5f4", "assertions": "63/63" }
     },
     "fullReconciliation": {
       "expected": { "migrationRows": 71 },
@@ -375,10 +375,10 @@
       "unknownChangesAllowed": false
     },
     "atomicLegacyRoleCompatibility": {
-      "status": "static-passed-prior-database-ci-failed-preserved-new-candidate-pending",
+      "status": "passed",
       "staticPassed": true,
-      "databaseCiPassed": null,
-      "remoteQualificationAllowed": false,
+      "databaseCiPassed": true,
+      "remoteQualificationAllowed": true,
       "writeFunction": "private.admin_apply_member_access_v1(uuid, text, text[], uuid[], uuid[], text[], uuid)",
       "mappingPrecedence": [
         { "condition": "primary-admin", "legacyRole": "admin" },
@@ -404,7 +404,7 @@
     },
     "applicationCompatibility": {
       "status": "passed",
-      "remoteQualificationAllowed": false,
+      "remoteQualificationAllowed": true,
       "legacyRpcCallSites": [],
       "resolvedEvidence": {
         "files": ["src/features/access-admin/supabaseDataSource.ts", "supabase/functions/admin-members/index.ts"],
@@ -421,7 +421,7 @@
     "allowedFullReconciliationDifferences": ["migrationHistory.schemaMigrations", "schemaSecurity.publicRoutinesMd5"],
     "unknownDifferencesAllowed": false
   },
-  "repairCiRunEvidence": {
+  "priorRepairCiFailureEvidence": {
     "runId": "29726897764",
     "runUrl": "https://github.com/yccanwin/canwin-team-os/actions/runs/29726897764",
     "headSha": "e774ead5a2857afb511400a12897e629033cf941",
@@ -455,6 +455,36 @@
     "productionWritePerformed": false,
     "rerunPerformed": false,
     "preservedWithoutRerun": true,
+    "candidateRemoteExecutionAllowed": false,
+    "g1OverallClaim": false
+  },
+  "repairCiRunEvidence": {
+    "runId": "29733854344",
+    "runUrl": "https://github.com/yccanwin/canwin-team-os/actions/runs/29733854344",
+    "headSha": "71b7320b4c303af797ee9e4bf12044518a4fe18a",
+    "linuxJobId": "88324427055",
+    "windowsJobId": "88324427244",
+    "conclusion": "success",
+    "linuxConclusion": "success",
+    "windowsConclusion": "success",
+    "migrationsPassed": 71,
+    "sqlTestsStarted": 27,
+    "sqlTestsPassed": 27,
+    "databaseTestsPassed": 7,
+    "permissionTestsPassed": 11,
+    "businessTestsPassed": 9,
+    "catalogAssertionsPassed": 4,
+    "windowsStaticGatesExpected": 19,
+    "windowsStaticGatesPassed": 19,
+    "windowsLocalIntegrationStepsExpected": 12,
+    "windowsLocalIntegrationStepsPassed": 12,
+    "linuxDatabaseAccepted": true,
+    "cleanupPassed": true,
+    "repositorySecretsRequired": false,
+    "productionReadPerformed": false,
+    "productionWritePerformed": false,
+    "rerunPerformed": false,
+    "priorFailedRunPreservedWithoutRerun": "29726897764",
     "candidateRemoteExecutionAllowed": false,
     "g1OverallClaim": false
   },
@@ -1140,6 +1170,43 @@
       "productionWritePerformed": false,
       "rerunOfFailedRun": false,
       "preservedWithoutRerun": true,
+      "pageAccountAcceptancePassed": false,
+      "g1OverallClaim": false
+    },
+    {
+      "runId": "29733854344",
+      "runUrl": "https://github.com/yccanwin/canwin-team-os/actions/runs/29733854344",
+      "jobId": "88324427055",
+      "windowsJobId": "88324427244",
+      "headSha": "71b7320b4c303af797ee9e4bf12044518a4fe18a",
+      "conclusion": "success",
+      "qualificationScope": "acl_repair_prequalification",
+      "windowsLocalGatePassed": true,
+      "windowsStaticGatesExpected": 19,
+      "windowsStaticGatesPassed": 19,
+      "windowsLocalIntegrationStepsExpected": 12,
+      "windowsLocalIntegrationStepsPassed": 12,
+      "databaseStartupPassed": true,
+      "baselinePassed": true,
+      "linuxDatabaseAccepted": true,
+      "migrationsPassed": 71,
+      "sqlTestsStarted": 27,
+      "sqlTestsPassed": 27,
+      "databaseTestsPassed": 7,
+      "permissionTestsPassed": 11,
+      "businessTestsPassed": 9,
+      "catalogAssertionsPassed": 4,
+      "successMarker": "P0_CI_DATABASE_GATES_OK",
+      "cleanupPassed": true,
+      "repositorySecretsRequired": false,
+      "testProjectRemoteReads": 0,
+      "testProjectRemoteWrites": 0,
+      "productionReadPerformed": false,
+      "productionWritePerformed": false,
+      "rerunOfFailedRun": false,
+      "priorFailedRunsPreservedWithoutRerun": ["29726897764"],
+      "isolatedTestProjectPersistentApplyPassed": false,
+      "reconciliationPassed": false,
       "pageAccountAcceptancePassed": false,
       "g1OverallClaim": false
     }

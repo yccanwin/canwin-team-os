@@ -69,9 +69,9 @@ check(contract.referenceSync.remoteExecutionRequires === 'acl-repair-only-dual-p
   'remote qualification boundary is not ACL-repair-only')
 
 const repair = contract.aclRepair
-check(repair.mode === '--apply-acl-repair' && repair.remoteExecutionAllowed === false &&
-  repair.dbPushAllowed === false && repair.migrationVersion === REPAIR_VERSION,
-  'prequalification ACL repair must remain remote-disabled')
+check(repair.mode === '--apply-acl-repair' && repair.remoteExecutionAllowed === true &&
+  repair.dbPushAllowed === true && repair.migrationVersion === REPAIR_VERSION,
+  'qualified ACL repair remote boundary drift')
 check(repair.migrationPath === 'supabase/migrations/20260720015435_harden_server_only_rpc_acl.sql' &&
   repair.migrationSha256Lf === REPAIR_SHA && sha256Lf(resolve(repoRoot, repair.migrationPath)) === REPAIR_SHA,
   'signed ACL repair migration path/hash drift')
@@ -105,9 +105,9 @@ check(JSON.stringify(privateDefinition?.expectedChangedFunctions) === JSON.strin
   privateDefinition?.securityEnvelopeChangesAllowed === 0 && privateDefinition?.unknownChangesAllowed === false,
   'private member-access routine definition transition contract drift')
 const atomicCompatibility = repair.atomicLegacyRoleCompatibility
-check(atomicCompatibility?.status === 'static-passed-prior-database-ci-failed-preserved-new-candidate-pending' &&
-  atomicCompatibility?.staticPassed === true && atomicCompatibility?.databaseCiPassed === null &&
-  atomicCompatibility?.remoteQualificationAllowed === false &&
+check(atomicCompatibility?.status === 'passed' &&
+  atomicCompatibility?.staticPassed === true && atomicCompatibility?.databaseCiPassed === true &&
+  atomicCompatibility?.remoteQualificationAllowed === true &&
   atomicCompatibility?.writeFunction === PRIVATE_MEMBER_ACCESS_IDENTITY &&
   JSON.stringify(atomicCompatibility?.mappingPrecedence) === JSON.stringify(expectedAtomicMapping) &&
   atomicCompatibility?.successfulMappingCases === 5 && atomicCompatibility?.rollbackControls === 2 &&
@@ -115,7 +115,7 @@ check(atomicCompatibility?.status === 'static-passed-prior-database-ci-failed-pr
   atomicCompatibility?.atomicRemoteGateNegativeControls === 2 &&
   atomicCompatibility?.migrationRewritesExistingProfiles === false &&
   atomicCompatibility?.appShellAssertionsPassed === 99 && atomicCompatibility?.appShellAssertionsExpected === 99,
-  'atomic legacy role compatibility contract or truthful pending state drift')
+  'atomic legacy role compatibility qualification drift')
 check(atomicCompatibility?.sqlTestPath === repair.testPaths.teamOs4P1 &&
   atomicCompatibility?.sqlTestSha256Lf === repair.testSha256Lf.teamOs4P1 &&
   sha256Lf(resolve(repoRoot, atomicCompatibility.sqlTestPath)) === atomicCompatibility.sqlTestSha256Lf &&
@@ -125,7 +125,7 @@ check(atomicCompatibility?.sqlTestPath === repair.testPaths.teamOs4P1 &&
   sha256Lf(resolve(repoRoot, atomicCompatibility.staticTestPath)) === atomicCompatibility.staticTestSha256Lf,
   'atomic compatibility source evidence hash drift')
 check(repair.applicationCompatibility?.status === 'passed' &&
-  repair.applicationCompatibility?.remoteQualificationAllowed === false &&
+  repair.applicationCompatibility?.remoteQualificationAllowed === true &&
   repair.applicationCompatibility?.legacyRpcCallSites?.length === 0 &&
   repair.applicationCompatibility?.resolvedEvidence?.staticCallSitesRemaining === 0 &&
   repair.applicationCompatibility?.resolvedEvidence?.appShellAssertionsPassed === 99 &&
@@ -138,7 +138,7 @@ check(repair.applicationCompatibility?.status === 'passed' &&
     appShellPassed: true,
     accessV1BehaviorPassed: true,
   }),
-  'application compatibility resolution evidence or pre-CI remote lock drift')
+  'application compatibility resolution or qualification drift')
 const forbiddenLegacyRpcNames = ['manage_profile_access', 'admin_replace_profile_roles', 'admin_replace_supervisor_subordinates']
 const findLegacyRpcCalls = (text) => forbiddenLegacyRpcNames.filter((name) => (
   new RegExp(`\\.rpc\\(\\s*['\"]${name}['\"]`).test(text)
@@ -150,29 +150,31 @@ check(JSON.stringify(repair.applicationCompatibility.resolvedEvidence.forbiddenR
 check(findLegacyRpcCalls("await client.rpc('admin_replace_profile_roles', {})").length === 1 &&
   findLegacyRpcCalls("await client.rpc('admin_replace_supervisor_subordinates', {})").length === 1,
   'legacy RPC compatibility detector negative control failed')
-check(contract.repairCiRunEvidence.runId === '29726897764' &&
-  contract.repairCiRunEvidence.runUrl === 'https://github.com/yccanwin/canwin-team-os/actions/runs/29726897764' &&
-  contract.repairCiRunEvidence.headSha === 'e774ead5a2857afb511400a12897e629033cf941' &&
-  contract.repairCiRunEvidence.linuxJobId === '88301987239' &&
-  contract.repairCiRunEvidence.windowsJobId === '88301987280' &&
-  contract.repairCiRunEvidence.status === 'failure' &&
-  contract.repairCiRunEvidence.linuxStatus === 'failure' &&
-  contract.repairCiRunEvidence.windowsStatus === 'success' &&
-  contract.repairCiRunEvidence.failedAssertionExpectedAuditRows === 6 &&
-  contract.repairCiRunEvidence.failedAssertionActualAuditRows === 7 &&
-  JSON.stringify(contract.repairCiRunEvidence.correctedExpectedAuditRowsByAction) ===
+const priorRepairCi = contract.priorRepairCiFailureEvidence
+const repairCi = contract.repairCiRunEvidence
+check(priorRepairCi.runId === '29726897764' &&
+  priorRepairCi.headSha === 'e774ead5a2857afb511400a12897e629033cf941' &&
+  priorRepairCi.linuxJobId === '88301987239' && priorRepairCi.windowsJobId === '88301987280' &&
+  priorRepairCi.status === 'failure' && priorRepairCi.linuxStatus === 'failure' &&
+  priorRepairCi.windowsStatus === 'success' && priorRepairCi.failedAssertionExpectedAuditRows === 6 &&
+  priorRepairCi.failedAssertionActualAuditRows === 7 &&
+  JSON.stringify(priorRepairCi.correctedExpectedAuditRowsByAction) ===
     JSON.stringify({ memberAccess: 5, supervisorSystem: 1, supervisorScope: 1 }) &&
-  contract.repairCiRunEvidence.migrationsPassed === 71 &&
-  contract.repairCiRunEvidence.sqlTestsStarted === 18 &&
-  contract.repairCiRunEvidence.sqlTestsPassed === 17 &&
-  contract.repairCiRunEvidence.windowsStaticPassed === 19 &&
-  contract.repairCiRunEvidence.windowsLocalPassed === 12 &&
-  contract.repairCiRunEvidence.cleanupPassed === true &&
-  contract.repairCiRunEvidence.retryPerformed === false &&
-  contract.repairCiRunEvidence.preservedWithoutRerun === true &&
-  contract.repairCiRunEvidence.candidateRemoteExecutionAllowed === false &&
-  contract.repairCiRunEvidence.g1OverallClaim === false,
-  'failed repair CI evidence or remote lock drift')
+  priorRepairCi.sqlTestsStarted === 18 && priorRepairCi.sqlTestsPassed === 17 &&
+  priorRepairCi.preservedWithoutRerun === true &&
+  repairCi.runId === '29733854344' &&
+  repairCi.runUrl === 'https://github.com/yccanwin/canwin-team-os/actions/runs/29733854344' &&
+  repairCi.headSha === '71b7320b4c303af797ee9e4bf12044518a4fe18a' &&
+  repairCi.linuxJobId === '88324427055' && repairCi.windowsJobId === '88324427244' &&
+  repairCi.status === 'success' && repairCi.linuxStatus === 'success' && repairCi.windowsStatus === 'success' &&
+  repairCi.migrationsPassed === 71 && repairCi.sqlTestsStarted === 27 && repairCi.sqlTestsPassed === 27 &&
+  repairCi.databaseTestsPassed === 7 && repairCi.permissionTestsPassed === 11 &&
+  repairCi.businessTestsPassed === 9 && repairCi.catalogAssertionsPassed === 4 &&
+  repairCi.windowsStaticPassed === 19 && repairCi.windowsLocalPassed === 12 &&
+  repairCi.linuxDatabaseAccepted === true && repairCi.cleanupPassed === true &&
+  repairCi.retryPerformed === false && repairCi.priorFailedRunPreservedWithoutRerun === '29726897764' &&
+  repairCi.candidateRemoteExecutionAllowed === false && repairCi.g1OverallClaim === false,
+  'repair CI failure preservation or qualified success evidence drift')
 
 const failed = contract.formalResumeFailureEvidence
 check(failed.runId === SOURCE_RUN && failed.supervisionHeadSha === SOURCE_HEAD &&
@@ -393,4 +395,4 @@ if (failures.length > 0) {
   for (const failure of failures) console.error('- ' + failure)
   process.exit(1)
 }
-console.log(`P1_ISOLATED_RUNTIME_RUNNER_OK assertions=${assertionCount} exact70to71=1 signedMigrationInventory=71/71 dryRunOnly71=1 dbPushMax=1 failedPushUnknownState=1 aclTargets=6/6 expectedAclChanges=4/4 privateDefinitionChange=1/1 privateDefinitionSnapshots=3/3 atomicMapping=5/5 atomicRollback=2/2 sameTeamStatic=4/4 atomicGateNegative=2/2 repairGateNegative=5/5 atomicDatabaseCiPending=1 fullDifferencePaths=2/2 sqlTests=27 perTestSnapshots=27 fullSnapshots=29 storageArchives=2 signedFailureCounts=5/5/6/1 oldResumeDenied=1 applicationCompatibilityPassed=1 legacyRpcCalls=0 detectorNegative=2/2 appShell=99/99 staticGate16=runner+appShell+accessV1 warehouseBackendRelaxed=0 repairRemote=0 productionDenied=1 validatorDatabaseCalls=0 validatorStorageCalls=0 validatorDEvidenceRequired=0`)
+console.log(`P1_ISOLATED_RUNTIME_RUNNER_OK assertions=${assertionCount} exact70to71=1 signedMigrationInventory=71/71 dryRunOnly71=1 dbPushMax=1 failedPushUnknownState=1 aclTargets=6/6 expectedAclChanges=4/4 privateDefinitionChange=1/1 privateDefinitionSnapshots=3/3 atomicMapping=5/5 atomicRollback=2/2 sameTeamStatic=4/4 atomicGateNegative=2/2 repairGateNegative=5/5 atomicDatabaseCiPassed=1 priorRepairCiFailurePreserved=1 fullDifferencePaths=2/2 sqlTests=27 perTestSnapshots=27 fullSnapshots=29 storageArchives=2 signedFailureCounts=5/5/6/1 oldResumeDenied=1 applicationCompatibilityPassed=1 legacyRpcCalls=0 detectorNegative=2/2 appShell=99/99 staticGate16=runner+appShell+accessV1 warehouseBackendRelaxed=0 repairRemote=1 productionDenied=1 validatorDatabaseCalls=0 validatorStorageCalls=0 validatorDEvidenceRequired=0`)
