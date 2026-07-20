@@ -1,6 +1,6 @@
 # CanWin Team OS 4.0 — P0 监理台账
 
-> 状态：P0/G0 已验收；失败 CI run [`29726897764`](https://github.com/yccanwin/canwin-team-os/actions/runs/29726897764)、历史成功 run [`29733854344`](https://github.com/yccanwin/canwin-team-os/actions/runs/29733854344)、解析器修复 run [`29738966326`](https://github.com/yccanwin/canwin-team-os/actions/runs/29738966326) 和两次正式 dry-run 失败现场均原样保留。最新正式命令 `p1-acl-repair-20260720T122757275Z-8fa1498850` 在独立测试项目直连入口超时，正式尝试0、db push尝试0、持久写0、生产读写0。迁移通道现已强制改为 Session Pooler，本地 runner 71/71、接口合同86/86、数据库合同94/94通过；旧资格关闭，`remote/dbPush=false`，等待全新双平台 CI。G1=false，整体验收仍为25%。
+> 状态：P0/G0 已验收；失败 CI run [`29726897764`](https://github.com/yccanwin/canwin-team-os/actions/runs/29726897764)、历史成功 run [`29733854344`](https://github.com/yccanwin/canwin-team-os/actions/runs/29733854344)、解析器修复 run [`29738966326`](https://github.com/yccanwin/canwin-team-os/actions/runs/29738966326) 和两次正式 dry-run 失败现场均原样保留。最新正式命令 `p1-acl-repair-20260720T122757275Z-8fa1498850` 在独立测试项目直连入口超时，正式尝试0、db push尝试0、持久写0、生产读写0。迁移通道现已强制改为 Session Pooler，本地 runner 71/71、接口合同86/86、数据库合同94/94通过；全新 Session Pooler CI `29750768517` 已双平台通过并签名，仅 ACL repair 的 `remote/dbPush=true`；正式恢复1/1仍待执行，生产仍锁死，G1=false，整体验收仍为25%。
 > 基线：`CanWin-Team-OS-4.0-最终施工总方案.md`（2026-07-18）
 > 监理分支：`codex/team-os-4-p0-integration`
 
@@ -52,7 +52,7 @@
 - 续验资格已由独立 CI run [`29699951990`](https://github.com/yccanwin/canwin-team-os/actions/runs/29699951990) 正式签署：HEAD `a620bb541f4c5eb613413e8b40455b3988ee0cf3`，Linux job `88227205377` 为70/27/7/11/9/4，Windows job `88227205362` 为19/19、12/12。最终 SHA 为 access-control `31fa286b318ad2b24e2d956005c4a5fcc9b0fddfd0269be029330d5c1c3e43f8`、runner `f9d9d6abed29a482757682d25002f2c414a1271e0f7fa2e9360fc62f009ed648`、isolated contract `f99e605341b36e2de18779b6dd52a624b1ef421a9b60c4517f59845a7ba22013`、validator `60a90fc8bf75d44a02c2d824e29b912d14fbbe844af79b0e5a705c77fe59c2af`，断言100/100、fixture pattern4/4。完整对账合同仍为29/27/2/6、key5/raw9/inventory3、内容指纹和两项合法差异。旧apply入口关闭；resume入口仅对签名HEAD之后的干净tracked提交开放，签名HEAD本身拒绝、tracked dirty拒绝、未跟踪 `.codex-audit` 允许；续验远端执行0。资格签署不提高进度，G1=false、25%。
 - 正式续验 run `p1-resume-20260719T193911279Z-ea6ed9385d` 已执行1次并首错停止，原现场继续保留。第71迁移 LF SHA256 为 `1bb13f29fc0f5512bd00115dc1c953a2c3aaa0ec21522b1cc8cbb45a18a5cdc0`；notification/P1 access测试SHA分别为 `a3d87069899b986b191bc21826f5e23c65fe4734066e52adc4e14753c9e6e5a3`、`c598b4e4ed3c7e26d9411cb4084685bea1233f47ae969c2685e048f480dac09e`，runtime contract/runner/validator SHA分别为 `4b7db4155637bc349c50948eaa35f2d241e823b3e65c0578e3be083e93344659`、`acae6010b6e4efca94d8411b16aa2cf8e1e04118ecf9055a9711ebb55eb3d2bc`、`1aa9341425465a42ae7cd82d434281595723b00733fafc17be3176f73ee5d5f4`。失败 CI run `29726897764` 原样保留；新 CI run `29733854344`（Linux job `88324427055`、Windows job `88324427244`）双平台成功并签署一次独立测试项目正式资格，G1=false、25%。
 - 正式 ACL repair 命令 `p1-acl-repair-20260720T104323349Z-4fa8de78a8` 的解析器失败现场继续保留；其后 run `29738966326` 的双平台成功现在只作为历史解析器修复证据，不得复活旧资格。
-- 新正式命令 `p1-acl-repair-20260720T122757275Z-8fa1498850` 在 `db-push-dry-run` 连接独立测试项目直连主机时超时并首错停止。证据目录 `D:\CanWin-Team-OS-4.0-P1-Validation\p1-acl-repair-20260720T122757275Z-8fa1498850` 仅有 `failure.json`，SHA256 `19e4cd30c3d024a452b74f94380a17175364326dc59d41b837bc338c398579ba`；初始light/full迁移均70，完整对账1、私有定义1、Storage归档1，正式尝试0、db push尝试0、持久写0、密钥打印/落盘0、生产读写0，目标保留、未重试、未清理。runner 已让 dry/apply 共用 passwordless Session Pooler `--db-url`，密码仅进入子进程 `PGPASSWORD`，禁止 `--linked`、`--password`、直连、带密URL和继承连接秘密；runtime contract/runner/validator LF SHA256 分别为 `1280c815e0b9b953a63e097288b8f016f9170c8f388658f626be478808863284`、`8593cc4f52e0b899de75027bd5e8745d9b3286adfda9f25b1b570e5e699911cb`、`4a6c0c64bd53be5761c5541fb35ac5267168de5e5ef2b54f458f4fd69c4ec61e`，验证器71/71。本轮只强化旧CI与失败证据不可重贴标签复活，当前 `remote/dbPush=false` 不变，继续等待全新独立CI；生产仍锁死，G1=false、进度25%。
+- 新正式命令 `p1-acl-repair-20260720T122757275Z-8fa1498850` 在 `db-push-dry-run` 连接独立测试项目直连主机时超时并首错停止。证据目录 `D:\CanWin-Team-OS-4.0-P1-Validation\p1-acl-repair-20260720T122757275Z-8fa1498850` 仅有 `failure.json`，SHA256 `19e4cd30c3d024a452b74f94380a17175364326dc59d41b837bc338c398579ba`；初始light/full迁移均70，完整对账1、私有定义1、Storage归档1，正式尝试0、db push尝试0、持久写0、密钥打印/落盘0、生产读写0，目标保留、未重试、未清理。runner 已让 dry/apply 共用 passwordless Session Pooler `--db-url`，密码仅进入子进程 `PGPASSWORD`，禁止 `--linked`、`--password`、直连、带密URL和继承连接秘密；runtime contract/runner/validator LF SHA256 分别为 `e48ddfe92bdb7db9b63937aa34a3933056c0ba83b59fbaf15bfd5f7722e7a9c9`、`a4e1325f6593c7c6a2ce15ec15477cf53b8a681a3c218ae757699ff1ed3829c0`、`99c2fb29440eb9757924f4e840d96652bc6876908e2cab1e1ad6ea93834796dd`，验证器71/71。全新 Session Pooler CI `29750768517` 已在提交 `370a04aa9fddcce9788df33de3f0ae6924bda932` 通过 Linux/Windows 任务 `88380368836`、`88380368845` 并签名，旧CI与失败HEAD仍永久不可复用；仅 ACL repair 的 `remote/dbPush=true`，正式封闭恢复1/1及全量对账仍待执行；生产仍锁死，G1=false、进度25%。
 
 生产侧全程只读；测试侧恢复、对账、三视图隔离修复和对象分类证据已固化。七项首批产物和 G0 已联合签收，P1 执行已解锁。测试项目仍封闭，真实账号禁登、预览和外发均未开放。
 
@@ -66,7 +66,7 @@
 | 04 | 图片入口与 Storage 清理清单 | P0 清理方案已验收 | 7 个文件入口、7 个旧命名空间和两个最终图片槽已冻结；1 bucket、32 objects 已恢复，生产策略未改 |
 | 05 | 核心实体和状态机字典 | P0 已验收 | 业务语义 76/76；22 个实体、7 组现有表扩展、11 张新增表、16 组字典、12 条不变量及 RLS/RPC/索引边界均已冻结 |
 | 06 | 测试项目与备份恢复基线 | 已验收 | 正式封闭恢复 1/1、数据库/Auth/Storage 全量对账、禁登和外发隔离证据齐全 |
-| 07 | P1 工单及冻结接口 | Session Pooler 候选待新CI | run29726897764失败、run29733854344历史成功、run29738966326解析器修复及两次正式dry-run失败现场均保留；旧资格已关闭。第71迁移仍为ACL目标6/变化4加私有定义变化1，27项SQL和29份完整快照不变。生产禁止；页面验收未完成，接受进度25%、G1=false |
+| 07 | P1 工单及冻结接口 | Session Pooler CI已签名，正式恢复待执行 | run29726897764失败、run29733854344历史成功、run29738966326解析器修复及两次正式dry-run失败现场均保留且不可复用；run29750768517是唯一当前签名资格。第71迁移仍为ACL目标6/变化4加私有定义变化1，27项SQL和29份完整快照不变。生产禁止；页面验收未完成，接受进度25%、G1=false |
 
 ## G0 门禁
 
@@ -86,13 +86,13 @@
 当前新项目恢复、对象分类、物理对象、页面/Storage处置及 P1 接口冻结证据由本次台账固化。历史 GitHub 候选的 static 计数保留原始证据；本地统一静态入口现为 19 项，包含隔离运行器合同、PostgreSQL 回归、真实账号夹具和真实页面 runner 四项纯自测，均禁止默认执行真实数据库或远端操作。G0 已签署；该结论允许 P1 施工，但不等于 P1 运行态、G1、生产迁移、发布或合并授权。
 
 - 统一入口：12/12；首错即停和 skipped 计数已接入 Windows PR/手动 CI 候选；隔离连接边界负测不连接数据库。
-- 隔离数据库 CI 合同：当前候选为基线1、迁移71、测试27（数据库7、权限11、业务9）、catalog对账4；历史70迁移CI记录继续按原值保留。run `29726897764`、run `29733854344`、run `29738966326` 及两次正式 dry-run 失败现场均锁定为历史证据。当前 Session Pooler 候选尚未取得新CI，`remote/dbPush=false`；生产资格未开放。
+- 隔离数据库 CI 合同：当前候选为基线1、迁移71、测试27（数据库7、权限11、业务9）、catalog对账4；历史70迁移CI记录继续按原值保留。run `29726897764`、run `29733854344`、run `29738966326` 及两次正式 dry-run 失败现场均锁定为历史证据。当前 Session Pooler CI `29750768517` 已完成双平台签名，ACL repair `remote/dbPush=true`；正式恢复1/1尚未执行，生产资格未开放。
 - 历史迁移：69/69；历史迁移改动 0。
 - 项目 ref 合同：17/17；生产与测试 ref 不同，输出 `readiness=READY restore=validated preview=disabled`。
 - 恢复台账：139/139；真实恢复状态为 `succeeded`、阻塞项 0；封闭恢复合同 73/73，备份模板合同 1113/1113。
 - 前端清单：36 路由、22 个 4.8 节页面、7 个文件入口、7 个 Storage 命名空间。
 - P1 导航合同：5 个主岗位、2 个附加职能、13 个应用上下文字段、36 个旧路由映射。
-- P1 接口合同：6 个物理 RPC、4 组字段白名单、6 类基础身份、16 个附加职能组合、13 个直接 API 攻击用例、13 项三团队工单；仓库职能按最终方案校正为管理员默认、仅可授实施，销售/运营/财务均有拒绝负控。当前pre70/post71候选冻结六函数ACL最终状态（实际变化4）、一个私有函数定义变化、27项逐项、29份完整快照和两项允许差异；全部历史失败/成功证据已锁定，Session Pooler 候选等待新CI，旧run不可复用。页面验收仍pending，生产禁止，G1=false、进度25%。
+- P1 接口合同：6 个物理 RPC、4 组字段白名单、6 类基础身份、16 个附加职能组合、13 个直接 API 攻击用例、13 项三团队工单；仓库职能按最终方案校正为管理员默认、仅可授实施，销售/运营/财务均有拒绝负控。当前pre70/post71候选冻结六函数ACL最终状态（实际变化4）、一个私有函数定义变化、27项逐项、29份完整快照和两项允许差异；全部历史失败/成功证据已锁定，Session Pooler CI run `29750768517` 已双平台签名，旧run不可复用，正式恢复1/1待执行。页面验收仍pending，生产禁止，G1=false、进度25%。
 - 后端 catalog 只读校验：9 个自检案例、15 条只读 SQL。
 - 三视图候选校验：LF/CRLF/mixed/注释分号 4 种格式通过；4 个正例、6 个负例；3 个视图、4 条策略、3 个调用方；数据库调用 0。
 - 103 表四分类：完整17项证据和监理冻结 103/103；精确恢复副本总行数 796，运行时动态表名调用 0。该单项制品保持 `g0=false` 防止独立冒充整体门禁；整体 G0 已由联合签收单确认。

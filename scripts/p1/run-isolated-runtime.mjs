@@ -1674,7 +1674,7 @@ function runSelfTest() {
       '--apply-acl-repair', qualifiedRepair, contract.priorParserFixRepairCiRunEvidence,
     ),
   ].filter((test) => test() === false).length
-  const currentClosedRepairGateDenied = !validateRepairRemoteGate(
+  const currentQualifiedRepairGateAccepted = validateRepairRemoteGate(
     '--apply-acl-repair', contract.aclRepair, contract.repairCiRunEvidence,
   )
   const relabelAsCurrentSessionPoolerCi = (candidate) => ({
@@ -1786,7 +1786,7 @@ function runSelfTest() {
       !cleanCommittedBoundary.committedAfterSignedHead || !cleanCommittedBoundary.trackedWorktreeClean ||
       worktreeBoundaryNegativePassed !== 2 ||
       repairGateNegativePassed !== repairGateNegativeCases.length || closedRepairGateNegativePassed !== 3 ||
-      !currentClosedRepairGateDenied || !independentCiHistoryPositive ||
+      !currentQualifiedRepairGateAccepted || !independentCiHistoryPositive ||
       independentCiHistoryNegativePassed !== independentCiHistoryNegativeCases.length ||
       relabeledRevivalNegativePassed !== relabeledRevivalNegativeCases.length ||
       relabeledHistoryRevivalNegativePassed !== 2 || !syntheticFailureStopped ||
@@ -1798,7 +1798,7 @@ function runSelfTest() {
     throw new Error('P1 ACL repair negative self-test failed: ' + JSON.stringify({
       repairGateNegativePassed,
       closedRepairGateNegativePassed,
-      currentClosedRepairGateDenied,
+      currentQualifiedRepairGateAccepted,
       independentCiHistoryPositive,
       independentCiHistoryNegativePassed,
       relabeledRevivalNegativePassed,
@@ -1807,7 +1807,7 @@ function runSelfTest() {
       followingSyntheticTestRan,
     }))
   }
-  console.log('P1_ISOLATED_RUNTIME_SELFTEST_OK targetPositive=1 targetNegative=3/3 migration70to71Positive=1 migrationNegative=6/6 stagedInventoryPositive=71/71 stagedInventoryNegative=3/3 dryRunPositive=2/2 dryRunNegative=4/4 dryRunFailureEvidencePreserved=1 dryRunRawOutputAbsent=1 poolerPushPositive=2/2 poolerPushNegative=7/7 poolerPushPasswordEnvOnly=1 poolerPushSecretsCleared=2/2 poolerDirectDenied=1 credentialPositive=1 credentialNegative=3/3 exact70Accepted=1 exact71Accepted=1 repairBaselineDriftDenied=3/3 fullAclTransitionAccepted=1 reconciliationDriftDenied=7/7 routineAclTargets=6/6 routineAclExactChanged=4/4 routineAclNegative=3/3 privateDefinitionChanged=1/1 privateDefinitionNegative=3/3 atomicMapping=5/5 atomicRollback=2/2 sameTeamStatic=4/4 evidenceNegative=7/7 worktreeBoundaryPositive=1 worktreeBoundaryNegative=2/2 oldApplyModesDenied=3/3 futureQualifiedRepairGatePositive=1 currentClosedRepairGateDenied=1 repairGateNegative=7/7 closedRepairGateNegative=3/3 priorRepairCiRevivalDenied=2/2 relabeledRevivalDenied=5/5 independentCiHistoryPositive=1 independentCiHistoryNegative=5/5 relabeledHistoryRevivalDenied=2/2 atomicGateNegative=2/2 failedPushUnknownStatePreserved=1 fixturePatterns=4/4 firstSqlFailureStops=1 candidateRemoteExecutionAllowed=0 oldResumeRemoteExecutionAllowed=0 repairRemote=0 currentCi=pending-session-pooler-new-signed-run databaseCalls=0 storageCalls=0 dEvidenceRequired=0')
+  console.log('P1_ISOLATED_RUNTIME_SELFTEST_OK targetPositive=1 targetNegative=3/3 migration70to71Positive=1 migrationNegative=6/6 stagedInventoryPositive=71/71 stagedInventoryNegative=3/3 dryRunPositive=2/2 dryRunNegative=4/4 dryRunFailureEvidencePreserved=1 dryRunRawOutputAbsent=1 poolerPushPositive=2/2 poolerPushNegative=7/7 poolerPushPasswordEnvOnly=1 poolerPushSecretsCleared=2/2 poolerDirectDenied=1 credentialPositive=1 credentialNegative=3/3 exact70Accepted=1 exact71Accepted=1 repairBaselineDriftDenied=3/3 fullAclTransitionAccepted=1 reconciliationDriftDenied=7/7 routineAclTargets=6/6 routineAclExactChanged=4/4 routineAclNegative=3/3 privateDefinitionChanged=1/1 privateDefinitionNegative=3/3 atomicMapping=5/5 atomicRollback=2/2 sameTeamStatic=4/4 evidenceNegative=7/7 worktreeBoundaryPositive=1 worktreeBoundaryNegative=2/2 oldApplyModesDenied=3/3 futureQualifiedRepairGatePositive=1 currentQualifiedRepairGateAccepted=1 repairGateNegative=7/7 closedRepairGateNegative=3/3 priorRepairCiRevivalDenied=2/2 relabeledRevivalDenied=5/5 independentCiHistoryPositive=1 independentCiHistoryNegative=5/5 relabeledHistoryRevivalDenied=2/2 atomicGateNegative=2/2 failedPushUnknownStatePreserved=1 fixturePatterns=4/4 firstSqlFailureStops=1 candidateRemoteExecutionAllowed=0 oldResumeRemoteExecutionAllowed=0 repairRemote=1 currentCi=29750768517 databaseCalls=0 storageCalls=0 dEvidenceRequired=0')
 }
 
 function verifyTemporaryLink(workdir) {
