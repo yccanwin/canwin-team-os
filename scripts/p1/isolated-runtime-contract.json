@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "manifestType": "canwin-team-os-4-p1-isolated-runtime",
+  "contractStatus": "p1_acl_repair_formal_dry_run_failed_qualification_closed",
   "target": {
     "projectRef": "zdmuaqokndhhbarudhtw",
     "projectName": "canwinos-team-os-4-p0-test-4",
@@ -47,8 +48,8 @@
   },
   "aclRepair": {
     "mode": "--apply-acl-repair",
-    "remoteExecutionAllowed": true,
-    "dbPushAllowed": true,
+    "remoteExecutionAllowed": false,
+    "dbPushAllowed": false,
     "migrationVersion": "20260720015435",
     "migrationPath": "supabase/migrations/20260720015435_harden_server_only_rpc_acl.sql",
     "migrationSha256Lf": "1bb13f29fc0f5512bd00115dc1c953a2c3aaa0ec21522b1cc8cbb45a18a5cdc0",
@@ -123,8 +124,8 @@
     "atomicLegacyRoleCompatibility": {
       "status": "passed",
       "staticPassed": true,
-      "databaseCiPassed": true,
-      "remoteQualificationAllowed": true,
+      "databaseCiPassed": null,
+      "remoteQualificationAllowed": false,
       "writeFunction": "private.admin_apply_member_access_v1(uuid, text, text[], uuid[], uuid[], text[], uuid)",
       "mappingPrecedence": [
         { "condition": "primary-admin", "legacyRole": "admin" },
@@ -150,7 +151,7 @@
     },
     "applicationCompatibility": {
       "status": "passed",
-      "remoteQualificationAllowed": true,
+      "remoteQualificationAllowed": false,
       "legacyRpcCallSites": [],
       "resolvedEvidence": {
         "files": [
@@ -241,7 +242,7 @@
     "candidateRemoteExecutionAllowed": false,
     "g1OverallClaim": false
   },
-  "repairCiRunEvidence": {
+  "priorSuccessfulRepairCiRunEvidence": {
     "runId": "29733854344",
     "runUrl": "https://github.com/yccanwin/canwin-team-os/actions/runs/29733854344",
     "headSha": "71b7320b4c303af797ee9e4bf12044518a4fe18a",
@@ -268,7 +269,65 @@
     "retryPerformed": false,
     "priorFailedRunPreservedWithoutRerun": "29726897764",
     "candidateRemoteExecutionAllowed": false,
-    "g1OverallClaim": false
+    "g1OverallClaim": false,
+    "evidenceScope": "historical-prior-success-only",
+    "currentQualificationAllowed": false
+  },
+  "formalAclRepairFailureEvidence": {
+    "runId": "p1-acl-repair-20260720T104323349Z-4fa8de78a8",
+    "evidenceDirectory": "D:/CanWin-Team-OS-4.0-P1-Validation/p1-acl-repair-20260720T104323349Z-4fa8de78a8",
+    "failurePath": "D:/CanWin-Team-OS-4.0-P1-Validation/p1-acl-repair-20260720T104323349Z-4fa8de78a8/failure.json",
+    "failureSha256": "16373794dd745ad86422bb59f3966933532cb0bf073251963b519c2b8e367e73",
+    "supervisionHeadSha": "4fa8de78a8b05f8285f69fb0d6d9106e20e3cba7",
+    "status": "failed-stop-preserved",
+    "currentStep": "db-push-dry-run",
+    "message": "ACL repair dry-run did not enumerate exactly the one signed migration 71",
+    "migrationVersion": "20260720015435",
+    "migrationAlreadyApplied": false,
+    "initialMigrationHistory": {
+      "lightMigrationRows": 70,
+      "fullMigrationRows": 70,
+      "exactVersionSetProven": false,
+      "claimBoundary": "row-count-only-not-exact-version-set-proof"
+    },
+    "initialEvidenceCounts": {
+      "lightSnapshots": 1,
+      "fullReconciliationSnapshots": 1,
+      "privateRoutineDefinitionSnapshots": 1,
+      "storageArchives": 1
+    },
+    "formalAttemptStarted": false,
+    "dbPushAttempted": false,
+    "dbPushPerformed": false,
+    "dbPushAttempts": 0,
+    "attempts": 0,
+    "confirmedPersistentWrites": 0,
+    "persistentRemoteWrites": 0,
+    "persistentRemoteWriteUpperBound": 0,
+    "productionReads": 0,
+    "productionWrites": 0,
+    "targetPreserved": true,
+    "retryPerformed": false,
+    "remoteCleanupPerformed": false,
+    "evidenceInventory": {
+      "files": ["failure.json"],
+      "fileCount": 1,
+      "onlyFailureJson": true
+    },
+    "successEvidencePresent": false
+  },
+  "repairCiRunEvidence": {
+    "status": "pending-new-signed-run",
+    "runId": null,
+    "runUrl": null,
+    "headSha": null,
+    "linuxJobId": null,
+    "windowsJobId": null,
+    "conclusion": null,
+    "databaseCiPassed": null,
+    "remoteQualificationAllowed": false,
+    "successEvidencePresent": false,
+    "closedByFormalAclRepairFailureRunId": "p1-acl-repair-20260720T104323349Z-4fa8de78a8"
   },
   "fullReconciliation": {
     "backupPackageId": "canwin-team-os-4-p0-20260719T074943659Z-c11fca6bd1",
@@ -400,9 +459,9 @@
   },
   "scriptHardLocks": {
     "runnerPath": "scripts/p1/run-isolated-runtime.mjs",
-    "runnerSha256Lf": "acae6010b6e4efca94d8411b16aa2cf8e1e04118ecf9055a9711ebb55eb3d2bc",
+    "runnerSha256Lf": "3834ada48a3dd827dbb7d3ff15b0f5a068e2fa4daee4f93296e614990799d541",
     "validatorPath": "scripts/p1/verify-isolated-runtime-runner.mjs",
-    "validatorSha256Lf": "1aa9341425465a42ae7cd82d434281595723b00733fafc17be3176f73ee5d5f4",
+    "validatorSha256Lf": "2cf0ed22cb1d1a67179af78c24decf5dd8adad2fe8251f47acf1b8aa85e42c74",
     "postgresRegressionPath": "scripts/p1/verify-pending-trigger-postgres.mjs",
     "postgresRegressionSha256Lf": "f4f54d77436b1b91035cd8fff7572dd52f4375aa75f52325a664426d0b9cf3ea"
   },
@@ -425,6 +484,16 @@
     }
   },
   "evidenceRoot": "D:/CanWin-Team-OS-4.0-P1-Validation",
+  "acceptanceBoundary": {
+    "formalAclRepairDryRun": "failed-stop-preserved",
+    "formalAclRepairFailureRunId": "p1-acl-repair-20260720T104323349Z-4fa8de78a8",
+    "aclRepairQualification": "closed-pending-new-signed-evidence",
+    "remoteExecutionAllowed": false,
+    "dbPushAllowed": false,
+    "databaseCiPassed": null,
+    "g1OverallClaim": false,
+    "overallAcceptedProgressPercent": 25
+  },
   "failurePolicy": {
     "maxFormalAttempts": 1,
     "stopOnFirstFailure": true,

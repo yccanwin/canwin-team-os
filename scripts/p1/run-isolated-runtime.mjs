@@ -13,6 +13,7 @@ import {
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { stripVTControlCharacters } from 'node:util'
 import {
   parseTemporaryPgEnvironment,
   runPgTool,
@@ -76,6 +77,7 @@ function validateRepairRemoteGate(candidateMode, repair, ci) {
     repair?.atomicLegacyRoleCompatibility?.databaseCiPassed === true &&
     repair?.applicationCompatibility?.remoteQualificationAllowed === true &&
     repair?.atomicLegacyRoleCompatibility?.remoteQualificationAllowed === true &&
+    ci?.evidenceScope !== 'historical-prior-success-only' && ci?.currentQualificationAllowed !== false &&
     /^[a-f0-9]{40}$/.test(ci?.headSha ?? '') && ci?.status === 'success'
 }
 
@@ -655,9 +657,44 @@ function assertFrozenContract() {
     ci?.status === 'failure' && ci?.failedAssertionExpectedAuditRows === 6 &&
     ci?.failedAssertionActualAuditRows === 7 && ci?.preservedWithoutRerun === true &&
     ci?.candidateRemoteExecutionAllowed === false && ci?.g1OverallClaim === false
+  const priorSuccessfulRepairCi = contract.priorSuccessfulRepairCiRunEvidence
+  const formalFailure = contract.formalAclRepairFailureEvidence
+  const repairFormalFailureClosed =
+    contract.contractStatus === 'p1_acl_repair_formal_dry_run_failed_qualification_closed' &&
+    repair.remoteExecutionAllowed === false && repair.dbPushAllowed === false &&
+    repair.applicationCompatibility?.status === 'passed' &&
+    repair.applicationCompatibility?.remoteQualificationAllowed === false &&
+    repair.atomicLegacyRoleCompatibility?.status === 'passed' &&
+    repair.atomicLegacyRoleCompatibility?.staticPassed === true &&
+    repair.atomicLegacyRoleCompatibility?.databaseCiPassed === null &&
+    repair.atomicLegacyRoleCompatibility?.remoteQualificationAllowed === false &&
+    priorSuccessfulRepairCi?.runId === '29733854344' &&
+    priorSuccessfulRepairCi?.headSha === '71b7320b4c303af797ee9e4bf12044518a4fe18a' &&
+    priorSuccessfulRepairCi?.status === 'success' &&
+    priorSuccessfulRepairCi?.evidenceScope === 'historical-prior-success-only' &&
+    priorSuccessfulRepairCi?.currentQualificationAllowed === false &&
+    ci?.status === 'pending-new-signed-run' && ci?.runId === null && ci?.runUrl === null &&
+    ci?.headSha === null && ci?.linuxJobId === null && ci?.windowsJobId === null &&
+    ci?.conclusion === null && ci?.databaseCiPassed === null &&
+    ci?.remoteQualificationAllowed === false && ci?.successEvidencePresent === false &&
+    ci?.closedByFormalAclRepairFailureRunId === 'p1-acl-repair-20260720T104323349Z-4fa8de78a8' &&
+    formalFailure?.runId === 'p1-acl-repair-20260720T104323349Z-4fa8de78a8' &&
+    formalFailure?.failureSha256 === '16373794dd745ad86422bb59f3966933532cb0bf073251963b519c2b8e367e73' &&
+    formalFailure?.supervisionHeadSha === '4fa8de78a8b05f8285f69fb0d6d9106e20e3cba7' &&
+    formalFailure?.status === 'failed-stop-preserved' && formalFailure?.currentStep === 'db-push-dry-run' &&
+    formalFailure?.migrationVersion === REPAIR_VERSION && formalFailure?.migrationAlreadyApplied === false &&
+    formalFailure?.formalAttemptStarted === false && formalFailure?.dbPushAttempted === false &&
+    formalFailure?.dbPushPerformed === false && formalFailure?.dbPushAttempts === 0 &&
+    formalFailure?.attempts === 0 && formalFailure?.confirmedPersistentWrites === 0 &&
+    formalFailure?.persistentRemoteWrites === 0 && formalFailure?.persistentRemoteWriteUpperBound === 0 &&
+    formalFailure?.productionReads === 0 && formalFailure?.productionWrites === 0 &&
+    formalFailure?.targetPreserved === true && formalFailure?.retryPerformed === false &&
+    formalFailure?.remoteCleanupPerformed === false && formalFailure?.successEvidencePresent === false
+  const qualificationStateCount = [repairCiQualified, repairCiPending, repairFormalFailureClosed]
+    .filter(Boolean).length
   if (contract.candidate.remoteExecutionAllowed !== false || contract.postApplyResume?.remoteExecutionAllowed !== false ||
       contract.postApplyResume?.dbPushAllowed !== false || !['--resume-post-apply', 'retired'].includes(contract.postApplyResume?.mode) ||
-      (repairCiQualified === repairCiPending)) {
+      qualificationStateCount !== 1) {
     throw new Error('old failed candidate is not retired or ACL repair qualification state is ambiguous')
   }
   const expectedFunctions = [
@@ -701,9 +738,12 @@ function assertFrozenContract() {
       JSON.stringify(privateDefinition?.expectedChangedFunctions) !== JSON.stringify([PRIVATE_MEMBER_ACCESS_IDENTITY]) ||
       privateDefinition?.expectedDefinitionChanges !== 1 || privateDefinition?.identityChangesAllowed !== 0 ||
       privateDefinition?.securityEnvelopeChangesAllowed !== 0 || privateDefinition?.unknownChangesAllowed !== false ||
-      atomicCompatibility?.status !== 'passed' ||
-      atomicCompatibility?.staticPassed !== true || atomicCompatibility?.databaseCiPassed !== true ||
-      atomicCompatibility?.remoteQualificationAllowed !== true ||
+      atomicCompatibility?.status !== (repairCiPending
+        ? 'static-passed-prior-database-ci-failed-preserved-new-candidate-pending'
+        : 'passed') ||
+      atomicCompatibility?.staticPassed !== true ||
+      atomicCompatibility?.databaseCiPassed !== (repairCiQualified ? true : null) ||
+      atomicCompatibility?.remoteQualificationAllowed !== repairCiQualified ||
       atomicCompatibility?.writeFunction !== PRIVATE_MEMBER_ACCESS_IDENTITY ||
       JSON.stringify(atomicCompatibility?.mappingPrecedence) !== JSON.stringify(expectedAtomicMapping) ||
       atomicCompatibility?.successfulMappingCases !== 5 || atomicCompatibility?.rollbackControls !== 2 ||
@@ -886,6 +926,56 @@ function runSelfTest() {
   let stagedInventoryNegativePassed = 0
   for (const test of stagedInventoryNegativeCases) {
     try { test() } catch { stagedInventoryNegativePassed += 1 }
+  }
+  const expectedDryRunFile = `${REPAIR_VERSION}_harden_server_only_rpc_acl.sql`
+  const dryRunPositiveCases = [
+    collectRepairPushDryRunEvidence(
+      `\u001b[32mWould push these migrations:\u001b[0m\n • ${expectedDryRunFile}\nrequest-id=12345678901234`,
+      '',
+    ),
+    collectRepairPushDryRunEvidence(
+      '',
+      `Would push these migrations:\r\n C:\\signed\\${expectedDryRunFile}\r\nunrelated=20991231235959`,
+    ),
+  ]
+  for (const evidence of dryRunPositiveCases) assertRepairPushDryRun(evidence)
+  const dryRunNegativeCases = [
+    collectRepairPushDryRunEvidence(`Would push:\n${REPAIR_VERSION}`, ''),
+    collectRepairPushDryRunEvidence(`Would push:\n${REPAIR_VERSION}_wrong.sql`, ''),
+    collectRepairPushDryRunEvidence(
+      `Would push:\n${expectedDryRunFile}\n20990101000000_unexpected.sql`,
+      '',
+    ),
+    collectRepairPushDryRunEvidence('Would push no migrations', ''),
+  ]
+  let dryRunNegativePassed = 0
+  for (const evidence of dryRunNegativeCases) {
+    try { assertRepairPushDryRun(evidence) } catch { dryRunNegativePassed += 1 }
+  }
+  const preservedDryRunAttempt = {
+    dryRun: collectRepairPushDryRunEvidence(
+      `${REPAIR_VERSION}_wrong.sql\nPGPASSWORD=synthetic-must-not-survive`,
+      'postgresql://synthetic-must-not-survive',
+    ),
+  }
+  let preservedDryRunFailureStopped = false
+  try { assertRepairPushDryRun(preservedDryRunAttempt.dryRun) } catch { preservedDryRunFailureStopped = true }
+  const preservedDryRunEvidence = safeEvidence(preservedDryRunAttempt)
+  if (dryRunPositiveCases.some((evidence) => (
+        JSON.stringify(evidence.actualVersions) !== JSON.stringify([REPAIR_VERSION]) ||
+        JSON.stringify(evidence.actualMigrationFiles) !== JSON.stringify([expectedDryRunFile]) ||
+        evidence.expectedMigrationFile !== expectedDryRunFile ||
+        !/^[a-f0-9]{64}$/.test(evidence.outputSha256) ||
+        JSON.stringify(Object.keys(evidence).sort()) !== JSON.stringify([
+          'actualMigrationFiles', 'actualVersions', 'expectedMigrationFile', 'outputSha256',
+        ])
+      )) || dryRunNegativePassed !== dryRunNegativeCases.length || !preservedDryRunFailureStopped ||
+      !preservedDryRunEvidence.includes('"actualVersions"') ||
+      !preservedDryRunEvidence.includes('"actualMigrationFiles"') ||
+      !preservedDryRunEvidence.includes('"expectedMigrationFile"') ||
+      !preservedDryRunEvidence.includes('"outputSha256"') ||
+      /synthetic-must-not-survive|PGPASSWORD|postgresql:\/\//i.test(preservedDryRunEvidence)) {
+    throw new Error('ACL repair dry-run evidence self-test failed')
   }
   const fakeEnvironment = (suffix) => ({
     PGHOST: 'pooler-' + suffix,
@@ -1225,6 +1315,8 @@ function runSelfTest() {
     () => parseEvidenceBytes(evidenceBytes, '0'.repeat(64), 'synthetic evidence'),
     () => parseEvidenceBytes(Buffer.from('{', 'utf8'), sha256(Buffer.from('{', 'utf8')), 'synthetic evidence'),
     () => safeEvidence({ marker: 'PGPASSWORD=must-not-survive' }),
+    () => safeEvidence({ stdout: 'raw output must not survive' }),
+    () => safeEvidence({ stderr: 'raw error output must not survive' }),
     () => parseEvidenceBytes(syntheticManifestBytes, '0'.repeat(64), 'synthetic manifest'),
     () => parseEvidenceBytes(syntheticRestoreEvidenceBytes, '0'.repeat(64), 'synthetic restore evidence'),
   ]
@@ -1276,6 +1368,12 @@ function runSelfTest() {
     () => validateRepairRemoteGate('--apply-acl-repair', atomicRemoteLockedRepair, qualifiedCi),
   ]
   const repairGateNegativePassed = repairGateNegativeCases.filter((test) => test() === false).length
+  const closedRepairGateNegativePassed = [
+    () => validateRepairRemoteGate('--apply-acl-repair', contract.aclRepair, contract.repairCiRunEvidence),
+    () => validateRepairRemoteGate(
+      '--apply-acl-repair', qualifiedRepair, contract.priorSuccessfulRepairCiRunEvidence,
+    ),
+  ].filter((test) => test() === false).length
   if (!validateRepairRemoteGate('--apply-acl-repair', qualifiedRepair, qualifiedCi)) {
     throw new Error('qualified ACL repair gate positive self-test failed')
   }
@@ -1321,9 +1419,11 @@ function runSelfTest() {
       aclNegativePassed !== aclNegativeCases.length ||
       privateDefinitionNegativePassed !== privateDefinitionNegativeCases.length ||
       stagedInventoryNegativePassed !== stagedInventoryNegativeCases.length ||
+      dryRunNegativePassed !== dryRunNegativeCases.length || !preservedDryRunFailureStopped ||
       !cleanCommittedBoundary.committedAfterSignedHead || !cleanCommittedBoundary.trackedWorktreeClean ||
       worktreeBoundaryNegativePassed !== 2 ||
-      repairGateNegativePassed !== repairGateNegativeCases.length || !syntheticFailureStopped ||
+      repairGateNegativePassed !== repairGateNegativeCases.length || closedRepairGateNegativePassed !== 2 ||
+      !syntheticFailureStopped ||
       followingSyntheticTestRan || !validateMode('--self-test') || !validateMode('--apply-acl-repair') ||
       JSON.stringify(authFixtureEmailPatterns) !== JSON.stringify(['p1-%@example.invalid', 'access-%@example.invalid']) ||
       JSON.stringify(profileFixtureIdPatterns) !== JSON.stringify([
@@ -1331,7 +1431,7 @@ function runSelfTest() {
     ])) {
     throw new Error('P1 ACL repair negative self-test failed')
   }
-  console.log('P1_ISOLATED_RUNTIME_SELFTEST_OK targetPositive=1 targetNegative=3/3 migration70to71Positive=1 migrationNegative=6/6 stagedInventoryPositive=71/71 stagedInventoryNegative=3/3 credentialPositive=1 credentialNegative=3/3 exact70Accepted=1 exact71Accepted=1 repairBaselineDriftDenied=3/3 fullAclTransitionAccepted=1 reconciliationDriftDenied=7/7 routineAclTargets=6/6 routineAclExactChanged=4/4 routineAclNegative=3/3 privateDefinitionChanged=1/1 privateDefinitionNegative=3/3 atomicMapping=5/5 atomicRollback=2/2 sameTeamStatic=4/4 evidenceNegative=5/5 worktreeBoundaryPositive=1 worktreeBoundaryNegative=2/2 oldApplyModesDenied=3/3 repairGatePositive=1 repairGateNegative=5/5 atomicGateNegative=2/2 failedPushUnknownStatePreserved=1 fixturePatterns=4/4 firstSqlFailureStops=1 candidateRemoteExecutionAllowed=0 oldResumeRemoteExecutionAllowed=0 databaseCalls=0 storageCalls=0 dEvidenceRequired=0')
+  console.log('P1_ISOLATED_RUNTIME_SELFTEST_OK targetPositive=1 targetNegative=3/3 migration70to71Positive=1 migrationNegative=6/6 stagedInventoryPositive=71/71 stagedInventoryNegative=3/3 dryRunPositive=2/2 dryRunNegative=4/4 dryRunFailureEvidencePreserved=1 dryRunRawOutputAbsent=1 credentialPositive=1 credentialNegative=3/3 exact70Accepted=1 exact71Accepted=1 repairBaselineDriftDenied=3/3 fullAclTransitionAccepted=1 reconciliationDriftDenied=7/7 routineAclTargets=6/6 routineAclExactChanged=4/4 routineAclNegative=3/3 privateDefinitionChanged=1/1 privateDefinitionNegative=3/3 atomicMapping=5/5 atomicRollback=2/2 sameTeamStatic=4/4 evidenceNegative=7/7 worktreeBoundaryPositive=1 worktreeBoundaryNegative=2/2 oldApplyModesDenied=3/3 repairGatePositive=1 repairGateNegative=5/5 formalFailureClosedGateNegative=2/2 priorSuccessfulRepairCiRevivalDenied=1 atomicGateNegative=2/2 failedPushUnknownStatePreserved=1 fixturePatterns=4/4 firstSqlFailureStops=1 candidateRemoteExecutionAllowed=0 oldResumeRemoteExecutionAllowed=0 databaseCalls=0 storageCalls=0 dEvidenceRequired=0')
 }
 
 function verifyTemporaryLink(workdir) {
@@ -1452,19 +1552,38 @@ function prepareTemporaryChannel() {
   }
 }
 
+function collectRepairPushDryRunEvidence(stdout, stderr) {
+  const output = `${String(stdout ?? '')}\n${String(stderr ?? '')}`
+  const normalizedOutput = stripVTControlCharacters(output)
+    .replaceAll('\r\n', '\n')
+    .replaceAll('\r', '\n')
+  const migrationFiles = []
+  const migrationFilePattern = /(?:^|[^A-Za-z0-9_-])(\d{14}_[A-Za-z0-9_-]+\.sql)(?![A-Za-z0-9_.-])/g
+  for (const match of normalizedOutput.matchAll(migrationFilePattern)) migrationFiles.push(match[1])
+  const actualMigrationFiles = [...new Set(migrationFiles)].sort()
+  const actualVersions = [...new Set(actualMigrationFiles.map((file) => file.slice(0, 14)))].sort()
+  return {
+    actualVersions,
+    actualMigrationFiles,
+    expectedMigrationFile: `${REPAIR_VERSION}_harden_server_only_rpc_acl.sql`,
+    outputSha256: sha256(output),
+  }
+}
+
+function assertRepairPushDryRun(evidence) {
+  if (JSON.stringify(evidence.actualVersions) !== JSON.stringify([REPAIR_VERSION]) ||
+      JSON.stringify(evidence.actualMigrationFiles) !== JSON.stringify([evidence.expectedMigrationFile])) {
+    throw new Error('ACL repair dry-run did not enumerate exactly the one signed migration 71')
+  }
+}
+
 function runRepairPushDryRun(channel) {
   verifyTemporaryLink(channel.workdir)
   const result = requireSuccess('signed ACL repair db push dry-run', run(channel.cliPath, [
     'db', 'push', '--linked', '--dry-run', '--workdir', channel.workdir, '--yes',
   ], { timeout: 180000 }))
   try {
-    const output = `${result.stdout}\n${result.stderr}`
-    const versions = [...new Set(output.match(/\b\d{14}\b/g) ?? [])].sort()
-    const stagedFile = `${REPAIR_VERSION}_harden_server_only_rpc_acl.sql`
-    if (JSON.stringify(versions) !== JSON.stringify([REPAIR_VERSION]) || !output.includes(stagedFile)) {
-      throw new Error('ACL repair dry-run did not enumerate exactly the one signed migration 71')
-    }
-    return { versions, migrationFile: stagedFile, outputSha256: sha256(output) }
+    return collectRepairPushDryRunEvidence(result.stdout, result.stderr)
   } finally {
     result.stdout = ''
     result.stderr = ''
@@ -1841,7 +1960,7 @@ function assertCatalog(actual) {
 
 function safeEvidence(value) {
   const text = JSON.stringify(value, null, 2) + '\n'
-  if (/PGPASSWORD|postgres(?:ql)?:\/\/|sb_(?:secret|publishable)_|eyJ[A-Za-z0-9_-]+\./i.test(text)) {
+  if (/PGPASSWORD|postgres(?:ql)?:\/\/|sb_(?:secret|publishable)_|eyJ[A-Za-z0-9_-]+\.|"(?:stdout|stderr)"\s*:/i.test(text)) {
     throw new Error('evidence contains a forbidden secret marker')
   }
   return text
@@ -1912,6 +2031,7 @@ async function executeAclRepair(channel, sourceEvidence, before70, baseline, pro
     attempt.storageArchivesPassed = 1
     attempt.currentStep = 'db-push-dry-run'
     attempt.dryRun = runRepairPushDryRun(channel)
+    assertRepairPushDryRun(attempt.dryRun)
     writeFileSync(resolve(evidenceDirectory, 'preflight.json'), safeEvidence({
       ...attempt,
       status: 'ready-to-apply',
