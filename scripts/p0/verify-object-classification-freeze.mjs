@@ -141,8 +141,8 @@ function collectFailures(evidence, register, context) {
   check(exactSet(tableNames, flattenedRegister(register).map((entry) => entry.name)), 'table set differs from register')
   check(context.ledgerRows.length === 103 && context.ledgerRows.every((entry, index) => entry.ordinal === index + 1), 'ledger ordinals must be 1..103')
   check(
-    context.localTableNames.length === 103 && context.migrationCount === 70,
-    'local SQL inventory must remain 103 classified tables across 69 historical migrations plus one additive P1 candidate',
+    context.localTableNames.length === 103 && context.migrationCount === 71,
+    'local SQL inventory must remain 103 classified tables across 69 historical migrations, one additive P1 candidate and one non-table ACL repair migration',
   )
 
   const tableCounts = countBy(tables, (entry) => entry.classification)

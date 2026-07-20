@@ -605,13 +605,13 @@ function validate(candidate) {
 
   check(candidate.schemaVersion === 1, 'schema version must be 1')
   check(candidate.manifestType === 'canwin-team-os-p0-ci-database-tests', 'manifest type drift')
-  check(candidate.contractStatus === 'p1_post_apply_verification_candidate_pending', 'contract status drift')
+  check(candidate.contractStatus === 'p1_acl_and_atomic_compatibility_repair_candidate_database_ci_pending', 'contract status drift')
 
   check(candidate.baseline?.path === 'supabase/schema.sql', 'baseline path drift')
   check(candidate.baseline?.sha256Lf === sha256Lf(resolve(repoRoot, 'supabase', 'schema.sql')), 'baseline hash drift')
   check(candidate.migrations?.directory === 'supabase/migrations', 'migration directory drift')
   check(candidate.migrations?.sha256Manifest === 'docs/team-os-4.0/p0/migration-sha256-manifest.json', 'migration manifest path drift')
-  check(candidate.migrations?.expectedCount === 70, 'migration expected count drift')
+  check(candidate.migrations?.expectedCount === 71, 'migration expected count drift')
 
   const manifest = readJson(resolve(repoRoot, candidate.migrations?.sha256Manifest ?? 'missing'))
   const migrationFiles = readdirSync(resolve(repoRoot, candidate.migrations?.directory ?? 'missing'))
@@ -628,8 +628,8 @@ function validate(candidate) {
     statements: splitSqlStatements(baselineSql),
   }, ...migrationSources]
   const finalFunctionIdentities = findFinalFunctionIdentities(installationSources)
-  check(manifest.expectedCount === 70 && manifest.entries?.length === 70, 'migration manifest count drift')
-  check(migrationFiles.length === 70, 'migration directory count drift')
+  check(manifest.expectedCount === 71 && manifest.entries?.length === 71, 'migration manifest count drift')
+  check(migrationFiles.length === 71, 'migration directory count drift')
   check(exactSet(migrationFiles, (manifest.entries ?? []).map((entry) => entry.file)), 'migration file set drift')
   for (const entry of manifest.entries ?? []) {
     check(entry.sha256 === sha256Lf(resolve(repoRoot, candidate.migrations.directory, entry.file)), `migration hash drift ${entry.file}`)
@@ -646,7 +646,7 @@ function validate(candidate) {
   check(counts.directDealOrderFixtureFiles === 2, 'direct deal order fixture file count drift')
   check(counts.directDealOrderInsertStatements === 2, 'direct deal order insert statement count drift')
   check(counts.finalPublicFunctionIdentities === 168, 'final public function identity count drift')
-  check(counts.functionIdentityReferences === 211, 'function identity reference count drift')
+  check(counts.functionIdentityReferences === 216, 'function identity reference count drift')
   check(sourceRules.doKeywordSeparatedFromDollarQuote === true, 'DO dollar-quote separator rule drift')
   check(sourceRules.forbiddenUnseparatedToken === 'do$$', 'DO dollar-quote forbidden token drift')
   check(sourceRules.policyWriteAssertionsRequirePermissiveFilter === true, 'policy write assertion source rule drift')
@@ -855,11 +855,13 @@ function validate(candidate) {
   check(boundary.newIndependentCi === 'passed', 'new independent CI success evidence missing')
   check(boundary.freshCheckoutFailureRunId === '29695919974' && boundary.freshCheckoutFailurePreservedWithoutRerun === true, 'fresh-checkout failure preservation evidence missing')
   check(boundary.rollbackEvidenceLineEndingRepairImplemented === true && boundary.postRepairIndependentCi === 'passed' && boundary.postRepairIndependentCiRunId === '29696529290', 'post-repair independent CI boundary drift')
-  check(boundary.postApplyResumePrequalification === 'qualified_remote_enabled' && boundary.postApplyCandidateRemoteExecutionAllowed === false && boundary.postApplyResumeRemoteExecutionAllowed === true, 'post-apply resume qualification boundary drift')
+  check(boundary.postApplyResumePrequalification === 'failed_stop_preserved_acl_repair_pending' && boundary.postApplyCandidateRemoteExecutionAllowed === false && boundary.postApplyResumeRemoteExecutionAllowed === false, 'post-apply resume terminal boundary drift')
   check(boundary.postApplyResumeSignedCiHeadSha === 'a620bb541f4c5eb613413e8b40455b3988ee0cf3' && boundary.postApplyResumeSignedCiRunId === '29699951990' && boundary.postApplyResumeSignedCiLinuxJobId === '88227205377' && boundary.postApplyResumeSignedCiWindowsJobId === '88227205362' && boundary.postApplyResumeSignedCiConclusion === 'success', 'post-apply resume signed CI identity drift')
   check(boundary.postApplyResumeSignedHeadExecutionAllowed === false && boundary.postApplyResumeTrackedDirtyAllowed === false && boundary.postApplyResumeUntrackedAuditEvidenceAllowed === true, 'post-apply resume worktree qualification boundary drift')
-  check(boundary.p1MigrationPreviouslyApplied === true && boundary.postApplyResumeVerificationExecuted === false, 'post-apply resume execution boundary drift')
-  check(boundary.fullReconciliationExactRows === 70 && boundary.fullReconciliationSqlTests === 27 && boundary.fullReconciliationPerTestSnapshots === 27 && boundary.fullReconciliationSnapshots === 29, 'full reconciliation acceptance counts drift')
+  check(boundary.p1MigrationPreviouslyApplied === true && boundary.postApplyResumeVerificationExecuted === true, 'post-apply resume execution boundary drift')
+  check(boundary.postApplyResumeFailureRunId === 'p1-resume-20260719T193911279Z-ea6ed9385d' && boundary.postApplyResumeFailurePreserved === true, 'post-apply resume failure preservation boundary drift')
+  check(boundary.aclRepairMigrationPath === 'supabase/migrations/20260720015435_harden_server_only_rpc_acl.sql' && boundary.aclRepairLocalGates === 'pending', 'ACL repair current boundary drift')
+  check(boundary.fullReconciliationExactRows === 71 && boundary.fullReconciliationSqlTests === 27 && boundary.fullReconciliationPerTestSnapshots === 27 && boundary.fullReconciliationSnapshots === 29, 'ACL repair full reconciliation acceptance counts drift')
   check(boundary.fullReconciliationStorageArchives === 2 && boundary.fullReconciliationSignedArtifacts === 6, 'full reconciliation Storage or artifact acceptance counts drift')
   check(boundary.fullReconciliationKeyAmounts === 5 && boundary.fullReconciliationRawLedgers === 9 && boundary.fullReconciliationInventoryMeasures === 3, 'full reconciliation business measure acceptance counts drift')
   check(boundary.fullReconciliationContentFingerprintsRequired === true && boundary.sourceP0CountsOnlyBoundaryRecorded === true, 'full reconciliation fingerprint or legacy P0 boundary missing')
@@ -876,9 +878,6 @@ function validate(candidate) {
   check(resume.validatorPath === 'scripts/p1/verify-isolated-runtime-runner.mjs' && resume.validatorSha256Lf === '60a90fc8bf75d44a02c2d824e29b912d14fbbe844af79b0e5a705c77fe59c2af' && resume.validatorAssertions === '100/100' && resume.fixturePatterns === '4/4', 'post-apply resume validator contract drift')
   check(resume.isolatedRuntimeContractPath === 'scripts/p1/isolated-runtime-contract.json' && resume.isolatedRuntimeContractSha256Lf === 'f99e605341b36e2de18779b6dd52a624b1ef421a9b60c4517f59845a7ba22013', 'post-apply isolated runtime contract drift')
   check(resume.accessControlTestSha256Lf === sha256Lf(resolve(repoRoot, resume.accessControlTestPath)), 'post-apply access-control test file SHA drift')
-  check(resume.runnerSha256Lf === sha256Lf(resolve(repoRoot, resume.runnerPath)), 'post-apply resume runner file SHA drift')
-  check(resume.validatorSha256Lf === sha256Lf(resolve(repoRoot, resume.validatorPath)), 'post-apply resume validator file SHA drift')
-  check(resume.isolatedRuntimeContractSha256Lf === sha256Lf(resolve(repoRoot, resume.isolatedRuntimeContractPath)), 'post-apply isolated runtime contract file SHA drift')
   check(resume.candidateRemoteExecutionAllowed === false && resume.resumeRemoteExecutionAllowed === true && resume.resumeSignedCiHeadSha === 'a620bb541f4c5eb613413e8b40455b3988ee0cf3', 'post-apply resume qualification signature or authorization drift')
   check(resume.resumeSignedCiRunId === '29699951990' && resume.resumeSignedCiLinuxJobId === '88227205377' && resume.resumeSignedCiWindowsJobId === '88227205362' && resume.resumeSignedCiConclusion === 'success', 'post-apply resume signed CI run or job drift')
   check(resume.resumeSignedCiWindowsStatic === '19/19' && resume.resumeSignedCiWindowsLocal === '12/12' && resume.resumeSignedCiLinuxCounts === '70/27/7/11/9/4', 'post-apply resume signed CI count drift')
@@ -904,6 +903,66 @@ function validate(candidate) {
   check(JSON.stringify(full.sourceP0Boundary) === JSON.stringify({ signedP0TableRowCountsAreCountsOnly: true, signedP0TargetAfterSha256IsNull: true, p1InitialAndFinalContentFingerprintsRequired: true }), 'legacy P0 counts-only evidence boundary drift')
   check(full.temporarySessionOnly === true && full.persistentDatabaseWrites === false && full.sessionClosedDropsTemporaryState === true, 'full reconciliation temporary-session boundary drift')
   check(full.validationDatabaseCalls === 0 && full.validationStorageCalls === 0 && exactSet(full.fixturePatterns, ['p1-email', 'access-email', 'd400-profile', 'd510-profile']), 'full reconciliation offline validation or fixture-pattern boundary drift')
+
+  const formalResumeFailure = candidate.formalResumeFailureEvidence ?? {}
+  const formalResumeEvidenceDirectory = 'D:/CanWin-Team-OS-4.0-P1-Validation/p1-resume-20260719T193911279Z-ea6ed9385d'
+  check(formalResumeFailure.runId === 'p1-resume-20260719T193911279Z-ea6ed9385d' && formalResumeFailure.supervisionHeadSha === 'ea6ed9385de7c3ceff5cba6c6f8539f883bbea1d', 'formal resume failure run or head drift')
+  check(formalResumeFailure.evidenceDirectory === formalResumeEvidenceDirectory && formalResumeFailure.preflightPath === `${formalResumeEvidenceDirectory}/preflight.json` && formalResumeFailure.failurePath === `${formalResumeEvidenceDirectory}/failure.json`, 'formal resume failure evidence path drift')
+  check(formalResumeFailure.preflightSha256 === 'e0ea653d3a411cc9baafbd4b98e7d6d458b99316e8da93a1db1600a21e2dc36a' && formalResumeFailure.failureSha256 === '576a11005285cd708adca5b3486e0b929ace8d97fc3cc3284d657b57519b91ad', 'formal resume failure evidence SHA drift')
+  check(formalResumeFailure.startedAtUtc === '2026-07-19T19:39:11.283Z' && formalResumeFailure.failedAtUtc === '2026-07-19T19:40:00.235Z', 'formal resume failure timestamp drift')
+  check(formalResumeFailure.failedStep === 'test:database:supabase/tests/notification_core.sql' && formalResumeFailure.firstFailedSqlTest === 'supabase/tests/notification_core.sql' && formalResumeFailure.firstError === 'Notification worker RPC exposed', 'formal resume first failure drift')
+  check(formalResumeFailure.testsPassed === 5 && formalResumeFailure.perTestSnapshotsPassed === 5 && formalResumeFailure.fullReconciliationSnapshotsPassed === 6 && formalResumeFailure.storageArchivesPassed === 1, 'formal resume partial acceptance counts drift')
+  check(formalResumeFailure.attempts === 1 && formalResumeFailure.persistentRemoteWrites === 0 && formalResumeFailure.productionReads === 0 && formalResumeFailure.productionWrites === 0, 'formal resume attempt or remote-write boundary drift')
+  check(formalResumeFailure.secretsPrinted === 0 && formalResumeFailure.secretsWritten === 0 && formalResumeFailure.retryPerformed === false && formalResumeFailure.remoteCleanupPerformed === false && formalResumeFailure.targetPreserved === true, 'formal resume preserve/secret boundary drift')
+  check(JSON.stringify(formalResumeFailure.derivedAudit) === JSON.stringify({ directoryFileInventory: ['preflight.json', 'failure.json'], successEvidencePresent: false, derivation: 'directory inventory; fields are not asserted as native failure.json properties' }), 'formal resume derived directory audit drift')
+
+  const expectedAclFunctions = [
+    { identity: 'public.enqueue_wecom_notification_jobs(text, timestamp with time zone)', revokeRoles: ['PUBLIC', 'anon', 'authenticated'], requiredGrantRoles: ['service_role'] },
+    { identity: 'public.claim_wecom_notification_jobs(integer, timestamp with time zone)', revokeRoles: ['PUBLIC', 'anon', 'authenticated'], requiredGrantRoles: ['service_role'] },
+    { identity: 'public.complete_wecom_notification_job(uuid, boolean, text, text, timestamp with time zone)', revokeRoles: ['PUBLIC', 'anon', 'authenticated'], requiredGrantRoles: ['service_role'] },
+    { identity: 'public.manage_profile_access(uuid, text[], uuid[])', revokeRoles: ['PUBLIC', 'anon', 'authenticated'], requiredGrantRoles: [] },
+    { identity: 'public.admin_replace_profile_roles(uuid, text[], uuid)', revokeRoles: ['PUBLIC', 'anon', 'authenticated'], requiredGrantRoles: [] },
+    { identity: 'public.admin_replace_supervisor_subordinates(uuid, uuid[], uuid)', revokeRoles: ['PUBLIC', 'anon', 'authenticated'], requiredGrantRoles: [] },
+  ]
+  const aclRepair = candidate.aclRepairCandidate ?? {}
+  check(aclRepair.mode === '--apply-acl-repair' && aclRepair.remoteExecutionAllowed === false && aclRepair.dbPushAllowed === false, 'ACL repair local-only mode drift')
+  check(aclRepair.migrationVersion === '20260720015435' && aclRepair.migrationPath === 'supabase/migrations/20260720015435_harden_server_only_rpc_acl.sql', 'ACL repair migration identity drift')
+  check(aclRepair.migrationSha256Lf === '1bb13f29fc0f5512bd00115dc1c953a2c3aaa0ec21522b1cc8cbb45a18a5cdc0' && aclRepair.migrationSha256Lf === sha256Lf(resolve(repoRoot, aclRepair.migrationPath)), 'ACL repair migration SHA drift')
+  check(aclRepair.preMigrationRows === 70 && aclRepair.postMigrationRows === 71 && aclRepair.expectedMigrationCount === 71 && aclRepair.sqlTestCount === 27, 'ACL repair migration or SQL counts drift')
+  check(aclRepair.maxFormalAttempts === 1 && aclRepair.maxDbPushAttempts === 1 && aclRepair.dryRunRequired === true && JSON.stringify(aclRepair.pendingMigrationVersions) === JSON.stringify(['20260720015435']), 'ACL repair attempt or dry-run boundary drift')
+  check(aclRepair.signedCiHeadSha === null && aclRepair.signedCiRunId === null && aclRepair.signedCiLinuxJobId === null && aclRepair.signedCiWindowsJobId === null && aclRepair.signedCiConclusion === null, 'unsigned ACL repair candidate must not claim signed CI')
+  check(JSON.stringify(aclRepair.functions) === JSON.stringify(expectedAclFunctions), 'ACL repair six-function privilege inventory drift')
+  check(aclRepair.targetFunctionCount === 6 && aclRepair.expectedChangedFunctionCount === 4 && JSON.stringify(aclRepair.expectedChangedFunctions) === JSON.stringify(expectedAclFunctions.slice(0, 4).map((entry) => entry.identity)), 'ACL repair target-six changed-four boundary drift')
+  const expectedChangedTests = [
+    { path: 'supabase/tests/notification_core.sql', sha256Lf: 'a3d87069899b986b191bc21826f5e23c65fe4734066e52adc4e14753c9e6e5a3' },
+    { path: 'supabase/tests/team_os_4_p1_access_shell.sql', sha256Lf: 'c4823724a65047b0e67af6ba62c954acf3085d70ffbbda1c5e1a0be23ce94dfb' },
+  ]
+  check(JSON.stringify(aclRepair.changedTests) === JSON.stringify(expectedChangedTests) && aclRepair.changedTests.every((entry) => entry.sha256Lf === sha256Lf(resolve(repoRoot, entry.path))), 'ACL repair changed-test evidence drift')
+  const currentRuntime = aclRepair.currentRuntimeArtifacts ?? {}
+  check(JSON.stringify(currentRuntime.contract) === JSON.stringify({ path: 'scripts/p1/isolated-runtime-contract.json', sha256Lf: '421f78b398eb259d2a3fa43836e7a3ff9f2c70527ad88af1896b0d0a4e118d08' }) && currentRuntime.contract.sha256Lf === sha256Lf(resolve(repoRoot, currentRuntime.contract.path)), 'ACL repair current runtime contract SHA drift')
+  check(JSON.stringify(currentRuntime.runner) === JSON.stringify({ path: 'scripts/p1/run-isolated-runtime.mjs', sha256Lf: '9f04478e3f218dad16eec3660919dfedabb3e69ad2a2c7522b7caa396a010620' }) && currentRuntime.runner.sha256Lf === sha256Lf(resolve(repoRoot, currentRuntime.runner.path)), 'ACL repair current runner SHA drift')
+  check(JSON.stringify(currentRuntime.validator) === JSON.stringify({ path: 'scripts/p1/verify-isolated-runtime-runner.mjs', sha256Lf: '168bd3e03b1fc3e9536fc74d353b10e01a2b51c1ff1ff8a3e9eb5d3930233577', assertions: '63/63' }) && currentRuntime.validator.sha256Lf === sha256Lf(resolve(repoRoot, currentRuntime.validator.path)), 'ACL repair current validator SHA or assertion drift')
+  const aclFull = aclRepair.fullReconciliation ?? {}
+  check(JSON.stringify(aclFull.expected) === JSON.stringify({ migrationRows: 71 }), 'ACL repair full reconciliation expected rows drift')
+  check(JSON.stringify(aclFull.execution) === JSON.stringify({ initialFullBeforeRepair: true, fullAfterEverySqlTest: true, perTestFullSnapshots: 27, finalFullAfterFreshCredential: true, beforeAfterAllowedAclTransitionOnly: true, storageArchiveAtInitialAndFinal: true, temporaryTestSessionsOnly: true, persistentDatabaseWrites: 'exactly-one-signed-acl-and-atomic-compatibility-migration', sessionClosedDropsTemp: true }), 'ACL repair full reconciliation execution plan drift')
+  check(aclFull.expectedSchemaAndHistoryDifference === 'exact-signed-P1-plus-ACL-repair-migrations-only', 'ACL repair schema/history difference drift')
+  const privateTransition = aclRepair.privateRoutineDefinitionTransition ?? {}
+  check(JSON.stringify(privateTransition) === JSON.stringify({ expectedChangedFunctions: ['private.admin_apply_member_access_v1(uuid, text, text[], uuid[], uuid[], text[], uuid)'], expectedDefinitionChanges: 1, requiredSnapshots: 3, identityChangesAllowed: 0, securityEnvelopeChangesAllowed: 0, unknownChangesAllowed: false }), 'private member-access definition transition drift')
+  const atomicCompatibility = aclRepair.atomicLegacyRoleCompatibility ?? {}
+  check(atomicCompatibility.status === 'static-passed-database-ci-pending' && atomicCompatibility.staticPassed === true && atomicCompatibility.databaseCiPassed === null && atomicCompatibility.remoteQualificationAllowed === false, 'atomic compatibility current pending boundary drift')
+  check(JSON.stringify(atomicCompatibility.mappingPrecedence) === JSON.stringify([{ condition: 'primary-admin', legacyRole: 'admin' }, { condition: 'additional-supervisor', legacyRole: 'captain' }, { condition: 'primary-finance', legacyRole: 'finance' }, { condition: 'additional-warehouse', legacyRole: 'warehouse' }, { condition: 'fallback', legacyRole: 'member' }]), 'atomic compatibility role mapping drift')
+  check(atomicCompatibility.writeFunction === 'private.admin_apply_member_access_v1(uuid, text, text[], uuid[], uuid[], text[], uuid)' && atomicCompatibility.successfulMappingCases === 5 && atomicCompatibility.rollbackControls === 2 && atomicCompatibility.sameTeamStaticGuards === 4 && atomicCompatibility.remoteGateNegativeControls === 5 && atomicCompatibility.atomicRemoteGateNegativeControls === 2 && atomicCompatibility.migrationRewritesExistingProfiles === false, 'atomic compatibility evidence totals or remote locks drift')
+  check(atomicCompatibility.sqlTestPath === 'supabase/tests/team_os_4_p1_access_shell.sql' && atomicCompatibility.sqlTestSha256Lf === 'c4823724a65047b0e67af6ba62c954acf3085d70ffbbda1c5e1a0be23ce94dfb' && atomicCompatibility.staticTestSha256Lf === 'ab62a1a9db9a3cb07f9b4246a5c3cb8314c39ff3931e99f520584396bd8ccef3' && atomicCompatibility.appShellAssertionsPassed === 99 && atomicCompatibility.appShellAssertionsExpected === 99, 'atomic compatibility source hashes or app assertions drift')
+  const aclCompatibility = aclRepair.applicationCompatibility ?? {}
+  check(aclCompatibility.status === 'passed' && aclCompatibility.remoteQualificationAllowed === false && JSON.stringify(aclCompatibility.legacyRpcCallSites) === JSON.stringify([]), 'ACL repair application compatibility status drift')
+  check(JSON.stringify(aclCompatibility.resolvedEvidence) === JSON.stringify({ files: ['src/features/access-admin/supabaseDataSource.ts', 'supabase/functions/admin-members/index.ts'], forbiddenRpcNames: ['manage_profile_access', 'admin_replace_profile_roles', 'admin_replace_supervisor_subordinates'], staticCallSitesRemaining: 0, appShellAssertionsPassed: 99, appShellAssertionsExpected: 99, warehouseBackendRelaxed: false, formalStaticGateCoverage: { gate: 16, serial: true, runnerValidatorPassed: true, appShellPassed: true, accessV1BehaviorPassed: true } }), 'ACL repair application compatibility evidence drift')
+  check(aclCompatibility.requiredOutcome === 'all-old-role-and-supervisor-writers-replaced-and-accepted' && aclCompatibility.g1BlockedUntilAclAndPageAcceptance === true, 'ACL repair compatibility or G1 safety boundary drift')
+  check(JSON.stringify(aclRepair.allowedFullReconciliationDifferences) === JSON.stringify(['migrationHistory.schemaMigrations', 'schemaSecurity.publicRoutinesMd5']) && aclRepair.unknownDifferencesAllowed === false, 'ACL repair reconciliation allowlist drift')
+
+  const repairCi = candidate.repairCiRunEvidence ?? {}
+  check(repairCi.runId === null && repairCi.runUrl === null && repairCi.headSha === null && repairCi.linuxJobId === null && repairCi.windowsJobId === null && repairCi.conclusion === null, 'unsigned ACL repair CI identity must remain null')
+  check(repairCi.migrationsPassed === null && repairCi.sqlTestsPassed === null && repairCi.catalogAssertionsPassed === null && repairCi.windowsStaticGatesExpected === 19 && repairCi.windowsStaticGatesPassed === null && repairCi.windowsLocalIntegrationStepsExpected === 12 && repairCi.windowsLocalIntegrationStepsPassed === null, 'unsigned ACL repair CI counts drift')
+  check(repairCi.candidateRemoteExecutionAllowed === false && repairCi.g1OverallClaim === false, 'ACL repair CI remote or G1 boundary drift')
 
   const attempts = candidate.formalAttemptHistory ?? []
   check(attempts.length === 24, 'formal attempt history count drift')
@@ -1415,6 +1474,26 @@ const negativeCases = [
   ['full reconciliation content fingerprints erased', (value) => { value.postApplyResumePrequalification.fullReconciliation.requiredContentFingerprints = [] }],
   ['legacy P0 counts-only boundary erased', (value) => { value.postApplyResumePrequalification.fullReconciliation.sourceP0Boundary.signedP0TableRowCountsAreCountsOnly = false }],
   ['d510 fixture pattern erased', (value) => { value.postApplyResumePrequalification.fullReconciliation.fixturePatterns.pop() }],
+  ['ACL repair migration count reverted', (value) => { value.migrations.expectedCount = 70 }],
+  ['formal resume failure SHA tampered', (value) => { value.formalResumeFailureEvidence.failureSha256 = '0'.repeat(64) }],
+  ['formal resume first error erased', (value) => { value.formalResumeFailureEvidence.firstError = null }],
+  ['formal resume partial snapshot count inflated', (value) => { value.formalResumeFailureEvidence.fullReconciliationSnapshotsPassed = 29 }],
+  ['ACL repair migration SHA tampered', (value) => { value.aclRepairCandidate.migrationSha256Lf = '0'.repeat(64) }],
+  ['ACL repair current runner SHA tampered', (value) => { value.aclRepairCandidate.currentRuntimeArtifacts.runner.sha256Lf = '0'.repeat(64) }],
+  ['ACL repair function inventory reduced', (value) => { value.aclRepairCandidate.functions.pop() }],
+  ['ACL repair changed-function inventory inflated', (value) => { value.aclRepairCandidate.expectedChangedFunctions.push(value.aclRepairCandidate.functions[4].identity) }],
+  ['ACL repair authenticated revoke erased', (value) => { value.aclRepairCandidate.functions[0].revokeRoles.pop() }],
+  ['ACL repair service grant erased', (value) => { value.aclRepairCandidate.functions[0].requiredGrantRoles = [] }],
+  ['ACL repair full snapshots reduced', (value) => { value.aclRepairCandidate.fullReconciliation.execution.perTestFullSnapshots = 26 }],
+  ['private definition transition count erased', (value) => { value.aclRepairCandidate.privateRoutineDefinitionTransition.expectedDefinitionChanges = 0 }],
+  ['private definition snapshots reduced', (value) => { value.aclRepairCandidate.privateRoutineDefinitionTransition.requiredSnapshots = 2 }],
+  ['atomic database CI falsely accepted', (value) => { value.aclRepairCandidate.atomicLegacyRoleCompatibility.databaseCiPassed = true }],
+  ['atomic remote gate negative controls reduced', (value) => { value.aclRepairCandidate.atomicLegacyRoleCompatibility.atomicRemoteGateNegativeControls = 1 }],
+  ['ACL repair compatibility call site restored', (value) => { value.aclRepairCandidate.applicationCompatibility.resolvedEvidence.staticCallSitesRemaining = 1 }],
+  ['ACL repair compatibility falsely unlocks G1', (value) => { value.aclRepairCandidate.applicationCompatibility.g1BlockedUntilAclAndPageAcceptance = false }],
+  ['ACL repair remote execution enabled before CI', (value) => { value.aclRepairCandidate.remoteExecutionAllowed = true }],
+  ['ACL repair unknown reconciliation difference allowed', (value) => { value.aclRepairCandidate.unknownDifferencesAllowed = true }],
+  ['unsigned ACL repair CI falsely accepted', (value) => { value.repairCiRunEvidence.conclusion = 'success' }],
   ['G1 falsely claimed', (value) => { value.acceptanceBoundary.g1OverallClaim = true }],
   ['latest independent CI evidence erased', (value) => { value.formalAttemptHistory.pop() }],
 ]
@@ -1433,5 +1512,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `P0_CI_DATABASE_CONTRACT_OK baseline=1 migrations=70 tests=${contract.tests.length} database=7 permission=11 business=9 catalog=4 definitions=${contract.expectedCounts.definitionReferencedObjects} redefined=${contract.expectedCounts.redefinedDefinitionReferencedObjects} crmLeadColumnAssertions=${contract.expectedCounts.crmLeadsVisibleExactColumnAssertions} directOrderFixtures=${contract.expectedCounts.directDealOrderFixtureFiles} finalFunctionIdentities=${contract.expectedCounts.finalPublicFunctionIdentities} functionIdentityReferences=${contract.expectedCounts.functionIdentityReferences} negative=${negativePassed}/${negativeCases.length} localOnly=true repositorySecrets=0 productionReads=0 productionWrites=0 actualGithubRun=passed g0=true p1ActualGithubRun=passed firstRepairWindowsStatic=16/17 portableSelftestRepairImplemented=true secondRepairLinuxAccepted=true secondRepairWindowsStatic=15/17 validatorLineEndingRepairImplemented=true newIndependentCi=passed independentWindowsStatic=17/17 independentWindowsLocal=12/12 independentLinuxMigrations=70/70 independentLinuxSql=27/27 independentLinuxCatalog=4/4 freshCheckoutFailureRun=29695919974 freshCheckoutWindowsStatic=5/19 freshCheckoutFailedGate=6 freshCheckoutLinuxMigrations=70/70 freshCheckoutLinuxSql=27/27 freshCheckoutLinuxCatalog=4/4 postRepairIndependentCi=passed postRepairRun=29696529290 postRepairWindowsStatic=19/19 postRepairWindowsLocal=12/12 postRepairLinuxMigrations=70/70 postRepairLinuxSql=27/27 postRepairLinuxCatalog=4/4 resumePrequalification=qualified_remote_enabled prequalificationRun=29699951990 prequalificationHead=a620bb541f4c5eb613413e8b40455b3988ee0cf3 prequalificationLinuxJob=88227205377 prequalificationWindowsJob=88227205362 prequalificationWindowsStatic=19/19 prequalificationWindowsLocal=12/12 prequalificationLinux=70/27/7/11/9/4 candidateRemote=false resumeRemote=true sameHeadDenied=true trackedDirtyDenied=true untrackedAuditAllowed=true migrationPreviouslyApplied=true resumeVerificationExecuted=false fullExactRows=70 sqlTests=27 perTestFullSnapshots=27 fullSnapshots=29 storageArchives=2 signedArtifacts=6 keyAmounts=5 rawLedgers=9 inventory=3 contentFingerprints=true sourceP0CountsOnly=true fixturePatterns=4/4 runnerValidator=100/100 realAccountSafetySelfTest=true realPageAcceptance=pending pageAccountAcceptance=false progress=25 g1=false`,
+  `P0_CI_DATABASE_CONTRACT_OK baseline=1 migrations=71 tests=${contract.tests.length} database=7 permission=11 business=9 catalog=4 definitions=${contract.expectedCounts.definitionReferencedObjects} redefined=${contract.expectedCounts.redefinedDefinitionReferencedObjects} crmLeadColumnAssertions=${contract.expectedCounts.crmLeadsVisibleExactColumnAssertions} directOrderFixtures=${contract.expectedCounts.directDealOrderFixtureFiles} finalFunctionIdentities=${contract.expectedCounts.finalPublicFunctionIdentities} functionIdentityReferences=${contract.expectedCounts.functionIdentityReferences} negative=${negativePassed}/${negativeCases.length} localOnly=true repositorySecrets=0 productionReads=0 productionWrites=0 actualGithubRun=passed g0=true p1ActualGithubRun=passed historicalResumeCi=70/27 formalResumeFailure=p1-resume-20260719T193911279Z-ea6ed9385d formalResumeSql=5/27 formalResumeSnapshots=6/29 failurePreserved=true aclRepairMigration=20260720015435 aclRepairFunctions=6 aclRepairRemote=false aclRepairCi=pending nextFullExactRows=71 nextSqlTests=27 nextPerTestFullSnapshots=27 nextFullSnapshots=29 pageAccountAcceptance=false progress=25 g1=false`,
 )

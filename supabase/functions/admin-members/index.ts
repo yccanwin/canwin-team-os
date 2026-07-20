@@ -1,11 +1,10 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 type MemberPayload = {
-  action: 'invite' | 'update' | 'set-status' | 'reset-password'
+  action: 'invite' | 'update' | 'apply-access' | 'replace-supervisor-scope' | 'set-status' | 'reset-password'
   id?: string
   email?: string
   name?: string
-  role?: 'admin' | 'captain' | 'finance' | 'warehouse' | 'member'
   roleCodes?: string[]
   status?: 'active' | 'disabled'
   idempotencyKey?: string
@@ -13,6 +12,63 @@ type MemberPayload = {
   avatarUrl?: string
   joinDate?: string
   password?: string
+  subordinateIds?: string[]
+}
+
+type PrimaryAccessRole = 'admin' | 'sales' | 'implementation' | 'operations' | 'finance'
+type AdditionalAccessFunction = 'warehouse' | 'supervisor'
+
+const primaryAccessRoles = new Set<PrimaryAccessRole>(['admin', 'sales', 'implementation', 'operations', 'finance'])
+const additionalAccessFunctions = new Set<AdditionalAccessFunction>(['warehouse', 'supervisor'])
+
+function splitV1RoleSelection(roleCodes: string[]) {
+  const normalized = [...new Set(roleCodes)]
+  const invalid = normalized.filter((code) => !primaryAccessRoles.has(code as PrimaryAccessRole) && !additionalAccessFunctions.has(code as AdditionalAccessFunction))
+  const primaryRoles = normalized.filter((code): code is PrimaryAccessRole => primaryAccessRoles.has(code as PrimaryAccessRole))
+  const additionalFunctions = normalized.filter((code): code is AdditionalAccessFunction => additionalAccessFunctions.has(code as AdditionalAccessFunction))
+  if (invalid.length || primaryRoles.length !== 1) throw new Error('INVALID_ROLE_SET')
+  const primaryRole = primaryRoles[0]
+  if (additionalFunctions.includes('warehouse') && !['admin', 'implementation'].includes(primaryRole)) {
+    throw new Error('WAREHOUSE_FUNCTION_NOT_ASSIGNABLE')
+  }
+  return { primaryRole, additionalFunctions }
+}
+
+function readStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
+}
+
+async function loadMemberAccessState(
+  adminClient: ReturnType<typeof createClient>,
+  teamId: string,
+  profileId: string,
+) {
+  const [skills, regions, flag] = await Promise.all([
+    adminClient.from('user_skills').select('skill_id').eq('team_id', teamId).eq('user_id', profileId),
+    adminClient.from('profile_sales_regions').select('region_id').eq('team_id', teamId).eq('profile_id', profileId),
+    adminClient.from('feature_flags').select('config').eq('team_id', teamId).eq('key', 'team_os_4_supervisor').single(),
+  ])
+  const stateError = skills.error || regions.error || flag.error
+  if (stateError) throw new Error(`MEMBER_ACCESS_STATE_READ_FAILED:${stateError.message}`)
+  const config = flag.data?.config && typeof flag.data.config === 'object' && !Array.isArray(flag.data.config)
+    ? flag.data.config as Record<string, unknown>
+    : {}
+  const warehouseScopes = config.warehouseScopesByProfile && typeof config.warehouseScopesByProfile === 'object' && !Array.isArray(config.warehouseScopesByProfile)
+    ? config.warehouseScopesByProfile as Record<string, unknown>
+    : {}
+  const supervisorScopes = config.supervisorScopesByProfile && typeof config.supervisorScopesByProfile === 'object' && !Array.isArray(config.supervisorScopesByProfile)
+    ? config.supervisorScopesByProfile as Record<string, unknown>
+    : {}
+  const supervisorScope = supervisorScopes[profileId] && typeof supervisorScopes[profileId] === 'object' && !Array.isArray(supervisorScopes[profileId])
+    ? supervisorScopes[profileId] as Record<string, unknown>
+    : {}
+  return {
+    skillIds: (skills.data ?? []).map((row) => row.skill_id),
+    regionScopeIds: (regions.data ?? []).map((row) => row.region_id),
+    warehouseScopeIds: readStringArray(warehouseScopes[profileId]),
+    supervisorRegionIds: readStringArray(supervisorScope.regionIds),
+    supervisorBusinessScopes: readStringArray(supervisorScope.businessScopes),
+  }
 }
 
 const corsHeaders = {
@@ -136,6 +192,12 @@ Deno.serve(async (req) => {
     if (!payload.email || !payload.name || !payload.roleCodes?.length || !payload.idempotencyKey) {
       return jsonResponse({ error: 'Missing required member fields' }, 400)
     }
+    let roleSelection: ReturnType<typeof splitV1RoleSelection>
+    try {
+      roleSelection = splitV1RoleSelection(payload.roleCodes)
+    } catch (error) {
+      return jsonResponse({ error: error instanceof Error ? error.message : 'INVALID_ROLE_SET' }, 400)
+    }
 
     const { data: registry, error: registryError } = await userClient.rpc('admin_create_team_invitation', {
       p_email: payload.email,
@@ -163,22 +225,12 @@ Deno.serve(async (req) => {
       return invitationFailureResponse('INVITE_AUTH_FAILED', detail, trackingError)
     }
 
-    const legacyRole = payload.roleCodes.includes('admin')
-      ? 'admin'
-      : payload.roleCodes.includes('supervisor')
-        ? 'captain'
-        : payload.roleCodes.includes('finance')
-          ? 'finance'
-          : payload.roleCodes.includes('warehouse')
-            ? 'warehouse'
-            : 'member'
     const { data: profile, error: profileError } = await adminClient
       .from('profiles')
       .upsert({
         id: invited.user.id,
         team_id: teamId,
         name: payload.name,
-        role: legacyRole,
         position: payload.position || '',
         avatar_url: payload.avatarUrl || null,
         join_date: payload.joinDate || new Date().toISOString().slice(0, 10),
@@ -194,9 +246,13 @@ Deno.serve(async (req) => {
       })
       return invitationFailureResponse('INVITE_PROFILE_FAILED', profileError.message, containmentError || trackingError)
     }
-    const { error: rolesError } = await userClient.rpc('admin_replace_profile_roles', {
+    const { error: rolesError } = await userClient.rpc('admin_apply_member_access_v1', {
       p_profile_id: invited.user.id,
-      p_role_codes: payload.roleCodes,
+      p_primary_role: roleSelection.primaryRole,
+      p_additional_functions: roleSelection.additionalFunctions,
+      p_skill_ids: [],
+      p_region_scope_ids: [],
+      p_warehouse_scope_ids: roleSelection.additionalFunctions.includes('warehouse') ? [teamId] : [],
       p_idempotency_key: crypto.randomUUID(),
     })
     if (rolesError) {
@@ -210,15 +266,67 @@ Deno.serve(async (req) => {
     return jsonResponse({ profile })
   }
 
+  if (payload.action === 'apply-access') {
+    if (!payload.id || !payload.roleCodes?.length || !payload.idempotencyKey) {
+      return jsonResponse({ error: 'Missing access fields' }, 400)
+    }
+    try {
+      const selection = splitV1RoleSelection(payload.roleCodes)
+      const state = await loadMemberAccessState(adminClient, teamId, payload.id)
+      const { error } = await userClient.rpc('admin_apply_member_access_v1', {
+        p_profile_id: payload.id,
+        p_primary_role: selection.primaryRole,
+        p_additional_functions: selection.additionalFunctions,
+        p_skill_ids: state.skillIds,
+        p_region_scope_ids: state.regionScopeIds,
+        p_warehouse_scope_ids: selection.additionalFunctions.includes('warehouse')
+          ? (state.warehouseScopeIds.length ? state.warehouseScopeIds : [teamId])
+          : [],
+        p_idempotency_key: payload.idempotencyKey,
+      })
+      if (error) return jsonResponse({ error: error.message }, 400)
+      return jsonResponse({ ok: true })
+    } catch (error) {
+      return jsonResponse({ error: error instanceof Error ? error.message : 'INVALID_ROLE_SET' }, 400)
+    }
+  }
+
+  if (payload.action === 'replace-supervisor-scope') {
+    if (!payload.id || !Array.isArray(payload.subordinateIds) || !payload.idempotencyKey) {
+      return jsonResponse({ error: 'Missing supervisor scope fields' }, 400)
+    }
+    try {
+      const state = await loadMemberAccessState(adminClient, teamId, payload.id)
+      const { error } = await userClient.rpc('admin_replace_supervisor_scope_v1', {
+        p_supervisor_id: payload.id,
+        p_region_ids: state.supervisorRegionIds,
+        p_user_ids: payload.subordinateIds,
+        p_business_scopes: state.supervisorBusinessScopes,
+        p_idempotency_key: payload.idempotencyKey,
+      })
+      if (error) return jsonResponse({ error: error.message }, 400)
+      return jsonResponse({ ok: true })
+    } catch (error) {
+      return jsonResponse({ error: error instanceof Error ? error.message : 'MEMBER_ACCESS_STATE_READ_FAILED' }, 400)
+    }
+  }
+
   if (payload.action === 'update') {
-    if (!payload.id || !payload.name || !payload.role || !payload.position || !payload.roleCodes?.length) {
+    if (!payload.id || !payload.name || !payload.position || !payload.roleCodes?.length) {
       return jsonResponse({ error: 'Missing required member fields' }, 400)
+    }
+    let roleSelection: ReturnType<typeof splitV1RoleSelection>
+    let accessState: Awaited<ReturnType<typeof loadMemberAccessState>>
+    try {
+      roleSelection = splitV1RoleSelection(payload.roleCodes)
+      accessState = await loadMemberAccessState(adminClient, teamId, payload.id)
+    } catch (error) {
+      return jsonResponse({ error: error instanceof Error ? error.message : 'INVALID_ROLE_SET' }, 400)
     }
     const { data: profile, error: updateError } = await adminClient
       .from('profiles')
       .update({
         name: payload.name,
-        role: payload.role,
         position: payload.position,
         avatar_url: payload.avatarUrl || null,
         join_date: payload.joinDate,
@@ -229,9 +337,15 @@ Deno.serve(async (req) => {
       .select('id, team_id, name, role, position, avatar_url, join_date, status, rest_days, mood, taboos')
       .single()
     if (updateError) return jsonResponse({ error: updateError.message }, 400)
-    const { error: rolesError } = await userClient.rpc('admin_replace_profile_roles', {
+    const { error: rolesError } = await userClient.rpc('admin_apply_member_access_v1', {
       p_profile_id: payload.id,
-      p_role_codes: payload.roleCodes,
+      p_primary_role: roleSelection.primaryRole,
+      p_additional_functions: roleSelection.additionalFunctions,
+      p_skill_ids: accessState.skillIds,
+      p_region_scope_ids: accessState.regionScopeIds,
+      p_warehouse_scope_ids: roleSelection.additionalFunctions.includes('warehouse')
+        ? (accessState.warehouseScopeIds.length ? accessState.warehouseScopeIds : [teamId])
+        : [],
       p_idempotency_key: payload.idempotencyKey || crypto.randomUUID(),
     })
     if (rolesError) return jsonResponse({ error: rolesError.message }, 400)
@@ -241,7 +355,7 @@ Deno.serve(async (req) => {
       action: 'profile.details_updated',
       target_type: 'profile',
       target_id: payload.id,
-      after_data: { name: payload.name, position: payload.position, role: payload.role },
+      after_data: { name: payload.name, position: payload.position },
     })
     if (auditError) return jsonResponse({ error: auditError.message }, 400)
     return jsonResponse({ profile })

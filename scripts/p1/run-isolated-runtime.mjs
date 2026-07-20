@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import {
   existsSync,
+  copyFileSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -37,12 +38,14 @@ const restoreRun = JSON.parse(readFileSync(resolve(repoRoot, contract.restoreRun
 const TARGET_REF = 'zdmuaqokndhhbarudhtw'
 const PRODUCTION_REF = 'agygfhmkazcbqaqwmljb'
 const P1_VERSION = '20260719130910'
-const RESUME_CI_HEAD = 'a620bb541f4c5eb613413e8b40455b3988ee0cf3'
-const RESUME_CI_RUN_ID = '29699951990'
-const RESUME_CI_LINUX_JOB_ID = '88227205377'
-const RESUME_CI_WINDOWS_JOB_ID = '88227205362'
+const REPAIR_VERSION = '20260720015435'
+const SOURCE_FAILURE_RUN_ID = 'p1-resume-20260719T193911279Z-ea6ed9385d'
+const SOURCE_FAILURE_HEAD = 'ea6ed9385de7c3ceff5cba6c6f8539f883bbea1d'
+const SOURCE_PREFLIGHT_SHA256 = 'e0ea653d3a411cc9baafbd4b98e7d6d458b99316e8da93a1db1600a21e2dc36a'
+const SOURCE_FAILURE_SHA256 = '576a11005285cd708adca5b3486e0b929ace8d97fc3cc3284d657b57519b91ad'
+const PRIVATE_MEMBER_ACCESS_IDENTITY = 'private.admin_apply_member_access_v1(uuid, text, text[], uuid[], uuid[], text[], uuid)'
 const mode = process.argv[2]
-const allowedModes = new Set(['--self-test', '--resume-post-apply'])
+const allowedModes = new Set(['--self-test', '--apply-acl-repair'])
 const fullReconciliationKeys = [
   'schemaVersion', 'publicTables', 'publicTableContentMd5', 'auth', 'storageMetadata',
   'migrationHistory', 'schemaSecurity', 'keyAmounts', 'rawLedgers', 'inventory',
@@ -63,23 +66,32 @@ function validateMode(candidateMode) {
   return allowedModes.has(candidateMode)
 }
 
-function validateResumeRemoteGate(candidateMode, syncState, resume) {
-  return candidateMode === '--resume-post-apply' && syncState === 'synchronized' &&
-    resume?.resumeOnly === true && resume?.remoteExecutionAllowed === true &&
-    resume?.dbPushAllowed === false && /^[a-f0-9]{40}$/.test(resume?.signedCiHeadSha ?? '')
+function validateRepairRemoteGate(candidateMode, repair, ci) {
+  return candidateMode === '--apply-acl-repair' && repair?.mode === '--apply-acl-repair' &&
+    repair?.remoteExecutionAllowed === true && repair?.dbPushAllowed === true &&
+    repair?.maxFormalAttempts === 1 && repair?.maxDbPushAttempts === 1 && repair?.dryRunRequired === true &&
+    repair?.applicationCompatibility?.status === 'passed' &&
+    repair?.atomicLegacyRoleCompatibility?.status === 'passed' &&
+    repair?.atomicLegacyRoleCompatibility?.staticPassed === true &&
+    repair?.atomicLegacyRoleCompatibility?.databaseCiPassed === true &&
+    repair?.applicationCompatibility?.remoteQualificationAllowed === true &&
+    repair?.atomicLegacyRoleCompatibility?.remoteQualificationAllowed === true &&
+    /^[a-f0-9]{40}$/.test(ci?.headSha ?? '') && ci?.status === 'success'
 }
 
-function findResumeSignedCiRun() {
-  const resume = contract.postApplyResume
+function findRepairSignedCiRun() {
+  const ci = contract.repairCiRunEvidence
   return databaseContract.formalAttemptHistory.find((entry) => (
-    entry.runId === resume.signedCiRunId && entry.jobId === resume.signedCiLinuxJobId &&
-    entry.windowsJobId === resume.signedCiWindowsJobId &&
-    entry.headSha === resume.signedCiHeadSha && entry.conclusion === resume.signedCiConclusion &&
-    entry.conclusion === 'success' && entry.windowsLocalGatePassed === true &&
-    entry.windowsStaticGatesExpected === 19 && entry.windowsStaticGatesPassed === 19 &&
-    entry.windowsLocalIntegrationStepsExpected === 12 && entry.windowsLocalIntegrationStepsPassed === 12 &&
-    entry.migrationsPassed === contract.expected.postMigrationRows &&
-    entry.sqlTestsPassed === contract.expected.tests && entry.catalogAssertionsPassed === 4 &&
+    entry.runId === ci?.runId && entry.jobId === ci?.linuxJobId &&
+    entry.windowsJobId === ci?.windowsJobId && entry.headSha === ci?.headSha &&
+    entry.conclusion === ci?.status && entry.conclusion === 'success' &&
+    entry.windowsLocalGatePassed === true &&
+    entry.windowsStaticGatesExpected === ci?.windowsStaticExpected &&
+    entry.windowsStaticGatesPassed === ci?.windowsStaticPassed &&
+    entry.windowsLocalIntegrationStepsExpected === ci?.windowsLocalExpected &&
+    entry.windowsLocalIntegrationStepsPassed === ci?.windowsLocalPassed &&
+    entry.migrationsPassed === contract.aclRepair.expectedMigrationCount &&
+    entry.sqlTestsPassed === contract.aclRepair.sqlTestCount && entry.catalogAssertionsPassed === 4 &&
     entry.databaseTestsPassed === contract.expected.databaseTests &&
     entry.permissionTestsPassed === contract.expected.permissionTests &&
     entry.businessTestsPassed === contract.expected.businessTests &&
@@ -87,28 +99,28 @@ function findResumeSignedCiRun() {
   ))
 }
 
-function validateResumeWorktreeBoundary(head, resumeHead, trackedStatus) {
+function validateRepairWorktreeBoundary(head, signedCiHead, trackedStatus) {
   return {
-    committedAfterSignedHead: /^[a-f0-9]{40}$/.test(head) && head !== resumeHead,
+    committedAfterSignedHead: /^[a-f0-9]{40}$/.test(head) && head !== signedCiHead,
     trackedWorktreeClean: trackedStatus === '',
   }
 }
 
-function assertResumeSignedCiQualification() {
-  const resumeHead = contract.postApplyResume.signedCiHeadSha
-  const signedRun = findResumeSignedCiRun()
-  if (!signedRun) throw new Error('post-apply resume independent CI success evidence is missing')
+function assertRepairSignedCiQualification() {
+  const signedCiHead = contract.repairCiRunEvidence.headSha
+  const signedRun = findRepairSignedCiRun()
+  if (!signedRun) throw new Error('ACL repair independent dual-platform CI success evidence is missing')
   const head = requireSuccess('git head', run('git', ['rev-parse', 'HEAD'])).stdout.trim()
   const trackedStatus = requireSuccess('tracked worktree status', run('git', [
     'status', '--porcelain', '--untracked-files=no',
   ])).stdout.trim()
-  const worktreeBoundary = validateResumeWorktreeBoundary(head, resumeHead, trackedStatus)
+  const worktreeBoundary = validateRepairWorktreeBoundary(head, signedCiHead, trackedStatus)
   if (!worktreeBoundary.committedAfterSignedHead) {
-    throw new Error('post-apply resume qualification changes are not committed after the signed prequalification HEAD')
+    throw new Error('ACL repair qualification changes are not committed after the signed prequalification HEAD')
   }
-  if (!worktreeBoundary.trackedWorktreeClean) throw new Error('post-apply resume requires a clean tracked worktree')
-  requireSuccess('post-apply resume signed CI ancestry', run('git', [
-    'merge-base', '--is-ancestor', resumeHead, head,
+  if (!worktreeBoundary.trackedWorktreeClean) throw new Error('ACL repair requires a clean tracked worktree')
+  requireSuccess('ACL repair signed CI ancestry', run('git', [
+    'merge-base', '--is-ancestor', signedCiHead, head,
   ]))
   return signedRun
 }
@@ -173,29 +185,22 @@ function signedLocalMigrations() {
     const file = files[index]
     const version = file.slice(0, 14)
     const hash = sha256Lf(resolve(directory, file))
-    const expectedHash = version === P1_VERSION ? contract.candidate.migrationSha256Lf : entry.sha256
+    const expectedHash = version === P1_VERSION
+      ? contract.candidate.migrationSha256Lf
+      : version === REPAIR_VERSION
+        ? contract.aclRepair.migrationSha256Lf
+        : entry.sha256
     const referenceHashAccepted = version !== P1_VERSION || [
       contract.candidate.migrationSha256Lf,
       contract.referenceSync.previousMigrationSha256Lf,
     ].includes(entry.sha256)
-    if (entry.version !== version || entry.file !== file || hash !== expectedHash || !referenceHashAccepted) {
+    const repairHashAccepted = version !== REPAIR_VERSION || entry.sha256 === contract.aclRepair.migrationSha256Lf
+    if (entry.version !== version || entry.file !== file || hash !== expectedHash ||
+        !referenceHashAccepted || !repairHashAccepted) {
       throw new Error('signed local migration inventory drift at ' + version)
     }
     return { version, status: 'signed', sha256Lf: hash }
   })
-}
-
-function referenceSyncState() {
-  const manifestEntry = migrationManifest.entries.find((entry) => entry.version === P1_VERSION)
-  const p1Test = databaseContract.tests.find((entry) => entry.path === contract.candidate.testPath)
-  const synchronized = manifestEntry?.sha256 === contract.candidate.migrationSha256Lf &&
-    p1Test?.sha256Lf === contract.candidate.testSha256Lf
-  const qaPending = manifestEntry?.sha256 === contract.referenceSync.previousMigrationSha256Lf &&
-    p1Test?.sha256Lf === contract.referenceSync.previousTestSha256Lf
-  if (synchronized === qaPending) {
-    throw new Error('P1 reference sync is mixed, unknown, or ambiguous')
-  }
-  return synchronized ? 'synchronized' : 'qa-sync-pending'
 }
 
 function proveMigrationSets(localMigrations, remoteHistory, expectedPendingVersions) {
@@ -412,57 +417,90 @@ function loadSignedReconciliationBaseline() {
   }
 }
 
-function loadResumeEvidence() {
-  const resume = contract.postApplyResume
-  const preflight = parseSignedEvidence(resume.preflightPath, resume.preflightSha256, 'resume source preflight')
-  const failure = parseSignedEvidence(resume.failurePath, resume.failureSha256, 'resume source failure')
-  if (preflight.runId !== resume.sourceRunId || failure.runId !== resume.sourceRunId ||
+function loadRepairFailureEvidence() {
+  const expected = contract.formalResumeFailureEvidence
+  const preflight = parseSignedEvidence(expected.preflightPath, expected.preflightSha256, 'ACL repair source preflight')
+  const failure = parseSignedEvidence(expected.failurePath, expected.failureSha256, 'ACL repair source failure')
+  const evidenceFiles = readdirSync(expected.evidenceDirectory).filter((name) => !name.startsWith('.')).sort()
+  if (expected.runId !== SOURCE_FAILURE_RUN_ID || expected.supervisionHeadSha !== SOURCE_FAILURE_HEAD ||
+      expected.preflightSha256 !== SOURCE_PREFLIGHT_SHA256 || expected.failureSha256 !== SOURCE_FAILURE_SHA256 ||
+      JSON.stringify(evidenceFiles) !== JSON.stringify(['failure.json', 'preflight.json']) ||
+      resolve(expected.preflightPath) !== resolve(expected.evidenceDirectory, 'preflight.json') ||
+      resolve(expected.failurePath) !== resolve(expected.evidenceDirectory, 'failure.json') ||
+      preflight.runId !== SOURCE_FAILURE_RUN_ID || failure.runId !== SOURCE_FAILURE_RUN_ID ||
+      preflight.supervisionHeadSha !== SOURCE_FAILURE_HEAD || failure.supervisionHeadSha !== SOURCE_FAILURE_HEAD ||
       preflight.targetProjectRef !== TARGET_REF || failure.targetProjectRef !== TARGET_REF ||
-      preflight.status !== 'ready' || preflight.formalAttemptStarted !== false ||
-      failure.status !== 'failed-stop-preserved' || failure.formalAttemptStarted !== true ||
-      failure.attempts !== 1 || failure.currentStep !== 'test:database:supabase/tests/access_control_foundation.sql' ||
-      failure.retryPerformed !== false || failure.remoteCleanupPerformed !== false ||
+      preflight.status !== 'ready' || preflight.migrationAlreadyApplied !== true ||
+      preflight.dbPushPerformed !== false || preflight.persistentRemoteWrites !== 0 ||
+      preflight.attempts !== 1 || preflight.testsPassed?.length !== 0 ||
+      preflight.perTestSnapshotsPassed !== 0 || preflight.fullReconciliationSnapshotsPassed !== 1 ||
+      preflight.storageArchivesPassed !== 1 || preflight.secretsPrinted !== 0 || preflight.secretsWritten !== 0 ||
+      preflight.productionReads !== 0 || preflight.productionWrites !== 0 ||
+      failure.status !== 'failed-stop-preserved' || failure.attempts !== 1 ||
+      failure.currentStep !== 'test:database:supabase/tests/notification_core.sql' ||
+      !failure.message?.includes('Notification worker RPC exposed') || failure.testsPassed?.length !== 5 ||
+      failure.perTestSnapshotsPassed !== 5 || failure.perTestFullReconciliations?.length !== 5 ||
+      failure.fullReconciliationSnapshotsPassed !== 6 || failure.storageArchivesPassed !== 1 ||
+      failure.persistentRemoteWrites !== 0 || failure.secretsPrinted !== 0 || failure.secretsWritten !== 0 ||
+      failure.retryPerformed !== false || failure.remoteCleanupPerformed !== false || failure.targetPreserved !== true ||
       failure.productionReads !== 0 || failure.productionWrites !== 0) {
-    throw new Error('resume source evidence boundary drift')
+    throw new Error('ACL repair source failed-attempt evidence boundary drift')
   }
-  assertPreflight(preflight.before)
+  if (expected.startedAtUtc !== failure.startedAt || expected.failedAtUtc !== failure.failedAt ||
+      expected.failedStep !== failure.currentStep || expected.firstFailedSqlTest !== 'supabase/tests/notification_core.sql' ||
+      expected.firstError !== 'Notification worker RPC exposed' || expected.testsPassed !== 5 ||
+      expected.perTestSnapshotsPassed !== 5 || expected.fullReconciliationSnapshotsPassed !== 6 ||
+      expected.storageArchivesPassed !== 1 || expected.attempts !== 1 || expected.persistentRemoteWrites !== 0 ||
+      expected.productionReads !== 0 || expected.productionWrites !== 0 || expected.secretsPrinted !== 0 ||
+      expected.secretsWritten !== 0 || expected.retryPerformed !== false ||
+      expected.remoteCleanupPerformed !== false || expected.targetPreserved !== true) {
+    throw new Error('ACL repair source evidence contract drift')
+  }
   return { preflight, failure }
 }
 
-function assertPostApplyBaseline(sourceBefore, current) {
-  const proof = proveMigrationSets(signedLocalMigrations(), current.migrationHistory, [])
-  if (!current.reachable || proof.localCount !== contract.expected.postMigrationRows ||
-      proof.remoteCount !== contract.expected.postMigrationRows ||
-      current.migrationVersions.length !== contract.expected.postMigrationRows || !current.p1MigrationApplied ||
+function assertExact70RepairBaseline(sourceEvidence, current) {
+  const proof = proveMigrationSets(signedLocalMigrations(), current.migrationHistory, [REPAIR_VERSION])
+  if (!current.reachable || proof.localCount !== contract.aclRepair.postMigrationRows ||
+      proof.remoteCount !== contract.aclRepair.preMigrationRows ||
+      current.migrationVersions.length !== contract.aclRepair.preMigrationRows || !current.p1MigrationApplied ||
       !current.p1ColumnPresent || Number(current.p1PublicFunctions) !== 6 ||
-      Number(current.authUsers) !== Number(sourceBefore.authUsers) || Number(current.p1AuthFixtureUsers) !== 0 ||
+      Number(current.authUsers) !== contract.fullReconciliation.expected.auth.users || Number(current.p1AuthFixtureUsers) !== 0 ||
       Number(current.authIdentities) !== contract.fullReconciliation.expected.auth.identities ||
       Number(current.bannedAuthUsers) !== contract.fullReconciliation.expected.auth.bannedUsers ||
       Number(current.p1ProfileFixtureRows) !== 0 || Number(current.p1RegionFixtureRows) !== 0 ||
       Number(current.p1RequestFixtureRows) !== 0 || Number(current.idleInTransactionSessions) !== 0 ||
       Number(current.p1FeatureFlags) !== Number(current.teams) || Number(current.teamsMissingP1Flag) !== 0 ||
-      Number(current.storageBuckets) !== Number(sourceBefore.storageBuckets) ||
-      Number(current.storageObjects) !== Number(sourceBefore.storageObjects)) {
-    throw new Error('resume target is not the exact clean post-P1 70-migration baseline')
-  }
-  const sourceRows = sourceBefore.publicRowCounts
-  const currentRows = current.publicRowCounts
-  if (JSON.stringify(Object.keys(sourceRows)) !== JSON.stringify(Object.keys(currentRows))) {
-    throw new Error('resume public table inventory drift')
-  }
-  for (const table of Object.keys(sourceRows)) {
-    const expected = Number(sourceRows[table]) + (table === 'feature_flags' ? Number(sourceBefore.teamsMissingP1Flag) : 0)
-    if (Number(currentRows[table]) !== expected) {
-      throw new Error(`resume public row drift for ${table} expected=${expected} actual=${currentRows[table]}`)
-    }
+      Number(current.storageBuckets) !== contract.fullReconciliation.expected.storage.buckets ||
+      Number(current.storageObjects) !== contract.fullReconciliation.expected.storage.objects ||
+      canonicalSha256(current) !== sourceEvidence.preflight.initialLightSnapshot.canonicalSha256 ||
+      canonicalSha256(current.publicRowCounts) !== sourceEvidence.preflight.initialLightSnapshot.publicRowCountsSha256) {
+    throw new Error('ACL repair target is not the exact preserved 70-migration failed-candidate baseline')
   }
   return proof
 }
 
-function assertResumeStable(sourceBefore, before, after) {
-  assertPostApplyBaseline(sourceBefore, after)
-  if (JSON.stringify(canonicalize(after)) !== JSON.stringify(canonicalize(before))) {
-    throw new Error('resume verification left a migration, auth, storage, fixture, transaction, or public-row residue')
+function lightContentProjection(value) {
+  const { migrationVersions: _versions, migrationHistory: _history, ...content } = value
+  return content
+}
+
+function assertExact71RepairBaseline(before70, current) {
+  const proof = proveMigrationSets(signedLocalMigrations(), current.migrationHistory, [])
+  if (!current.reachable || proof.localCount !== contract.aclRepair.postMigrationRows ||
+      proof.remoteCount !== contract.aclRepair.postMigrationRows ||
+      current.migrationVersions.length !== contract.aclRepair.postMigrationRows ||
+      !current.migrationVersions.includes(REPAIR_VERSION) ||
+      canonicalSha256(lightContentProjection(current)) !== canonicalSha256(lightContentProjection(before70))) {
+    throw new Error('ACL repair did not produce the exact clean 71-migration content-stable baseline')
+  }
+  return proof
+}
+
+function assertRepairStable(before70, afterApply71, after) {
+  assertExact71RepairBaseline(before70, after)
+  if (JSON.stringify(canonicalize(after)) !== JSON.stringify(canonicalize(afterApply71))) {
+    throw new Error('ACL repair verification left a migration, Auth, Storage, fixture, transaction, or public-row residue')
   }
 }
 
@@ -470,7 +508,7 @@ function assertMd5(value, label) {
   if (!/^[a-f0-9]{32}$/.test(String(value ?? ''))) throw new Error(`${label} is not an MD5 content fingerprint`)
 }
 
-function assertSealedFullReconciliation(baseline, lightSnapshot, fullSnapshot) {
+function assertSealedFullReconciliation(baseline, lightSnapshot, fullSnapshot, expectedMigrationRows) {
   const full = contract.fullReconciliation
   assertExactKeys(fullSnapshot, fullReconciliationKeys, 'sealed full reconciliation')
   assertExactKeys(fullSnapshot.publicTables, Object.keys(lightSnapshot.publicRowCounts), 'sealed public tables')
@@ -503,7 +541,7 @@ function assertSealedFullReconciliation(baseline, lightSnapshot, fullSnapshot) {
       Number(lightSnapshot.publicRowCounts.profile_access_roles) !== baseline.auth.postOverlayRoleAssignments ||
       Number(fullSnapshot.storageMetadata?.buckets) !== baseline.storage.buckets ||
       Number(fullSnapshot.storageMetadata?.objects) !== baseline.storage.objects ||
-      Number(fullSnapshot.migrationHistory?.schemaMigrations) !== full.expected.migrationRows ||
+      Number(fullSnapshot.migrationHistory?.schemaMigrations) !== expectedMigrationRows ||
       Object.keys(fullSnapshot.publicTables).length !== contract.expected.catalog.publicTables) {
     throw new Error('sealed full reconciliation signed totals drift')
   }
@@ -549,6 +587,34 @@ function assertFullReconciliationStable(beforeSummary, afterSummary) {
   }
 }
 
+function assertAclRepairFullTransition(before70, after71) {
+  if (Number(before70.migrationHistory?.schemaMigrations) !== contract.aclRepair.preMigrationRows ||
+      Number(after71.migrationHistory?.schemaMigrations) !== contract.aclRepair.postMigrationRows) {
+    throw new Error('ACL repair full reconciliation migration history transition drift')
+  }
+  for (const key of fullReconciliationKeys.filter((key) => !['migrationHistory', 'schemaSecurity'].includes(key))) {
+    if (canonicalSha256(before70[key]) !== canonicalSha256(after71[key])) {
+      throw new Error(`ACL repair changed forbidden full reconciliation content at ${key}`)
+    }
+  }
+  for (const key of schemaSecurityKeys.filter((key) => key !== 'publicRoutinesMd5')) {
+    if (before70.schemaSecurity[key] !== after71.schemaSecurity[key]) {
+      throw new Error(`ACL repair changed forbidden schema/security fingerprint at ${key}`)
+    }
+  }
+  if (before70.schemaSecurity.publicRoutinesMd5 === after71.schemaSecurity.publicRoutinesMd5) {
+    throw new Error('ACL repair did not change the signed public routine ACL fingerprint')
+  }
+  return {
+    allowedDifferencePaths: ['migrationHistory.schemaMigrations', 'schemaSecurity.publicRoutinesMd5'],
+    beforeMigrationRows: Number(before70.migrationHistory.schemaMigrations),
+    afterMigrationRows: Number(after71.migrationHistory.schemaMigrations),
+    beforePublicRoutinesMd5: before70.schemaSecurity.publicRoutinesMd5,
+    afterPublicRoutinesMd5: after71.schemaSecurity.publicRoutinesMd5,
+    forbiddenContentDifferences: 0,
+  }
+}
+
 function assertSignedStorageSummary(baseline, summary) {
   assertExactKeys(summary, ['buckets', 'objects', 'bytes', 'aggregateSha256'], 'Storage archive summary')
   if (Number(summary.buckets) !== baseline.storage.buckets || Number(summary.objects) !== baseline.storage.objects ||
@@ -559,23 +625,90 @@ function assertSignedStorageSummary(baseline, summary) {
 }
 
 function assertFrozenContract() {
-  if (!validateMode(mode)) throw new Error('usage: --self-test or --resume-post-apply')
+  if (!validateMode(mode)) throw new Error('usage: --self-test or --apply-acl-repair')
   if (contract.target?.projectRef !== TARGET_REF || contract.forbiddenProductionProjectRef !== PRODUCTION_REF ||
-      contract.candidate?.migrationVersion !== P1_VERSION) {
+      contract.candidate?.migrationVersion !== P1_VERSION || contract.aclRepair?.migrationVersion !== REPAIR_VERSION) {
     throw new Error('P1 isolated runtime contract ref/version drift')
   }
-  const resumeCiQualificationConsistent = contract.postApplyResume?.remoteExecutionAllowed === true &&
-    contract.postApplyResume?.signedCiHeadSha === RESUME_CI_HEAD &&
-    contract.postApplyResume?.signedCiRunId === RESUME_CI_RUN_ID &&
-    contract.postApplyResume?.signedCiLinuxJobId === RESUME_CI_LINUX_JOB_ID &&
-    contract.postApplyResume?.signedCiWindowsJobId === RESUME_CI_WINDOWS_JOB_ID &&
-    contract.postApplyResume?.signedCiConclusion === 'success' && Boolean(findResumeSignedCiRun())
-  if (contract.candidate.remoteExecutionAllowed !== false || contract.postApplyResume?.resumeOnly !== true ||
-      contract.postApplyResume?.remoteExecutionAllowed !== true ||
-      contract.postApplyResume?.mode !== '--resume-post-apply' || contract.postApplyResume?.dbPushAllowed !== false ||
-      contract.postApplyResume?.expectedPersistentRemoteWrites !== 0 ||
-      contract.postApplyResume?.perTestSnapshotRequired !== true || !resumeCiQualificationConsistent) {
-    throw new Error('P1 post-apply resume qualification, resume-only, or zero-persistent-write boundary drift')
+  const repair = contract.aclRepair
+  const ci = contract.repairCiRunEvidence
+  const repairCiQualified = repair.remoteExecutionAllowed === true && repair.dbPushAllowed === true &&
+    repair.applicationCompatibility?.status === 'passed' &&
+    repair.atomicLegacyRoleCompatibility?.status === 'passed' &&
+    repair.atomicLegacyRoleCompatibility?.staticPassed === true &&
+    repair.atomicLegacyRoleCompatibility?.databaseCiPassed === true &&
+    repair.applicationCompatibility?.remoteQualificationAllowed === true &&
+    repair.atomicLegacyRoleCompatibility?.remoteQualificationAllowed === true &&
+    ci?.status === 'success' && ci?.migrationsPassed === 71 && ci?.sqlTestsPassed === 27 &&
+    ci?.catalogAssertionsPassed === 4 && ci?.windowsStaticExpected === 19 && ci?.windowsStaticPassed === 19 &&
+    ci?.windowsLocalExpected === 12 && ci?.windowsLocalPassed === 12 && ci?.linuxDatabaseAccepted === true &&
+    ci?.cleanupPassed === true && ci?.candidateRemoteExecutionAllowed === false && ci?.g1OverallClaim === false &&
+    Boolean(findRepairSignedCiRun())
+  const repairCiPending = repair.remoteExecutionAllowed === false && repair.dbPushAllowed === false &&
+    repair.applicationCompatibility?.status === 'passed' &&
+    repair.atomicLegacyRoleCompatibility?.status === 'static-passed-database-ci-pending' &&
+    repair.atomicLegacyRoleCompatibility?.staticPassed === true &&
+    repair.atomicLegacyRoleCompatibility?.databaseCiPassed === null &&
+    repair.applicationCompatibility?.remoteQualificationAllowed === false &&
+    repair.atomicLegacyRoleCompatibility?.remoteQualificationAllowed === false &&
+    ci?.runId === null && ci?.headSha === null && ci?.status === null
+  if (contract.candidate.remoteExecutionAllowed !== false || contract.postApplyResume?.remoteExecutionAllowed !== false ||
+      contract.postApplyResume?.dbPushAllowed !== false || !['--resume-post-apply', 'retired'].includes(contract.postApplyResume?.mode) ||
+      (repairCiQualified === repairCiPending)) {
+    throw new Error('old failed candidate is not retired or ACL repair qualification state is ambiguous')
+  }
+  const expectedFunctions = [
+    ['public.enqueue_wecom_notification_jobs(text, timestamp with time zone)', ['service_role']],
+    ['public.claim_wecom_notification_jobs(integer, timestamp with time zone)', ['service_role']],
+    ['public.complete_wecom_notification_job(uuid, boolean, text, text, timestamp with time zone)', ['service_role']],
+    ['public.manage_profile_access(uuid, text[], uuid[])', []],
+    ['public.admin_replace_profile_roles(uuid, text[], uuid)', []],
+    ['public.admin_replace_supervisor_subordinates(uuid, uuid[], uuid)', []],
+  ].map(([identity, requiredGrantRoles]) => ({
+    identity, revokeRoles: ['PUBLIC', 'anon', 'authenticated'], requiredGrantRoles,
+  }))
+  const expectedAtomicMapping = [
+    { condition: 'primary-admin', legacyRole: 'admin' },
+    { condition: 'additional-supervisor', legacyRole: 'captain' },
+    { condition: 'primary-finance', legacyRole: 'finance' },
+    { condition: 'additional-warehouse', legacyRole: 'warehouse' },
+    { condition: 'fallback', legacyRole: 'member' },
+  ]
+  const privateDefinition = repair.privateRoutineDefinitionTransition
+  const atomicCompatibility = repair.atomicLegacyRoleCompatibility
+  if (repair.mode !== '--apply-acl-repair' || repair.migrationPath !==
+      'supabase/migrations/20260720015435_harden_server_only_rpc_acl.sql' ||
+      JSON.stringify(repair.testPaths) !== JSON.stringify({
+        teamOs4P1: 'supabase/tests/team_os_4_p1_access_shell.sql',
+        notificationCore: 'supabase/tests/notification_core.sql',
+      }) || JSON.stringify(repair.testSha256Lf) !== JSON.stringify({
+        teamOs4P1: 'c4823724a65047b0e67af6ba62c954acf3085d70ffbbda1c5e1a0be23ce94dfb',
+        notificationCore: 'a3d87069899b986b191bc21826f5e23c65fe4734066e52adc4e14753c9e6e5a3',
+      }) ||
+      repair.preMigrationRows !== 70 || repair.postMigrationRows !== 71 ||
+      repair.expectedMigrationCount !== 71 || repair.sqlTestCount !== 27 ||
+      repair.maxFormalAttempts !== 1 || repair.maxDbPushAttempts !== 1 || repair.dryRunRequired !== true ||
+      JSON.stringify(repair.pendingMigrationVersions) !== JSON.stringify([REPAIR_VERSION]) ||
+      JSON.stringify(repair.targetFunctions) !== JSON.stringify(expectedFunctions) ||
+      JSON.stringify(repair.expectedChangedFunctions) !==
+        JSON.stringify(expectedFunctions.slice(0, 4).map((entry) => entry.identity)) ||
+      JSON.stringify(repair.allowedFullReconciliationDifferences) !==
+        JSON.stringify(['migrationHistory.schemaMigrations', 'schemaSecurity.publicRoutinesMd5']) ||
+      repair.unknownDifferencesAllowed !== false ||
+      JSON.stringify(privateDefinition?.expectedChangedFunctions) !== JSON.stringify([PRIVATE_MEMBER_ACCESS_IDENTITY]) ||
+      privateDefinition?.expectedDefinitionChanges !== 1 || privateDefinition?.identityChangesAllowed !== 0 ||
+      privateDefinition?.securityEnvelopeChangesAllowed !== 0 || privateDefinition?.unknownChangesAllowed !== false ||
+      atomicCompatibility?.status !== 'static-passed-database-ci-pending' ||
+      atomicCompatibility?.staticPassed !== true || atomicCompatibility?.databaseCiPassed !== null ||
+      atomicCompatibility?.remoteQualificationAllowed !== false ||
+      atomicCompatibility?.writeFunction !== PRIVATE_MEMBER_ACCESS_IDENTITY ||
+      JSON.stringify(atomicCompatibility?.mappingPrecedence) !== JSON.stringify(expectedAtomicMapping) ||
+      atomicCompatibility?.successfulMappingCases !== 5 || atomicCompatibility?.rollbackControls !== 2 ||
+      atomicCompatibility?.sameTeamStaticGuards !== 4 || atomicCompatibility?.remoteGateNegativeControls !== 5 ||
+      atomicCompatibility?.atomicRemoteGateNegativeControls !== 2 ||
+      atomicCompatibility?.migrationRewritesExistingProfiles !== false ||
+      atomicCompatibility?.appShellAssertionsPassed !== 99 || atomicCompatibility?.appShellAssertionsExpected !== 99) {
+    throw new Error('ACL repair migration/function/difference allow-list contract drift')
   }
   if (restoreRun.target?.projectRef !== TARGET_REF || restoreRun.source?.projectRef !== PRODUCTION_REF ||
       restoreRun.target?.environment !== 'isolated-test' || restoreRun.target?.previewBuildAllowed !== false ||
@@ -637,19 +770,20 @@ function assertFrozenContract() {
       resolve(full.dpapiKeyPath) !== resolve(`E:/CanWin-Team-OS-4.0-Recovery-Keys/${full.backupPackageId}.dpapi`) ||
       full.expected?.auth?.sourceRoleAssignments + full.expected?.auth?.authorizedRoleAssignmentsApplied !==
         full.expected?.auth?.postOverlayRoleAssignments ||
-      full.expected?.migrationRows !== contract.expected.postMigrationRows ||
+      full.expected?.migrationRows !== repair.postMigrationRows ||
       JSON.stringify(full.expected?.keyAmountKeys) !== JSON.stringify(['currency', 'customerPayments', 'internalPayables', 'salesProfit', 'points', 'laborEarnings']) ||
       JSON.stringify(full.expected?.inventoryKeys) !== JSON.stringify(['onHand', 'reserved', 'shipped']) ||
       JSON.stringify(full.expected?.rawLedgerKeys) !== JSON.stringify(['customerPaymentGross', 'customerPaymentReversals', 'internalDue', 'internalPaid', 'internalSettlements', 'procurementPayments', 'salesExpenses', 'quarterlyRebates', 'companyExpenses']) ||
-      full.execution?.initialFullAfterLightSnapshot !== true || full.execution?.fullAfterEverySqlTest !== true ||
+      full.execution?.initialFullBeforeRepair !== true || full.execution?.fullAfterEverySqlTest !== true ||
       full.execution?.perTestFullSnapshots !== contract.expected.tests ||
       full.execution?.finalFullAfterFreshCredential !== true ||
-      full.execution?.beforeAfterCanonicalShaMustMatch !== true ||
+      full.execution?.beforeAfterAllowedAclTransitionOnly !== true ||
       full.execution?.storageArchiveAtInitialAndFinal !== true ||
-      full.execution?.temporarySessionOnly !== true || full.execution?.persistentDatabaseWrites !== false ||
+      full.execution?.temporaryTestSessionsOnly !== true ||
+      full.execution?.persistentDatabaseWrites !== 'exactly-one-signed-acl-and-atomic-compatibility-migration' ||
       full.execution?.sessionClosedDropsTemp !== true ||
       JSON.stringify(full.allowedPersistentContentDifferencesFromSealedSource) !== JSON.stringify(allowedDifferences) ||
-      full.expectedSchemaAndHistoryDifference !== 'exact-signed-P1-migration-only' ||
+      full.expectedSchemaAndHistoryDifference !== 'exact-signed-P1-plus-ACL-repair-migrations-only' ||
       full.unknownDifferencesAllowed !== false || full.evidenceMode !== 'summary-hash-counts-only' ||
       full.sourceArtifactBoundary?.signedP0TableRowCountsAreCountsOnly !== true ||
       full.sourceArtifactBoundary?.signedP0TargetAfterSha256IsNull !== true ||
@@ -664,16 +798,32 @@ function assertFrozenContract() {
     throw new Error('CI database acceptance contract is not the signed P1 candidate')
   }
   const migrationPath = resolve(repoRoot, contract.candidate.migrationPath)
-  const testPath = resolve(repoRoot, contract.candidate.testPath)
-  const resumeTestPath = resolve(repoRoot, contract.postApplyResume.accessControlTestPath)
+  const repairMigrationPath = resolve(repoRoot, repair.migrationPath)
+  const repairTeamOsTestPath = resolve(repoRoot, repair.testPaths.teamOs4P1)
+  const repairNotificationTestPath = resolve(repoRoot, repair.testPaths.notificationCore)
+  const accessControlTestPath = resolve(repoRoot, contract.postApplyResume.accessControlTestPath)
+  const atomicSqlTestPath = resolve(repoRoot, atomicCompatibility.sqlTestPath)
+  const atomicEdgeFunctionPath = resolve(repoRoot, atomicCompatibility.edgeFunctionPath)
+  const atomicStaticTestPath = resolve(repoRoot, atomicCompatibility.staticTestPath)
   if (sha256Lf(migrationPath) !== contract.candidate.migrationSha256Lf ||
-      sha256Lf(testPath) !== contract.candidate.testSha256Lf ||
-      sha256Lf(resumeTestPath) !== contract.postApplyResume.accessControlTestSha256Lf) {
-    throw new Error('P1 candidate hash drift')
+      sha256Lf(repairMigrationPath) !== repair.migrationSha256Lf ||
+      repair.migrationSha256Lf !== '1bb13f29fc0f5512bd00115dc1c953a2c3aaa0ec21522b1cc8cbb45a18a5cdc0' ||
+      sha256Lf(repairTeamOsTestPath) !== repair.testSha256Lf.teamOs4P1 ||
+      sha256Lf(repairNotificationTestPath) !== repair.testSha256Lf.notificationCore ||
+      sha256Lf(accessControlTestPath) !== contract.postApplyResume.accessControlTestSha256Lf ||
+      atomicCompatibility.sqlTestPath !== repair.testPaths.teamOs4P1 ||
+      atomicCompatibility.sqlTestSha256Lf !== repair.testSha256Lf.teamOs4P1 ||
+      sha256Lf(atomicSqlTestPath) !== atomicCompatibility.sqlTestSha256Lf ||
+      atomicCompatibility.edgeFunctionPath !== 'supabase/functions/admin-members/index.ts' ||
+      sha256Lf(atomicEdgeFunctionPath) !== atomicCompatibility.edgeFunctionSha256Lf ||
+      atomicCompatibility.staticTestPath !== 'scripts/p1/verify-access-admin-v1-write-chain.ts' ||
+      sha256Lf(atomicStaticTestPath) !== atomicCompatibility.staticTestSha256Lf) {
+    throw new Error('P1/ACL repair candidate hash drift')
   }
-  if (migrationManifest.entries.length !== contract.expected.postMigrationRows ||
-      migrationManifest.entries.at(-1)?.version !== P1_VERSION) {
-    throw new Error('P1 migration manifest is not an exact 69+1 chain')
+  if (migrationManifest.entries.length !== repair.expectedMigrationCount ||
+      migrationManifest.entries.at(-1)?.version !== REPAIR_VERSION ||
+      migrationManifest.entries.at(-1)?.sha256 !== repair.migrationSha256Lf) {
+    throw new Error('P1 migration manifest is not an exact signed 71-migration chain')
   }
   signedLocalMigrations()
   const p1Test = databaseContract.tests.find((entry) => entry.path === contract.candidate.testPath)
@@ -684,13 +834,6 @@ function assertFrozenContract() {
       accessControlTest?.sha256Lf !== contract.postApplyResume.accessControlTestSha256Lf) {
     throw new Error('P1 test inventory drift')
   }
-  const syncState = referenceSyncState()
-  const signedCiRun = databaseContract.formalAttemptHistory.find((entry) => (
-    entry.headSha === contract.candidate.signedCiHeadSha && entry.conclusion === 'success' &&
-    entry.migrationsPassed === contract.expected.postMigrationRows &&
-    entry.sqlTestsPassed === contract.expected.tests && entry.catalogAssertionsPassed === 4
-  ))
-  if (!signedCiRun) throw new Error('signed P1 CI success evidence is missing')
   const head = requireSuccess('git head', run('git', ['rev-parse', 'HEAD'])).stdout.trim()
   requireSuccess('signed CI ancestry', run('git', [
     'merge-base', '--is-ancestor', contract.candidate.signedCiHeadSha, head,
@@ -698,7 +841,7 @@ function assertFrozenContract() {
   requireSuccess('supervision evidence ancestry', run('git', [
     'merge-base', '--is-ancestor', contract.candidate.requiredAncestorSha, head,
   ]))
-  return syncState
+  return repairCiQualified ? 'qualified' : 'prequalification-pending'
 }
 
 function runSelfTest() {
@@ -713,22 +856,33 @@ function runSelfTest() {
   const negativePassed = negativeCases.filter((candidate) => validateBoundary(candidate).length > 0).length
   const local = signedLocalMigrations()
   const remote = local.slice(0, -1).map((entry) => ({ version: entry.version, status: 'applied' }))
-  proveMigrationSets(local, remote, [P1_VERSION])
+  proveMigrationSets(local, remote, [REPAIR_VERSION])
   const migrationNegativeCases = [
-    () => proveMigrationSets(local.slice(0, -1), remote, [P1_VERSION]),
-    () => proveMigrationSets([...local, { version: '20990101000000', status: 'signed', sha256Lf: 'a'.repeat(64) }], remote, [P1_VERSION]),
-    () => proveMigrationSets(local, remote.slice(0, -1), [P1_VERSION]),
-    () => proveMigrationSets(local, [...remote, { version: '20990101000000', status: 'applied' }], [P1_VERSION]),
-    () => proveMigrationSets(local, [...remote].reverse(), [P1_VERSION]),
-    () => proveMigrationSets(local, remote.map((entry, index) => index === 0 ? { ...entry, status: 'pending' } : entry), [P1_VERSION]),
+    () => proveMigrationSets(local.slice(0, -1), remote, [REPAIR_VERSION]),
+    () => proveMigrationSets([...local, { version: '20990101000000', status: 'signed', sha256Lf: 'a'.repeat(64) }], remote, [REPAIR_VERSION]),
+    () => proveMigrationSets(local, remote.slice(0, -1), [REPAIR_VERSION]),
+    () => proveMigrationSets(local, [...remote, { version: '20990101000000', status: 'applied' }], [REPAIR_VERSION]),
+    () => proveMigrationSets(local, [...remote].reverse(), [REPAIR_VERSION]),
+    () => proveMigrationSets(local, remote.map((entry, index) => index === 0 ? { ...entry, status: 'pending' } : entry), [REPAIR_VERSION]),
   ]
   let migrationNegativePassed = 0
   for (const test of migrationNegativeCases) {
     try { test() } catch { migrationNegativePassed += 1 }
   }
-  if (positive.length !== 0 || negativePassed !== negativeCases.length ||
-      migrationNegativePassed !== migrationNegativeCases.length) {
-    throw new Error('P1 runner negative self-test failed')
+  if (positive.length !== 0 || negativePassed !== negativeCases.length || migrationNegativePassed !== migrationNegativeCases.length) {
+    throw new Error('ACL repair runner boundary/migration self-test failed')
+  }
+  const stagedFiles = migrationManifest.entries.map((entry) => entry.file)
+  const stagedHashes = local.map((entry) => entry.sha256Lf)
+  validateStagedMigrationInventory(stagedFiles, stagedHashes, local)
+  const stagedInventoryNegativeCases = [
+    () => validateStagedMigrationInventory([], [], local),
+    () => validateStagedMigrationInventory(stagedFiles, stagedHashes.map((hash, index) => index === 70 ? '0'.repeat(64) : hash), local),
+    () => validateStagedMigrationInventory(stagedFiles.slice(1), stagedHashes.slice(1), local),
+  ]
+  let stagedInventoryNegativePassed = 0
+  for (const test of stagedInventoryNegativeCases) {
+    try { test() } catch { stagedInventoryNegativePassed += 1 }
   }
   const fakeEnvironment = (suffix) => ({
     PGHOST: 'pooler-' + suffix,
@@ -764,13 +918,13 @@ function runSelfTest() {
     throw new Error('P1 credential rotation negative self-test failed')
   }
 
-  const sourceBefore = {
+  const before70 = {
     reachable: true,
     migrationVersions: remote.map((entry) => entry.version),
     migrationHistory: remote,
-    p1MigrationApplied: false,
-    p1ColumnPresent: false,
-    p1PublicFunctions: 0,
+    p1MigrationApplied: true,
+    p1ColumnPresent: true,
+    p1PublicFunctions: 6,
     authUsers: contract.expected.authUsers,
     authIdentities: contract.fullReconciliation.expected.auth.identities,
     bannedAuthUsers: contract.fullReconciliation.expected.auth.bannedUsers,
@@ -780,41 +934,39 @@ function runSelfTest() {
     p1RequestFixtureRows: 0,
     idleInTransactionSessions: 0,
     teams: 1,
-    p1FeatureFlags: 0,
-    teamsMissingP1Flag: 1,
+    p1FeatureFlags: 1,
+    teamsMissingP1Flag: 0,
     storageBuckets: 1,
     storageObjects: 32,
     publicRowCounts: { feature_flags: 1, profile_access_roles: 10, profiles: 7, teams: 1 },
   }
   const postHistory = local.map((entry) => ({ version: entry.version, status: 'applied' }))
-  const cleanPostApply = {
-    ...sourceBefore,
+  const after71 = {
+    ...before70,
     migrationVersions: postHistory.map((entry) => entry.version),
     migrationHistory: postHistory,
-    p1MigrationApplied: true,
-    p1ColumnPresent: true,
-    p1PublicFunctions: 6,
-    p1FeatureFlags: 1,
-    teamsMissingP1Flag: 0,
-    publicRowCounts: { feature_flags: 2, profile_access_roles: 10, profiles: 7, teams: 1 },
   }
-  assertPreflight(sourceBefore)
-  assertPostApplyBaseline(sourceBefore, cleanPostApply)
-  assertResumeStable(sourceBefore, cleanPostApply, JSON.parse(JSON.stringify(cleanPostApply)))
-  const resumeNegativeCases = [
-    () => assertPostApplyBaseline(sourceBefore, sourceBefore),
-    () => assertPostApplyBaseline(sourceBefore, {
-      ...cleanPostApply,
-      publicRowCounts: { ...cleanPostApply.publicRowCounts, profiles: 8 },
-    }),
-    () => assertResumeStable(sourceBefore, cleanPostApply, {
-      ...cleanPostApply,
-      authUsers: cleanPostApply.authUsers + 1,
+  const syntheticSourceEvidence = {
+    preflight: {
+      initialLightSnapshot: {
+        canonicalSha256: canonicalSha256(before70),
+        publicRowCountsSha256: canonicalSha256(before70.publicRowCounts),
+      },
+    },
+  }
+  assertExact70RepairBaseline(syntheticSourceEvidence, before70)
+  assertExact71RepairBaseline(before70, after71)
+  assertRepairStable(before70, after71, JSON.parse(JSON.stringify(after71)))
+  const repairBaselineNegativeCases = [
+    () => assertExact70RepairBaseline(syntheticSourceEvidence, after71),
+    () => assertExact71RepairBaseline(before70, { ...after71, authUsers: after71.authUsers + 1 }),
+    () => assertRepairStable(before70, after71, {
+      ...after71, publicRowCounts: { ...after71.publicRowCounts, profiles: 8 },
     }),
   ]
-  let resumeNegativePassed = 0
-  for (const test of resumeNegativeCases) {
-    try { test() } catch { resumeNegativePassed += 1 }
+  let repairBaselineNegativePassed = 0
+  for (const test of repairBaselineNegativeCases) {
+    try { test() } catch { repairBaselineNegativePassed += 1 }
   }
 
   const artifact = (name) => ({
@@ -901,9 +1053,10 @@ function runSelfTest() {
     syntheticRestoreEvidence,
     { keyAmounts: syntheticKeyAmounts, rawLedgers: syntheticRawLedgers },
   )
-  const syntheticPublicRows = { ...cleanPostApply.publicRowCounts }
+  const syntheticPublicRows = { ...before70.publicRowCounts }
   for (let index = 0; index < 99; index += 1) syntheticPublicRows[`synthetic_table_${String(index).padStart(3, '0')}`] = 0
-  const syntheticLightSnapshot = { ...cleanPostApply, publicRowCounts: syntheticPublicRows }
+  const syntheticLight70 = { ...before70, publicRowCounts: syntheticPublicRows }
+  const syntheticLight71 = { ...after71, publicRowCounts: syntheticPublicRows }
   const syntheticSchemaSecurity = Object.fromEntries(schemaSecurityKeys.map((key) => [
     key,
     key.endsWith('Md5') ? 'a'.repeat(32) : 0,
@@ -929,32 +1082,35 @@ function runSelfTest() {
     rawLedgers: syntheticRawLedgers,
     inventory: syntheticInventory,
   }
-  const syntheticFullSummary = assertSealedFullReconciliation(baseline, syntheticLightSnapshot, syntheticFullSnapshot)
-  assertFullReconciliationStable(syntheticFullSummary, { ...syntheticFullSummary })
+  const syntheticFull70 = syntheticFullSnapshot
+  const syntheticFull71 = {
+    ...syntheticFull70,
+    migrationHistory: { schemaMigrations: 71 },
+    schemaSecurity: { ...syntheticSchemaSecurity, publicRoutinesMd5: 'b'.repeat(32) },
+  }
+  const syntheticFull70Summary = assertSealedFullReconciliation(baseline, syntheticLight70, syntheticFull70, 70)
+  const syntheticFull71Summary = assertSealedFullReconciliation(baseline, syntheticLight71, syntheticFull71, 71)
+  assertFullReconciliationStable(syntheticFull70Summary, { ...syntheticFull70Summary })
+  assertAclRepairFullTransition(syntheticFull70, syntheticFull71)
+  assertFullReconciliationStable(syntheticFull71Summary, { ...syntheticFull71Summary })
   assertSignedStorageSummary(baseline, contract.fullReconciliation.expected.storage)
   const reconciliationNegativeCases = [
-    () => assertSealedFullReconciliation(baseline, syntheticLightSnapshot, {
-      ...syntheticFullSnapshot,
+    () => assertSealedFullReconciliation(baseline, syntheticLight71, {
+      ...syntheticFull71,
       keyAmounts: { ...syntheticKeyAmounts, customerPayments: 501 },
-    }),
-    () => assertSealedFullReconciliation(baseline, syntheticLightSnapshot, {
-      ...syntheticFullSnapshot,
+    }, 71),
+    () => assertAclRepairFullTransition(syntheticFull70, {
+      ...syntheticFull71,
       inventory: { ...syntheticInventory, onHand: 1 },
     }),
-    () => assertSealedFullReconciliation(baseline, syntheticLightSnapshot, {
-      ...syntheticFullSnapshot,
-      rawLedgers: { ...syntheticRawLedgers, companyExpenses: 1 },
+    () => assertAclRepairFullTransition(syntheticFull70, {
+      ...syntheticFull71,
+      schemaSecurity: { ...syntheticFull71.schemaSecurity, publicTableAclMd5: 'c'.repeat(32) },
     }),
-    () => {
-      const changed = {
-        ...syntheticFullSnapshot,
-        publicTableContentMd5: { ...syntheticFullSnapshot.publicTableContentMd5, feature_flags: 'b'.repeat(32) },
-      }
-      assertFullReconciliationStable(
-        syntheticFullSummary,
-        assertSealedFullReconciliation(baseline, syntheticLightSnapshot, changed),
-      )
-    },
+    () => assertAclRepairFullTransition(syntheticFull70, {
+      ...syntheticFull71,
+      schemaSecurity: { ...syntheticFull70.schemaSecurity },
+    }),
     () => extractSignedReconciliationBaseline({
       ...syntheticManifest,
       reconciliation: {
@@ -977,6 +1133,87 @@ function runSelfTest() {
     try { test() } catch { reconciliationNegativePassed += 1 }
   }
 
+  const aclEntry = (grantee) => ({ grantee, privilege: 'EXECUTE', grantable: false })
+  const targetIdentities = contract.aclRepair.targetFunctions.map((entry) => entry.identity)
+  const expectedChangedIdentitySet = new Set(contract.aclRepair.expectedChangedFunctions)
+  const allIdentities = [...targetIdentities, 'public.synthetic_unchanged()'].sort()
+  const beforeRoutineAcls = Object.fromEntries(allIdentities.map((identity) => [
+    identity,
+    identity === 'public.synthetic_unchanged()' || !expectedChangedIdentitySet.has(identity)
+      ? [aclEntry('postgres')]
+      : [aclEntry('anon'), aclEntry('authenticated'), aclEntry('service_role')],
+  ]))
+  const afterRoutineAcls = Object.fromEntries(allIdentities.map((identity) => [
+    identity,
+    identity === 'public.synthetic_unchanged()' || !expectedChangedIdentitySet.has(identity)
+      ? [aclEntry('postgres')]
+      : [aclEntry('service_role')],
+  ]))
+  const beforeEffective = Object.fromEntries(allIdentities.map((identity) => [identity, {
+    PUBLIC: false,
+    anon: expectedChangedIdentitySet.has(identity),
+    authenticated: expectedChangedIdentitySet.has(identity),
+    service_role: expectedChangedIdentitySet.has(identity),
+  }]))
+  const afterEffective = Object.fromEntries(allIdentities.map((identity) => [identity, {
+    PUBLIC: false, anon: false, authenticated: false, service_role: expectedChangedIdentitySet.has(identity),
+  }]))
+  const beforeAcl = { allRoutineAcls: beforeRoutineAcls, allRoutineEffectiveExecute: beforeEffective }
+  const afterAcl = { allRoutineAcls: afterRoutineAcls, allRoutineEffectiveExecute: afterEffective }
+  assertRoutineAclRepairTransition(beforeAcl, afterAcl)
+  const aclNegativeCases = [
+    () => assertRoutineAclRepairTransition(beforeAcl, {
+      ...afterAcl,
+      allRoutineAcls: { ...afterRoutineAcls, 'public.synthetic_unchanged()': [aclEntry('anon')] },
+      allRoutineEffectiveExecute: {
+        ...afterEffective,
+        'public.synthetic_unchanged()': { ...afterEffective['public.synthetic_unchanged()'], anon: true },
+      },
+    }),
+    () => assertRoutineAclRepairTransition(beforeAcl, {
+      ...afterAcl,
+      allRoutineAcls: { ...afterRoutineAcls, [targetIdentities[0]]: [] },
+      allRoutineEffectiveExecute: {
+        ...afterEffective, [targetIdentities[0]]: { ...afterEffective[targetIdentities[0]], service_role: false },
+      },
+    }),
+    () => assertRoutineAclRepairTransition(beforeAcl, {
+      ...afterAcl,
+      allRoutineAcls: { ...afterRoutineAcls, [targetIdentities[1]]: beforeRoutineAcls[targetIdentities[1]] },
+      allRoutineEffectiveExecute: { ...afterEffective, [targetIdentities[1]]: beforeEffective[targetIdentities[1]] },
+    }),
+  ]
+  let aclNegativePassed = 0
+  for (const test of aclNegativeCases) {
+    try { test() } catch { aclNegativePassed += 1 }
+  }
+
+  const privateDefinitionBefore = {
+    identity: PRIVATE_MEMBER_ACCESS_IDENTITY,
+    definitionSha256: 'a'.repeat(64),
+    owner: 'postgres',
+    language: 'plpgsql',
+    securityDefiner: true,
+    configuration: ['search_path='],
+    returnType: 'jsonb',
+  }
+  const privateDefinitionAfter = { ...privateDefinitionBefore, definitionSha256: 'b'.repeat(64) }
+  assertPrivateRoutineDefinitionTransition(privateDefinitionBefore, privateDefinitionAfter)
+  assertPrivateRoutineDefinitionStable(privateDefinitionAfter, { ...privateDefinitionAfter })
+  const privateDefinitionNegativeCases = [
+    () => assertPrivateRoutineDefinitionTransition(privateDefinitionBefore, { ...privateDefinitionBefore }),
+    () => assertPrivateRoutineDefinitionTransition(privateDefinitionBefore, {
+      ...privateDefinitionAfter, identity: 'private.synthetic_member_access()',
+    }),
+    () => assertPrivateRoutineDefinitionTransition(privateDefinitionBefore, {
+      ...privateDefinitionAfter, securityDefiner: false,
+    }),
+  ]
+  let privateDefinitionNegativePassed = 0
+  for (const test of privateDefinitionNegativeCases) {
+    try { test() } catch { privateDefinitionNegativePassed += 1 }
+  }
+
   const evidenceBytes = Buffer.from(JSON.stringify({ runId: 'synthetic-resume-evidence' }), 'utf8')
   parseEvidenceBytes(evidenceBytes, sha256(evidenceBytes), 'synthetic evidence')
   const syntheticManifestBytes = Buffer.from(JSON.stringify(syntheticManifest), 'utf8')
@@ -993,33 +1230,73 @@ function runSelfTest() {
     try { test() } catch { evidenceNegativePassed += 1 }
   }
 
-  const cleanCommittedBoundary = validateResumeWorktreeBoundary(
+  const cleanCommittedBoundary = validateRepairWorktreeBoundary(
     'b'.repeat(40),
-    contract.postApplyResume.signedCiHeadSha,
+    'a'.repeat(40),
     '',
   )
   const worktreeBoundaryNegativePassed = [
-    validateResumeWorktreeBoundary(
-      contract.postApplyResume.signedCiHeadSha,
-      contract.postApplyResume.signedCiHeadSha,
-      '',
-    ),
-    validateResumeWorktreeBoundary('b'.repeat(40), contract.postApplyResume.signedCiHeadSha, ' M tracked.sql'),
+    validateRepairWorktreeBoundary('a'.repeat(40), 'a'.repeat(40), ''),
+    validateRepairWorktreeBoundary('b'.repeat(40), 'a'.repeat(40), ' M tracked.sql'),
   ].filter((candidate) => !candidate.committedAfterSignedHead || !candidate.trackedWorktreeClean).length
-  const oldModesDenied = ['--execute', '--dry-run'].filter((candidateMode) => !validateMode(candidateMode)).length
-  const unqualifiedResume = {
-    ...contract.postApplyResume,
-    remoteExecutionAllowed: false,
-    signedCiHeadSha: null,
+  const oldModesDenied = ['--execute', '--dry-run', '--resume-post-apply'].filter((candidateMode) => !validateMode(candidateMode)).length
+  const qualifiedRepair = {
+    ...contract.aclRepair,
+    remoteExecutionAllowed: true,
+    dbPushAllowed: true,
+    applicationCompatibility: { status: 'passed', remoteQualificationAllowed: true },
+    atomicLegacyRoleCompatibility: {
+      status: 'passed', staticPassed: true, databaseCiPassed: true, remoteQualificationAllowed: true,
+    },
   }
-  const resumeGateNegativeCases = [
-    () => validateResumeRemoteGate('--resume-post-apply', 'synchronized', unqualifiedResume),
-    () => validateResumeRemoteGate('--resume-post-apply', 'qa-sync-pending', contract.postApplyResume),
-    () => validateResumeRemoteGate('--execute', 'synchronized', contract.postApplyResume),
+  const qualifiedCi = { headSha: 'a'.repeat(40), status: 'success' }
+  const unqualifiedRepair = { ...qualifiedRepair, remoteExecutionAllowed: false, dbPushAllowed: false }
+  const atomicDatabaseUnqualifiedRepair = {
+    ...qualifiedRepair,
+    atomicLegacyRoleCompatibility: {
+      ...qualifiedRepair.atomicLegacyRoleCompatibility,
+      databaseCiPassed: false,
+    },
+  }
+  const atomicRemoteLockedRepair = {
+    ...qualifiedRepair,
+    atomicLegacyRoleCompatibility: {
+      ...qualifiedRepair.atomicLegacyRoleCompatibility,
+      remoteQualificationAllowed: false,
+    },
+  }
+  const repairGateNegativeCases = [
+    () => validateRepairRemoteGate('--apply-acl-repair', unqualifiedRepair, qualifiedCi),
+    () => validateRepairRemoteGate('--apply-acl-repair', qualifiedRepair, { ...qualifiedCi, status: 'failure' }),
+    () => validateRepairRemoteGate('--resume-post-apply', qualifiedRepair, qualifiedCi),
+    () => validateRepairRemoteGate('--apply-acl-repair', atomicDatabaseUnqualifiedRepair, qualifiedCi),
+    () => validateRepairRemoteGate('--apply-acl-repair', atomicRemoteLockedRepair, qualifiedCi),
   ]
-  const resumeGateNegativePassed = resumeGateNegativeCases.filter((test) => test() === false).length
-  if (!validateResumeRemoteGate('--resume-post-apply', 'synchronized', contract.postApplyResume)) {
-    throw new Error('qualified post-apply resume gate positive self-test failed')
+  const repairGateNegativePassed = repairGateNegativeCases.filter((test) => test() === false).length
+  if (!validateRepairRemoteGate('--apply-acl-repair', qualifiedRepair, qualifiedCi)) {
+    throw new Error('qualified ACL repair gate positive self-test failed')
+  }
+
+  const failedPushAttempt = {
+    dbPushAttempts: 0,
+    dbPushAttempted: false,
+    dbPushPerformed: false,
+    dbPushOutcome: 'not-attempted',
+    confirmedPersistentWrites: 0,
+    persistentRemoteWrites: 0,
+    persistentRemoteWriteUpperBound: 0,
+  }
+  beginRepairPushAttempt(failedPushAttempt)
+  let failedPushStopped = false
+  try {
+    finishRepairPushAttempt(failedPushAttempt, { status: 1, error: null, stdout: '', stderr: 'synthetic push failure' })
+  } catch {
+    failedPushStopped = true
+  }
+  if (!failedPushStopped || failedPushAttempt.dbPushOutcome !== 'unknown_failed_command' ||
+      failedPushAttempt.dbPushPerformed !== null || failedPushAttempt.persistentRemoteWrites !== null ||
+      failedPushAttempt.persistentRemoteWriteUpperBound !== 1 || failedPushAttempt.confirmedPersistentWrites !== 0) {
+    throw new Error('failed db push could be falsely reported as zero-write or not attempted')
   }
 
   let followingSyntheticTestRan = false
@@ -1035,20 +1312,23 @@ function runSelfTest() {
   } catch {
     syntheticFailureStopped = true
   }
-  if (resumeNegativePassed !== resumeNegativeCases.length ||
-      evidenceNegativePassed !== evidenceNegativeCases.length || oldModesDenied !== 2 ||
+  if (repairBaselineNegativePassed !== repairBaselineNegativeCases.length ||
+      evidenceNegativePassed !== evidenceNegativeCases.length || oldModesDenied !== 3 ||
       reconciliationNegativePassed !== reconciliationNegativeCases.length ||
+      aclNegativePassed !== aclNegativeCases.length ||
+      privateDefinitionNegativePassed !== privateDefinitionNegativeCases.length ||
+      stagedInventoryNegativePassed !== stagedInventoryNegativeCases.length ||
       !cleanCommittedBoundary.committedAfterSignedHead || !cleanCommittedBoundary.trackedWorktreeClean ||
       worktreeBoundaryNegativePassed !== 2 ||
-      resumeGateNegativePassed !== resumeGateNegativeCases.length || !syntheticFailureStopped ||
-      followingSyntheticTestRan || !validateMode('--self-test') || !validateMode('--resume-post-apply') ||
+      repairGateNegativePassed !== repairGateNegativeCases.length || !syntheticFailureStopped ||
+      followingSyntheticTestRan || !validateMode('--self-test') || !validateMode('--apply-acl-repair') ||
       JSON.stringify(authFixtureEmailPatterns) !== JSON.stringify(['p1-%@example.invalid', 'access-%@example.invalid']) ||
       JSON.stringify(profileFixtureIdPatterns) !== JSON.stringify([
         'd4000000-0000-4000-8000-00000000000%', 'd5100000-0000-4000-8000-00000000000%',
-      ])) {
-    throw new Error('P1 post-apply resume negative self-test failed')
+    ])) {
+    throw new Error('P1 ACL repair negative self-test failed')
   }
-  console.log('P1_ISOLATED_RUNTIME_SELFTEST_OK targetPositive=1 targetNegative=3/3 migrationPositive=1 migrationNegative=6/6 credentialPositive=1 credentialNegative=3/3 resume69Denied=1 resume70Accepted=1 resumeDriftDenied=2/2 keyAmountDriftDenied=1 inventoryDriftDenied=1 rawLedgerDriftDenied=1 fullContentDriftDenied=1 artifactBindingDriftDenied=1 restoreStatusDriftDenied=1 storageDriftDenied=1 manifestShaDriftDenied=1 restoreEvidenceShaDriftDenied=1 evidenceNegative=5/5 worktreeBoundaryPositive=1 worktreeBoundaryNegative=2/2 oldApplyModesDenied=2/2 resumeGatePositive=1 resumeGateNegative=3/3 fixturePatterns=4/4 firstSqlFailureStops=1 candidateRemoteExecutionAllowed=0 resumeRemoteExecutionAllowed=1 databaseCalls=0 storageCalls=0 dEvidenceRequired=0')
+  console.log('P1_ISOLATED_RUNTIME_SELFTEST_OK targetPositive=1 targetNegative=3/3 migration70to71Positive=1 migrationNegative=6/6 stagedInventoryPositive=71/71 stagedInventoryNegative=3/3 credentialPositive=1 credentialNegative=3/3 exact70Accepted=1 exact71Accepted=1 repairBaselineDriftDenied=3/3 fullAclTransitionAccepted=1 reconciliationDriftDenied=7/7 routineAclTargets=6/6 routineAclExactChanged=4/4 routineAclNegative=3/3 privateDefinitionChanged=1/1 privateDefinitionNegative=3/3 atomicMapping=5/5 atomicRollback=2/2 sameTeamStatic=4/4 evidenceNegative=5/5 worktreeBoundaryPositive=1 worktreeBoundaryNegative=2/2 oldApplyModesDenied=3/3 repairGatePositive=1 repairGateNegative=5/5 atomicGateNegative=2/2 failedPushUnknownStatePreserved=1 fixturePatterns=4/4 firstSqlFailureStops=1 candidateRemoteExecutionAllowed=0 oldResumeRemoteExecutionAllowed=0 databaseCalls=0 storageCalls=0 dEvidenceRequired=0')
 }
 
 function verifyTemporaryLink(workdir) {
@@ -1116,6 +1396,18 @@ function rotateTemporaryCredential(channel, acquire = acquireTemporaryDbEnvironm
   return channel.credentialGeneration
 }
 
+function validateStagedMigrationInventory(stagedFiles, stagedHashes, signedMigrations = signedLocalMigrations()) {
+  const expectedFiles = migrationManifest.entries.map((entry) => entry.file)
+  if (!Array.isArray(stagedFiles) || !Array.isArray(stagedHashes) ||
+      JSON.stringify(stagedFiles) !== JSON.stringify(expectedFiles) ||
+      stagedFiles.length !== contract.aclRepair.expectedMigrationCount ||
+      stagedFiles.at(-1) !== `${REPAIR_VERSION}_harden_server_only_rpc_acl.sql` ||
+      JSON.stringify(stagedHashes) !== JSON.stringify(signedMigrations.map((entry) => entry.sha256Lf))) {
+    throw new Error('temporary signed migration inventory is not the exact hash-bound 71-file chain')
+  }
+  return true
+}
+
 function requireFreshCredentialGeneration(channel, previousGeneration) {
   if (!validateDbEnvironment(channel?.dbEnvironment) ||
       !Number.isInteger(channel.credentialGeneration) || channel.credentialGeneration <= previousGeneration) {
@@ -1128,16 +1420,92 @@ function prepareTemporaryChannel() {
   const cliPath = restoreRun.toolchain.supabaseCli.path
   try {
     requireSuccess('temporary supabase init', run(cliPath, ['init', '--workdir', workdir, '--yes']))
+    const temporaryMigrations = resolve(workdir, 'supabase', 'migrations')
+    mkdirSync(temporaryMigrations, { recursive: true })
+    if (readdirSync(temporaryMigrations).length !== 0) {
+      throw new Error('temporary migration directory is not empty before staging the signed ACL repair')
+    }
+    const signedMigrations = signedLocalMigrations()
+    for (const [index, entry] of migrationManifest.entries.entries()) {
+      const stagedPath = resolve(temporaryMigrations, entry.file)
+      copyFileSync(resolve(repoRoot, 'supabase', 'migrations', entry.file), stagedPath)
+      if (sha256Lf(stagedPath) !== signedMigrations[index].sha256Lf) {
+        throw new Error(`temporary signed migration inventory copy drift at ${entry.version}`)
+      }
+    }
+    const stagedFiles = readdirSync(temporaryMigrations).sort()
+    const stagedHashes = stagedFiles.map((file) => sha256Lf(resolve(temporaryMigrations, file)))
+    validateStagedMigrationInventory(stagedFiles, stagedHashes, signedMigrations)
     requireSuccess('temporary supabase link', run(cliPath, [
       'link', '--project-ref', TARGET_REF, '--workdir', workdir, '--yes',
     ], { timeout: 120000 }))
     verifyTemporaryLink(workdir)
     const dbEnvironment = acquireTemporaryDbEnvironment(workdir, cliPath)
     verifyTemporaryLink(workdir)
-    return { workdir, cliPath, dbEnvironment, credentialGeneration: 1 }
+    return { workdir, cliPath, dbEnvironment, credentialGeneration: 1, stagedFiles }
   } catch (error) {
     rmSync(workdir, { recursive: true, force: true })
     throw error
+  }
+}
+
+function runRepairPushDryRun(channel) {
+  verifyTemporaryLink(channel.workdir)
+  const result = requireSuccess('signed ACL repair db push dry-run', run(channel.cliPath, [
+    'db', 'push', '--linked', '--dry-run', '--workdir', channel.workdir, '--yes',
+  ], { timeout: 180000 }))
+  try {
+    const output = `${result.stdout}\n${result.stderr}`
+    const versions = [...new Set(output.match(/\b\d{14}\b/g) ?? [])].sort()
+    const stagedFile = `${REPAIR_VERSION}_harden_server_only_rpc_acl.sql`
+    if (JSON.stringify(versions) !== JSON.stringify([REPAIR_VERSION]) || !output.includes(stagedFile)) {
+      throw new Error('ACL repair dry-run did not enumerate exactly the one signed migration 71')
+    }
+    return { versions, migrationFile: stagedFile, outputSha256: sha256(output) }
+  } finally {
+    result.stdout = ''
+    result.stderr = ''
+  }
+}
+
+function beginRepairPushAttempt(attempt) {
+  if (attempt.dbPushAttempts !== 0 || attempt.dbPushAttempted !== false || attempt.dbPushPerformed !== false ||
+      attempt.confirmedPersistentWrites !== 0 || attempt.persistentRemoteWriteUpperBound !== 0) {
+    throw new Error('ACL repair db push single-attempt boundary already consumed')
+  }
+  attempt.dbPushAttempts = 1
+  attempt.dbPushAttempted = true
+  attempt.dbPushOutcome = 'running'
+  attempt.persistentRemoteWrites = null
+  attempt.persistentRemoteWriteUpperBound = 1
+}
+
+function finishRepairPushAttempt(attempt, result) {
+  if (result.status !== 0 || result.error) {
+    attempt.dbPushOutcome = 'unknown_failed_command'
+    attempt.dbPushPerformed = null
+    attempt.persistentRemoteWrites = null
+    throw new Error('single signed ACL repair db push failed with unknown target apply state: ' +
+      redact(result.stderr || result.stdout || result.error?.message))
+  }
+  attempt.dbPushOutcome = 'confirmed-applied'
+  attempt.dbPushPerformed = true
+  attempt.confirmedPersistentWrites = 1
+  attempt.persistentRemoteWrites = 1
+}
+
+function runRepairPushOnce(channel, attempt) {
+  verifyTemporaryLink(channel.workdir)
+  beginRepairPushAttempt(attempt)
+  attempt.currentStep = `apply-migration:${REPAIR_VERSION}`
+  const result = run(channel.cliPath, [
+    'db', 'push', '--linked', '--workdir', channel.workdir, '--yes',
+  ], { timeout: 300000 })
+  try {
+    finishRepairPushAttempt(attempt, result)
+  } finally {
+    result.stdout = ''
+    result.stderr = ''
   }
 }
 
@@ -1176,6 +1544,176 @@ select jsonb_build_object(
 )::text;`,
   })
   return JSON.parse(value)
+}
+
+function privateRoutineDefinitionSnapshot(dbEnvironment) {
+  const value = runPsql({
+    psqlPath: restoreRun.toolchain.psql.path,
+    pgEnvironment: dbEnvironment,
+    retryReadOnlySessionPooler: true,
+    timeout: 180000,
+    sql: `
+select jsonb_build_object(
+  'identity',format('%I.%I(%s)',n.nspname,p.proname,pg_catalog.oidvectortypes(p.proargtypes)),
+  'definition',pg_catalog.pg_get_functiondef(p.oid),
+  'owner',owner_role.rolname,
+  'language',language_row.lanname,
+  'securityDefiner',p.prosecdef,
+  'configuration',coalesce(to_jsonb(p.proconfig),'[]'::jsonb),
+  'returnType',pg_catalog.format_type(p.prorettype,null)
+)::text
+from pg_catalog.pg_proc p
+join pg_catalog.pg_namespace n on n.oid=p.pronamespace
+join pg_catalog.pg_roles owner_role on owner_role.oid=p.proowner
+join pg_catalog.pg_language language_row on language_row.oid=p.prolang
+where p.oid=pg_catalog.to_regprocedure('${PRIVATE_MEMBER_ACCESS_IDENTITY}');`,
+  })
+  const raw = JSON.parse(value)
+  if (typeof raw.definition !== 'string' || raw.identity !== PRIVATE_MEMBER_ACCESS_IDENTITY) {
+    throw new Error('private member-access routine definition snapshot is missing or ambiguous')
+  }
+  return {
+    identity: raw.identity,
+    definitionSha256: sha256(raw.definition),
+    owner: raw.owner,
+    language: raw.language,
+    securityDefiner: raw.securityDefiner,
+    configuration: raw.configuration,
+    returnType: raw.returnType,
+  }
+}
+
+function assertPrivateRoutineDefinitionTransition(before, after) {
+  const expectedKeys = [
+    'identity', 'definitionSha256', 'owner', 'language', 'securityDefiner', 'configuration', 'returnType',
+  ]
+  assertExactKeys(before, expectedKeys, 'pre-repair private routine definition snapshot')
+  assertExactKeys(after, expectedKeys, 'post-repair private routine definition snapshot')
+  const definitionContract = contract.aclRepair.privateRoutineDefinitionTransition
+  if (JSON.stringify(definitionContract.expectedChangedFunctions) !== JSON.stringify([PRIVATE_MEMBER_ACCESS_IDENTITY]) ||
+      definitionContract.expectedDefinitionChanges !== 1 || definitionContract.identityChangesAllowed !== 0 ||
+      definitionContract.securityEnvelopeChangesAllowed !== 0 || definitionContract.unknownChangesAllowed !== false) {
+    throw new Error('private routine definition transition contract drift')
+  }
+  if (before.identity !== PRIVATE_MEMBER_ACCESS_IDENTITY || after.identity !== PRIVATE_MEMBER_ACCESS_IDENTITY) {
+    throw new Error('private routine identity changed during ACL/atomic repair')
+  }
+  for (const key of expectedKeys.filter((key) => !['identity', 'definitionSha256'].includes(key))) {
+    if (canonicalSha256(before[key]) !== canonicalSha256(after[key])) {
+      throw new Error(`private routine security envelope changed at ${key}`)
+    }
+  }
+  if (!/^[a-f0-9]{64}$/.test(before.definitionSha256) || !/^[a-f0-9]{64}$/.test(after.definitionSha256) ||
+      before.definitionSha256 === after.definitionSha256) {
+    throw new Error('private member-access routine definition did not change exactly once')
+  }
+  return {
+    exactChangedFunctions: [PRIVATE_MEMBER_ACCESS_IDENTITY],
+    definitionChanges: 1,
+    beforeDefinitionSha256: before.definitionSha256,
+    afterDefinitionSha256: after.definitionSha256,
+    identityChanges: 0,
+    securityEnvelopeChanges: 0,
+    forbiddenDefinitionChanges: 0,
+  }
+}
+
+function assertPrivateRoutineDefinitionStable(expected, actual) {
+  if (canonicalSha256(expected) !== canonicalSha256(actual)) {
+    throw new Error('private member-access routine definition drifted after migration 71')
+  }
+}
+
+function routineAclSnapshot(dbEnvironment) {
+  const value = runPsql({
+    psqlPath: restoreRun.toolchain.psql.path,
+    pgEnvironment: dbEnvironment,
+    retryReadOnlySessionPooler: true,
+    timeout: 180000,
+    sql: `
+with routines as (
+  select p.oid,
+    format('%I.%I(%s)',n.nspname,p.proname,pg_catalog.oidvectortypes(p.proargtypes)) identity,
+    coalesce((
+      select jsonb_agg(
+        jsonb_build_object(
+          'grantee',case when a.grantee=0 then 'PUBLIC' else g.rolname end,
+          'privilege',a.privilege_type,
+          'grantable',a.is_grantable
+        ) order by case when a.grantee=0 then 'PUBLIC' else g.rolname end,a.privilege_type,a.is_grantable
+      )
+      from aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+      left join pg_catalog.pg_roles g on g.oid=a.grantee
+    ),'[]'::jsonb) direct_acl
+  from pg_catalog.pg_proc p
+  join pg_catalog.pg_namespace n on n.oid=p.pronamespace
+  where n.nspname='public'
+), inventory as (
+  select identity,direct_acl,jsonb_build_object(
+    'PUBLIC',(select exists(
+      select 1 from jsonb_array_elements(direct_acl) x
+      where x->>'grantee'='PUBLIC' and x->>'privilege'='EXECUTE'
+    )),
+    'anon',pg_catalog.has_function_privilege('anon',oid,'EXECUTE'),
+    'authenticated',pg_catalog.has_function_privilege('authenticated',oid,'EXECUTE'),
+    'service_role',pg_catalog.has_function_privilege('service_role',oid,'EXECUTE')
+  ) effective_execute from routines
+)
+select jsonb_build_object(
+  'allRoutineAcls',(select coalesce(jsonb_object_agg(identity,direct_acl order by identity),'{}'::jsonb) from inventory),
+  'allRoutineEffectiveExecute',(select coalesce(jsonb_object_agg(identity,effective_execute order by identity),'{}'::jsonb) from inventory)
+)::text;`,
+  })
+  return JSON.parse(value)
+}
+
+function assertRoutineAclRepairTransition(before, after) {
+  assertExactKeys(before, ['allRoutineAcls', 'allRoutineEffectiveExecute'], 'pre-repair routine ACL snapshot')
+  assertExactKeys(after, ['allRoutineAcls', 'allRoutineEffectiveExecute'], 'post-repair routine ACL snapshot')
+  const beforeIdentities = Object.keys(before.allRoutineAcls).sort()
+  const afterIdentities = Object.keys(after.allRoutineAcls).sort()
+  const targetIdentities = contract.aclRepair.targetFunctions.map((entry) => entry.identity).sort()
+  const expectedChangedIdentities = [...contract.aclRepair.expectedChangedFunctions].sort()
+  if (JSON.stringify(beforeIdentities) !== JSON.stringify(afterIdentities)) {
+    throw new Error('ACL repair changed the public routine identity inventory')
+  }
+  const changedDirect = beforeIdentities.filter((identity) => (
+    canonicalSha256(before.allRoutineAcls[identity]) !== canonicalSha256(after.allRoutineAcls[identity])
+  )).sort()
+  const changedEffective = beforeIdentities.filter((identity) => (
+    canonicalSha256(before.allRoutineEffectiveExecute[identity]) !==
+      canonicalSha256(after.allRoutineEffectiveExecute[identity])
+  )).sort()
+  if (JSON.stringify(changedDirect) !== JSON.stringify(expectedChangedIdentities) ||
+      JSON.stringify(changedEffective) !== JSON.stringify(expectedChangedIdentities)) {
+    throw new Error('ACL repair routine difference set is not the exact signed four-function change inventory')
+  }
+  for (const expected of contract.aclRepair.targetFunctions) {
+    const direct = after.allRoutineAcls[expected.identity]
+    const effective = after.allRoutineEffectiveExecute[expected.identity]
+    if (!Array.isArray(direct) || !effective) throw new Error(`ACL repair target routine is missing: ${expected.identity}`)
+    for (const role of expected.revokeRoles) {
+      if (effective[role] !== false || direct.some((entry) => entry.grantee === role && entry.privilege === 'EXECUTE')) {
+        throw new Error(`ACL repair left ${expected.identity} executable by ${role}`)
+      }
+    }
+    for (const role of expected.requiredGrantRoles) {
+      if (effective[role] !== true || !direct.some((entry) => entry.grantee === role && entry.privilege === 'EXECUTE')) {
+        throw new Error(`ACL repair removed required ${role} execution from ${expected.identity}`)
+      }
+    }
+  }
+  return {
+    routineInventorySha256: canonicalSha256(beforeIdentities),
+    beforeRoutineAclsSha256: canonicalSha256(before.allRoutineAcls),
+    afterRoutineAclsSha256: canonicalSha256(after.allRoutineAcls),
+    beforeEffectiveExecuteSha256: canonicalSha256(before.allRoutineEffectiveExecute),
+    afterEffectiveExecuteSha256: canonicalSha256(after.allRoutineEffectiveExecute),
+    exactChangedFunctions: changedDirect,
+    changedFunctions: changedDirect.length,
+    targetFunctionsValidated: targetIdentities.length,
+    forbiddenRoutineAclChanges: 0,
+  }
 }
 
 function assertPreflight(value) {
@@ -1306,32 +1844,33 @@ function safeEvidence(value) {
   return text
 }
 
-async function executePostApplyResume(
-  channel,
-  sourceEvidence,
-  before,
-  baseline,
-  proof,
-) {
+async function executeAclRepair(channel, sourceEvidence, before70, baseline, proof70) {
   const head = requireSuccess('git head', run('git', ['rev-parse', 'HEAD'])).stdout.trim()
-  const runId = `p1-resume-${new Date().toISOString().replaceAll(/[-:.]/g, '')}-${head.slice(0, 10)}`
+  const runId = `p1-acl-repair-${new Date().toISOString().replaceAll(/[-:.]/g, '')}-${head.slice(0, 10)}`
   const evidenceDirectory = resolve(contract.evidenceRoot, runId)
   mkdirSync(contract.evidenceRoot, { recursive: true })
   mkdirSync(evidenceDirectory, { recursive: false })
   const attempt = {
     schemaVersion: 1,
     runId,
-    mode: 'post-apply-verification-resume',
+    mode: 'single-signed-acl-and-atomic-compatibility-repair',
     targetProjectRef: TARGET_REF,
     targetProjectName: contract.target.projectName,
     supervisionHeadSha: head,
-    sourceFailureRunId: contract.postApplyResume.sourceRunId,
-    sourcePreflightSha256: contract.postApplyResume.preflightSha256,
-    sourceFailureSha256: contract.postApplyResume.failureSha256,
-    migrationVersion: P1_VERSION,
-    migrationAlreadyApplied: true,
+    sourceFailureRunId: SOURCE_FAILURE_RUN_ID,
+    sourceFailureHeadSha: SOURCE_FAILURE_HEAD,
+    sourcePreflightSha256: SOURCE_PREFLIGHT_SHA256,
+    sourceFailureSha256: SOURCE_FAILURE_SHA256,
+    migrationVersion: REPAIR_VERSION,
+    migrationAlreadyApplied: false,
+    dbPushAttempted: false,
     dbPushPerformed: false,
+    dbPushOutcome: 'not-attempted',
+    dbPushAttempts: 0,
+    confirmedPersistentWrites: 0,
     persistentRemoteWrites: 0,
+    persistentRemoteWriteUpperBound: 0,
+    formalAttemptStarted: false,
     verificationStarted: false,
     attempts: 0,
     startedAt: new Date().toISOString(),
@@ -1339,9 +1878,10 @@ async function executePostApplyResume(
     perTestSnapshotsPassed: 0,
     perTestFullReconciliations: [],
     fullReconciliationSnapshotsPassed: 0,
+    privateRoutineDefinitionSnapshotsPassed: 0,
     storageArchivesPassed: 0,
     signedEvidence: baseline.signedEvidence,
-    initialLightSnapshot: lightSnapshotSummary(before),
+    initialLightSnapshot: lightSnapshotSummary(before70),
     secretsPrinted: 0,
     secretsWritten: 0,
     productionReads: 0,
@@ -1349,25 +1889,63 @@ async function executePostApplyResume(
   }
   try {
     verifyTemporaryLink(channel.workdir)
-    attempt.verificationStarted = true
-    attempt.attempts = 1
     attempt.currentStep = 'initial-full-reconciliation'
     const beforeFull = runSealedFullReconciliation(channel.dbEnvironment)
-    const beforeFullSummary = assertSealedFullReconciliation(baseline, before, beforeFull)
+    const beforeFullSummary = assertSealedFullReconciliation(baseline, before70, beforeFull, 70)
+    if (canonicalSha256(beforeFullSummary) !== canonicalSha256(sourceEvidence.preflight.initialFullReconciliation)) {
+      throw new Error('preserved exact-70 full reconciliation no longer matches signed failed-run preflight')
+    }
     attempt.initialFullReconciliation = beforeFullSummary
     attempt.fullReconciliationSnapshotsPassed = 1
+    attempt.currentStep = 'initial-routine-acl-snapshot'
+    const beforeRoutineAcl = routineAclSnapshot(channel.dbEnvironment)
+    attempt.currentStep = 'initial-private-routine-definition-snapshot'
+    const beforePrivateRoutineDefinition = privateRoutineDefinitionSnapshot(channel.dbEnvironment)
+    attempt.initialPrivateRoutineDefinition = beforePrivateRoutineDefinition
+    attempt.privateRoutineDefinitionSnapshotsPassed = 1
     attempt.currentStep = 'initial-storage-archive'
     const beforeStorageSummary = await collectTargetStorageSummary(baseline)
     attempt.initialStorageArchive = beforeStorageSummary
     attempt.storageArchivesPassed = 1
+    attempt.currentStep = 'db-push-dry-run'
+    attempt.dryRun = runRepairPushDryRun(channel)
     writeFileSync(resolve(evidenceDirectory, 'preflight.json'), safeEvidence({
       ...attempt,
-      status: 'ready',
-      sourcePreflightSummary: lightSnapshotSummary(sourceEvidence.preflight.before),
+      status: 'ready-to-apply',
+      sourceFailureCounts: {
+        testsPassed: sourceEvidence.failure.testsPassed.length,
+        perTestSnapshotsPassed: sourceEvidence.failure.perTestSnapshotsPassed,
+        fullReconciliationSnapshotsPassed: sourceEvidence.failure.fullReconciliationSnapshotsPassed,
+        storageArchivesPassed: sourceEvidence.failure.storageArchivesPassed,
+      },
     }), { flag: 'wx' })
-    console.log(`P1_POST_APPLY_RESUME_PREFLIGHT_OK target=${TARGET_REF} local=${proof.localCount} remote=${proof.remoteCount} common=${proof.commonCount} pending=0 orderMatched=1 fullSnapshots=1/29 storageArchives=1/2 fixtureRows=0 idleTransactions=0 dbPush=0 secretsPrinted=0 productionReads=0 productionWrites=0`)
+    console.log(`P1_ACL_REPAIR_PREFLIGHT_OK target=${TARGET_REF} local=${proof70.localCount} remote=${proof70.remoteCount} common=${proof70.commonCount} pending=${REPAIR_VERSION} orderMatched=1 fullSnapshots=1/29 storageArchives=1/2 fixtureRows=0 idleTransactions=0 dbPushAttempts=0 secretsPrinted=0 productionReads=0 productionWrites=0`)
+    attempt.formalAttemptStarted = true
+    attempt.attempts = 1
+    runRepairPushOnce(channel, attempt)
+    attempt.currentStep = 'post-apply-fresh-credential'
+    const preApplyCredentialGeneration = channel.credentialGeneration
+    rotateTemporaryCredential(channel)
+    requireFreshCredentialGeneration(channel, preApplyCredentialGeneration)
+    const afterApply71 = snapshot(channel.dbEnvironment)
+    const proof71 = assertExact71RepairBaseline(before70, afterApply71)
+    const afterRoutineAcl = routineAclSnapshot(channel.dbEnvironment)
+    const aclTransition = assertRoutineAclRepairTransition(beforeRoutineAcl, afterRoutineAcl)
+    const afterPrivateRoutineDefinition = privateRoutineDefinitionSnapshot(channel.dbEnvironment)
+    const privateDefinitionTransition = assertPrivateRoutineDefinitionTransition(
+      beforePrivateRoutineDefinition,
+      afterPrivateRoutineDefinition,
+    )
+    attempt.privateRoutineDefinitionSnapshotsPassed += 1
+    attempt.migrationAlreadyApplied = true
+    attempt.postApplyMigrationProof = proof71
+    attempt.routineAclTransition = aclTransition
+    attempt.privateRoutineDefinitionTransition = privateDefinitionTransition
+    attempt.verificationStarted = true
     let p1MarkerSeen = false
     let accessControlMarkerSeen = false
+    let notificationMarkerSeen = false
+    let postApplyFullSummary = null
     for (const test of databaseContract.tests) {
       attempt.currentStep = `test:${test.category}:${test.path}`
       const result = requireSuccess(`SQL test ${test.path}`, runTestFile(channel.dbEnvironment, test))
@@ -1379,15 +1957,21 @@ async function executePostApplyResume(
         accessControlMarkerSeen = result.stdout.includes('access_control_foundation_ok')
         if (!accessControlMarkerSeen) throw new Error('legacy-member explicit-role marker is missing')
       }
+      if (test.path === 'supabase/tests/notification_core.sql') {
+        notificationMarkerSeen = result.stdout.includes('notification_core_ok')
+        if (!notificationMarkerSeen) throw new Error('notification ACL repair runtime marker is missing')
+      }
       result.stdout = ''
       result.stderr = ''
       attempt.testsPassed.push(test.path)
       const afterTest = snapshot(channel.dbEnvironment)
-      assertResumeStable(sourceEvidence.preflight.before, before, afterTest)
+      assertRepairStable(before70, afterApply71, afterTest)
       attempt.perTestSnapshotsPassed += 1
       const afterTestFull = runSealedFullReconciliation(channel.dbEnvironment)
-      const afterTestFullSummary = assertSealedFullReconciliation(baseline, afterTest, afterTestFull)
-      assertFullReconciliationStable(beforeFullSummary, afterTestFullSummary)
+      const afterTestFullSummary = assertSealedFullReconciliation(baseline, afterTest, afterTestFull, 71)
+      assertAclRepairFullTransition(beforeFull, afterTestFull)
+      if (postApplyFullSummary) assertFullReconciliationStable(postApplyFullSummary, afterTestFullSummary)
+      else postApplyFullSummary = afterTestFullSummary
       attempt.perTestFullReconciliations.push({
         testPath: test.path,
         snapshotSha: afterTestFullSummary.canonicalSha256,
@@ -1395,10 +1979,11 @@ async function executePostApplyResume(
       })
       attempt.fullReconciliationSnapshotsPassed += 1
     }
-    if (!p1MarkerSeen || !accessControlMarkerSeen || attempt.testsPassed.length !== contract.expected.tests ||
+    if (!p1MarkerSeen || !accessControlMarkerSeen || !notificationMarkerSeen ||
+        attempt.testsPassed.length !== contract.expected.tests ||
         attempt.perTestSnapshotsPassed !== contract.expected.tests ||
         attempt.perTestFullReconciliations.length !== contract.expected.tests) {
-      throw new Error('post-apply SQL test totals, markers, or per-test full reconciliation snapshots are incomplete')
+      throw new Error('ACL repair SQL test totals, markers, or per-test full reconciliation snapshots are incomplete')
     }
 
     attempt.currentStep = 'catalog'
@@ -1409,19 +1994,23 @@ async function executePostApplyResume(
     rotateTemporaryCredential(channel)
     requireFreshCredentialGeneration(channel, beforeFinalCredentialGeneration)
     const after = snapshot(channel.dbEnvironment)
-    assertResumeStable(sourceEvidence.preflight.before, before, after)
+    assertRepairStable(before70, afterApply71, after)
     const afterFull = runSealedFullReconciliation(channel.dbEnvironment)
-    const afterFullSummary = assertSealedFullReconciliation(baseline, after, afterFull)
-    assertFullReconciliationStable(beforeFullSummary, afterFullSummary)
+    const afterFullSummary = assertSealedFullReconciliation(baseline, after, afterFull, 71)
+    const fullTransition = assertAclRepairFullTransition(beforeFull, afterFull)
+    assertFullReconciliationStable(postApplyFullSummary, afterFullSummary)
     attempt.fullReconciliationSnapshotsPassed += 1
+    const finalPrivateRoutineDefinition = privateRoutineDefinitionSnapshot(channel.dbEnvironment)
+    assertPrivateRoutineDefinitionStable(afterPrivateRoutineDefinition, finalPrivateRoutineDefinition)
+    attempt.privateRoutineDefinitionSnapshotsPassed += 1
     const afterStorageSummary = await collectTargetStorageSummary(baseline)
     if (afterStorageSummary.canonicalSha256 !== beforeStorageSummary.canonicalSha256) {
       throw new Error('initial/final Storage archive canonical content drift')
     }
     attempt.storageArchivesPassed += 1
     if (attempt.fullReconciliationSnapshotsPassed !== contract.expected.tests + 2 ||
-        attempt.storageArchivesPassed !== 2) {
-      throw new Error('full reconciliation or Storage archive totals are incomplete')
+        attempt.storageArchivesPassed !== 2 || attempt.privateRoutineDefinitionSnapshotsPassed !== 3) {
+      throw new Error('full reconciliation, private routine definition, or Storage archive totals are incomplete')
     }
     verifyTemporaryLink(channel.workdir)
 
@@ -1436,13 +2025,18 @@ async function executePostApplyResume(
       catalogAssertionsPassed: Object.keys(contract.expected.catalog).length,
       catalog,
       reconciliation: {
-        sourceMigrationRows: sourceEvidence.preflight.before.migrationVersions.length,
-        postApplyMigrationRowsBefore: before.migrationVersions.length,
+        sourceFailureMigrationRows: sourceEvidence.preflight.initialLightSnapshot.migrationRows,
+        postApplyMigrationRowsBefore: before70.migrationVersions.length,
         postApplyMigrationRowsAfter: after.migrationVersions.length,
-        initialLightSnapshot: lightSnapshotSummary(before),
+        initialLightSnapshot: lightSnapshotSummary(before70),
         finalLightSnapshot: lightSnapshotSummary(after),
         initialFullReconciliation: beforeFullSummary,
         finalFullReconciliation: afterFullSummary,
+        allowedFullTransition: fullTransition,
+        routineAclTransition: aclTransition,
+        privateRoutineDefinitionTransition: privateDefinitionTransition,
+        finalPrivateRoutineDefinition,
+        privateRoutineDefinitionSnapshotsPassed: attempt.privateRoutineDefinitionSnapshotsPassed,
         perTestFullReconciliations: attempt.perTestFullReconciliations,
         fullReconciliationSnapshotsPassed: attempt.fullReconciliationSnapshotsPassed,
         initialStorageArchive: beforeStorageSummary,
@@ -1455,8 +2049,8 @@ async function executePostApplyResume(
     }
     const evidencePath = resolve(evidenceDirectory, 'success.json')
     writeFileSync(evidencePath, safeEvidence(completed), { flag: 'wx' })
-    console.log(`P1_POST_APPLY_RESUME_OK target=${TARGET_REF} migrationAlreadyApplied=70/70 tests=27/27 database=7 permission=11 business=9 perTestSnapshots=27/27 fullSnapshots=29/29 storageArchives=2/2 catalog=4 fixtureRows=0 persistentRemoteWrites=0 dbPush=0 attempts=1`)
-    console.log(`P1_POST_APPLY_RESUME_EVIDENCE path=${evidencePath} sha256=${sha256(readFileSync(evidencePath))} secretsPrinted=0 productionReads=0 productionWrites=0`)
+    console.log(`P1_ACL_REPAIR_OK target=${TARGET_REF} migrationApplied=71/71 tests=27/27 database=7 permission=11 business=9 perTestSnapshots=27/27 fullSnapshots=29/29 privateDefinition=1/1 privateDefinitionSnapshots=3/3 atomicMapping=5/5 atomicRollback=2/2 sameTeamStatic=4/4 storageArchives=2/2 aclFunctions=6/6 catalog=4 fixtureRows=0 confirmedPersistentWrites=1 dbPushAttempts=1 attempts=1`)
+    console.log(`P1_ACL_REPAIR_EVIDENCE path=${evidencePath} sha256=${sha256(readFileSync(evidencePath))} secretsPrinted=0 productionReads=0 productionWrites=0`)
   } catch (error) {
     const failure = {
       ...attempt,
@@ -1466,6 +2060,9 @@ async function executePostApplyResume(
       targetPreserved: true,
       retryPerformed: false,
       remoteCleanupPerformed: false,
+      persistentWriteClaimSafe: attempt.dbPushOutcome === 'unknown_failed_command'
+        ? attempt.persistentRemoteWrites === null && attempt.persistentRemoteWriteUpperBound === 1
+        : true,
     }
     writeFileSync(resolve(evidenceDirectory, 'failure.json'), safeEvidence(failure), { flag: 'wx' })
     throw error
@@ -1474,25 +2071,20 @@ async function executePostApplyResume(
 
 async function main() {
   if (mode === '--self-test') return runSelfTest()
-  const syncState = assertFrozenContract()
-  if (!validateResumeRemoteGate(mode, syncState, contract.postApplyResume)) {
-    throw new Error('P1_REMOTE_EXECUTION_REFUSED: post-apply resume candidate is not reference-synchronized and qualified')
+  const qualificationState = assertFrozenContract()
+  if (qualificationState !== 'qualified' ||
+      !validateRepairRemoteGate(mode, contract.aclRepair, contract.repairCiRunEvidence)) {
+    throw new Error('P1_REMOTE_EXECUTION_REFUSED: ACL repair candidate is not dual-platform-CI qualified')
   }
-  assertResumeSignedCiQualification()
+  assertRepairSignedCiQualification()
   const baseline = loadSignedReconciliationBaseline()
-  const sourceEvidence = loadResumeEvidence()
+  const sourceEvidence = loadRepairFailureEvidence()
   runLocalVerifiers()
   const channel = prepareTemporaryChannel()
   try {
-    const before = snapshot(channel.dbEnvironment)
-    const proof = assertPostApplyBaseline(sourceEvidence.preflight.before, before)
-    await executePostApplyResume(
-      channel,
-      sourceEvidence,
-      before,
-      baseline,
-      proof,
-    )
+    const before70 = snapshot(channel.dbEnvironment)
+    const proof70 = assertExact70RepairBaseline(sourceEvidence, before70)
+    await executeAclRepair(channel, sourceEvidence, before70, baseline, proof70)
   } finally {
     clearDbEnvironment(channel.dbEnvironment)
     channel.dbEnvironment = null

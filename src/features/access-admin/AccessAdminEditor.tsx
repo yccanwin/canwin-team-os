@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { AccessAdminDataSource } from './dataSource'
 import { accessRoleName, type AccessAdminSnapshot } from './types'
+import {
+  isAdditionalAccessFunction,
+  isAssignableAccessRoleCode,
+  isPrimaryAccessRole,
+  normalizeAccessRoleCodes,
+  splitV1RoleSelection,
+  updateV1RoleSelection,
+} from './v1AccessMapping'
 import './access-admin-editor.css'
 
 type Tab = 'members' | 'invite' | 'delegation' | 'handover'
@@ -27,7 +35,8 @@ export function AccessAdminEditor({ dataSource }: { dataSource: AccessAdminDataS
     queueMicrotask(() => { void load().catch((reason: unknown) => setError(reason instanceof Error ? reason.message : '读取权限配置失败')) })
   }, [load])
   const activeMembers = useMemo(() => snapshot?.members.filter((member) => member.status === 'active') ?? [], [snapshot])
-  const activeAdmins = useMemo(() => activeMembers.filter((member) => member.roles.some((role) => role.code === 'admin')), [activeMembers])
+  const activeAdmins = useMemo(() => activeMembers.filter((member) => member.roles.some((role) => ['admin', 'owner'].includes(role.code))), [activeMembers])
+  const assignableRoles = useMemo(() => snapshot?.roles.filter((role) => isAssignableAccessRoleCode(role.code)) ?? [], [snapshot])
   const nameOf = (id: string) => snapshot?.members.find((member) => member.id === id)?.name ?? '未知成员'
   const toggle = (value: string, values: string[], setter: (next: string[]) => void) => setter(values.includes(value) ? values.filter((item) => item !== value) : [...values, value])
   const run = async (action: () => Promise<void>, message: string) => {
@@ -38,7 +47,7 @@ export function AccessAdminEditor({ dataSource }: { dataSource: AccessAdminDataS
   }
   const startRoleEdit = (id: string) => {
     const member = snapshot?.members.find((item) => item.id === id)
-    setEditingId(id); setRoleCodes(member?.roles.map((role) => role.code) ?? [])
+    setEditingId(id); setRoleCodes(normalizeAccessRoleCodes(member?.roles.map((role) => role.code) ?? []))
   }
   const startPasswordReset = (id: string) => {
     setPasswordMemberId(id)
@@ -75,9 +84,31 @@ export function AccessAdminEditor({ dataSource }: { dataSource: AccessAdminDataS
       setError('团队必须保留至少一名启用中的管理员。请先为另一名成员添加管理员角色。')
       return
     }
-    setError('')
-    toggle(roleCode, roleCodes, setRoleCodes)
+    try {
+      setRoleCodes(updateV1RoleSelection(roleCodes, roleCode))
+      setError('')
+    } catch (reason) {
+      setError(reason instanceof Error && reason.message === 'WAREHOUSE_FUNCTION_NOT_ASSIGNABLE'
+        ? '仓库是附加职能，只能叠加给实施或管理员岗位。'
+        : '必须选择一个主岗位。')
+    }
   }
+  const roleSelectionValid = useMemo(() => {
+    try { splitV1RoleSelection(roleCodes); return true } catch { return false }
+  }, [roleCodes])
+  const toggleInviteRole = (roleCode: string) => {
+    try {
+      setInvite({ ...invite, roleCodes: updateV1RoleSelection(invite.roleCodes, roleCode) })
+      setError('')
+    } catch (reason) {
+      setError(reason instanceof Error && reason.message === 'WAREHOUSE_FUNCTION_NOT_ASSIGNABLE'
+        ? '仓库是附加职能，只能叠加给实施或管理员岗位。'
+        : '邀请账号必须选择一个主岗位。')
+    }
+  }
+  const inviteRoleSelectionValid = useMemo(() => {
+    try { splitV1RoleSelection(invite.roleCodes); return true } catch { return false }
+  }, [invite.roleCodes])
   const startSupervisorEdit = (id: string) => {
     setSupervisorId(id)
     setSubordinateIds(snapshot?.supervisorAssignments.filter((item) => item.supervisorId === id).map((item) => item.subordinateId) ?? [])
@@ -86,18 +117,18 @@ export function AccessAdminEditor({ dataSource }: { dataSource: AccessAdminDataS
   if (!snapshot && error) return <div className="aae-error" role="alert">{error}</div>
   if (!snapshot) return <p className="aae-loading">正在读取权限配置…</p>
   return <section className="aae-shell">
-    <header className="aae-header"><div><span className="aae-kicker">系统设置</span><h2>成员与权限</h2><p>角色可叠加；敏感数据由数据库校验，页面隐藏不是权限边界。</p></div><span className="aae-security">{snapshot.currentUserIsAdmin ? '当前账号：可编辑角色' : '当前账号：只读'}</span></header>
+    <header className="aae-header"><div><span className="aae-kicker">系统设置</span><h2>成员与权限</h2><p>每人一个主岗位，可叠加仓库或主管职能；最终权限由数据库校验。</p></div><span className="aae-security">{snapshot.currentUserIsAdmin ? '当前账号：可编辑角色' : '当前账号：只读'}</span></header>
     <div className="aae-rules">{snapshot.sensitiveRules.map((rule) => <article key={rule.key}><strong>{rule.label}</strong><span>{rule.rule}</span></article>)}</div>
     <nav className="aae-tabs" aria-label="权限配置"><button className={tab === 'members' ? 'active' : ''} onClick={() => setTab('members')}>成员角色</button><button className={tab === 'invite' ? 'active' : ''} onClick={() => setTab('invite')}>邀请成员</button><button className={tab === 'delegation' ? 'active' : ''} onClick={() => setTab('delegation')}>请假代理</button><button className={tab === 'handover' ? 'active' : ''} onClick={() => setTab('handover')}>离职交接</button></nav>
     {notice && <div className="aae-notice" role="status">{notice}</div>}{error && <div className="aae-error" role="alert">{error}</div>}
 
     {tab === 'members' && <div className="aae-grid">
       <div className="aae-panel"><div className="aae-panel-title"><h3>成员账号</h3><span>{activeMembers.length} 个启用</span></div><div className="aae-members">{snapshot.members.map((member) => <article key={member.id}><div className="aae-person"><span>{member.name.slice(0, 1)}</span><div><strong>{member.name}</strong><small>{member.position || '未填写职位'} · {member.status === 'active' ? '启用' : '已停用'}</small></div></div><div className="aae-chips">{member.roles.map((role) => <span key={role.code}>{role.name}</span>)}</div><div className="aae-row-actions"><button onClick={() => startRoleEdit(member.id)}>配置角色</button>{snapshot.currentUserIsAdmin && <button onClick={() => startPasswordReset(member.id)}>重置密码</button>}<button className={member.status === 'active' ? 'danger' : ''} disabled={busy} onClick={() => run(() => dataSource.setProfileStatus(member.id, member.status === 'active' ? 'disabled' : 'active'), member.status === 'active' ? '账号已停用' : '账号已启用')}>{member.status === 'active' ? '停用' : '启用'}</button></div></article>)}</div></div>
-      <div className="aae-stack">{passwordMemberId && <div className="aae-panel"><h3>重置登录密码</h3><p className="aae-hint">正在重置：{nameOf(passwordMemberId)}。管理员无法查看原密码，新密码不会写入业务数据库或审计日志。</p><label className="aae-field">新密码<input type="password" minLength={8} maxLength={72} autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /></label><label className="aae-field">再次输入<input type="password" minLength={8} maxLength={72} autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label><div className="aae-row-actions"><button disabled={busy} onClick={() => setPasswordMemberId('')}>取消</button><button className="primary" disabled={busy || !newPassword || !confirmPassword} onClick={() => void submitPasswordReset()}>确认重置</button></div></div>}<div className="aae-panel"><h3>角色组合</h3>{editingId ? <><p className="aae-hint">正在配置：{nameOf(editingId)}</p><div className="aae-options">{snapshot.roles.map((role) => <label key={role.code}><input type="checkbox" checked={roleCodes.includes(role.code)} onChange={() => toggleRole(role.code)} /><span><strong>{role.name}</strong><small>{role.description}</small></span></label>)}</div>{editingId === snapshot.currentUserId && activeAdmins.length === 1 && roleCodes.includes('admin') && <p className="aae-hint">你是当前唯一启用中的管理员。需要先添加另一名管理员，才能取消自己的管理员角色。</p>}<button className="primary wide" disabled={busy || roleCodes.length === 0 || !snapshot.currentUserIsAdmin} onClick={() => run(() => dataSource.replaceRoles(editingId, roleCodes), '角色已保存')}>保存角色</button></> : <p className="aae-empty">从左侧选择一名成员。</p>}</div>
+      <div className="aae-stack">{passwordMemberId && <div className="aae-panel"><h3>重置登录密码</h3><p className="aae-hint">正在重置：{nameOf(passwordMemberId)}。管理员无法查看原密码，新密码不会写入业务数据库或审计日志。</p><label className="aae-field">新密码<input type="password" minLength={8} maxLength={72} autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /></label><label className="aae-field">再次输入<input type="password" minLength={8} maxLength={72} autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label><div className="aae-row-actions"><button disabled={busy} onClick={() => setPasswordMemberId('')}>取消</button><button className="primary" disabled={busy || !newPassword || !confirmPassword} onClick={() => void submitPasswordReset()}>确认重置</button></div></div>}<div className="aae-panel"><h3>岗位与附加职能</h3>{editingId ? <><p className="aae-hint">正在配置：{nameOf(editingId)}。主岗位单选，仓库/主管可叠加。</p><div className="aae-options">{assignableRoles.map((role) => <label key={role.code}><input type={isPrimaryAccessRole(role.code) ? 'radio' : 'checkbox'} name={isPrimaryAccessRole(role.code) ? `primary-role-${editingId}` : undefined} checked={roleCodes.includes(role.code)} onChange={() => toggleRole(role.code)} /><span><strong>{role.name}</strong><small>{isAdditionalAccessFunction(role.code) ? `附加职能 · ${role.description}` : role.description}</small></span></label>)}</div>{editingId === snapshot.currentUserId && activeAdmins.length === 1 && roleCodes.includes('admin') && <p className="aae-hint">你是当前唯一启用中的管理员。需要先添加另一名管理员，才能取消自己的管理员角色。</p>}<button className="primary wide" disabled={busy || !roleSelectionValid || !snapshot.currentUserIsAdmin} onClick={() => run(() => dataSource.replaceRoles(editingId, roleCodes), '岗位与附加职能已保存')}>保存岗位与职能</button></> : <p className="aae-empty">从左侧选择一名成员。</p>}</div>
       <div className="aae-panel"><h3>主管与下属</h3><select value={supervisorId} onChange={(event) => startSupervisorEdit(event.target.value)}><option value="">选择主管</option>{activeMembers.filter((member) => member.roles.some((role) => role.code === 'supervisor')).map((member) => <option value={member.id} key={member.id}>{member.name}</option>)}</select>{supervisorId && <><div className="aae-options compact">{activeMembers.filter((member) => member.id !== supervisorId).map((member) => <label key={member.id}><input type="checkbox" checked={subordinateIds.includes(member.id)} onChange={() => toggle(member.id, subordinateIds, setSubordinateIds)} /><span><strong>{member.name}</strong></span></label>)}</div><button className="primary wide" disabled={busy} onClick={() => run(() => dataSource.replaceSupervisorSubordinates(supervisorId, subordinateIds), '主管关系已保存')}>保存下属范围</button></>}</div></div>
     </div>}
 
-    {tab === 'invite' && <div className="aae-grid two"><form className="aae-panel" onSubmit={(event) => { event.preventDefault(); void run(() => dataSource.createInvitation(invite.email, invite.displayName, invite.roleCodes), '邀请登记已创建') }}><h3>管理员邀请登记</h3><p className="aae-hint">系统不提供公开注册。登记后由管理员完成 Auth 邀请，角色在首次登录后绑定。</p><label className="aae-field">姓名<input required value={invite.displayName} onChange={(event) => setInvite({ ...invite, displayName: event.target.value })} /></label><label className="aae-field">邮箱<input required type="email" value={invite.email} onChange={(event) => setInvite({ ...invite, email: event.target.value })} /></label><fieldset><legend>预设角色</legend><div className="aae-options compact">{snapshot.roles.map((role) => <label key={role.code}><input type="checkbox" checked={invite.roleCodes.includes(role.code)} onChange={() => setInvite({ ...invite, roleCodes: invite.roleCodes.includes(role.code) ? invite.roleCodes.filter((code) => code !== role.code) : [...invite.roleCodes, role.code] })} /><span><strong>{role.name}</strong></span></label>)}</div></fieldset><button className="primary" disabled={busy || invite.roleCodes.length === 0}>创建邀请登记</button></form><div className="aae-panel"><h3>待处理邀请</h3>{snapshot.invitations.length ? snapshot.invitations.map((item) => <article className="aae-invite" key={item.id}><strong>{item.displayName}</strong><span>{item.email}</span><small>{item.roleCodes.map(accessRoleName).join('、')} · {new Date(item.invitedAt).toLocaleDateString()}</small></article>) : <p className="aae-empty">暂无待处理邀请。</p>}</div></div>}
+    {tab === 'invite' && <div className="aae-grid two"><form className="aae-panel" onSubmit={(event) => { event.preventDefault(); void run(() => dataSource.createInvitation(invite.email, invite.displayName, invite.roleCodes), '邀请登记已创建') }}><h3>管理员邀请登记</h3><p className="aae-hint">系统不提供公开注册。先选一个主岗位，再按需叠加仓库或主管职能。</p><label className="aae-field">姓名<input required value={invite.displayName} onChange={(event) => setInvite({ ...invite, displayName: event.target.value })} /></label><label className="aae-field">邮箱<input required type="email" value={invite.email} onChange={(event) => setInvite({ ...invite, email: event.target.value })} /></label><fieldset><legend>预设岗位与职能</legend><div className="aae-options compact">{assignableRoles.map((role) => <label key={role.code}><input type={isPrimaryAccessRole(role.code) ? 'radio' : 'checkbox'} name={isPrimaryAccessRole(role.code) ? 'invite-primary-role' : undefined} checked={invite.roleCodes.includes(role.code)} onChange={() => toggleInviteRole(role.code)} /><span><strong>{role.name}</strong></span></label>)}</div></fieldset><button className="primary" disabled={busy || !inviteRoleSelectionValid}>创建邀请登记</button></form><div className="aae-panel"><h3>待处理邀请</h3>{snapshot.invitations.length ? snapshot.invitations.map((item) => <article className="aae-invite" key={item.id}><strong>{item.displayName}</strong><span>{item.email}</span><small>{item.roleCodes.map(accessRoleName).join('、')} · {new Date(item.invitedAt).toLocaleDateString()}</small></article>) : <p className="aae-empty">暂无待处理邀请。</p>}</div></div>}
 
     {tab === 'delegation' && <div className="aae-grid two"><form className="aae-panel" onSubmit={(event) => { event.preventDefault(); void run(() => dataSource.createDelegation(delegation), '临时代理已生效') }}><h3>新建请假代理</h3><label className="aae-field">请假成员<select required value={delegation.delegatorId} onChange={(event) => setDelegation({ ...delegation, delegatorId: event.target.value })}><option value="">请选择</option>{activeMembers.map((member) => <option value={member.id} key={member.id}>{member.name}</option>)}</select></label><label className="aae-field">代理成员<select required value={delegation.delegateId} onChange={(event) => setDelegation({ ...delegation, delegateId: event.target.value })}><option value="">请选择</option>{activeMembers.filter((member) => member.id !== delegation.delegatorId).map((member) => <option value={member.id} key={member.id}>{member.name}</option>)}</select></label><div className="aae-date-row"><label className="aae-field">开始<input required type="datetime-local" value={delegation.startsAt} onChange={(event) => setDelegation({ ...delegation, startsAt: event.target.value })} /></label><label className="aae-field">结束<input required type="datetime-local" value={delegation.endsAt} onChange={(event) => setDelegation({ ...delegation, endsAt: event.target.value })} /></label></div><label className="aae-field">原因<input required value={delegation.reason} onChange={(event) => setDelegation({ ...delegation, reason: event.target.value })} /></label><button className="primary" disabled={busy}>创建代理</button></form><div className="aae-panel"><h3>当前代理</h3>{snapshot.delegations.length ? snapshot.delegations.map((item) => <article className="aae-invite" key={item.id}><strong>{nameOf(item.delegatorId)} → {nameOf(item.delegateId)}</strong><span>{item.reason}</span><small>{new Date(item.startsAt).toLocaleString()} 至 {new Date(item.endsAt).toLocaleString()}</small></article>) : <p className="aae-empty">暂无生效中的代理。</p>}</div></div>}
 

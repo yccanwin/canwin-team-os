@@ -87,9 +87,16 @@ begin
     raise exception 'P1 RPC grants are unsafe';
   end if;
 
-  if has_function_privilege('authenticated', 'public.manage_profile_access(uuid,text[],uuid[])', 'EXECUTE')
-    or has_function_privilege('authenticated', 'public.admin_replace_profile_roles(uuid,text[],uuid)', 'EXECUTE')
-    or has_function_privilege('authenticated', 'public.admin_replace_supervisor_subordinates(uuid,uuid[],uuid)', 'EXECUTE') then
+  if exists(
+    select 1
+    from (values
+      ('public.manage_profile_access(uuid,text[],uuid[])'),
+      ('public.admin_replace_profile_roles(uuid,text[],uuid)'),
+      ('public.admin_replace_supervisor_subordinates(uuid,uuid[],uuid)')
+    ) as f(function_identity)
+    cross join (values ('anon'), ('authenticated')) as r(role_name)
+    where has_function_privilege(r.role_name, f.function_identity, 'EXECUTE')
+  ) then
     raise exception 'A retired 3.0 access writer remains callable';
   end if;
 
@@ -194,6 +201,24 @@ begin
     finance_id, 'finance', '{}'::text[], '{}'::uuid[], '{}'::uuid[], '{}'::text[],
     'd4200000-0000-4000-8000-000000000004'
   );
+  perform public.admin_apply_member_access_v1(
+    admin_id, 'admin', '{}'::text[], '{}'::uuid[], '{}'::uuid[], '{}'::text[],
+    'd4200000-0000-4000-8000-000000000006'
+  );
+
+  if (
+    select count(*)
+    from (values
+      (admin_id, 'admin'),
+      (sales_id, 'captain'),
+      (implementation_id, 'warehouse'),
+      (operations_id, 'member'),
+      (finance_id, 'finance')
+    ) expected(profile_id, legacy_role)
+    join public.profiles p on p.id = expected.profile_id and p.role = expected.legacy_role
+  ) <> 5 then
+    raise exception 'P1 role save did not atomically synchronize the legacy role mapping';
+  end if;
 
   begin
     perform public.admin_apply_member_access_v1(
@@ -216,6 +241,56 @@ begin
   end;
 end
 $fixture$;
+
+create or replace function private.reject_p1_member_access_audit_test()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.action = 'team_os_4.member_access_applied'
+     and new.target_id = 'd4000000-0000-4000-8000-000000000004'::uuid then
+    raise exception 'P1_ATOMICITY_SENTINEL';
+  end if;
+  return new;
+end
+$$;
+
+create trigger reject_p1_member_access_audit
+before insert on public.audit_logs
+for each row execute function private.reject_p1_member_access_audit_test();
+
+do $atomicity_rollback$
+declare
+  target_id constant uuid := 'd4000000-0000-4000-8000-000000000004';
+  failure_key constant uuid := 'd4200000-0000-4000-8000-000000000007';
+  legacy_role_after text;
+  primary_role_after text;
+begin
+  begin
+    perform public.admin_apply_member_access_v1(
+      target_id, 'finance', '{}'::text[], '{}'::uuid[], '{}'::uuid[], '{}'::text[], failure_key
+    );
+    raise exception 'P1 atomicity failure control did not fire';
+  exception when raise_exception then
+    if sqlerrm <> 'P1_ATOMICITY_SENTINEL' then raise; end if;
+  end;
+
+  select p.role into legacy_role_after from public.profiles p where p.id = target_id;
+  select ar.code into primary_role_after
+  from public.profile_access_roles par
+  join public.access_roles ar on ar.id = par.role_id and ar.team_id = par.team_id
+  where par.profile_id = target_id and par.assignment_kind = 'primary';
+  if legacy_role_after <> 'member' or primary_role_after <> 'operations'
+     or exists (
+       select 1 from public.access_admin_requests req
+       where req.team_id = 'CANWIN_TEAM' and req.idempotency_key = failure_key
+     ) then
+    raise exception 'P1 failed role save left a partial legacy or 4.0 permission write';
+  end if;
+end
+$atomicity_rollback$;
+
+drop trigger reject_p1_member_access_audit on public.audit_logs;
 
 set constraints profile_access_roles_one_primary immediate;
 set constraints profile_access_roles_one_primary deferred;

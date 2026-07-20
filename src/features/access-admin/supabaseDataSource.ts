@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { AccessAdminDataSource } from './dataSource'
 import { localizeAccessRole, type AccessAdminSnapshot } from './types'
+import { splitV1RoleSelection } from './v1AccessMapping'
 
 const requestKey = () => crypto.randomUUID()
 
@@ -13,17 +14,12 @@ const adminErrorMessages: Record<string, string> = {
   LAST_ADMIN_REQUIRED: '团队必须保留至少一名启用中的管理员。',
   INVALID_INVITATION: '邀请信息无效，请检查姓名和邮箱。',
   INVALID_ROLE_SET: '所选角色无效，请重新选择。',
+  WAREHOUSE_FUNCTION_NOT_ASSIGNABLE: '仓库职能只能授予实施或管理员岗位。',
+  MEMBER_ACCESS_STATE_READ_FAILED: '未能读取成员现有技能和管辖范围，请刷新后重试。',
   IDEMPOTENCY_KEY_CONFLICT: '本次请求与已提交的操作冲突，请刷新后重试。',
   Unauthorized: '登录状态已失效，请重新登录。',
   PASSWORD_LENGTH_INVALID: '新密码长度必须为 8 至 72 位。',
   MEMBER_NOT_FOUND: '没有找到该团队成员。',
-}
-
-function failAdminOperation(message: string, error: { message: string } | null) {
-  if (!error) return
-  const code = Object.keys(adminErrorMessages).find((candidate) => error.message.includes(candidate))
-  if (code) throw new Error(`${adminErrorMessages[code]}（服务端：${code}）`)
-  throw new Error(`${message}：${error.message}`)
 }
 
 async function failFunction(message: string, error: { message: string; context?: unknown } | null) {
@@ -64,8 +60,14 @@ export function createSupabaseAccessAdminDataSource(client: SupabaseClient): Acc
       }
     },
     async replaceRoles(profileId, roleCodes) {
-      const { error } = await client.rpc('admin_replace_profile_roles', { p_profile_id: profileId, p_role_codes: roleCodes, p_idempotency_key: requestKey() })
-      failAdminOperation('保存角色失败', error)
+      splitV1RoleSelection(roleCodes)
+      const { error } = await client.functions.invoke('admin-members', {
+        body: {
+          action: 'apply-access', id: profileId, roleCodes,
+          idempotencyKey: requestKey(),
+        },
+      })
+      await failFunction('保存岗位与职能失败', error)
     },
     async createInvitation(email, displayName, roleCodes) {
       const { error } = await client.functions.invoke('admin-members', {
@@ -97,8 +99,13 @@ export function createSupabaseAccessAdminDataSource(client: SupabaseClient): Acc
       fail('创建临时代理失败', error)
     },
     async replaceSupervisorSubordinates(supervisorId, subordinateIds) {
-      const { error } = await client.rpc('admin_replace_supervisor_subordinates', { p_supervisor_id: supervisorId, p_subordinate_ids: subordinateIds, p_idempotency_key: requestKey() })
-      fail('保存主管关系失败', error)
+      const { error } = await client.functions.invoke('admin-members', {
+        body: {
+          action: 'replace-supervisor-scope', id: supervisorId, subordinateIds,
+          idempotencyKey: requestKey(),
+        },
+      })
+      await failFunction('保存主管关系失败', error)
     },
     async reassignOwnership(fromProfileId, toProfileId, reason) {
       const { error } = await client.rpc('admin_reassign_crm_ownership', { p_from_profile_id: fromProfileId, p_to_profile_id: toProfileId, p_reason: reason, p_idempotency_key: requestKey() })

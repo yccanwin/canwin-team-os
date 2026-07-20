@@ -2,7 +2,7 @@
     "schemaVersion":  1,
     "algorithm":  "sha256",
     "hashMode":  "utf8-lf",
-    "expectedCount":  70,
+    "expectedCount":  71,
     "migrationDirectory":  "supabase/migrations",
     "generatedFromCommit":  "ed853ebbab250f562d03f433f4d2df4ada87de4e",
     "entries":  [
@@ -355,6 +355,11 @@
                         "version":  "20260719130910",
                         "file":  "20260719130910_team_os_4_p1_access_shell.sql",
                         "sha256":  "acc7f15afa502d7a124c2a13d74d0a71c2b98c11664d58de2d4639081d5a7597"
+                    },
+                    {
+                        "version":  "20260720015435",
+                        "file":  "20260720015435_harden_server_only_rpc_acl.sql",
+                        "sha256":  "1bb13f29fc0f5512bd00115dc1c953a2c3aaa0ec21522b1cc8cbb45a18a5cdc0"
                     }
                 ]
 }

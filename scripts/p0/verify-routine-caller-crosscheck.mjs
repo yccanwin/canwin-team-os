@@ -158,9 +158,19 @@ function validateEvidence(evidence, candidateMode = false) {
   check(evidence.counts?.orphanLiteralRpcNames === 0, 'Orphan RPC count must remain zero.')
   if (candidateMode) {
     check(evidence.counts?.candidateRoutineNames === 6, 'P1 candidate routine inventory must contain six interfaces.')
-    check(evidence.counts?.referencedCandidateRoutineNames === 2, 'Frontend must reference the two public P1 read interfaces.')
+    check(evidence.counts?.referencedCandidateRoutineNames === 4, 'Runtime sources must reference the two public P1 read interfaces and the two active server-side write interfaces.')
     check(Array.isArray(evidence.candidateRoutineNames) && evidence.candidateRoutineNames.length === 6, 'P1 candidate routine names must be explicit.')
     check(Array.isArray(evidence.candidateSourceCallers) && evidence.candidateSourceCallers.length === 6, 'P1 candidate caller mapping must be explicit.')
+    const referencedCandidateNames = (evidence.candidateSourceCallers ?? [])
+      .filter((entry) => entry.sourceCallers?.length > 0)
+      .map((entry) => entry.name)
+      .sort((left, right) => left.localeCompare(right, 'en'))
+    check(JSON.stringify(referencedCandidateNames) === JSON.stringify([
+      'admin_apply_member_access_v1',
+      'admin_replace_supervisor_scope_v1',
+      'get_app_context_v1',
+      'get_navigation_manifest_v1',
+    ]), 'P1 runtime caller set drifted from the signed read/write split.')
   }
   check(Array.isArray(evidence.dynamicRpcCallSites), 'Dynamic RPC call sites must be explicit.')
   check(Array.isArray(evidence.sourceFiles) && evidence.sourceFiles.length === evidence.sourceFileCount, 'Source file inventory does not reconcile.')

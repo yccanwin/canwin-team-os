@@ -20,6 +20,10 @@ const dashboard = read('src/pages/Dashboard/index.tsx')
 const profile = read('src/services/profile.ts')
 const app = read('src/App.tsx')
 const salesWorkbench = read('src/features/sales-workbench/SalesWorkbench.tsx')
+const accessAdminDataSource = read('src/features/access-admin/supabaseDataSource.ts')
+const accessAdminEditor = read('src/features/access-admin/AccessAdminEditor.tsx')
+const accessV1Mapping = read('src/features/access-admin/v1AccessMapping.ts')
+const adminMembersFunction = read('supabase/functions/admin-members/index.ts')
 const migration = read('supabase/migrations/20260719130910_team_os_4_p1_access_shell.sql')
 const sqlTest = read('supabase/tests/team_os_4_p1_access_shell.sql')
 
@@ -69,6 +73,33 @@ check(app.includes("appContext?.additionalFunctions.includes('warehouse')"), 'bo
 check(!app.includes('isWarehouseRole(currentUser.role)'), 'bootstrap still infers warehouse access from the primary role')
 check(!salesWorkbench.includes('<aside className="sw-desktop-nav"'), 'sales workbench retains a second desktop navigation')
 check(!salesWorkbench.includes('<nav className="sw-bottom-nav"'), 'sales workbench retains a second mobile navigation')
+
+check(app.includes('<Route path="/members" element={<Navigate to="/settings-v3/access?view=members" replace />} />'), 'legacy /members route does not redirect to the 4.0 access page')
+check(app.includes('<Route path="/settings" element={<Navigate to="/settings-v3" replace />} />'), 'legacy /settings route does not redirect to the 4.0 settings page')
+check(app.includes('<Route path="/settings-v3/access"'), '4.0 access navigation route is not mounted')
+check(accessAdminDataSource.includes("action: 'apply-access'"), '4.0 access page does not use the preserving Edge member writer')
+check(accessAdminDataSource.includes("action: 'replace-supervisor-scope'"), '4.0 access page does not use the preserving Edge supervisor writer')
+check(!accessAdminDataSource.includes("rpc('admin_replace_profile_roles'"), '4.0 access page still calls the retired role writer')
+check(!accessAdminDataSource.includes("rpc('admin_replace_supervisor_subordinates'"), '4.0 access page still calls the retired supervisor writer')
+check(adminMembersFunction.includes("rpc('admin_apply_member_access_v1'"), 'admin-members does not call the frozen v1 member writer')
+check(adminMembersFunction.includes("rpc('admin_replace_supervisor_scope_v1'"), 'admin-members does not call the frozen v1 supervisor writer')
+check(!adminMembersFunction.includes("rpc('admin_replace_profile_roles'"), 'admin-members still calls the retired role writer')
+check(!adminMembersFunction.includes("rpc('admin_replace_supervisor_subordinates'"), 'admin-members still calls the retired supervisor writer')
+for (const preservedSource of ['user_skills', 'profile_sales_regions', 'feature_flags']) {
+  check(adminMembersFunction.includes(preservedSource), `admin-members does not preserve ${preservedSource}`)
+}
+for (const v1Field of [
+  'p_primary_role', 'p_additional_functions', 'p_skill_ids', 'p_region_scope_ids',
+  'p_warehouse_scope_ids', 'p_region_ids', 'p_user_ids', 'p_business_scopes',
+]) {
+  check(adminMembersFunction.includes(v1Field), `admin-members v1 write payload missing ${v1Field}`)
+}
+check(accessV1Mapping.includes("['admin', 'sales', 'implementation', 'operations', 'finance']"), '4.0 primary role allow-list drift')
+check(accessV1Mapping.includes("['warehouse', 'supervisor']"), '4.0 additional-function allow-list drift')
+check(accessV1Mapping.includes("!['admin', 'implementation'].includes(primaryRole)"), 'warehouse overlay is not limited to admin/implementation')
+check(accessV1Mapping.includes("code === 'owner' ? 'admin' : code"), 'owner read-compatibility is not normalized to admin in the UI')
+check(!adminMembersFunction.includes("code === 'owner' ? 'admin'"), 'Edge writer accepts owner as a new 4.0 role')
+check(accessAdminEditor.includes("type={isPrimaryAccessRole(role.code) ? 'radio' : 'checkbox'}"), 'access editor does not enforce one primary role in the UI')
 
 const requiredRouteFragments = [
   '<Route path="/" element={<Navigate to="/dashboard" replace />} />',

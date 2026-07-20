@@ -26,13 +26,18 @@ try {
   process.exit(1)
 }
 
-const expectedCount = 70
+const expectedCount = 71
 const migrationDirectory = resolve(repoRoot, manifest.migrationDirectory ?? '')
 const migrationFiles = readdirSync(migrationDirectory, { withFileTypes: true })
   .filter((entry) => entry.isFile() && entry.name.endsWith('.sql'))
   .map((entry) => entry.name)
   .sort()
 const entries = Array.isArray(manifest.entries) ? manifest.entries : []
+const expectedCurrentRepair = {
+  version: '20260720015435',
+  file: '20260720015435_harden_server_only_rpc_acl.sql',
+  sha256: '1bb13f29fc0f5512bd00115dc1c953a2c3aaa0ec21522b1cc8cbb45a18a5cdc0',
+}
 
 check(manifest.schemaVersion === 1, 'schemaVersion must be 1')
 check(manifest.algorithm === 'sha256', 'algorithm must be sha256')
@@ -42,6 +47,10 @@ check(manifest.migrationDirectory === 'supabase/migrations', 'migrationDirectory
 check(/^[0-9a-f]{40}$/.test(manifest.generatedFromCommit ?? ''), 'generatedFromCommit must be a full Git commit id')
 check(migrationFiles.length === expectedCount, 'discovered ' + migrationFiles.length + ' migration files; expected ' + expectedCount)
 check(entries.length === expectedCount, 'manifest contains ' + entries.length + ' entries; expected ' + expectedCount)
+check(
+  JSON.stringify(entries.at(-1)) === JSON.stringify(expectedCurrentRepair),
+  'current pre70/post71 ACL and atomic-compatibility repair entry drift',
+)
 
 const filePattern = /^(\d{14})_[a-z0-9][a-z0-9_]*\.sql$/
 const discoveredVersions = new Set()

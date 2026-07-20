@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "manifestType": "canwin-team-os-p0-ci-database-tests",
-  "contractStatus": "p1_post_apply_verification_candidate_pending",
+  "contractStatus": "p1_acl_and_atomic_compatibility_repair_candidate_database_ci_pending",
   "baseline": {
     "path": "supabase/schema.sql",
     "sha256Lf": "4602c1e583174a4dbc6e480aac101d2cf914148651ded71028d9a43abed8c340"
@@ -9,7 +9,7 @@
   "migrations": {
     "directory": "supabase/migrations",
     "sha256Manifest": "docs/team-os-4.0/p0/migration-sha256-manifest.json",
-    "expectedCount": 70
+    "expectedCount": 71
   },
   "expectedCounts": {
     "database": 7,
@@ -23,7 +23,7 @@
     "directDealOrderFixtureFiles": 2,
     "directDealOrderInsertStatements": 2,
     "finalPublicFunctionIdentities": 168,
-    "functionIdentityReferences": 211
+    "functionIdentityReferences": 216
   },
   "testSourceRules": {
     "doKeywordSeparatedFromDollarQuote": true,
@@ -87,7 +87,7 @@
     { "path": "supabase/tests/customer_import.sql", "category": "database", "executionMode": "read_only", "sha256Lf": "65bd97a65db1be4b891e35301fd1c0057c4c54967fcf1a7886e5414150d97061" },
     { "path": "supabase/tests/deal_core.sql", "category": "database", "executionMode": "read_only", "sha256Lf": "8c89cc9bbc8bd45d69f258a61526631124276cb9ef730593e20423dd2ff56d7b" },
     { "path": "supabase/tests/fulfillment_core.sql", "category": "database", "executionMode": "read_only", "sha256Lf": "0e78d5f640d6192054ab806385cf318aff22748e2c8024ccfe74dfb1fc260476" },
-    { "path": "supabase/tests/notification_core.sql", "category": "database", "executionMode": "read_only", "sha256Lf": "3872ac74418152b8ae9a4200b497d2bb529d6ed54c6174a26a90faf9a0e061a6" },
+    { "path": "supabase/tests/notification_core.sql", "category": "database", "executionMode": "read_only", "sha256Lf": "a3d87069899b986b191bc21826f5e23c65fe4734066e52adc4e14753c9e6e5a3" },
     { "path": "supabase/tests/performance_core.sql", "category": "database", "executionMode": "read_only", "sha256Lf": "a4ef396e4da6c5e6a5515e8cda04e8fe5e818d685d8f37ff940267d321d9ca21" },
 
     { "path": "supabase/tests/crm_qualification_evidence.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "f04dcd15a2e5bc31e3791184f5449b7cb7462e24b3cfb43cb65a5a2c5c24831d" },
@@ -100,7 +100,7 @@
     { "path": "supabase/tests/photo_policy_role_helper_alignment.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "f12435a942c2124298419ce391eb51d3455e176c120fb7b4bc1f039323204cf8" },
     { "path": "supabase/tests/quote_draft_hardening.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "69ee5d9480e3d23546889089726e32c7756083ea24ab6e2d0d81b9814e07d2b8" },
     { "path": "supabase/tests/team_photo_persistence_security.sql", "category": "permission", "executionMode": "read_only", "sha256Lf": "e41c6c682080772d492331ca8c3a997664dcf080be5c73c26092a4f4119da757" },
-    { "path": "supabase/tests/team_os_4_p1_access_shell.sql", "category": "permission", "executionMode": "rollback_fixture", "sha256Lf": "bed07c4d494ac3e7f7e993e12090194ed413b0e92d681aea0adb3eb381f430fb" },
+    { "path": "supabase/tests/team_os_4_p1_access_shell.sql", "category": "permission", "executionMode": "rollback_fixture", "sha256Lf": "c4823724a65047b0e67af6ba62c954acf3085d70ffbbda1c5e1a0be23ce94dfb" },
 
     { "path": "supabase/tests/crm_qualification_append_only.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "2142d6d579772dc2ffb807ce5a2bb0b5d991fd9d4c553ecb5ae13aec910e330c" },
     { "path": "supabase/tests/crm_qualification_promotion_audit.sql", "category": "business", "executionMode": "read_only", "sha256Lf": "297edf4c24d8de04279f60cc17f1d87658c08601180c0d8c6b8a0e0ec3774a98" },
@@ -147,9 +147,9 @@
     "rollbackEvidenceLineEndingRepairImplemented": true,
     "postRepairIndependentCi": "passed",
     "postRepairIndependentCiRunId": "29696529290",
-    "postApplyResumePrequalification": "qualified_remote_enabled",
+    "postApplyResumePrequalification": "failed_stop_preserved_acl_repair_pending",
     "postApplyCandidateRemoteExecutionAllowed": false,
-    "postApplyResumeRemoteExecutionAllowed": true,
+    "postApplyResumeRemoteExecutionAllowed": false,
     "postApplyResumeSignedCiHeadSha": "a620bb541f4c5eb613413e8b40455b3988ee0cf3",
     "postApplyResumeSignedCiRunId": "29699951990",
     "postApplyResumeSignedCiLinuxJobId": "88227205377",
@@ -159,8 +159,12 @@
     "postApplyResumeTrackedDirtyAllowed": false,
     "postApplyResumeUntrackedAuditEvidenceAllowed": true,
     "p1MigrationPreviouslyApplied": true,
-    "postApplyResumeVerificationExecuted": false,
-    "fullReconciliationExactRows": 70,
+    "postApplyResumeVerificationExecuted": true,
+    "postApplyResumeFailureRunId": "p1-resume-20260719T193911279Z-ea6ed9385d",
+    "postApplyResumeFailurePreserved": true,
+    "aclRepairMigrationPath": "supabase/migrations/20260720015435_harden_server_only_rpc_acl.sql",
+    "aclRepairLocalGates": "pending",
+    "fullReconciliationExactRows": 71,
     "fullReconciliationSqlTests": 27,
     "fullReconciliationPerTestSnapshots": 27,
     "fullReconciliationSnapshots": 29,
@@ -266,6 +270,172 @@
       "validationStorageCalls": 0,
       "fixturePatterns": ["p1-email", "access-email", "d400-profile", "d510-profile"]
     }
+  },
+  "formalResumeFailureEvidence": {
+    "runId": "p1-resume-20260719T193911279Z-ea6ed9385d",
+    "supervisionHeadSha": "ea6ed9385de7c3ceff5cba6c6f8539f883bbea1d",
+    "evidenceDirectory": "D:/CanWin-Team-OS-4.0-P1-Validation/p1-resume-20260719T193911279Z-ea6ed9385d",
+    "preflightPath": "D:/CanWin-Team-OS-4.0-P1-Validation/p1-resume-20260719T193911279Z-ea6ed9385d/preflight.json",
+    "preflightSha256": "e0ea653d3a411cc9baafbd4b98e7d6d458b99316e8da93a1db1600a21e2dc36a",
+    "failurePath": "D:/CanWin-Team-OS-4.0-P1-Validation/p1-resume-20260719T193911279Z-ea6ed9385d/failure.json",
+    "failureSha256": "576a11005285cd708adca5b3486e0b929ace8d97fc3cc3284d657b57519b91ad",
+    "startedAtUtc": "2026-07-19T19:39:11.283Z",
+    "failedAtUtc": "2026-07-19T19:40:00.235Z",
+    "failedStep": "test:database:supabase/tests/notification_core.sql",
+    "firstFailedSqlTest": "supabase/tests/notification_core.sql",
+    "firstError": "Notification worker RPC exposed",
+    "testsPassed": 5,
+    "perTestSnapshotsPassed": 5,
+    "fullReconciliationSnapshotsPassed": 6,
+    "storageArchivesPassed": 1,
+    "attempts": 1,
+    "persistentRemoteWrites": 0,
+    "productionReads": 0,
+    "productionWrites": 0,
+    "secretsPrinted": 0,
+    "secretsWritten": 0,
+    "retryPerformed": false,
+    "remoteCleanupPerformed": false,
+    "targetPreserved": true,
+    "derivedAudit": {
+      "directoryFileInventory": ["preflight.json", "failure.json"],
+      "successEvidencePresent": false,
+      "derivation": "directory inventory; fields are not asserted as native failure.json properties"
+    }
+  },
+  "aclRepairCandidate": {
+    "mode": "--apply-acl-repair",
+    "remoteExecutionAllowed": false,
+    "dbPushAllowed": false,
+    "migrationVersion": "20260720015435",
+    "migrationPath": "supabase/migrations/20260720015435_harden_server_only_rpc_acl.sql",
+    "migrationSha256Lf": "1bb13f29fc0f5512bd00115dc1c953a2c3aaa0ec21522b1cc8cbb45a18a5cdc0",
+    "preMigrationRows": 70,
+    "postMigrationRows": 71,
+    "expectedMigrationCount": 71,
+    "sqlTestCount": 27,
+    "maxFormalAttempts": 1,
+    "maxDbPushAttempts": 1,
+    "dryRunRequired": true,
+    "pendingMigrationVersions": ["20260720015435"],
+    "signedCiHeadSha": null,
+    "signedCiRunId": null,
+    "signedCiLinuxJobId": null,
+    "signedCiWindowsJobId": null,
+    "signedCiConclusion": null,
+    "functions": [
+      { "identity": "public.enqueue_wecom_notification_jobs(text, timestamp with time zone)", "revokeRoles": ["PUBLIC", "anon", "authenticated"], "requiredGrantRoles": ["service_role"] },
+      { "identity": "public.claim_wecom_notification_jobs(integer, timestamp with time zone)", "revokeRoles": ["PUBLIC", "anon", "authenticated"], "requiredGrantRoles": ["service_role"] },
+      { "identity": "public.complete_wecom_notification_job(uuid, boolean, text, text, timestamp with time zone)", "revokeRoles": ["PUBLIC", "anon", "authenticated"], "requiredGrantRoles": ["service_role"] },
+      { "identity": "public.manage_profile_access(uuid, text[], uuid[])", "revokeRoles": ["PUBLIC", "anon", "authenticated"], "requiredGrantRoles": [] },
+      { "identity": "public.admin_replace_profile_roles(uuid, text[], uuid)", "revokeRoles": ["PUBLIC", "anon", "authenticated"], "requiredGrantRoles": [] },
+      { "identity": "public.admin_replace_supervisor_subordinates(uuid, uuid[], uuid)", "revokeRoles": ["PUBLIC", "anon", "authenticated"], "requiredGrantRoles": [] }
+    ],
+    "targetFunctionCount": 6,
+    "expectedChangedFunctions": [
+      "public.enqueue_wecom_notification_jobs(text, timestamp with time zone)",
+      "public.claim_wecom_notification_jobs(integer, timestamp with time zone)",
+      "public.complete_wecom_notification_job(uuid, boolean, text, text, timestamp with time zone)",
+      "public.manage_profile_access(uuid, text[], uuid[])"
+    ],
+    "expectedChangedFunctionCount": 4,
+    "changedTests": [
+      { "path": "supabase/tests/notification_core.sql", "sha256Lf": "a3d87069899b986b191bc21826f5e23c65fe4734066e52adc4e14753c9e6e5a3" },
+      { "path": "supabase/tests/team_os_4_p1_access_shell.sql", "sha256Lf": "c4823724a65047b0e67af6ba62c954acf3085d70ffbbda1c5e1a0be23ce94dfb" }
+    ],
+    "currentRuntimeArtifacts": {
+      "contract": { "path": "scripts/p1/isolated-runtime-contract.json", "sha256Lf": "421f78b398eb259d2a3fa43836e7a3ff9f2c70527ad88af1896b0d0a4e118d08" },
+      "runner": { "path": "scripts/p1/run-isolated-runtime.mjs", "sha256Lf": "9f04478e3f218dad16eec3660919dfedabb3e69ad2a2c7522b7caa396a010620" },
+      "validator": { "path": "scripts/p1/verify-isolated-runtime-runner.mjs", "sha256Lf": "168bd3e03b1fc3e9536fc74d353b10e01a2b51c1ff1ff8a3e9eb5d3930233577", "assertions": "63/63" }
+    },
+    "fullReconciliation": {
+      "expected": { "migrationRows": 71 },
+      "execution": {
+        "initialFullBeforeRepair": true,
+        "fullAfterEverySqlTest": true,
+        "perTestFullSnapshots": 27,
+        "finalFullAfterFreshCredential": true,
+        "beforeAfterAllowedAclTransitionOnly": true,
+        "storageArchiveAtInitialAndFinal": true,
+        "temporaryTestSessionsOnly": true,
+        "persistentDatabaseWrites": "exactly-one-signed-acl-and-atomic-compatibility-migration",
+        "sessionClosedDropsTemp": true
+      },
+      "expectedSchemaAndHistoryDifference": "exact-signed-P1-plus-ACL-repair-migrations-only"
+    },
+    "privateRoutineDefinitionTransition": {
+      "expectedChangedFunctions": [
+        "private.admin_apply_member_access_v1(uuid, text, text[], uuid[], uuid[], text[], uuid)"
+      ],
+      "expectedDefinitionChanges": 1,
+      "requiredSnapshots": 3,
+      "identityChangesAllowed": 0,
+      "securityEnvelopeChangesAllowed": 0,
+      "unknownChangesAllowed": false
+    },
+    "atomicLegacyRoleCompatibility": {
+      "status": "static-passed-database-ci-pending",
+      "staticPassed": true,
+      "databaseCiPassed": null,
+      "remoteQualificationAllowed": false,
+      "writeFunction": "private.admin_apply_member_access_v1(uuid, text, text[], uuid[], uuid[], text[], uuid)",
+      "mappingPrecedence": [
+        { "condition": "primary-admin", "legacyRole": "admin" },
+        { "condition": "additional-supervisor", "legacyRole": "captain" },
+        { "condition": "primary-finance", "legacyRole": "finance" },
+        { "condition": "additional-warehouse", "legacyRole": "warehouse" },
+        { "condition": "fallback", "legacyRole": "member" }
+      ],
+      "successfulMappingCases": 5,
+      "rollbackControls": 2,
+      "sameTeamStaticGuards": 4,
+      "remoteGateNegativeControls": 5,
+      "atomicRemoteGateNegativeControls": 2,
+      "migrationRewritesExistingProfiles": false,
+      "sqlTestPath": "supabase/tests/team_os_4_p1_access_shell.sql",
+      "sqlTestSha256Lf": "c4823724a65047b0e67af6ba62c954acf3085d70ffbbda1c5e1a0be23ce94dfb",
+      "edgeFunctionPath": "supabase/functions/admin-members/index.ts",
+      "edgeFunctionSha256Lf": "be631231a1e148df6ba7b373c4e050974d96c7d16d06f86ed87ab7fbdad1385e",
+      "staticTestPath": "scripts/p1/verify-access-admin-v1-write-chain.ts",
+      "staticTestSha256Lf": "ab62a1a9db9a3cb07f9b4246a5c3cb8314c39ff3931e99f520584396bd8ccef3",
+      "appShellAssertionsPassed": 99,
+      "appShellAssertionsExpected": 99
+    },
+    "applicationCompatibility": {
+      "status": "passed",
+      "remoteQualificationAllowed": false,
+      "legacyRpcCallSites": [],
+      "resolvedEvidence": {
+        "files": ["src/features/access-admin/supabaseDataSource.ts", "supabase/functions/admin-members/index.ts"],
+        "forbiddenRpcNames": ["manage_profile_access", "admin_replace_profile_roles", "admin_replace_supervisor_subordinates"],
+        "staticCallSitesRemaining": 0,
+        "appShellAssertionsPassed": 99,
+        "appShellAssertionsExpected": 99,
+        "warehouseBackendRelaxed": false,
+        "formalStaticGateCoverage": { "gate": 16, "serial": true, "runnerValidatorPassed": true, "appShellPassed": true, "accessV1BehaviorPassed": true }
+      },
+      "requiredOutcome": "all-old-role-and-supervisor-writers-replaced-and-accepted",
+      "g1BlockedUntilAclAndPageAcceptance": true
+    },
+    "allowedFullReconciliationDifferences": ["migrationHistory.schemaMigrations", "schemaSecurity.publicRoutinesMd5"],
+    "unknownDifferencesAllowed": false
+  },
+  "repairCiRunEvidence": {
+    "runId": null,
+    "runUrl": null,
+    "headSha": null,
+    "linuxJobId": null,
+    "windowsJobId": null,
+    "conclusion": null,
+    "migrationsPassed": null,
+    "sqlTestsPassed": null,
+    "catalogAssertionsPassed": null,
+    "windowsStaticGatesExpected": 19,
+    "windowsStaticGatesPassed": null,
+    "windowsLocalIntegrationStepsExpected": 12,
+    "windowsLocalIntegrationStepsPassed": null,
+    "candidateRemoteExecutionAllowed": false,
+    "g1OverallClaim": false
   },
   "formalAttemptHistory": [
     {

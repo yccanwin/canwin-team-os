@@ -31,19 +31,36 @@ let failed = 0
 for (const [name, script, ...args] of gates) {
   run += 1
   console.log('[p0:static] RUN ' + name)
-  const result = spawnSync(process.execPath, [script, ...args], {
-    cwd: repoRoot,
-    encoding: 'utf8',
-    env: process.env,
-  })
-  if (result.stdout) process.stdout.write(result.stdout)
-  if (result.stderr) process.stderr.write(result.stderr)
-  if (result.status === 0) {
+  const commands = [[script, args]]
+  if (name === 'p1-isolated-runtime-runner') {
+    commands.push([resolve(repoRoot, 'scripts', 'p1', 'verify-app-shell.mjs'), []])
+    commands.push([
+      '--experimental-strip-types',
+      [resolve(repoRoot, 'scripts', 'p1', 'verify-access-admin-v1-write-chain.ts')],
+    ])
+  }
+  let gatePassed = true
+  let failedStatus = null
+  for (const [commandScript, commandArgs] of commands) {
+    const result = spawnSync(process.execPath, [commandScript, ...commandArgs], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      env: process.env,
+    })
+    if (result.stdout) process.stdout.write(result.stdout)
+    if (result.stderr) process.stderr.write(result.stderr)
+    if (result.status !== 0) {
+      gatePassed = false
+      failedStatus = result.status
+      break
+    }
+  }
+  if (gatePassed) {
     passed += 1
     console.log('[p0:static] PASS ' + name)
   } else {
     failed = 1
-    console.error('[p0:static] FAIL ' + name + ' exit=' + String(result.status))
+    console.error('[p0:static] FAIL ' + name + ' exit=' + String(failedStatus))
     break
   }
 }

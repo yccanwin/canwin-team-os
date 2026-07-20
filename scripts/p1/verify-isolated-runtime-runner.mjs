@@ -6,586 +6,372 @@ import { fileURLToPath } from 'node:url'
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const root = resolve(repoRoot, 'scripts', 'p1')
 const normalizeLf = (value) => value.replaceAll('\r\n', '\n').replaceAll('\r', '\n')
-const mixedEol = (value) => normalizeLf(value).split('\n').map((line, index, lines) => (
-  index === lines.length - 1 ? line : line + ['\n', '\r\n'][index % 2]
-)).join('')
+const sha256Lf = (path) => createHash('sha256').update(normalizeLf(readFileSync(path, 'utf8'))).digest('hex')
 const rawSource = readFileSync(resolve(root, 'run-isolated-runtime.mjs'), 'utf8')
 const source = normalizeLf(rawSource)
 const validatorSource = normalizeLf(readFileSync(fileURLToPath(import.meta.url), 'utf8'))
 const contract = JSON.parse(readFileSync(resolve(root, 'isolated-runtime-contract.json'), 'utf8'))
 const databaseContract = JSON.parse(readFileSync(resolve(repoRoot, contract.databaseContractPath), 'utf8'))
-const migration = normalizeLf(readFileSync(resolve(repoRoot, contract.candidate.migrationPath), 'utf8'))
-const test = normalizeLf(readFileSync(resolve(repoRoot, contract.candidate.testPath), 'utf8'))
-const rawAccessControlTest = readFileSync(resolve(repoRoot, contract.postApplyResume.accessControlTestPath), 'utf8')
-const accessControlTest = normalizeLf(rawAccessControlTest)
-const rawPostgresRegression = readFileSync(resolve(repoRoot, contract.scriptHardLocks.postgresRegressionPath), 'utf8')
-const postgresRegression = normalizeLf(rawPostgresRegression)
+const migrationManifest = JSON.parse(readFileSync(resolve(repoRoot, contract.migrationManifestPath), 'utf8'))
+const repairMigration = normalizeLf(readFileSync(resolve(repoRoot, contract.aclRepair.migrationPath), 'utf8'))
+const repairSqlTest = normalizeLf(readFileSync(resolve(repoRoot, contract.aclRepair.testPaths.teamOs4P1), 'utf8'))
+const compatibilitySources = Object.fromEntries(
+  contract.aclRepair.applicationCompatibility.resolvedEvidence.files.map((path) => [
+    path, normalizeLf(readFileSync(resolve(repoRoot, path), 'utf8')),
+  ]),
+)
 const failures = []
 let assertionCount = 0
 const check = (condition, message) => { assertionCount += 1; if (!condition) failures.push(message) }
-const sha256Lf = (path) => createHash('sha256')
-  .update(normalizeLf(readFileSync(path, 'utf8')))
-  .digest('hex')
 const occurrences = (text, needle) => text.split(needle).length - 1
-const sourceIndex = (needle) => source.indexOf(needle)
+const index = (needle, from = 0) => source.indexOf(needle, from)
 
-const resume = contract.postApplyResume
-const expectedResumeRunId = 'p1-isolated-20260719T172151689Z-8273f5c69e'
-const expectedEvidenceRoot = 'D:/CanWin-Team-OS-4.0-P1-Validation/' + expectedResumeRunId
-const expectedPreflightSha256 = 'e44d53b72c85a71eff2d7a5359220f86c20af56af02a9bf6c0a81716c6d65b97'
-const expectedFailureSha256 = '3a8077ad58b1a7ee1fc4a75340ab3db9b8f1c3d5ea772e019ff1282136029774'
-const expectedQualificationHead = 'a620bb541f4c5eb613413e8b40455b3988ee0cf3'
-const expectedQualificationRunId = '29699951990'
-const expectedQualificationLinuxJobId = '88227205377'
-const expectedQualificationWindowsJobId = '88227205362'
-const expectedBackupManifestPath = 'D:/CanWin-Team-OS-4.0-Recovery/canwin-team-os-4-p0-20260719T074943659Z-c11fca6bd1/manifest.json'
-const expectedBackupManifestSha256 = 'f4174b91f51f63e37b42e9d907aea0f72aa907ec31694041081ee06c2f6d20b2'
-const expectedRestoreEvidencePath = 'D:/CanWin-Team-OS-4.0-Recovery/canwin-team-os-4-p0-20260719T074943659Z-c11fca6bd1/restore-evidence.json'
-const expectedRestoreEvidenceSha256 = '04a6c5d6ac9510747abf5efee27dfe0ecb2a8550191b8ce047b9a1a8d5b458a8'
-const expectedSealedSqlSha256Lf = 'ff1d1e457e5427eb6f0a911df275057b86da93eae6c3ea2528cd00457273595e'
-const expectedSignedArtifacts = {
-  tableRowCounts: {
-    path: 'artifacts/reconciliation-table-row-counts.json.enc',
-    sha256: 'a265e0f91466b66f0c73b29a830946255c432a281b353d4a6d5e8b42ef3f5383',
-  },
-  keyAmounts: {
-    path: 'artifacts/reconciliation-key-amounts.json.enc',
-    sha256: '3aa6776edfd889e45ce8de518e1138d7dbb40ef6e96378ce424ffc64f09a50a9',
-  },
-  inventory: {
-    path: 'artifacts/reconciliation-inventory.json.enc',
-    sha256: '9632ed09ffd2fa7e385f3f17820ac1f1444258470d9a55dfbd8b75138e2346f6',
-  },
-  storageBucketsManifest: {
-    path: 'artifacts/storage-buckets.json.enc',
-    sha256: 'bbaa045db117922054e9b0a671561b434a9344303abcddffec86492cf55bd172',
-  },
-  storageObjectsManifest: {
-    path: 'artifacts/storage-objects.json.enc',
-    sha256: 'a2e3310005a67b9ea473b0054f28e44898c79d01524c0df60271dc969e2bfff8',
-  },
-  storageObjectsArchive: {
-    path: 'artifacts/storage-objects-archive.json.enc',
-    sha256: 'daa9262cd9d1bb84772610219db2e849ace6cb0d3afdd153ac37d3d0216e7e0a',
-  },
-}
-const expectedDpapiKeyReference = 'dpapi-file:///E:/CanWin-Team-OS-4.0-Recovery-Keys/canwin-team-os-4-p0-20260719T074943659Z-c11fca6bd1.dpapi'
-const expectedDpapiKeyPath = 'E:/CanWin-Team-OS-4.0-Recovery-Keys/canwin-team-os-4-p0-20260719T074943659Z-c11fca6bd1.dpapi'
+const REPAIR_VERSION = '20260720015435'
+const REPAIR_SHA = '1bb13f29fc0f5512bd00115dc1c953a2c3aaa0ec21522b1cc8cbb45a18a5cdc0'
+const SOURCE_RUN = 'p1-resume-20260719T193911279Z-ea6ed9385d'
+const SOURCE_HEAD = 'ea6ed9385de7c3ceff5cba6c6f8539f883bbea1d'
+const SOURCE_PREFLIGHT_SHA = 'e0ea653d3a411cc9baafbd4b98e7d6d458b99316e8da93a1db1600a21e2dc36a'
+const SOURCE_FAILURE_SHA = '576a11005285cd708adca5b3486e0b929ace8d97fc3cc3284d657b57519b91ad'
+const expectedFunctions = [
+  ['public.enqueue_wecom_notification_jobs(text, timestamp with time zone)', ['service_role']],
+  ['public.claim_wecom_notification_jobs(integer, timestamp with time zone)', ['service_role']],
+  ['public.complete_wecom_notification_job(uuid, boolean, text, text, timestamp with time zone)', ['service_role']],
+  ['public.manage_profile_access(uuid, text[], uuid[])', []],
+  ['public.admin_replace_profile_roles(uuid, text[], uuid)', []],
+  ['public.admin_replace_supervisor_subordinates(uuid, uuid[], uuid)', []],
+].map(([identity, requiredGrantRoles]) => ({
+  identity,
+  revokeRoles: ['PUBLIC', 'anon', 'authenticated'],
+  requiredGrantRoles,
+}))
+const PRIVATE_MEMBER_ACCESS_IDENTITY = 'private.admin_apply_member_access_v1(uuid, text, text[], uuid[], uuid[], text[], uuid)'
+const expectedAtomicMapping = [
+  { condition: 'primary-admin', legacyRole: 'admin' },
+  { condition: 'additional-supervisor', legacyRole: 'captain' },
+  { condition: 'primary-finance', legacyRole: 'finance' },
+  { condition: 'additional-warehouse', legacyRole: 'warehouse' },
+  { condition: 'fallback', legacyRole: 'member' },
+]
 
 check(contract.target.projectRef === 'zdmuaqokndhhbarudhtw', 'isolated target ref drift')
 check(contract.forbiddenProductionProjectRef === 'agygfhmkazcbqaqwmljb', 'production deny ref drift')
-check([
-  source,
-  source.replaceAll('\n', '\r\n'),
-  mixedEol(rawSource),
-].every((variant) => normalizeLf(variant) === source) && [
-  postgresRegression,
-  postgresRegression.replaceAll('\n', '\r\n'),
-  mixedEol(rawPostgresRegression),
-].every((variant) => normalizeLf(variant) === postgresRegression),
-'runner/PG regression semantic source normalization fails for LF, CRLF, or mixed EOL')
-check([
-  accessControlTest,
-  accessControlTest.replaceAll('\n', '\r\n'),
-  mixedEol(rawAccessControlTest),
-].every((variant) => normalizeLf(variant) === accessControlTest),
-  'access-control test semantic source normalization fails for LF, CRLF, or mixed EOL')
-check(source.includes("const TARGET_REF = 'zdmuaqokndhhbarudhtw'"), 'runner does not literal-lock target ref')
-check(source.includes("const PRODUCTION_REF = 'agygfhmkazcbqaqwmljb'"), 'runner does not literal-deny production ref')
-check(source.includes("const allowedModes = new Set(['--self-test', '--resume-post-apply'])"),
-  'runner modes are not limited to self-test and post-apply resume')
-check(!source.includes("'db', 'push'") && !/\bdb\s+push\b/i.test(source) &&
-  !source.includes('executeFormal') && !source.includes('runPushDryRun'),
-  'runner retains a db-push/apply execution path')
-check(source.includes("const oldModesDenied = ['--execute', '--dry-run'].filter") &&
-  source.includes('oldApplyModesDenied=2/2'),
-  'old execute/dry-run modes are not covered by the denial self-test')
-check(source.includes("mkdtempSync(join(tmpdir(), 'canwin-p1-runtime-'))"), 'runner lacks independent temporary workdir')
-check(source.includes("'link', '--project-ref', TARGET_REF, '--workdir', workdir"), 'temporary link is not explicit')
-check(!source.includes("resolve(repoRoot, 'supabase', '.temp', 'project-ref')"), 'runner reads workspace linked state')
-check(source.includes('verifyTemporaryLink(channel.workdir)'), 'runner does not recheck temporary ref')
-check(source.includes('parseTemporaryPgEnvironment'), 'runner does not use the controlled temporary credential channel')
-check(source.includes("credentialProbe.stdout = ''") && source.includes("credentialProbe.stderr = ''"), 'credential probe is not cleared')
-check(source.includes('function rotateTemporaryCredential(') && source.includes('clearDbEnvironment(oldEnvironment)'), 'old temporary credential is not invalidated before rotation')
-check(source.includes('fresh === oldEnvironment') && source.includes('new temporary credential acquisition failed'), 'credential reuse/acquisition failure is not fail-closed')
-check(source.includes('requireFreshCredentialGeneration(channel, beforeFinalCredentialGeneration)'),
-  'final reconciliation does not require a fresh credential generation')
-check(source.includes("secretsPrinted: 0") && source.includes("secretsWritten: 0"), 'evidence secrecy markers missing')
-check(source.includes('function proveMigrationSets(') && source.includes('localMinusRemote') && source.includes('remoteMinusLocal'), 'machine migration-set proof missing')
-check(source.includes("status !== 'applied'") && source.includes('migration order proof failed'), 'migration status/order proof missing')
-check(!source.includes("output.match(/\\b\\d{14}\\b/g)"), 'resume safety depends on CLI human output')
+check(source.includes("const allowedModes = new Set(['--self-test', '--apply-acl-repair'])"),
+  'runner modes are not limited to self-test and ACL repair')
+check(!source.includes('executePostApplyResume') && !source.includes('validateResumeRemoteGate') &&
+  !source.includes('loadResumeEvidence') && !source.includes('assertPostApplyBaseline'),
+  'retired resume execution code remains reachable')
+check(contract.candidate.remoteExecutionAllowed === false && contract.postApplyResume.remoteExecutionAllowed === false &&
+  contract.postApplyResume.dbPushAllowed === false,
+  'old candidate/resume remote execution is not permanently disabled')
+check(contract.candidate.testSha256Lf === 'bed07c4d494ac3e7f7e993e12090194ed413b0e92d681aea0adb3eb381f430fb',
+  'historical 8273 P1 test hash was overwritten')
+check(contract.referenceSync.remoteExecutionRequires === 'acl-repair-only-dual-platform-ci-qualified',
+  'remote qualification boundary is not ACL-repair-only')
 
-check(contract.candidate.remoteExecutionAllowed === false && resume?.resumeOnly === true &&
-  resume?.remoteExecutionAllowed === true && resume?.signedCiHeadSha === expectedQualificationHead &&
-  resume?.signedCiRunId === expectedQualificationRunId &&
-  resume?.signedCiLinuxJobId === expectedQualificationLinuxJobId &&
-  resume?.signedCiWindowsJobId === expectedQualificationWindowsJobId &&
-  resume?.signedCiConclusion === 'success' &&
-  resume?.mode === '--resume-post-apply' && resume?.dbPushAllowed === false &&
-  resume?.expectedPersistentRemoteWrites === 0 && resume?.perTestSnapshotRequired === true &&
-  resume?.sourceRunId === expectedResumeRunId,
-  'candidate/resume remote gate, signed CI identity, or zero-persistent-write boundary drift')
-const signedResumeCiRuns = databaseContract.formalAttemptHistory.filter((entry) => entry.runId === expectedQualificationRunId)
-const signedResumeCiRun = signedResumeCiRuns[0]
-check(signedResumeCiRuns.length === 1 &&
-  signedResumeCiRun?.runUrl === 'https://github.com/yccanwin/canwin-team-os/actions/runs/29699951990' &&
-  signedResumeCiRun?.jobId === expectedQualificationLinuxJobId &&
-  signedResumeCiRun?.windowsJobId === expectedQualificationWindowsJobId &&
-  signedResumeCiRun?.headSha === expectedQualificationHead && signedResumeCiRun?.conclusion === 'success' &&
-  signedResumeCiRun?.qualificationScope === 'post_apply_resume_prequalification' &&
-  signedResumeCiRun?.resumePrequalification === 'qualified_remote_enabled' &&
-  signedResumeCiRun?.windowsLocalGatePassed === true &&
-  signedResumeCiRun?.windowsStaticGatesExpected === 19 && signedResumeCiRun?.windowsStaticGatesPassed === 19 &&
-  signedResumeCiRun?.windowsLocalIntegrationStepsExpected === 12 && signedResumeCiRun?.windowsLocalIntegrationStepsPassed === 12 &&
-  signedResumeCiRun?.linuxDatabaseAccepted === true && signedResumeCiRun?.migrationsPassed === 70 &&
-  signedResumeCiRun?.sqlTestsStarted === 27 && signedResumeCiRun?.sqlTestsPassed === 27 &&
-  signedResumeCiRun?.databaseTestsPassed === 7 && signedResumeCiRun?.permissionTestsPassed === 11 &&
-  signedResumeCiRun?.businessTestsPassed === 9 && signedResumeCiRun?.catalogAssertionsPassed === 4 &&
-  signedResumeCiRun?.repositorySecretsRequired === false &&
-  signedResumeCiRun?.testProjectRemoteReads === 0 && signedResumeCiRun?.testProjectRemoteWrites === 0 &&
-  signedResumeCiRun?.productionReadPerformed === false && signedResumeCiRun?.productionWritePerformed === false &&
-  signedResumeCiRun?.resumeVerificationExecuted === false && signedResumeCiRun?.pageAccountAcceptancePassed === false &&
-  signedResumeCiRun?.g1OverallClaim === false,
-  'signed resume CI formal history identity, dual-platform counts, or zero-remote/production boundary drift')
-check(resume?.preflightPath === expectedEvidenceRoot + '/preflight.json' &&
-  resume?.failurePath === expectedEvidenceRoot + '/failure.json',
-  'post-apply resume evidence paths drift')
-check(resume?.preflightSha256 === expectedPreflightSha256 && resume?.failureSha256 === expectedFailureSha256,
-  'post-apply resume source evidence SHA drift')
-check(resume?.accessControlTestPath === 'supabase/tests/access_control_foundation.sql' &&
-  resume?.accessControlTestExecutionMode === 'rollback_fixture' &&
-  resume?.accessControlTestSha256Lf === sha256Lf(resolve(repoRoot, resume.accessControlTestPath)),
-  'post-apply access-control test path/hash drift')
-
-const fullReconciliation = contract.fullReconciliation
-check(fullReconciliation?.backupPackageId === 'canwin-team-os-4-p0-20260719T074943659Z-c11fca6bd1' &&
-  fullReconciliation?.backupPackageManifestPath === expectedBackupManifestPath &&
-  fullReconciliation?.backupPackageManifestSha256 === expectedBackupManifestSha256 &&
-  fullReconciliation?.restoreEvidencePath === expectedRestoreEvidencePath &&
-  fullReconciliation?.restoreEvidenceSha256 === expectedRestoreEvidenceSha256,
-  'signed backup manifest or restore-evidence path/SHA drift')
-check(fullReconciliation?.sealedSqlPath === 'scripts/p0/sealed-reconciliation.sql' &&
-  fullReconciliation?.sealedSqlSha256Lf === expectedSealedSqlSha256Lf &&
-  sha256Lf(resolve(repoRoot, fullReconciliation.sealedSqlPath)) === expectedSealedSqlSha256Lf,
-  'sealed reconciliation SQL path/LF hash drift')
-check(JSON.stringify(fullReconciliation?.signedArtifacts) === JSON.stringify(expectedSignedArtifacts) &&
-  fullReconciliation?.reconciliationKeyAmountsArtifactPath === expectedSignedArtifacts.keyAmounts.path &&
-  fullReconciliation?.reconciliationKeyAmountsArtifactSha256 === expectedSignedArtifacts.keyAmounts.sha256 &&
-  fullReconciliation?.dpapiKeyReference === expectedDpapiKeyReference &&
-  fullReconciliation?.dpapiKeyPath === expectedDpapiKeyPath,
-  'six signed reconciliation/Storage artifact bindings or in-memory key path drift')
-check(JSON.stringify(fullReconciliation?.expected?.keyAmountKeys) === JSON.stringify([
-  'currency', 'customerPayments', 'internalPayables', 'salesProfit', 'points', 'laborEarnings',
-]) && JSON.stringify(fullReconciliation?.expected?.inventoryKeys) === JSON.stringify([
-  'onHand', 'reserved', 'shipped',
-]), 'five key amounts, currency, or three inventory keys drift')
-check(JSON.stringify(fullReconciliation?.expected?.rawLedgerKeys) === JSON.stringify([
-  'customerPaymentGross', 'customerPaymentReversals', 'internalDue', 'internalPaid', 'internalSettlements',
-  'procurementPayments', 'salesExpenses', 'quarterlyRebates', 'companyExpenses',
-]), 'raw-ledger fingerprint key inventory drift')
-check(JSON.stringify(fullReconciliation?.expected?.auth) === JSON.stringify({
-  users: 7,
-  identities: 7,
-  profiles: 7,
-  sourceRoleAssignments: 8,
-  authorizedRoleAssignmentsApplied: 2,
-  postOverlayRoleAssignments: 10,
-  orphanProfiles: 0,
-  orphanRoleAssignments: 0,
-  bannedUsers: 7,
-}) && JSON.stringify(fullReconciliation?.expected?.storage) === JSON.stringify({
-  buckets: 1,
-  objects: 32,
-  bytes: 1700978,
-  aggregateSha256: '12000d53bf395a9637638a372778a61f7a821eea3be622e81bec84051f3b379f',
-}) && fullReconciliation?.expected?.migrationRows === 70,
-  'exact-70, Auth, role-overlay, or Storage signed totals drift')
-check(JSON.stringify(fullReconciliation?.execution) === JSON.stringify({
-  initialFullAfterLightSnapshot: true,
-  fullAfterEverySqlTest: true,
-  perTestFullSnapshots: 27,
-  finalFullAfterFreshCredential: true,
-  beforeAfterCanonicalShaMustMatch: true,
-  storageArchiveAtInitialAndFinal: true,
-  temporarySessionOnly: true,
-  persistentDatabaseWrites: false,
-  sessionClosedDropsTemp: true,
-}), 'initial/per-test/final full-reconciliation execution contract drift')
-check(JSON.stringify(fullReconciliation?.allowedPersistentContentDifferencesFromSealedSource) === JSON.stringify([
-  {
-    table: 'profile_access_roles',
-    effect: 'authorized-role-overlay-plus-assignment-kind-backfill',
-    rowDeltaFromSignedManifest: 2,
-  },
-  {
-    table: 'feature_flags',
-    effect: 'one-team-os-4-supervisor-row-per-missing-team',
-    rowDeltaFromSignedPreflight: 1,
-  },
-]) && fullReconciliation?.expectedSchemaAndHistoryDifference === 'exact-signed-P1-migration-only' &&
-  fullReconciliation?.unknownDifferencesAllowed === false &&
-  fullReconciliation?.evidenceMode === 'summary-hash-counts-only' &&
-  JSON.stringify(fullReconciliation?.sourceArtifactBoundary) === JSON.stringify({
-    signedP0TableRowCountsAreCountsOnly: true,
-    signedP0TargetAfterSha256IsNull: true,
-    p1InitialAndFinalContentFingerprintsRequired: true,
+const repair = contract.aclRepair
+check(repair.mode === '--apply-acl-repair' && repair.remoteExecutionAllowed === false &&
+  repair.dbPushAllowed === false && repair.migrationVersion === REPAIR_VERSION,
+  'prequalification ACL repair must remain remote-disabled')
+check(repair.migrationPath === 'supabase/migrations/20260720015435_harden_server_only_rpc_acl.sql' &&
+  repair.migrationSha256Lf === REPAIR_SHA && sha256Lf(resolve(repoRoot, repair.migrationPath)) === REPAIR_SHA,
+  'signed ACL repair migration path/hash drift')
+check(JSON.stringify(repair.testPaths) === JSON.stringify({
+  teamOs4P1: 'supabase/tests/team_os_4_p1_access_shell.sql',
+  notificationCore: 'supabase/tests/notification_core.sql',
+}), 'ACL repair current test paths drift')
+check(JSON.stringify(repair.testSha256Lf) === JSON.stringify({
+  teamOs4P1: 'c4823724a65047b0e67af6ba62c954acf3085d70ffbbda1c5e1a0be23ce94dfb',
+  notificationCore: 'a3d87069899b986b191bc21826f5e23c65fe4734066e52adc4e14753c9e6e5a3',
+}) && Object.entries(repair.testPaths).every(([name, path]) => (
+  sha256Lf(resolve(repoRoot, path)) === repair.testSha256Lf[name]
+)), 'ACL repair current test hashes drift')
+check(repair.preMigrationRows === 70 && repair.postMigrationRows === 71 &&
+  repair.expectedMigrationCount === 71 && repair.sqlTestCount === 27,
+  '70-to-71 or 27-test repair totals drift')
+check(repair.maxFormalAttempts === 1 && repair.maxDbPushAttempts === 1 &&
+  repair.dryRunRequired === true && JSON.stringify(repair.pendingMigrationVersions) === JSON.stringify([REPAIR_VERSION]),
+  'single-attempt/dry-run/exact-pending migration boundary drift')
+check(JSON.stringify(repair.targetFunctions) === JSON.stringify(expectedFunctions) &&
+  JSON.stringify(repair.expectedChangedFunctions) ===
+    JSON.stringify(expectedFunctions.slice(0, 4).map((entry) => entry.identity)),
+  'exact six-function ACL repair inventory drift')
+check(JSON.stringify(repair.allowedFullReconciliationDifferences) === JSON.stringify([
+  'migrationHistory.schemaMigrations', 'schemaSecurity.publicRoutinesMd5',
+]) && repair.unknownDifferencesAllowed === false,
+  'ACL repair full-reconciliation difference allow-list drift')
+const privateDefinition = repair.privateRoutineDefinitionTransition
+check(JSON.stringify(privateDefinition?.expectedChangedFunctions) === JSON.stringify([PRIVATE_MEMBER_ACCESS_IDENTITY]) &&
+  privateDefinition?.expectedDefinitionChanges === 1 && privateDefinition?.identityChangesAllowed === 0 &&
+  privateDefinition?.securityEnvelopeChangesAllowed === 0 && privateDefinition?.unknownChangesAllowed === false,
+  'private member-access routine definition transition contract drift')
+const atomicCompatibility = repair.atomicLegacyRoleCompatibility
+check(atomicCompatibility?.status === 'static-passed-database-ci-pending' &&
+  atomicCompatibility?.staticPassed === true && atomicCompatibility?.databaseCiPassed === null &&
+  atomicCompatibility?.remoteQualificationAllowed === false &&
+  atomicCompatibility?.writeFunction === PRIVATE_MEMBER_ACCESS_IDENTITY &&
+  JSON.stringify(atomicCompatibility?.mappingPrecedence) === JSON.stringify(expectedAtomicMapping) &&
+  atomicCompatibility?.successfulMappingCases === 5 && atomicCompatibility?.rollbackControls === 2 &&
+  atomicCompatibility?.sameTeamStaticGuards === 4 && atomicCompatibility?.remoteGateNegativeControls === 5 &&
+  atomicCompatibility?.atomicRemoteGateNegativeControls === 2 &&
+  atomicCompatibility?.migrationRewritesExistingProfiles === false &&
+  atomicCompatibility?.appShellAssertionsPassed === 99 && atomicCompatibility?.appShellAssertionsExpected === 99,
+  'atomic legacy role compatibility contract or truthful pending state drift')
+check(atomicCompatibility?.sqlTestPath === repair.testPaths.teamOs4P1 &&
+  atomicCompatibility?.sqlTestSha256Lf === repair.testSha256Lf.teamOs4P1 &&
+  sha256Lf(resolve(repoRoot, atomicCompatibility.sqlTestPath)) === atomicCompatibility.sqlTestSha256Lf &&
+  atomicCompatibility?.edgeFunctionPath === 'supabase/functions/admin-members/index.ts' &&
+  sha256Lf(resolve(repoRoot, atomicCompatibility.edgeFunctionPath)) === atomicCompatibility.edgeFunctionSha256Lf &&
+  atomicCompatibility?.staticTestPath === 'scripts/p1/verify-access-admin-v1-write-chain.ts' &&
+  sha256Lf(resolve(repoRoot, atomicCompatibility.staticTestPath)) === atomicCompatibility.staticTestSha256Lf,
+  'atomic compatibility source evidence hash drift')
+check(repair.applicationCompatibility?.status === 'passed' &&
+  repair.applicationCompatibility?.remoteQualificationAllowed === false &&
+  repair.applicationCompatibility?.legacyRpcCallSites?.length === 0 &&
+  repair.applicationCompatibility?.resolvedEvidence?.staticCallSitesRemaining === 0 &&
+  repair.applicationCompatibility?.resolvedEvidence?.appShellAssertionsPassed === 99 &&
+  repair.applicationCompatibility?.resolvedEvidence?.appShellAssertionsExpected === 99 &&
+  repair.applicationCompatibility?.resolvedEvidence?.warehouseBackendRelaxed === false &&
+  JSON.stringify(repair.applicationCompatibility?.resolvedEvidence?.formalStaticGateCoverage) === JSON.stringify({
+    gate: 16,
+    serial: true,
+    runnerValidatorPassed: true,
+    appShellPassed: true,
+    accessV1BehaviorPassed: true,
   }),
-  'authorized content-difference allow-list or unknown-difference refusal drift')
-const validatorImports = validatorSource.slice(0, validatorSource.indexOf('\nconst repoRoot'))
-const forbiddenValidatorEvidenceReads = [
-  ['readFileSync(expected', 'BackupManifestPath'].join(''),
-  ['readFileSync(expected', 'RestoreEvidencePath'].join(''),
-  ['readFileSync(fullReconciliation.', 'backupPackageManifestPath'].join(''),
-  ['readFileSync(fullReconciliation.', 'restoreEvidencePath'].join(''),
-]
-check(!validatorImports.includes("from '../p0/") &&
-  forbiddenValidatorEvidenceReads.every((operation) => !validatorSource.includes(operation)),
-  'validator self-check must not read D evidence, call a database, or call Storage')
-check(source.includes('function signedArtifactInventory(') && source.includes('function assertSignedArtifact(') &&
-  source.includes('for (const name of Object.keys(signedArtifacts))') &&
-  source.includes('assertSignedArtifact(manifestArtifacts[name], signedArtifacts[name], name, full.dpapiKeyReference)') &&
-  source.includes('manifest?.reconciliation?.targetAfterSha256 !== null') &&
-  source.includes('manifest?.auth?.recoveryScope?.sessionsRestored !== false') &&
-  source.includes('manifest?.auth?.recoveryScope?.sourceJwtSecretCopied !== false'),
-  'six signed artifacts, P0 content boundary, or Auth session/JWT isolation is not machine-bound')
-check(source.includes('key = readProtectedKey({ repoRoot, keyPath: full.dpapiKeyPath })') &&
-  source.includes('plaintext = readEncryptedArtifact({') &&
-  source.includes('artifact: manifest.reconciliation.keyAmounts') &&
-  source.includes('canonicalSha256(decryptedKeyAmounts) !== canonicalSha256(keyAmounts)') &&
-  source.includes('if (Buffer.isBuffer(plaintext)) plaintext.fill(0)') &&
-  source.includes('if (Buffer.isBuffer(key)) key.fill(0)'),
-  'signed raw-ledger artifact is not decrypted, compared, and cleared only in memory')
-check(source.includes('keyAmountsSha256: canonicalSha256(keyAmounts)') &&
-  source.includes('rawLedgersSha256: canonicalSha256(rawLedgers)') &&
-  source.includes('inventorySha256: canonicalSha256(inventory)') &&
-  source.includes('artifactSha256: Object.fromEntries(Object.entries(signedArtifacts)') &&
-  source.includes('sourceP0CountsOnly: true') && source.includes('currentP1ContentFingerprintsRequired: true'),
-  'signed amount/inventory/raw-ledger/artifact evidence summary is incomplete')
-check(source.includes('parseSignedEvidence(resume.preflightPath, resume.preflightSha256') &&
-  source.includes('parseSignedEvidence(resume.failurePath, resume.failureSha256') &&
-  source.includes("failure.currentStep !== 'test:database:supabase/tests/access_control_foundation.sql'") &&
-  source.includes('failure.attempts !== 1') && source.includes('failure.retryPerformed !== false') &&
-  source.includes('failure.remoteCleanupPerformed !== false') && source.includes('assertPreflight(preflight.before)'),
-  'signed failed-attempt evidence is not fully bound before resume')
-check(source.includes('function assertPostApplyBaseline(') &&
-  source.includes('proveMigrationSets(signedLocalMigrations(), current.migrationHistory, [])') &&
-  source.includes('proof.remoteCount !== contract.expected.postMigrationRows') &&
-  source.includes('current.migrationVersions.length !== contract.expected.postMigrationRows') &&
-  source.includes("throw new Error('resume target is not the exact clean post-P1 70-migration baseline')"),
-  '69-source to exact-70 post-apply baseline proof is incomplete')
-check(source.includes('sourceBefore.publicRowCounts') && source.includes('current.publicRowCounts') &&
-  source.includes("table === 'feature_flags' ? Number(sourceBefore.teamsMissingP1Flag) : 0"),
-  'post-apply public-row reconciliation is not anchored to the signed 69 baseline')
-check(source.includes('function assertResumeStable(') &&
-  source.includes('JSON.stringify(canonicalize(after)) !== JSON.stringify(canonicalize(before))'),
-  'resume before/after equality proof is missing')
-check(source.includes("const authFixtureEmailPatterns = ['p1-%@example.invalid', 'access-%@example.invalid']") &&
-  source.includes("'d4000000-0000-4000-8000-00000000000%'") &&
-  source.includes("'d5100000-0000-4000-8000-00000000000%'") &&
-  source.includes("like '${authFixtureEmailPatterns[0]}' or lower(coalesce(email,'')) like '${authFixtureEmailPatterns[1]}'") &&
-  source.includes("like '${profileFixtureIdPatterns[0]}' or id::text like '${profileFixtureIdPatterns[1]}'"),
-  'snapshot does not reject both p1/access Auth fixtures and d400/d510 profile fixtures')
+  'application compatibility resolution evidence or pre-CI remote lock drift')
+const forbiddenLegacyRpcNames = ['manage_profile_access', 'admin_replace_profile_roles', 'admin_replace_supervisor_subordinates']
+const findLegacyRpcCalls = (text) => forbiddenLegacyRpcNames.filter((name) => (
+  new RegExp(`\\.rpc\\(\\s*['\"]${name}['\"]`).test(text)
+))
+check(JSON.stringify(repair.applicationCompatibility.resolvedEvidence.forbiddenRpcNames) ===
+  JSON.stringify(forbiddenLegacyRpcNames) &&
+  Object.values(compatibilitySources).every((text) => findLegacyRpcCalls(text).length === 0),
+  'resolved frontend/Edge files still call a retired role/supervisor RPC')
+check(findLegacyRpcCalls("await client.rpc('admin_replace_profile_roles', {})").length === 1 &&
+  findLegacyRpcCalls("await client.rpc('admin_replace_supervisor_subordinates', {})").length === 1,
+  'legacy RPC compatibility detector negative control failed')
+check(contract.repairCiRunEvidence.runId === null && contract.repairCiRunEvidence.headSha === null &&
+  contract.repairCiRunEvidence.status === null && contract.repairCiRunEvidence.candidateRemoteExecutionAllowed === false &&
+  contract.repairCiRunEvidence.g1OverallClaim === false,
+  'repair CI evidence is falsely qualified')
 
-const selfTestMainIndex = sourceIndex("if (mode === '--self-test') return runSelfTest()")
-const qualificationIndex = sourceIndex('\n  assertResumeSignedCiQualification()\n')
-const signedBaselineIndex = sourceIndex('const baseline = loadSignedReconciliationBaseline()')
-const evidenceIndex = sourceIndex('const sourceEvidence = loadResumeEvidence()')
-const localVerifierIndex = sourceIndex('\n  runLocalVerifiers()\n')
-const channelIndex = sourceIndex('const channel = prepareTemporaryChannel()')
-const postApplySnapshotIndex = sourceIndex('const before = snapshot(channel.dbEnvironment)')
-const postApplyAssertIndex = sourceIndex('assertPostApplyBaseline(sourceEvidence.preflight.before, before)')
-const resumeExecuteIndex = sourceIndex('\n    await executePostApplyResume(\n')
-check(selfTestMainIndex >= 0 && selfTestMainIndex < qualificationIndex &&
-  qualificationIndex < signedBaselineIndex && signedBaselineIndex < evidenceIndex &&
-  evidenceIndex < localVerifierIndex && localVerifierIndex < channelIndex &&
-  channelIndex < postApplySnapshotIndex && postApplySnapshotIndex < postApplyAssertIndex &&
-  postApplyAssertIndex < resumeExecuteIndex,
-  'resume sequence is not self-test short-circuit -> CI -> signed recovery/resume evidence -> local gates -> temporary channel -> exact-70 -> verification')
+const failed = contract.formalResumeFailureEvidence
+check(failed.runId === SOURCE_RUN && failed.supervisionHeadSha === SOURCE_HEAD &&
+  failed.preflightSha256 === SOURCE_PREFLIGHT_SHA && failed.failureSha256 === SOURCE_FAILURE_SHA,
+  'signed formal failure identity/SHA drift')
+check(failed.failedStep === 'test:database:supabase/tests/notification_core.sql' &&
+  failed.firstFailedSqlTest === 'supabase/tests/notification_core.sql' &&
+  failed.firstError === 'Notification worker RPC exposed',
+  'signed first failure step/error drift')
+check(failed.testsPassed === 5 && failed.perTestSnapshotsPassed === 5 &&
+  failed.fullReconciliationSnapshotsPassed === 6 && failed.storageArchivesPassed === 1 && failed.attempts === 1,
+  'signed failed-run counters drift')
+check(failed.persistentRemoteWrites === 0 && failed.productionReads === 0 && failed.productionWrites === 0 &&
+  failed.secretsPrinted === 0 && failed.secretsWritten === 0 && failed.retryPerformed === false &&
+  failed.remoteCleanupPerformed === false && failed.targetPreserved === true,
+  'signed failure zero-write/secrecy/preservation evidence drift')
+check(source.includes(`const SOURCE_FAILURE_RUN_ID = '${SOURCE_RUN}'`) &&
+  source.includes(`const SOURCE_FAILURE_HEAD = '${SOURCE_HEAD}'`) &&
+  source.includes(`const SOURCE_PREFLIGHT_SHA256 = '${SOURCE_PREFLIGHT_SHA}'`) &&
+  source.includes(`const SOURCE_FAILURE_SHA256 = '${SOURCE_FAILURE_SHA}'`),
+  'runner does not literal-bind the preserved formal failure')
+check(source.includes("JSON.stringify(evidenceFiles) !== JSON.stringify(['failure.json', 'preflight.json'])") &&
+  source.includes("failure.currentStep !== 'test:database:supabase/tests/notification_core.sql'") &&
+  source.includes("!failure.message?.includes('Notification worker RPC exposed')") &&
+  source.includes('failure.fullReconciliationSnapshotsPassed !== 6'),
+  'runner does not fully bind the two-file failed-run evidence')
 
-check(source.includes('function validateResumeRemoteGate(') &&
-  source.includes("candidateMode === '--resume-post-apply'") && source.includes("syncState === 'synchronized'") &&
-  source.includes('resume?.remoteExecutionAllowed === true') &&
-  source.includes("/^[a-f0-9]{40}$/.test(resume?.signedCiHeadSha ?? '')") &&
-  !source.slice(sourceIndex('function validateResumeRemoteGate('), sourceIndex('function sha256(')).includes('contract.candidate?.signedCiHeadSha'),
-  'resume remote gate is not isolated from the old migration candidate CI identity')
-check(source.includes(`const RESUME_CI_HEAD = '${expectedQualificationHead}'`) &&
-  source.includes(`const RESUME_CI_RUN_ID = '${expectedQualificationRunId}'`) &&
-  source.includes(`const RESUME_CI_LINUX_JOB_ID = '${expectedQualificationLinuxJobId}'`) &&
-  source.includes(`const RESUME_CI_WINDOWS_JOB_ID = '${expectedQualificationWindowsJobId}'`) &&
-  source.includes('function findResumeSignedCiRun()') &&
-  source.includes('entry.runId === resume.signedCiRunId && entry.jobId === resume.signedCiLinuxJobId') &&
-  source.includes('entry.windowsJobId === resume.signedCiWindowsJobId') &&
-  source.includes('entry.headSha === resume.signedCiHeadSha && entry.conclusion === resume.signedCiConclusion') &&
-  source.includes('entry.windowsStaticGatesExpected === 19 && entry.windowsStaticGatesPassed === 19') &&
-  source.includes('entry.windowsLocalIntegrationStepsExpected === 12 && entry.windowsLocalIntegrationStepsPassed === 12') &&
-  source.includes('entry.migrationsPassed === contract.expected.postMigrationRows') &&
-  source.includes('entry.sqlTestsPassed === contract.expected.tests && entry.catalogAssertionsPassed === 4') &&
-  source.includes('entry.databaseTestsPassed === contract.expected.databaseTests') &&
-  source.includes('entry.permissionTestsPassed === contract.expected.permissionTests') &&
-  source.includes('entry.businessTestsPassed === contract.expected.businessTests') &&
-  source.includes('entry.productionReadPerformed === false && entry.productionWritePerformed === false'),
-  'runner does not bind the exact signed CI run/jobs or dual-platform/database acceptance counts')
-const qualificationFunctionIndex = sourceIndex('function assertResumeSignedCiQualification()')
-const qualificationHeadIndex = source.indexOf("run('git', ['rev-parse', 'HEAD'])", qualificationFunctionIndex)
-const trackedStatusIndex = source.indexOf("'status', '--porcelain', '--untracked-files=no'", qualificationHeadIndex)
-const worktreeBoundaryIndex = source.indexOf('validateResumeWorktreeBoundary(head, resumeHead, trackedStatus)', trackedStatusIndex)
-const sameHeadRefusalIndex = source.indexOf('if (!worktreeBoundary.committedAfterSignedHead)', worktreeBoundaryIndex)
-const trackedStatusRefusalIndex = source.indexOf('if (!worktreeBoundary.trackedWorktreeClean)', sameHeadRefusalIndex)
-const qualificationAncestryIndex = source.indexOf("'merge-base', '--is-ancestor', resumeHead, head", trackedStatusRefusalIndex)
-check(qualificationFunctionIndex >= 0 && qualificationHeadIndex > qualificationFunctionIndex &&
-  trackedStatusIndex > qualificationHeadIndex && worktreeBoundaryIndex > trackedStatusIndex &&
-  sameHeadRefusalIndex > worktreeBoundaryIndex && trackedStatusRefusalIndex > sameHeadRefusalIndex &&
-  qualificationAncestryIndex > trackedStatusRefusalIndex &&
-  source.includes('function validateResumeWorktreeBoundary(head, resumeHead, trackedStatus)') &&
-  source.includes("committedAfterSignedHead: /^[a-f0-9]{40}$/.test(head) && head !== resumeHead") &&
-  source.includes("trackedWorktreeClean: trackedStatus === ''") &&
-  source.includes('post-apply resume qualification changes are not committed after the signed prequalification HEAD') &&
-  source.includes('post-apply resume requires a clean tracked worktree') &&
-  !source.includes("'status', '--porcelain', '--untracked-files=all'"),
-  'qualification must reject the signed HEAD itself and dirty tracked files while allowing untracked audit evidence')
+check(source.includes("mkdtempSync(join(tmpdir(), 'canwin-p1-runtime-'))") &&
+  source.includes("'link', '--project-ref', TARGET_REF, '--workdir', workdir") &&
+  !source.includes("resolve(repoRoot, 'supabase', '.temp', 'project-ref')"),
+  'temporary project isolation/link boundary drift')
+check(source.includes('for (const [index, entry] of migrationManifest.entries.entries())') &&
+  source.includes("copyFileSync(resolve(repoRoot, 'supabase', 'migrations', entry.file), stagedPath)") &&
+  source.includes('validateStagedMigrationInventory(stagedFiles, stagedHashes, signedMigrations)'),
+  'complete signed 71-file inventory is not staged and hash-verified')
+check(source.includes('validateStagedMigrationInventory([], [], local)') &&
+  source.includes("index === 70 ? '0'.repeat(64) : hash") &&
+  source.includes('stagedInventoryNegative=3/3'),
+  'empty/hash-drift/incomplete staged inventory negative controls are missing')
+check(source.includes("'db', 'push', '--linked', '--dry-run', '--workdir', channel.workdir, '--yes'") &&
+  source.includes('JSON.stringify(versions) !== JSON.stringify([REPAIR_VERSION])') &&
+  source.includes('!output.includes(stagedFile)'),
+  'db push dry-run does not strictly enumerate only migration71')
+check(source.includes("'db', 'push', '--linked', '--workdir', channel.workdir, '--yes'") &&
+  occurrences(source, "'db', 'push'") === 2 && !source.includes("'--include-all'") &&
+  !source.includes("'--include-seed'") && !source.includes("'--include-roles'"),
+  'formal push is not exactly one minimal signed path')
+check(source.includes('attempt.dbPushAttempted = true') &&
+  source.includes("attempt.dbPushOutcome = 'unknown_failed_command'") &&
+  source.includes('attempt.dbPushPerformed = null') && source.includes('attempt.persistentRemoteWrites = null') &&
+  source.includes('attempt.persistentRemoteWriteUpperBound = 1') &&
+  source.includes('failedPushUnknownStatePreserved=1'),
+  'failed push can be falsely reported as zero-write')
+check(source.includes("attempt.dbPushOutcome = 'confirmed-applied'") &&
+  source.includes('attempt.confirmedPersistentWrites = 1') && source.includes('attempt.persistentRemoteWrites = 1'),
+  'successful push confirmed-write evidence is incomplete')
 
-check(source.includes('for (const test of databaseContract.tests)') &&
-  source.includes('const afterTest = snapshot(channel.dbEnvironment)') &&
-  source.includes('assertResumeStable(sourceEvidence.preflight.before, before, afterTest)') &&
-  source.includes('attempt.perTestSnapshotsPassed += 1') &&
-  source.includes('attempt.perTestSnapshotsPassed !== contract.expected.tests'),
-  '27-test per-test residue snapshots are incomplete')
-const sqlLoopIndex = sourceIndex('for (const test of databaseContract.tests)')
-const sqlRunIndex = source.indexOf('runTestFile(channel.dbEnvironment, test)', sqlLoopIndex)
-const sqlPassIndex = source.indexOf('attempt.testsPassed.push(test.path)', sqlLoopIndex)
-const sqlSnapshotIndex = source.indexOf('const afterTest = snapshot(channel.dbEnvironment)', sqlLoopIndex)
-const sqlLoopTail = source.slice(sqlLoopIndex, sqlSnapshotIndex)
-check(sqlLoopIndex >= 0 && sqlRunIndex > sqlLoopIndex && sqlPassIndex > sqlRunIndex &&
-  sqlSnapshotIndex > sqlPassIndex && /const result\s*=\s*requireSuccess\([\s\S]{0,160}runTestFile\(channel\.dbEnvironment,\s*test\)\)/.test(sqlLoopTail),
-  'SQL test nonzero result can be counted or followed before immediate requireSuccess')
-check(source.includes('syntheticFailureStopped') && source.includes('followingSyntheticTestRan') &&
-  source.includes('firstSqlFailureStops=1'),
-  'first SQL failure stop negative self-test is missing')
-const executeFunctionIndex = sourceIndex('async function executePostApplyResume(')
-const initialFullIndex = source.indexOf('const beforeFull = runSealedFullReconciliation(channel.dbEnvironment)', executeFunctionIndex)
-const initialFullAssertIndex = source.indexOf('const beforeFullSummary = assertSealedFullReconciliation(baseline, before, beforeFull)', initialFullIndex)
-const initialStorageIndex = source.indexOf('const beforeStorageSummary = await collectTargetStorageSummary(baseline)', initialFullAssertIndex)
-const preflightWriteIndex = source.indexOf("writeFileSync(resolve(evidenceDirectory, 'preflight.json')", initialStorageIndex)
-const afterTestFullIndex = source.indexOf('const afterTestFull = runSealedFullReconciliation(channel.dbEnvironment)', sqlLoopIndex)
-const afterTestFullAssertIndex = source.indexOf('const afterTestFullSummary = assertSealedFullReconciliation(baseline, afterTest, afterTestFull)', afterTestFullIndex)
-const perTestStableIndex = source.indexOf('assertFullReconciliationStable(beforeFullSummary, afterTestFullSummary)', afterTestFullAssertIndex)
-const perTestEvidenceIndex = source.indexOf('attempt.perTestFullReconciliations.push({', perTestStableIndex)
-const finalCredentialIndex = source.indexOf('const beforeFinalCredentialGeneration = channel.credentialGeneration', perTestEvidenceIndex)
-const finalLightIndex = source.indexOf('const after = snapshot(channel.dbEnvironment)', finalCredentialIndex)
-const finalFullIndex = source.indexOf('const afterFull = runSealedFullReconciliation(channel.dbEnvironment)', finalLightIndex)
-const finalFullAssertIndex = source.indexOf('const afterFullSummary = assertSealedFullReconciliation(baseline, after, afterFull)', finalFullIndex)
-const finalStableIndex = source.indexOf('assertFullReconciliationStable(beforeFullSummary, afterFullSummary)', finalFullAssertIndex)
-const finalStorageIndex = source.indexOf('const afterStorageSummary = await collectTargetStorageSummary(baseline)', finalStableIndex)
-check(executeFunctionIndex >= 0 && executeFunctionIndex < initialFullIndex && initialFullIndex < initialFullAssertIndex &&
-  initialFullAssertIndex < initialStorageIndex && initialStorageIndex < preflightWriteIndex && preflightWriteIndex < sqlLoopIndex &&
-  sqlSnapshotIndex < afterTestFullIndex && afterTestFullIndex < afterTestFullAssertIndex &&
-  afterTestFullAssertIndex < perTestStableIndex && perTestStableIndex < perTestEvidenceIndex &&
-  perTestEvidenceIndex < finalCredentialIndex && finalCredentialIndex < finalLightIndex && finalLightIndex < finalFullIndex &&
-  finalFullIndex < finalFullAssertIndex && finalFullAssertIndex < finalStableIndex && finalStableIndex < finalStorageIndex,
-  'formal order is not exact-70 initial full/Storage -> 27 immediate test full snapshots -> fresh-credential final full/Storage')
-check(source.includes('function runSealedFullReconciliation(') &&
-  source.includes("'--single-transaction', '--command', 'set role postgres;'") &&
-  source.includes("'--file', resolve(repoRoot, contract.fullReconciliation.sealedSqlPath)") &&
-  source.includes("lines.length !== 1") &&
-  !Object.hasOwn(fullReconciliation.execution, 'databaseReadOnlyTransaction'),
-  'sealed SQL execution/session contract drift')
-check(source.includes('function assertSealedFullReconciliation(') &&
-  source.includes("assertExactKeys(fullSnapshot.publicTableContentMd5") &&
-  source.includes("assertMd5(fullSnapshot.auth.usersContentMd5") &&
-  source.includes("assertMd5(fullSnapshot.auth.identitiesContentMd5") &&
-  source.includes('publicTableContentSha256: canonicalSha256(fullSnapshot.publicTableContentMd5)') &&
-  source.includes('authContentSha256: canonicalSha256({') &&
-  source.includes('schemaSecuritySha256: canonicalSha256(fullSnapshot.schemaSecurity)') &&
-  source.includes("throw new Error('sealed full reconciliation canonical content drift')"),
-  'public/Auth/schema content fingerprints or canonical before/after comparison are incomplete')
+check(source.includes('function assertExact70RepairBaseline(') &&
+  source.includes('proveMigrationSets(signedLocalMigrations(), current.migrationHistory, [REPAIR_VERSION])') &&
+  source.includes('function assertExact71RepairBaseline(') &&
+  source.includes('proveMigrationSets(signedLocalMigrations(), current.migrationHistory, [])'),
+  'machine exact70/exact71 migration-set proofs are missing')
+check(source.includes('function routineAclSnapshot(') && source.includes("'allRoutineAcls'") &&
+  source.includes("'allRoutineEffectiveExecute'") && source.includes("pg_catalog.has_function_privilege('anon',oid,'EXECUTE')") &&
+  source.includes('ACL repair routine difference set is not the exact signed four-function change inventory') &&
+  source.includes('targetFunctionsValidated: targetIdentities.length'),
+  'all-routine ACL snapshot, six target postconditions, or four-function difference proof is incomplete')
+check(source.includes("for (const role of expected.revokeRoles)") &&
+  source.includes("for (const role of expected.requiredGrantRoles)") &&
+  source.includes('forbiddenRoutineAclChanges: 0'),
+  'revoked/required role grants or forbidden ACL changes are not checked')
+check(source.includes('function assertAclRepairFullTransition(') &&
+  source.includes("!['migrationHistory', 'schemaSecurity'].includes(key)") &&
+  source.includes("key !== 'publicRoutinesMd5'") &&
+  source.includes('forbiddenContentDifferences: 0'),
+  'full reconciliation does not permit only migration history and public routine ACL fingerprint')
+check(source.includes('function privateRoutineDefinitionSnapshot(') &&
+  source.includes('function assertPrivateRoutineDefinitionTransition(') &&
+  source.includes('function assertPrivateRoutineDefinitionStable(') &&
+  source.includes('private member-access routine definition did not change exactly once') &&
+  source.includes('securityEnvelopeChanges: 0') && source.includes('forbiddenDefinitionChanges: 0'),
+  'private routine exact-one definition transition or security-envelope proof is incomplete')
+
+const mainIndex = index('async function main()')
+const remoteGateStart = index('function validateRepairRemoteGate(')
+const remoteGateEnd = index('function findRepairSignedCiRun(', remoteGateStart)
+const remoteGateSource = source.slice(remoteGateStart, remoteGateEnd)
+check(remoteGateStart >= 0 && remoteGateEnd > remoteGateStart &&
+  remoteGateSource.includes("repair?.atomicLegacyRoleCompatibility?.status === 'passed'") &&
+  remoteGateSource.includes('repair?.atomicLegacyRoleCompatibility?.staticPassed === true') &&
+  remoteGateSource.includes('repair?.atomicLegacyRoleCompatibility?.databaseCiPassed === true') &&
+  remoteGateSource.includes('repair?.atomicLegacyRoleCompatibility?.remoteQualificationAllowed === true'),
+  'remote gate does not hard-require all four atomic compatibility qualification conditions')
+const gateIndex = index('validateRepairRemoteGate(mode, contract.aclRepair, contract.repairCiRunEvidence)', mainIndex)
+const ciIndex = index('assertRepairSignedCiQualification()', gateIndex)
+const baselineIndex = index('loadSignedReconciliationBaseline()', ciIndex)
+const failureIndex = index('loadRepairFailureEvidence()', baselineIndex)
+const verifierIndex = index('runLocalVerifiers()', failureIndex)
+const channelIndex = index('prepareTemporaryChannel()', verifierIndex)
+const exact70Index = index('assertExact70RepairBaseline(sourceEvidence, before70)', channelIndex)
+const executeIndex = index('executeAclRepair(channel, sourceEvidence, before70, baseline, proof70)', exact70Index)
+check(mainIndex >= 0 && mainIndex < gateIndex && gateIndex < ciIndex && ciIndex < baselineIndex &&
+  baselineIndex < failureIndex && failureIndex < verifierIndex && verifierIndex < channelIndex &&
+  channelIndex < exact70Index && exact70Index < executeIndex,
+  'formal main order is not gate -> CI -> signed evidence -> local gates -> temp exact70 -> repair')
+const executeStart = index('async function executeAclRepair(')
+const initialFullIndex = index('const beforeFull = runSealedFullReconciliation(channel.dbEnvironment)', executeStart)
+const initialPrivateDefinitionIndex = index('const beforePrivateRoutineDefinition = privateRoutineDefinitionSnapshot(channel.dbEnvironment)', initialFullIndex)
+const initialStorageIndex = index('const beforeStorageSummary = await collectTargetStorageSummary(baseline)', initialFullIndex)
+const dryRunIndex = index('attempt.dryRun = runRepairPushDryRun(channel)', initialStorageIndex)
+const preflightIndex = index("writeFileSync(resolve(evidenceDirectory, 'preflight.json')", dryRunIndex)
+const pushIndex = index('runRepairPushOnce(channel, attempt)', preflightIndex)
+const exact71Index = index('assertExact71RepairBaseline(before70, afterApply71)', pushIndex)
+const aclIndex = index('assertRoutineAclRepairTransition(beforeRoutineAcl, afterRoutineAcl)', exact71Index)
+const privateTransitionIndex = index('assertPrivateRoutineDefinitionTransition(', aclIndex)
+const finalFullIndex = index('const afterFull = runSealedFullReconciliation(channel.dbEnvironment)', privateTransitionIndex)
+const finalPrivateStableIndex = index('assertPrivateRoutineDefinitionStable(afterPrivateRoutineDefinition, finalPrivateRoutineDefinition)', finalFullIndex)
+const sqlIndex = index('for (const test of databaseContract.tests)', aclIndex)
+const finalCredentialIndex = index('const beforeFinalCredentialGeneration = channel.credentialGeneration', sqlIndex)
+check(executeStart >= 0 && executeStart < initialFullIndex && initialFullIndex < initialPrivateDefinitionIndex &&
+  initialPrivateDefinitionIndex < initialStorageIndex &&
+  initialStorageIndex < dryRunIndex && dryRunIndex < preflightIndex && preflightIndex < pushIndex &&
+  pushIndex < exact71Index && exact71Index < aclIndex && aclIndex < privateTransitionIndex &&
+  privateTransitionIndex < sqlIndex && sqlIndex < finalCredentialIndex && finalCredentialIndex < finalFullIndex &&
+  finalFullIndex < finalPrivateStableIndex,
+  'formal order is not exact70 full/private/Storage -> dry-run -> one push -> exact71 ACL/private -> 27 tests -> fresh final private stability')
 check(source.includes('attempt.fullReconciliationSnapshotsPassed = 1') &&
   occurrences(source, 'attempt.fullReconciliationSnapshotsPassed += 1') === 2 &&
   source.includes('attempt.fullReconciliationSnapshotsPassed !== contract.expected.tests + 2') &&
-  source.includes('attempt.perTestFullReconciliations.length !== contract.expected.tests') &&
   source.includes('fullSnapshots=29/29') && source.includes('storageArchives=2/2'),
-  '29 full snapshots, 27 itemized full snapshots, or two Storage archives are not hard-required')
-check(source.includes('async function collectTargetStorageSummary(') &&
-  source.includes("if (TARGET_REF === PRODUCTION_REF) throw new Error('production Storage archive is forbidden')") &&
-  source.includes('getServerKey({ cliPath: restoreRun.toolchain.supabaseCli.path, projectRef: TARGET_REF })') &&
-  source.includes('archive = await collectStorageArchive(client)') &&
-  source.includes('return assertSignedStorageSummary(baseline, storageSummary(archive))') &&
-  source.includes('afterStorageSummary.canonicalSha256 !== beforeStorageSummary.canonicalSha256') &&
-  source.includes("throw new Error('initial/final Storage archive canonical content drift')") &&
-  source.includes("item.base64 = ''") && source.includes('serverKey = \'\''),
-  'isolated Storage full-content comparison, production denial, or in-memory clearing is incomplete')
-const selfTestStart = sourceIndex('function runSelfTest()')
-const selfTestEnd = source.indexOf('function verifyTemporaryLink(', selfTestStart)
-const selfTestSource = source.slice(selfTestStart, selfTestEnd)
-check(selfTestStart >= 0 && selfTestEnd > selfTestStart &&
-  !selfTestSource.includes('loadSignedReconciliationBaseline(') &&
-  !selfTestSource.includes('loadResumeEvidence(') &&
-  !selfTestSource.includes('runSealedFullReconciliation(') &&
-  !selfTestSource.includes('collectTargetStorageSummary(') &&
-  selfTestSource.includes('databaseCalls=0') && selfTestSource.includes('storageCalls=0') &&
-  selfTestSource.includes('dEvidenceRequired=0') && selfTestSource.includes('resumeRemoteExecutionAllowed=1'),
-  'runner self-test can touch a database, Storage, or D evidence')
-check(selfTestSource.includes('const cleanCommittedBoundary = validateResumeWorktreeBoundary(') &&
-  selfTestSource.includes('const worktreeBoundaryNegativePassed = [') &&
-  selfTestSource.includes('worktreeBoundaryNegativePassed !== 2') &&
-  selfTestSource.includes('worktreeBoundaryPositive=1') && selfTestSource.includes('worktreeBoundaryNegative=2/2') &&
-  selfTestSource.includes("validateResumeWorktreeBoundary('b'.repeat(40), contract.postApplyResume.signedCiHeadSha, ' M tracked.sql')"),
-  'worktree same-HEAD/dirty-tracked negative controls or clean-descendant positive control are incomplete')
-check(selfTestSource.includes('const syntheticManifest = {') &&
-  selfTestSource.includes('const syntheticRestoreEvidence = {') &&
-  selfTestSource.includes('const syntheticFullSnapshot = {') &&
-  selfTestSource.includes('const reconciliationNegativeCases = [') &&
-  selfTestSource.includes('reconciliationNegativePassed !== reconciliationNegativeCases.length') &&
-  selfTestSource.includes('keyAmountDriftDenied=1') && selfTestSource.includes('inventoryDriftDenied=1') &&
-  selfTestSource.includes('rawLedgerDriftDenied=1') && selfTestSource.includes('fullContentDriftDenied=1') &&
-  selfTestSource.includes('artifactBindingDriftDenied=1') && selfTestSource.includes('restoreStatusDriftDenied=1') &&
-  selfTestSource.includes('storageDriftDenied=1') && selfTestSource.includes('manifestShaDriftDenied=1') &&
-  selfTestSource.includes('restoreEvidenceShaDriftDenied=1') && selfTestSource.includes('fixturePatterns=4/4') &&
-  selfTestSource.includes("JSON.stringify(authFixtureEmailPatterns) !== JSON.stringify(['p1-%@example.invalid', 'access-%@example.invalid'])") &&
-  selfTestSource.includes("'d4000000-0000-4000-8000-00000000000%', 'd5100000-0000-4000-8000-00000000000%'") ,
-  'synthetic signed-evidence, amount, inventory, raw-ledger, content, or Storage drift controls are incomplete')
-check(source.includes("if (test.executionMode === 'read_only')") &&
-  source.includes("args.push('--single-transaction', '--command', 'set transaction read only;')"),
-  'read-only SQL tests are not database-enforced read-only transactions')
-const rollbackFixtures = databaseContract.tests.filter((entry) => entry.executionMode === 'rollback_fixture')
-check(databaseContract.tests.length === 27 && rollbackFixtures.length === 5 &&
-  databaseContract.tests.every((entry) => entry.sha256Lf === sha256Lf(resolve(repoRoot, entry.path))) &&
-  rollbackFixtures.every((entry) => {
-    const sql = normalizeLf(readFileSync(resolve(repoRoot, entry.path), 'utf8'))
-    return /^\s*(?:--[^\n]*\n\s*)*begin\s*;/i.test(sql) && /rollback\s*;\s*$/i.test(sql)
-  }), '27-test hashes or five explicit BEGIN/ROLLBACK fixture contracts drift')
-check(source.includes('team_os_4_p1_access_shell_ok') && source.includes('access_control_foundation_ok') &&
-  source.includes('attempt.testsPassed.length !== contract.expected.tests'),
-  'P1/access-control markers or 27-test total are not required')
-check(source.includes('assertCatalog(catalog)') && source.includes('assertResumeStable(sourceEvidence.preflight.before, before, after)'),
-  'catalog/final reconciliation is missing')
-check(Object.keys(contract.expected.catalog ?? {}).length === 4 &&
-  contract.expected.postMigrationRows === 70 && contract.expected.preMigrationRows === 69 &&
-  contract.expected.tests === 27 && resume?.sourcePreMigrationRows === 69 &&
-  resume?.requiredPostMigrationRows === 70,
-  '69/70, 27-test, or 4-catalog contract totals drift')
-check(source.includes('migrationAlreadyApplied: true') && source.includes('dbPushPerformed: false') &&
-  source.includes('persistentRemoteWrites: 0') && source.includes('productionReads: 0') &&
-  source.includes('productionWrites: 0'),
-  'resume evidence does not explicitly preserve zero-push/zero-persistent-write boundaries')
-check(source.includes('function safeEvidence(') && source.includes('/PGPASSWORD|postgres(?:ql)?:\\/\\/|sb_(?:secret|publishable)_|eyJ') &&
-  source.includes('clearDbEnvironment(channel.dbEnvironment)') && source.includes('channel.dbEnvironment = null'),
-  'secret scanning or final credential clearing is incomplete')
-check(source.includes('attempt.verificationStarted = true') && source.includes('attempt.attempts = 1'),
-  'single resume verification attempt marker missing')
-check(source.includes('retryPerformed: false') && source.includes('remoteCleanupPerformed: false'), 'first-failure stop evidence missing')
-check(source.includes('rmSync(channel.workdir, { recursive: true, force: true })'), 'temporary channel cleanup missing')
-check(contract.candidate.remoteExecutionAllowed === false &&
-  contract.referenceSync.remoteExecutionRequires === 'resume-only-synchronized-and-qualified',
-  'old apply candidate is not permanently disabled or resume sync boundary drifted')
-check(source.includes('if (!validateResumeRemoteGate(mode, syncState, contract.postApplyResume))') &&
-  source.includes('P1_REMOTE_EXECUTION_REFUSED: post-apply resume candidate is not reference-synchronized and qualified'),
-  'main does not exclusively use the independent resume remote gate')
+  '29 full reconciliations or two Storage archives are not hard-required')
+check(source.includes('attempt.privateRoutineDefinitionSnapshotsPassed = 1') &&
+  occurrences(source, 'attempt.privateRoutineDefinitionSnapshotsPassed += 1') === 2 &&
+  source.includes('attempt.privateRoutineDefinitionSnapshotsPassed !== 3') &&
+  source.includes('privateDefinition=1/1') && source.includes('privateDefinitionSnapshots=3/3'),
+  'private routine definition transition is not measured before/after/final as exact 3/3')
+check(source.includes('for (const test of databaseContract.tests)') &&
+  source.includes('const afterTest = snapshot(channel.dbEnvironment)') &&
+  source.includes('assertRepairStable(before70, afterApply71, afterTest)') &&
+  source.includes('const afterTestFull = runSealedFullReconciliation(channel.dbEnvironment)'),
+  '27 per-test light/full residue checks are incomplete')
+check(source.includes('requireFreshCredentialGeneration(channel, beforeFinalCredentialGeneration)') &&
+  source.includes('afterStorageSummary.canonicalSha256 !== beforeStorageSummary.canonicalSha256'),
+  'fresh final credential or Storage content equality is missing')
+check(source.includes('retryPerformed: false') && source.includes('remoteCleanupPerformed: false') &&
+  source.includes('targetPreserved: true'),
+  'first-failure stop/preserve evidence is missing')
 
-check(/^\s*(?:--[^\n]*\n\s*)*begin\s*;/i.test(accessControlTest) && /rollback\s*;\s*$/i.test(accessControlTest),
-  'access-control legacy-member cases are not fully transactional')
-check(accessControlTest.includes("'Access Negative', 'member', 'active'") &&
-  accessControlTest.includes("'Access Sales', 'member', 'active'") &&
-  accessControlTest.includes("'Access Admin', 'member', 'active'"),
-  'legacy-member negative/sales/admin fixture shapes are missing')
-check(accessControlTest.includes("'d5100000-0000-4000-8000-000000000002'::uuid, 'sales'::text") &&
-  accessControlTest.includes("'d5100000-0000-4000-8000-000000000003'::uuid, 'admin'::text") &&
-  accessControlTest.includes("Legacy member without an explicit primary role received managed access") &&
-  accessControlTest.includes("Explicit sales primary role permission contract failed") &&
-  accessControlTest.includes("Explicit admin primary role permission contract failed"),
-  'owner-confirmed legacy-member explicit sales/admin positive-negative contract is incomplete')
+const full = contract.fullReconciliation
+check(full.expected.migrationRows === 71 && full.execution.initialFullBeforeRepair === true &&
+  full.execution.fullAfterEverySqlTest === true && full.execution.perTestFullSnapshots === 27 &&
+  full.execution.finalFullAfterFreshCredential === true && full.execution.beforeAfterAllowedAclTransitionOnly === true &&
+  full.execution.storageArchiveAtInitialAndFinal === true && full.execution.temporaryTestSessionsOnly === true &&
+  full.execution.persistentDatabaseWrites === 'exactly-one-signed-acl-and-atomic-compatibility-migration' &&
+  full.execution.sessionClosedDropsTemp === true,
+  'full reconciliation 71/29/Storage/single-write execution contract drift')
+check(full.expectedSchemaAndHistoryDifference === 'exact-signed-P1-plus-ACL-repair-migrations-only' &&
+  full.unknownDifferencesAllowed === false && Object.keys(full.signedArtifacts).length === 6,
+  'signed source/schema difference or six-artifact boundary drift')
 
-const repair = contract.pendingTriggerRepair
-const backfillIndex = migration.indexOf(repair.backfillStatement)
-const immediateIndex = migration.indexOf(repair.immediateStatement, backfillIndex)
-const deferredIndex = migration.indexOf(repair.deferredStatement, immediateIndex)
-const alterIndex = migration.indexOf(repair.alterStatement, deferredIndex)
-check(repair.constraintName === 'public.profile_access_roles_last_admin', 'pending-trigger constraint name drift')
-check(backfillIndex >= 0 && backfillIndex < immediateIndex && immediateIndex < deferredIndex && deferredIndex < alterIndex,
-  'pending-trigger repair order must be backfill -> targeted immediate -> restore deferred -> alter')
-check(occurrences(migration, repair.immediateStatement) === 1 && occurrences(migration, repair.deferredStatement) === 1,
-  'pending-trigger repair statements must each occur exactly once')
-check(repair.forbidAllConstraintsFlush === true && !/set\s+constraints\s+all\s+immediate/i.test(migration),
-  'migration uses an over-broad SET CONSTRAINTS ALL flush')
-check(test.includes("tgname = 'profile_access_roles_last_admin'") && test.includes('tgdeferrable') && test.includes('tginitdeferred'),
-  'P1 SQL test does not preserve the existing last-admin trigger mode')
-check(postgresRegression.includes("negative control did not reproduce SQLSTATE 55006 pending trigger events") &&
-  postgresRegression.includes('set constraints canwin_p1_regression.profile_access_roles_last_admin immediate;') &&
-  postgresRegression.includes('set constraints canwin_p1_regression.profile_access_roles_last_admin deferred;'),
-  'real temporary Postgres regression lacks the 55006 control or repaired sequence')
-check(postgresRegression.includes("PGHOST: '127.0.0.1'") && postgresRegression.includes('remoteConnectionsAllowed !== false'),
-  'temporary Postgres regression is not loopback-only and fail-closed')
-const localPostgres = repair.localPostgres
-check(localPostgres.temporaryRoot === 'D:/CanWinP1LocalPgRuns' && /^[\x20-\x7e]+$/.test(localPostgres.temporaryRoot),
-  'temporary Postgres root is not fixed to a pure-ASCII D drive path')
-check(localPostgres.binaryRoot === 'D:/CanWinP1Postgres18/bin' &&
-  [localPostgres.initdbPath, localPostgres.pgCtlPath, localPostgres.psqlPath]
-    .every((path) => path.startsWith(localPostgres.binaryRoot + '/') && /^[\x20-\x7e]+$/.test(path)),
-  'local Postgres tools are not fixed absolute ASCII paths')
-check(localPostgres.user === 'p1_regression' && localPostgres.bootstrapUser === 'p1_regression' &&
-  localPostgres.encoding === 'UTF8' && localPostgres.clientEncoding === 'UTF8' && localPostgres.locale === 'C' &&
-  localPostgres.toolVersion === '18.4',
-  'ASCII bootstrap user, UTF8, or locale C lock drift')
-check(JSON.stringify([...localPostgres.forbiddenInheritedEnvironment].sort()) ===
-  JSON.stringify(['HOME', 'HOMEDRIVE', 'HOMEPATH', 'USERNAME', 'USERPROFILE']),
-  'Windows identity inheritance deny-list drift')
-check(!JSON.stringify(localPostgres).includes('NUL'), 'NUL device is allowed by local Postgres contract')
-check(postgresRegression.includes('function runStaticSelfTest()') &&
-  postgresRegression.includes('ASCII/UTF8/locale static negative test failed') &&
-  postgresRegression.includes('P1_PENDING_TRIGGER_POSTGRES_SELFTEST_OK'),
-  'ASCII/UTF8/locale negative self-test is missing')
-check(JSON.stringify(localPostgres.pgCtlStart?.stdio) === JSON.stringify(['ignore', 'ignore', 'ignore']) &&
-  localPostgres.pgCtlStart?.logFlag === '-l' && localPostgres.pgCtlStart?.waitFlag === '-w' &&
-  localPostgres.pgCtlStart?.timeoutFlag === '-t' && localPostgres.pgCtlStart?.timeoutSeconds === 30 &&
-  localPostgres.pgCtlStart?.hardLimitSeconds === 120,
-  'pg_ctl no-pipe/log/wait/timeout contract drift')
-check(postgresRegression.includes("stdio: options.stdio ?? 'pipe'") &&
-  postgresRegression.includes('function validateStartInvocation(') &&
-  postgresRegression.includes("stdio: [...regression.pgCtlStart.stdio]") &&
-  postgresRegression.includes('pg_ctl start uses a Node pipe'),
-  'pg_ctl start no-pipe implementation or negative guard missing')
-check(postgresRegression.includes('requireServerStartSuccess(started, serverLog)') &&
-  postgresRegression.includes('redactedLogTail(serverLog)') &&
-  postgresRegression.includes('regression.pgCtlStart.logFlag') &&
-  postgresRegression.includes('regression.pgCtlStart.waitFlag') &&
-  postgresRegression.includes('regression.pgCtlStart.timeoutFlag'),
-  'pg_ctl start does not use ASCII server log plus wait/timeout locks')
-check(postgresRegression.includes('if (serverStarted || existsSync(resolve(dataDirectory, \'postmaster.pid\')))') &&
-  postgresRegression.includes('ignoreDeadline: true') &&
-  postgresRegression.includes("['stop', '-D', dataDirectory, '-m', 'fast', '-w', '-t', '30']"),
-  'temporary Postgres finally-stop guarantee missing')
-check(postgresRegression.includes('pgCtlStartNegative=${startNegativePassed}/${startNegativeCases.length}') &&
-  postgresRegression.includes('two-minute local Postgres hard limit exceeded'),
-  'pg_ctl pipe/log/wait/timeout negatives or hard limit missing')
-const staticContractStart = postgresRegression.indexOf('function validateStaticContract(')
-const staticContractEnd = postgresRegression.indexOf('function probeToolVersion(', staticContractStart)
-const staticContractSource = postgresRegression.slice(staticContractStart, staticContractEnd)
-check(staticContractStart >= 0 && staticContractEnd > staticContractStart && !staticContractSource.includes('existsSync('),
-  'self-test static contract still requires local tool files')
-check(postgresRegression.includes('function validateExecutionToolchain(') &&
-  postgresRegression.includes('const pathExists = dependencies.pathExists ?? existsSync') &&
-  postgresRegression.includes('const versionProbe = dependencies.versionProbe ?? probeToolVersion') &&
-  postgresRegression.includes('assertStaticContract()\n  assertExecutionToolchain()'),
-  'execute-only tool existence/version gate is missing')
-check(postgresRegression.includes('selfTestMissingTools=allowed') &&
-  postgresRegression.includes('executeMissingTools=${executeMissingPassed}/${toolPaths.length}') &&
-  postgresRegression.includes('executeVersionDrift=${executeVersionDriftPassed}/1'),
-  'missing-tool self-test allowance or execute refusal negatives missing')
+check(migrationManifest.entries.length === 71 && migrationManifest.entries.at(-1)?.version === REPAIR_VERSION &&
+  migrationManifest.entries.at(-1)?.sha256 === REPAIR_SHA,
+  'migration manifest is not exact signed 71')
+check(databaseContract.tests.length === 27 && databaseContract.expectedCounts.total === 27 &&
+  databaseContract.tests.every((entry) => sha256Lf(resolve(repoRoot, entry.path)) === entry.sha256Lf),
+  '27 database test inventory/hash drift')
+check(databaseContract.tests.find((entry) => entry.path === repair.testPaths.teamOs4P1)?.sha256Lf === repair.testSha256Lf.teamOs4P1 &&
+  databaseContract.tests.find((entry) => entry.path === repair.testPaths.notificationCore)?.sha256Lf === repair.testSha256Lf.notificationCore,
+  'repair test hashes are not synchronized to CI contract')
+check(occurrences(repairMigration.toLowerCase(), 'revoke all on function') === 1 &&
+  occurrences(repairMigration.toLowerCase(), 'grant execute on function') === 1 &&
+  /notify\s+pgrst\s*,\s*'reload schema'\s*;/i.test(repairMigration),
+  'repair migration is not the one revoke/one grant/one notify repair')
+check(occurrences(repairMigration.toLowerCase(), 'create or replace function private.admin_apply_member_access_v1(') === 1 &&
+  !repairMigration.toLowerCase().includes('create trigger') &&
+  expectedAtomicMapping.every(({ legacyRole }) => repairMigration.includes(`'${legacyRole}'`)) &&
+  repairMigration.includes('update public.profiles p') && repairMigration.includes("'legacyRole', legacy_role") &&
+  repairMigration.includes("'legacyRole', target.role"),
+  'migration 71 private function replacement or five-role atomic mapping drift')
+check(repairSqlTest.includes('P1 role save did not atomically synchronize the legacy role mapping') &&
+  repairSqlTest.includes('P1 failed role save left a partial legacy or 4.0 permission write') &&
+  repairSqlTest.includes('P1_ATOMICITY_SENTINEL') &&
+  source.includes('atomicMapping=5/5') && source.includes('atomicRollback=2/2') &&
+  source.includes('sameTeamStatic=4/4'),
+  'atomic mapping/rollback/same-team evidence totals are not hard-locked')
+check(source.includes('const atomicDatabaseUnqualifiedRepair = {') &&
+  source.includes('const atomicRemoteLockedRepair = {') &&
+  source.includes('databaseCiPassed: false') && source.includes('remoteQualificationAllowed: false') &&
+  source.includes('repairGateNegative=5/5') && source.includes('atomicGateNegative=2/2'),
+  'atomic-only remote gate negative controls are missing or miscounted')
 
-check(sha256Lf(resolve(repoRoot, contract.candidate.migrationPath)) === contract.candidate.migrationSha256Lf,
-  'P1 migration LF hash drift')
-check(sha256Lf(resolve(repoRoot, contract.candidate.testPath)) === contract.candidate.testSha256Lf,
-  'P1 SQL test LF hash drift')
+const selfStart = index('function runSelfTest()')
+const selfEnd = index('function verifyTemporaryLink(', selfStart)
+const selfSource = source.slice(selfStart, selfEnd)
+check(selfStart >= 0 && selfEnd > selfStart && !selfSource.includes('loadRepairFailureEvidence(') &&
+  !selfSource.includes('runSealedFullReconciliation(') && !selfSource.includes('collectTargetStorageSummary(') &&
+  selfSource.includes('databaseCalls=0') && selfSource.includes('storageCalls=0') &&
+  selfSource.includes('dEvidenceRequired=0'),
+  'self-test can touch D evidence, database, or Storage')
+check(source.includes("clearDbEnvironment(channel.dbEnvironment)") && source.includes('channel.dbEnvironment = null') &&
+  source.includes('rmSync(channel.workdir, { recursive: true, force: true })'),
+  'temporary credential/workdir cleanup is incomplete')
+const forbiddenDEvidenceMarker = ['D:/CanWin-Team-OS-4.0-P1-', 'Validation/p1-resume'].join('')
+const forbiddenP0ImportMarker = ["from '", '../p0/'].join('')
+check(!validatorSource.includes(forbiddenP0ImportMarker) && !validatorSource.includes(forbiddenDEvidenceMarker),
+  'validator must not import remote helpers or read D evidence')
+check(normalizeLf(source.replaceAll('\n', '\r\n')) === source,
+  'runner semantic source normalization fails for CRLF')
+
 check(sha256Lf(resolve(repoRoot, contract.scriptHardLocks.runnerPath)) === contract.scriptHardLocks.runnerSha256Lf,
-  'P1 runner LF hash drift')
-const validatorLfSha = sha256Lf(resolve(repoRoot, contract.scriptHardLocks.validatorPath))
-check(validatorLfSha === contract.scriptHardLocks.validatorSha256Lf,
-  `P1 validator LF hash drift actual=${validatorLfSha}`)
-check(sha256Lf(resolve(repoRoot, contract.scriptHardLocks.postgresRegressionPath)) === contract.scriptHardLocks.postgresRegressionSha256Lf,
-  'P1 local Postgres regression LF hash drift')
+  'runner LF hash drift')
+const validatorSha = sha256Lf(resolve(repoRoot, contract.scriptHardLocks.validatorPath))
+check(validatorSha === contract.scriptHardLocks.validatorSha256Lf,
+  `validator LF hash drift actual=${validatorSha}`)
 
 if (failures.length > 0) {
   console.error('P1_ISOLATED_RUNTIME_RUNNER_DRIFT')
   for (const failure of failures) console.error('- ' + failure)
   process.exit(1)
 }
-console.log(`P1_ISOLATED_RUNTIME_RUNNER_OK assertions=${assertionCount} sourceEolFormats=lf,crlf,mixed targetLocked=1 productionDenied=1 resumeOnly=1 candidateRemote=0 resumeRemote=1 signedCiRun=29699951990 signedCiLinux=88227205377 signedCiWindows=88227205362 signedCiDualPlatform=19/19+12/12 signedCiCounts=70/27/7/11/9/4 sameHeadDenied=1 trackedDirtyDenied=1 untrackedAuditAllowed=1 dbPush=0 signed69Baseline=1 exact70PostApply=1 signedArtifacts=6 authRecoveryScope=1 fixturePatterns=4/4 sqlTests=27 perTestSnapshots=27 fullSnapshots=29 storageArchives=2 catalog=4 canonicalBeforeAfter=1 contentFingerprints=1 syntheticDriftControls=9 readOnlyTransactions=1 rollbackFixtures=1 credentialRotation=1 pendingTriggerOrder=1 postgresRegression=1 temporaryChannel=1 singleAttempt=1 secretsPersisted=0 validatorDatabaseCalls=0 validatorStorageCalls=0 validatorDEvidenceRequired=0 runnerSelftestDatabaseCalls=0 runnerSelftestStorageCalls=0 runnerSelftestDEvidenceRequired=0`)
+console.log(`P1_ISOLATED_RUNTIME_RUNNER_OK assertions=${assertionCount} exact70to71=1 signedMigrationInventory=71/71 dryRunOnly71=1 dbPushMax=1 failedPushUnknownState=1 aclTargets=6/6 expectedAclChanges=4/4 privateDefinitionChange=1/1 privateDefinitionSnapshots=3/3 atomicMapping=5/5 atomicRollback=2/2 sameTeamStatic=4/4 atomicGateNegative=2/2 repairGateNegative=5/5 atomicDatabaseCiPending=1 fullDifferencePaths=2/2 sqlTests=27 perTestSnapshots=27 fullSnapshots=29 storageArchives=2 signedFailureCounts=5/5/6/1 oldResumeDenied=1 applicationCompatibilityPassed=1 legacyRpcCalls=0 detectorNegative=2/2 appShell=99/99 staticGate16=runner+appShell+accessV1 warehouseBackendRelaxed=0 repairRemote=0 productionDenied=1 validatorDatabaseCalls=0 validatorStorageCalls=0 validatorDEvidenceRequired=0`)
