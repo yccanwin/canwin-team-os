@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "manifestType": "canwin-team-os-p1-interface-freeze",
-  "contractStatus": "p1_acl_repair_parser_fix_remote_qualified_after_preserved_formal_dry_run_failure",
-  "scope": "Freeze P1 role, permission, app-context, navigation, responsibility-routing and acceptance interfaces; preserve every prior failed run without rerun; retain run 29733854344 only as historical successful repair CI evidence; preserve the formal ACL repair dry-run failure before any formal attempt or database push; bind run 29738966326 as the current parser-fix prequalification and allow exactly one signed ACL repair attempt; keep G1 false at 25 percent and production unchanged.",
+  "contractStatus": "p1_acl_repair_direct_db_dry_run_timeout_qualification_closed",
+  "scope": "Freeze P1 role, permission, app-context, navigation, responsibility-routing and acceptance interfaces; preserve every prior failed run and historical CI run without rerun; bind the direct-database dry-run timeout at supervision HEAD 8fa1498850 as the current formal failure with zero attempts and writes; close remote execution and db push; require Session Pooler plus new independent CI for the next candidate; keep G1 false at 25 percent and production unchanged.",
   "sources": [
     "docs/CanWin-Team-OS-4.0-最终施工总方案.md",
     "docs/team-os-4.0/p0/p1-app-navigation-contract.json",
@@ -449,8 +449,8 @@
   },
   "aclRepairCandidate": {
     "mode": "--apply-acl-repair",
-    "remoteExecutionAllowed": true,
-    "dbPushAllowed": true,
+    "remoteExecutionAllowed": false,
+    "dbPushAllowed": false,
     "migrationVersion": "20260720015435",
     "migrationPath": "supabase/migrations/20260720015435_harden_server_only_rpc_acl.sql",
     "migrationSha256Lf": "1bb13f29fc0f5512bd00115dc1c953a2c3aaa0ec21522b1cc8cbb45a18a5cdc0",
@@ -462,13 +462,16 @@
     "maxDbPushAttempts": 1,
     "dryRunRequired": true,
     "pendingMigrationVersions": ["20260720015435"],
-    "currentCiQualification": "qualified-signed-run-29738966326",
+    "currentCiQualification": "pending-session-pooler-new-signed-run",
     "priorSuccessfulCiEvidenceRef": "priorSuccessfulRepairCiRunEvidence",
-    "signedCiHeadSha": "070c2e4ca185037d37f65b4d98be617a43e4409d",
-    "signedCiRunId": "29738966326",
-    "signedCiLinuxJobId": "88340968144",
-    "signedCiWindowsJobId": "88340968119",
-    "signedCiConclusion": "success",
+    "priorParserFixCiEvidenceRef": "priorParserFixRepairCiRunEvidence",
+    "requiredConnectionMode": "session-pooler",
+    "newIndependentCiRequired": true,
+    "signedCiHeadSha": null,
+    "signedCiRunId": null,
+    "signedCiLinuxJobId": null,
+    "signedCiWindowsJobId": null,
+    "signedCiConclusion": null,
     "functions": [
       { "identity": "public.enqueue_wecom_notification_jobs(text, timestamp with time zone)", "revokeRoles": ["PUBLIC", "anon", "authenticated"], "requiredGrantRoles": ["service_role"] },
       { "identity": "public.claim_wecom_notification_jobs(integer, timestamp with time zone)", "revokeRoles": ["PUBLIC", "anon", "authenticated"], "requiredGrantRoles": ["service_role"] },
@@ -490,9 +493,9 @@
       { "path": "supabase/tests/team_os_4_p1_access_shell.sql", "sha256Lf": "c598b4e4ed3c7e26d9411cb4084685bea1233f47ae969c2685e048f480dac09e" }
     ],
     "currentRuntimeArtifacts": {
-      "contract": { "path": "scripts/p1/isolated-runtime-contract.json", "sha256Lf": "80663687bb68292af3d4febca682b0a981562efee48788fe07d1bc75c283120e" },
-      "runner": { "path": "scripts/p1/run-isolated-runtime.mjs", "sha256Lf": "8ffd152c34aa4f5f3ad4b297670d4ee6a6556c83da9a1d8f38c006c2b2c76d95" },
-      "validator": { "path": "scripts/p1/verify-isolated-runtime-runner.mjs", "sha256Lf": "68b4ee999ab372790a149a7a0fc9c1b3e3db618805dabc8117434e0a092d955e", "assertions": "68/68" }
+      "contract": { "path": "scripts/p1/isolated-runtime-contract.json", "sha256Lf": "e6b152e9dd98f848ceeac862669a3447e81a87fdc75772b5f027dbef6d15cca3" },
+      "runner": { "path": "scripts/p1/run-isolated-runtime.mjs", "sha256Lf": "417565306ac5b515e11a009b85bc4f615ac99511dd4efc8a2ca65d5f2ee59061" },
+      "validator": { "path": "scripts/p1/verify-isolated-runtime-runner.mjs", "sha256Lf": "bb8c7db55512db69b1d0451cc27c5a2b8532b6afecaf579023cfbed79a54a40a", "assertions": "71/71" }
     },
     "fullReconciliation": {
       "expected": { "migrationRows": 71 },
@@ -522,8 +525,8 @@
     "atomicLegacyRoleCompatibility": {
       "status": "passed",
       "staticPassed": true,
-      "databaseCiPassed": true,
-      "remoteQualificationAllowed": true,
+      "databaseCiPassed": null,
+      "remoteQualificationAllowed": false,
       "writeFunction": "private.admin_apply_member_access_v1(uuid, text, text[], uuid[], uuid[], text[], uuid)",
       "mappingPrecedence": [
         { "condition": "primary-admin", "legacyRole": "admin" },
@@ -549,7 +552,7 @@
     },
     "applicationCompatibility": {
       "status": "passed",
-      "remoteQualificationAllowed": true,
+      "remoteQualificationAllowed": false,
       "legacyRpcCallSites": [],
       "resolvedEvidence": {
         "files": ["src/features/access-admin/supabaseDataSource.ts", "supabase/functions/admin-members/index.ts"],
@@ -635,7 +638,7 @@
     "evidenceScope": "historical-prior-success-only",
     "currentQualificationAllowed": false
   },
-  "formalAclRepairFailureEvidence": {
+  "priorFormalAclRepairFailureEvidence": {
     "runId": "p1-acl-repair-20260720T104323349Z-4fa8de78a8",
     "evidenceDirectory": "D:/CanWin-Team-OS-4.0-P1-Validation/p1-acl-repair-20260720T104323349Z-4fa8de78a8",
     "failurePath": "D:/CanWin-Team-OS-4.0-P1-Validation/p1-acl-repair-20260720T104323349Z-4fa8de78a8/failure.json",
@@ -678,7 +681,56 @@
     },
     "successEvidencePresent": false
   },
-  "repairCiRunEvidence": {
+  "formalAclRepairFailureEvidence": {
+    "runId": "p1-acl-repair-20260720T122757275Z-8fa1498850",
+    "evidenceDirectory": "D:/CanWin-Team-OS-4.0-P1-Validation/p1-acl-repair-20260720T122757275Z-8fa1498850",
+    "failurePath": "D:/CanWin-Team-OS-4.0-P1-Validation/p1-acl-repair-20260720T122757275Z-8fa1498850/failure.json",
+    "failureSha256": "19e4cd30c3d024a452b74f94380a17175364326dc59d41b837bc338c398579ba",
+    "supervisionHeadSha": "8fa14988502511d9722bd37add5b51d845f7934f",
+    "status": "failed-stop-preserved",
+    "currentStep": "db-push-dry-run",
+    "message": "signed ACL repair db push dry-run failed: direct isolated database connection timed out before migration enumeration",
+    "failureClass": "isolated-test-direct-database-connection-timeout",
+    "connectionMode": "direct-database-host",
+    "migrationVersion": "20260720015435",
+    "migrationAlreadyApplied": false,
+    "initialMigrationHistory": {
+      "lightMigrationRows": 70,
+      "fullMigrationRows": 70,
+      "exactVersionSetProven": false,
+      "claimBoundary": "row-count-only-not-exact-version-set-proof"
+    },
+    "initialEvidenceCounts": {
+      "lightSnapshots": 1,
+      "fullReconciliationSnapshots": 1,
+      "privateRoutineDefinitionSnapshots": 1,
+      "storageArchives": 1
+    },
+    "formalAttemptStarted": false,
+    "verificationStarted": false,
+    "dbPushAttempted": false,
+    "dbPushPerformed": false,
+    "dbPushOutcome": "not-attempted",
+    "dbPushAttempts": 0,
+    "attempts": 0,
+    "confirmedPersistentWrites": 0,
+    "persistentRemoteWrites": 0,
+    "persistentRemoteWriteUpperBound": 0,
+    "productionReads": 0,
+    "productionWrites": 0,
+    "secretsPrinted": 0,
+    "secretsWritten": 0,
+    "targetPreserved": true,
+    "retryPerformed": false,
+    "remoteCleanupPerformed": false,
+    "evidenceInventory": {
+      "files": ["failure.json"],
+      "fileCount": 1,
+      "onlyFailureJson": true
+    },
+    "successEvidencePresent": false
+  },
+  "priorParserFixRepairCiRunEvidence": {
     "status": "success",
     "conclusion": "success",
     "runId": "29738966326",
@@ -719,8 +771,28 @@
     "candidateRemoteExecutionAllowed": false,
     "databaseCiPassed": true,
     "remoteQualificationAllowed": true,
-    "currentQualificationAllowed": true,
+    "currentQualificationAllowed": false,
     "successEvidencePresent": true,
+    "g1OverallClaim": false,
+    "evidenceScope": "historical-parser-fix-ci-for-failed-direct-db-candidate"
+  },
+  "repairCiRunEvidence": {
+    "status": "pending-session-pooler-new-signed-run",
+    "conclusion": null,
+    "runId": null,
+    "runUrl": null,
+    "headSha": null,
+    "linuxJobId": null,
+    "windowsJobId": null,
+    "qualificationScope": "acl_repair_session_pooler_prequalification",
+    "requiredConnectionMode": "session-pooler",
+    "newIndependentCiRequired": true,
+    "databaseCiPassed": null,
+    "remoteQualificationAllowed": false,
+    "currentQualificationAllowed": false,
+    "successEvidencePresent": false,
+    "priorQualifiedRunId": "29738966326",
+    "closedByFormalAclRepairFailureRunId": "p1-acl-repair-20260720T122757275Z-8fa1498850",
     "g1OverallClaim": false
   },
   "repairCandidate": {
@@ -876,14 +948,16 @@
     "postApplyResumeFailurePreserved": true,
     "aclRepairMigrationPath": "supabase/migrations/20260720015435_harden_server_only_rpc_acl.sql",
     "aclRepairLocalGates": "passed",
-    "aclRepairDatabaseCi": "passed-signed-run-29738966326",
-    "formalAclRepairDryRun": "failed-stop-preserved",
-    "formalAclRepairFailureRunId": "p1-acl-repair-20260720T104323349Z-4fa8de78a8",
-    "aclRepairQualification": "qualified-after-preserved-formal-dry-run-failure",
-    "aclRepairQualificationCount": 1,
-    "aclRepairQualifiedRunId": "29738966326",
-    "aclRepairRemoteExecutionAllowed": true,
-    "aclRepairDbPushAllowed": true,
+    "aclRepairDatabaseCi": "prior-parser-fix-run-29738966326-historical-only-current-pending",
+    "formalAclRepairDryRun": "direct-db-connection-timeout-failed-stop-preserved",
+    "formalAclRepairFailureRunId": "p1-acl-repair-20260720T122757275Z-8fa1498850",
+    "aclRepairQualification": "closed-session-pooler-and-new-ci-required",
+    "aclRepairQualificationCount": 0,
+    "aclRepairQualifiedRunId": null,
+    "aclRepairRemoteExecutionAllowed": false,
+    "aclRepairDbPushAllowed": false,
+    "nextAclRepairConnectionMode": "session-pooler",
+    "nextAclRepairIndependentCiRequired": true,
     "fullReconciliationExactRows": 71,
     "fullReconciliationSqlTests": 27,
     "fullReconciliationPerTestSnapshots": 27,

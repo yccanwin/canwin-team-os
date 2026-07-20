@@ -77,6 +77,8 @@ function validateRepairRemoteGate(candidateMode, repair, ci) {
     repair?.atomicLegacyRoleCompatibility?.databaseCiPassed === true &&
     repair?.applicationCompatibility?.remoteQualificationAllowed === true &&
     repair?.atomicLegacyRoleCompatibility?.remoteQualificationAllowed === true &&
+    ci?.qualificationScope === 'acl_repair_session_pooler_prequalification' &&
+    ci?.requiredConnectionMode === 'session-pooler' &&
     ci?.evidenceScope !== 'historical-prior-success-only' && ci?.currentQualificationAllowed !== false &&
     /^[a-f0-9]{40}$/.test(ci?.headSha ?? '') && ci?.status === 'success'
 }
@@ -635,28 +637,52 @@ function assertFrozenContract() {
   const repair = contract.aclRepair
   const ci = contract.repairCiRunEvidence
   const priorSuccessfulRepairCi = contract.priorSuccessfulRepairCiRunEvidence
+  const priorFormalFailure = contract.priorFormalAclRepairFailureEvidence
   const formalFailure = contract.formalAclRepairFailureEvidence
+  const priorParserFixRepairCi = contract.priorParserFixRepairCiRunEvidence
   const priorSuccessfulRepairCiHistorical =
     priorSuccessfulRepairCi?.runId === '29733854344' &&
     priorSuccessfulRepairCi?.headSha === '71b7320b4c303af797ee9e4bf12044518a4fe18a' &&
     priorSuccessfulRepairCi?.status === 'success' &&
     priorSuccessfulRepairCi?.evidenceScope === 'historical-prior-success-only' &&
     priorSuccessfulRepairCi?.currentQualificationAllowed === false
-  const formalAclRepairFailurePreserved =
-    formalFailure?.runId === 'p1-acl-repair-20260720T104323349Z-4fa8de78a8' &&
-    formalFailure?.failureSha256 === '16373794dd745ad86422bb59f3966933532cb0bf073251963b519c2b8e367e73' &&
-    formalFailure?.supervisionHeadSha === '4fa8de78a8b05f8285f69fb0d6d9106e20e3cba7' &&
+  const priorFormalAclRepairFailurePreserved =
+    priorFormalFailure?.runId === 'p1-acl-repair-20260720T104323349Z-4fa8de78a8' &&
+    priorFormalFailure?.failureSha256 === '16373794dd745ad86422bb59f3966933532cb0bf073251963b519c2b8e367e73' &&
+    priorFormalFailure?.supervisionHeadSha === '4fa8de78a8b05f8285f69fb0d6d9106e20e3cba7' &&
+    priorFormalFailure?.status === 'failed-stop-preserved' &&
+    priorFormalFailure?.currentStep === 'db-push-dry-run' &&
+    priorFormalFailure?.formalAttemptStarted === false && priorFormalFailure?.dbPushAttempts === 0 &&
+    priorFormalFailure?.persistentRemoteWrites === 0 && priorFormalFailure?.productionReads === 0 &&
+    priorFormalFailure?.productionWrites === 0 && priorFormalFailure?.successEvidencePresent === false
+  const priorParserFixRepairCiHistorical =
+    priorParserFixRepairCi?.runId === '29738966326' &&
+    priorParserFixRepairCi?.headSha === '070c2e4ca185037d37f65b4d98be617a43e4409d' &&
+    priorParserFixRepairCi?.status === 'success' && priorParserFixRepairCi?.databaseCiPassed === true &&
+    priorParserFixRepairCi?.remoteQualificationAllowed === true &&
+    priorParserFixRepairCi?.currentQualificationAllowed === false &&
+    priorParserFixRepairCi?.evidenceScope === 'historical-parser-fix-ci-for-failed-direct-db-candidate' &&
+    priorParserFixRepairCi?.formalAclRepairFailurePreservedWithoutRerun ===
+      'p1-acl-repair-20260720T104323349Z-4fa8de78a8'
+  const directDbFormalFailurePreserved =
+    formalFailure?.runId === 'p1-acl-repair-20260720T122757275Z-8fa1498850' &&
+    formalFailure?.failureSha256 === '19e4cd30c3d024a452b74f94380a17175364326dc59d41b837bc338c398579ba' &&
+    formalFailure?.supervisionHeadSha === '8fa14988502511d9722bd37add5b51d845f7934f' &&
     formalFailure?.status === 'failed-stop-preserved' && formalFailure?.currentStep === 'db-push-dry-run' &&
+    formalFailure?.failureClass === 'isolated-test-direct-database-connection-timeout' &&
+    formalFailure?.connectionMode === 'direct-database-host' &&
     formalFailure?.migrationVersion === REPAIR_VERSION && formalFailure?.migrationAlreadyApplied === false &&
-    formalFailure?.formalAttemptStarted === false && formalFailure?.dbPushAttempted === false &&
-    formalFailure?.dbPushPerformed === false && formalFailure?.dbPushAttempts === 0 &&
+    formalFailure?.formalAttemptStarted === false && formalFailure?.verificationStarted === false &&
+    formalFailure?.dbPushAttempted === false && formalFailure?.dbPushPerformed === false &&
+    formalFailure?.dbPushOutcome === 'not-attempted' && formalFailure?.dbPushAttempts === 0 &&
     formalFailure?.attempts === 0 && formalFailure?.confirmedPersistentWrites === 0 &&
     formalFailure?.persistentRemoteWrites === 0 && formalFailure?.persistentRemoteWriteUpperBound === 0 &&
     formalFailure?.productionReads === 0 && formalFailure?.productionWrites === 0 &&
+    formalFailure?.secretsPrinted === 0 && formalFailure?.secretsWritten === 0 &&
     formalFailure?.targetPreserved === true && formalFailure?.retryPerformed === false &&
     formalFailure?.remoteCleanupPerformed === false && formalFailure?.successEvidencePresent === false
   const repairCiQualified =
-    contract.contractStatus === 'p1_acl_repair_parser_fix_remote_qualified_after_preserved_formal_dry_run_failure' &&
+    contract.contractStatus === 'p1_acl_repair_session_pooler_remote_qualified_after_preserved_direct_db_failure' &&
     repair.remoteExecutionAllowed === true && repair.dbPushAllowed === true &&
     repair.applicationCompatibility?.status === 'passed' &&
     repair.atomicLegacyRoleCompatibility?.status === 'passed' &&
@@ -664,13 +690,12 @@ function assertFrozenContract() {
     repair.atomicLegacyRoleCompatibility?.databaseCiPassed === true &&
     repair.applicationCompatibility?.remoteQualificationAllowed === true &&
     repair.atomicLegacyRoleCompatibility?.remoteQualificationAllowed === true &&
-    ci?.runId === '29738966326' &&
-    ci?.runUrl === 'https://github.com/yccanwin/canwin-team-os/actions/runs/29738966326' &&
-    ci?.headSha === '070c2e4ca185037d37f65b4d98be617a43e4409d' &&
-    ci?.linuxJobId === '88340968144' && ci?.windowsJobId === '88340968119' &&
+    /^[0-9]+$/.test(ci?.runId ?? '') && /^[a-f0-9]{40}$/.test(ci?.headSha ?? '') &&
+    /^[0-9]+$/.test(ci?.linuxJobId ?? '') && /^[0-9]+$/.test(ci?.windowsJobId ?? '') &&
     ci?.status === 'success' && ci?.conclusion === 'success' &&
     ci?.linuxStatus === 'success' && ci?.windowsStatus === 'success' &&
-    ci?.qualificationScope === 'acl_repair_parser_fix_prequalification' &&
+    ci?.qualificationScope === 'acl_repair_session_pooler_prequalification' &&
+    ci?.requiredConnectionMode === 'session-pooler' &&
     ci?.migrationsPassed === 71 && ci?.sqlTestsStarted === 27 && ci?.sqlTestsPassed === 27 &&
     ci?.databaseTestsPassed === 7 && ci?.permissionTestsPassed === 11 && ci?.businessTestsPassed === 9 &&
     ci?.catalogAssertionsPassed === 4 && ci?.windowsStaticExpected === 19 && ci?.windowsStaticPassed === 19 &&
@@ -678,11 +703,12 @@ function assertFrozenContract() {
     ci?.cleanupPassed === true && ci?.candidateRemoteExecutionAllowed === false && ci?.g1OverallClaim === false &&
     ci?.productionReadPerformed === false && ci?.productionWritePerformed === false && ci?.retryPerformed === false &&
     ci?.priorSuccessfulRunPreservedWithoutRerun === '29733854344' &&
-    ci?.formalAclRepairFailurePreservedWithoutRerun === 'p1-acl-repair-20260720T104323349Z-4fa8de78a8' &&
+    ci?.priorParserFixRunPreservedWithoutRerun === '29738966326' &&
+    ci?.formalAclRepairFailurePreservedWithoutRerun === 'p1-acl-repair-20260720T122757275Z-8fa1498850' &&
     ci?.databaseCiPassed === true && ci?.remoteQualificationAllowed === true &&
     ci?.currentQualificationAllowed === true && ci?.successEvidencePresent === true &&
-    priorSuccessfulRepairCiHistorical &&
-    formalAclRepairFailurePreserved && Boolean(findRepairSignedCiRun())
+    priorSuccessfulRepairCiHistorical && priorFormalAclRepairFailurePreserved &&
+    priorParserFixRepairCiHistorical && directDbFormalFailurePreserved && Boolean(findRepairSignedCiRun())
   const repairCiPending = repair.remoteExecutionAllowed === false && repair.dbPushAllowed === false &&
     repair.applicationCompatibility?.status === 'passed' &&
     repair.atomicLegacyRoleCompatibility?.status === 'static-passed-prior-database-ci-failed-preserved-new-candidate-pending' &&
@@ -709,8 +735,30 @@ function assertFrozenContract() {
     ci?.conclusion === null && ci?.databaseCiPassed === null &&
     ci?.remoteQualificationAllowed === false && ci?.successEvidencePresent === false &&
     ci?.closedByFormalAclRepairFailureRunId === 'p1-acl-repair-20260720T104323349Z-4fa8de78a8' &&
-    formalAclRepairFailurePreserved
-  const qualificationStateCount = [repairCiQualified, repairCiPending, repairFormalFailureClosed]
+    priorFormalAclRepairFailurePreserved
+  const repairDirectDbFailureClosed =
+    contract.contractStatus === 'p1_acl_repair_direct_db_dry_run_timeout_qualification_closed' &&
+    repair.remoteExecutionAllowed === false && repair.dbPushAllowed === false &&
+    repair.applicationCompatibility?.status === 'passed' &&
+    repair.applicationCompatibility?.remoteQualificationAllowed === false &&
+    repair.atomicLegacyRoleCompatibility?.status === 'passed' &&
+    repair.atomicLegacyRoleCompatibility?.staticPassed === true &&
+    repair.atomicLegacyRoleCompatibility?.databaseCiPassed === null &&
+    repair.atomicLegacyRoleCompatibility?.remoteQualificationAllowed === false &&
+    priorSuccessfulRepairCiHistorical && priorFormalAclRepairFailurePreserved &&
+    priorParserFixRepairCiHistorical && directDbFormalFailurePreserved &&
+    ci?.status === 'pending-session-pooler-new-signed-run' && ci?.runId === null && ci?.runUrl === null &&
+    ci?.headSha === null && ci?.linuxJobId === null && ci?.windowsJobId === null && ci?.conclusion === null &&
+    ci?.qualificationScope === 'acl_repair_session_pooler_prequalification' &&
+    ci?.requiredConnectionMode === 'session-pooler' && ci?.newIndependentCiRequired === true &&
+    ci?.databaseCiPassed === null && ci?.remoteQualificationAllowed === false &&
+    ci?.currentQualificationAllowed === false && ci?.successEvidencePresent === false &&
+    ci?.priorQualifiedRunId === '29738966326' &&
+    ci?.closedByFormalAclRepairFailureRunId === 'p1-acl-repair-20260720T122757275Z-8fa1498850' &&
+    ci?.g1OverallClaim === false
+  const qualificationStateCount = [
+    repairCiQualified, repairCiPending, repairFormalFailureClosed, repairDirectDbFailureClosed,
+  ]
     .filter(Boolean).length
   if (contract.candidate.remoteExecutionAllowed !== false || contract.postApplyResume?.remoteExecutionAllowed !== false ||
       contract.postApplyResume?.dbPushAllowed !== false || !['--resume-post-apply', 'retired'].includes(contract.postApplyResume?.mode) ||
@@ -996,6 +1044,91 @@ function runSelfTest() {
       !preservedDryRunEvidence.includes('"outputSha256"') ||
       /synthetic-must-not-survive|PGPASSWORD|postgresql:\/\//i.test(preservedDryRunEvidence)) {
     throw new Error('ACL repair dry-run evidence self-test failed')
+  }
+  const syntheticPoolerEnvironment = {
+    PGHOST: 'aws-0-ap-southeast-1.pooler.supabase.com',
+    PGPORT: '5432',
+    PGUSER: `cli_login_postgres.${TARGET_REF}`,
+    PGPASSWORD: 'synthetic-pooler-password-must-not-survive',
+    PGDATABASE: 'postgres',
+    PGSSLMODE: 'require',
+    PGCLIENTENCODING: 'UTF8',
+    PGOPTIONS: '-c jit=true',
+  }
+  const syntheticPoolerChannel = { workdir: temp, dbEnvironment: syntheticPoolerEnvironment }
+  const syntheticInheritedEnvironment = {
+    ...process.env,
+    SUPABASE_DB_PASSWORD: 'synthetic-supabase-db-password-must-not-survive',
+    SUPABASE_DB_URL: 'postgresql://synthetic-secret-must-not-survive',
+    DATABASE_URL: 'postgresql://synthetic-secret-must-not-survive',
+    PGPASSFILE: 'synthetic-pgpassfile-must-not-survive',
+    PGSERVICE: 'synthetic-pgservice-must-not-survive',
+    PGSERVICEFILE: 'synthetic-pgservicefile-must-not-survive',
+  }
+  const poolerPushInvocations = [
+    buildSessionPoolerPushInvocation(syntheticPoolerChannel, { dryRun: true }, syntheticInheritedEnvironment),
+    buildSessionPoolerPushInvocation(syntheticPoolerChannel, { dryRun: false }, syntheticInheritedEnvironment),
+  ]
+  let poolerInvocationEvidenceDenied = false
+  try { safeEvidence({ poolerPushInvocation: poolerPushInvocations[0] }) } catch { poolerInvocationEvidenceDenied = true }
+  const poolerPushPositivePassed = poolerPushInvocations.filter((invocation, index) => {
+    const dbUrlIndex = invocation.args.indexOf('--db-url')
+    const dbUrl = invocation.args[dbUrlIndex + 1]
+    return invocation.args[0] === 'db' && invocation.args[1] === 'push' && dbUrlIndex === 2 &&
+      invocation.args.includes('--dry-run') === (index === 0) &&
+      !invocation.args.includes('--linked') && !invocation.args.includes('--password') &&
+      !invocation.args.join(' ').includes(syntheticPoolerEnvironment.PGPASSWORD) &&
+      assertPasswordlessSessionPoolerUrl(dbUrl, syntheticPoolerEnvironment) &&
+      invocation.childEnvironment.PGPASSWORD === syntheticPoolerEnvironment.PGPASSWORD &&
+      invocation.childEnvironment.PGSSLMODE === 'require' &&
+      invocation.childEnvironment.SUPABASE_DB_PASSWORD === undefined &&
+      invocation.childEnvironment.SUPABASE_DB_URL === undefined &&
+      invocation.childEnvironment.DATABASE_URL === undefined &&
+      invocation.childEnvironment.PGPASSFILE === undefined &&
+      invocation.childEnvironment.PGSERVICE === undefined &&
+      invocation.childEnvironment.PGSERVICEFILE === undefined
+  }).length
+  const poolerPushNegativeCases = [
+    () => buildSessionPoolerPushInvocation({
+      ...syntheticPoolerChannel,
+      dbEnvironment: { ...syntheticPoolerEnvironment, PGHOST: `db.${TARGET_REF}.supabase.co` },
+    }, { dryRun: true }),
+    () => buildSessionPoolerPushInvocation({
+      ...syntheticPoolerChannel,
+      dbEnvironment: { ...syntheticPoolerEnvironment, PGHOST: 'pooler.invalid.example' },
+    }, { dryRun: true }),
+    () => buildSessionPoolerPushInvocation({
+      ...syntheticPoolerChannel,
+      dbEnvironment: { ...syntheticPoolerEnvironment, PGPORT: '6543' },
+    }, { dryRun: true }),
+    () => buildSessionPoolerPushInvocation({
+      ...syntheticPoolerChannel,
+      dbEnvironment: { ...syntheticPoolerEnvironment, PGUSER: 'cli_login_postgres.wrongref' },
+    }, { dryRun: true }),
+    () => buildSessionPoolerPushInvocation({
+      ...syntheticPoolerChannel,
+      dbEnvironment: { ...syntheticPoolerEnvironment, PGSSLMODE: 'disable' },
+    }, { dryRun: true }),
+    () => buildSessionPoolerPushInvocation({
+      ...syntheticPoolerChannel,
+      dbEnvironment: { ...syntheticPoolerEnvironment, PGPASSWORD: '' },
+    }, { dryRun: true }),
+    () => assertPasswordlessSessionPoolerUrl(
+      `postgresql://postgres:forbidden@${syntheticPoolerEnvironment.PGHOST}:5432/postgres?sslmode=require`,
+      syntheticPoolerEnvironment,
+    ),
+  ]
+  let poolerPushNegativePassed = 0
+  for (const test of poolerPushNegativeCases) {
+    try { test() } catch { poolerPushNegativePassed += 1 }
+  }
+  for (const invocation of poolerPushInvocations) clearPushInvocationSecret(invocation)
+  const poolerPushSecretsCleared = poolerPushInvocations
+    .filter((invocation) => invocation.childEnvironment.PGPASSWORD === '').length
+  if (poolerPushPositivePassed !== poolerPushInvocations.length ||
+      poolerPushNegativePassed !== poolerPushNegativeCases.length || !poolerInvocationEvidenceDenied ||
+      poolerPushSecretsCleared !== poolerPushInvocations.length) {
+    throw new Error('ACL repair Session Pooler push invocation self-test failed')
   }
   const fakeEnvironment = (suffix) => ({
     PGHOST: 'pooler-' + suffix,
@@ -1364,7 +1497,13 @@ function runSelfTest() {
       status: 'passed', staticPassed: true, databaseCiPassed: true, remoteQualificationAllowed: true,
     },
   }
-  const qualifiedCi = { headSha: 'a'.repeat(40), status: 'success' }
+  const qualifiedCi = {
+    headSha: 'a'.repeat(40),
+    status: 'success',
+    qualificationScope: 'acl_repair_session_pooler_prequalification',
+    requiredConnectionMode: 'session-pooler',
+    currentQualificationAllowed: true,
+  }
   const unqualifiedRepair = { ...qualifiedRepair, remoteExecutionAllowed: false, dbPushAllowed: false }
   const atomicDatabaseUnqualifiedRepair = {
     ...qualifiedRepair,
@@ -1383,6 +1522,12 @@ function runSelfTest() {
   const repairGateNegativeCases = [
     () => validateRepairRemoteGate('--apply-acl-repair', unqualifiedRepair, qualifiedCi),
     () => validateRepairRemoteGate('--apply-acl-repair', qualifiedRepair, { ...qualifiedCi, status: 'failure' }),
+    () => validateRepairRemoteGate('--apply-acl-repair', qualifiedRepair, {
+      ...qualifiedCi, qualificationScope: 'acl_repair_parser_fix_prequalification',
+    }),
+    () => validateRepairRemoteGate('--apply-acl-repair', qualifiedRepair, {
+      ...qualifiedCi, requiredConnectionMode: 'direct',
+    }),
     () => validateRepairRemoteGate('--resume-post-apply', qualifiedRepair, qualifiedCi),
     () => validateRepairRemoteGate('--apply-acl-repair', atomicDatabaseUnqualifiedRepair, qualifiedCi),
     () => validateRepairRemoteGate('--apply-acl-repair', atomicRemoteLockedRepair, qualifiedCi),
@@ -1400,7 +1545,7 @@ function runSelfTest() {
     },
   }
   const syntheticClosedCi = {
-    status: 'pending-new-signed-run',
+    status: 'pending-session-pooler-new-signed-run',
     runId: null,
     headSha: null,
     databaseCiPassed: null,
@@ -1412,8 +1557,11 @@ function runSelfTest() {
     () => validateRepairRemoteGate(
       '--apply-acl-repair', qualifiedRepair, contract.priorSuccessfulRepairCiRunEvidence,
     ),
+    () => validateRepairRemoteGate(
+      '--apply-acl-repair', qualifiedRepair, contract.priorParserFixRepairCiRunEvidence,
+    ),
   ].filter((test) => test() === false).length
-  const currentQualifiedRepairGateAccepted = validateRepairRemoteGate(
+  const currentClosedRepairGateDenied = !validateRepairRemoteGate(
     '--apply-acl-repair', contract.aclRepair, contract.repairCiRunEvidence,
   )
   if (!validateRepairRemoteGate('--apply-acl-repair', qualifiedRepair, qualifiedCi)) {
@@ -1462,10 +1610,13 @@ function runSelfTest() {
       privateDefinitionNegativePassed !== privateDefinitionNegativeCases.length ||
       stagedInventoryNegativePassed !== stagedInventoryNegativeCases.length ||
       dryRunNegativePassed !== dryRunNegativeCases.length || !preservedDryRunFailureStopped ||
+      poolerPushPositivePassed !== poolerPushInvocations.length ||
+      poolerPushNegativePassed !== poolerPushNegativeCases.length || !poolerInvocationEvidenceDenied ||
+      poolerPushSecretsCleared !== poolerPushInvocations.length ||
       !cleanCommittedBoundary.committedAfterSignedHead || !cleanCommittedBoundary.trackedWorktreeClean ||
       worktreeBoundaryNegativePassed !== 2 ||
-      repairGateNegativePassed !== repairGateNegativeCases.length || closedRepairGateNegativePassed !== 2 ||
-      !currentQualifiedRepairGateAccepted || !syntheticFailureStopped ||
+      repairGateNegativePassed !== repairGateNegativeCases.length || closedRepairGateNegativePassed !== 3 ||
+      !currentClosedRepairGateDenied || !syntheticFailureStopped ||
       followingSyntheticTestRan || !validateMode('--self-test') || !validateMode('--apply-acl-repair') ||
       JSON.stringify(authFixtureEmailPatterns) !== JSON.stringify(['p1-%@example.invalid', 'access-%@example.invalid']) ||
       JSON.stringify(profileFixtureIdPatterns) !== JSON.stringify([
@@ -1473,7 +1624,7 @@ function runSelfTest() {
     ])) {
     throw new Error('P1 ACL repair negative self-test failed')
   }
-  console.log('P1_ISOLATED_RUNTIME_SELFTEST_OK targetPositive=1 targetNegative=3/3 migration70to71Positive=1 migrationNegative=6/6 stagedInventoryPositive=71/71 stagedInventoryNegative=3/3 dryRunPositive=2/2 dryRunNegative=4/4 dryRunFailureEvidencePreserved=1 dryRunRawOutputAbsent=1 credentialPositive=1 credentialNegative=3/3 exact70Accepted=1 exact71Accepted=1 repairBaselineDriftDenied=3/3 fullAclTransitionAccepted=1 reconciliationDriftDenied=7/7 routineAclTargets=6/6 routineAclExactChanged=4/4 routineAclNegative=3/3 privateDefinitionChanged=1/1 privateDefinitionNegative=3/3 atomicMapping=5/5 atomicRollback=2/2 sameTeamStatic=4/4 evidenceNegative=7/7 worktreeBoundaryPositive=1 worktreeBoundaryNegative=2/2 oldApplyModesDenied=3/3 repairGatePositive=1 currentQualifiedRepairGatePositive=1 repairGateNegative=5/5 formalFailureClosedGateNegative=2/2 priorSuccessfulRepairCiRevivalDenied=1 atomicGateNegative=2/2 failedPushUnknownStatePreserved=1 fixturePatterns=4/4 firstSqlFailureStops=1 candidateRemoteExecutionAllowed=0 oldResumeRemoteExecutionAllowed=0 repairRemote=1 currentCi=29738966326 databaseCalls=0 storageCalls=0 dEvidenceRequired=0')
+  console.log('P1_ISOLATED_RUNTIME_SELFTEST_OK targetPositive=1 targetNegative=3/3 migration70to71Positive=1 migrationNegative=6/6 stagedInventoryPositive=71/71 stagedInventoryNegative=3/3 dryRunPositive=2/2 dryRunNegative=4/4 dryRunFailureEvidencePreserved=1 dryRunRawOutputAbsent=1 poolerPushPositive=2/2 poolerPushNegative=7/7 poolerPushPasswordEnvOnly=1 poolerPushSecretsCleared=2/2 poolerDirectDenied=1 credentialPositive=1 credentialNegative=3/3 exact70Accepted=1 exact71Accepted=1 repairBaselineDriftDenied=3/3 fullAclTransitionAccepted=1 reconciliationDriftDenied=7/7 routineAclTargets=6/6 routineAclExactChanged=4/4 routineAclNegative=3/3 privateDefinitionChanged=1/1 privateDefinitionNegative=3/3 atomicMapping=5/5 atomicRollback=2/2 sameTeamStatic=4/4 evidenceNegative=7/7 worktreeBoundaryPositive=1 worktreeBoundaryNegative=2/2 oldApplyModesDenied=3/3 futureQualifiedRepairGatePositive=1 currentClosedRepairGateDenied=1 repairGateNegative=7/7 closedRepairGateNegative=3/3 priorRepairCiRevivalDenied=2/2 atomicGateNegative=2/2 failedPushUnknownStatePreserved=1 fixturePatterns=4/4 firstSqlFailureStops=1 candidateRemoteExecutionAllowed=0 oldResumeRemoteExecutionAllowed=0 repairRemote=0 currentCi=pending-session-pooler-new-signed-run databaseCalls=0 storageCalls=0 dEvidenceRequired=0')
 }
 
 function verifyTemporaryLink(workdir) {
@@ -1492,6 +1643,67 @@ function clearDbEnvironment(environment) {
 function validateDbEnvironment(environment) {
   return environment && ['PGHOST', 'PGPORT', 'PGUSER', 'PGPASSWORD', 'PGDATABASE']
     .every((key) => typeof environment[key] === 'string' && environment[key].length > 0)
+}
+
+function assertPasswordlessSessionPoolerUrl(dbUrl, environment) {
+  let parsed
+  try {
+    parsed = new URL(dbUrl)
+  } catch {
+    throw new Error('ACL repair Session Pooler db URL is invalid')
+  }
+  if (parsed.protocol !== 'postgresql:' || parsed.username || parsed.password ||
+      !/^[a-z0-9-]+\.pooler\.supabase\.com$/i.test(parsed.hostname) ||
+      parsed.hostname !== environment.PGHOST || String(parsed.port || '5432') !== '5432' ||
+      decodeURIComponent(parsed.pathname.slice(1)) !== environment.PGDATABASE ||
+      parsed.searchParams.get('sslmode') !== 'require') {
+    throw new Error('ACL repair db URL is not a passwordless Session Pooler endpoint')
+  }
+  return true
+}
+
+function buildSessionPoolerPushInvocation(channel, { dryRun }, inheritedEnvironment = process.env) {
+  const environment = channel?.dbEnvironment
+  if (!validateDbEnvironment(environment) || typeof dryRun !== 'boolean' ||
+      !/^[a-z0-9-]+\.pooler\.supabase\.com$/i.test(environment.PGHOST) ||
+      environment.PGPORT !== '5432' || environment.PGDATABASE !== 'postgres' ||
+      environment.PGSSLMODE !== 'require' ||
+      environment.PGUSER !== `cli_login_postgres.${TARGET_REF}`) {
+    throw new Error('ACL repair push requires the verified target Session Pooler environment')
+  }
+  const dbUrl = `postgresql://${environment.PGHOST}:5432/${encodeURIComponent(environment.PGDATABASE)}?sslmode=require`
+  assertPasswordlessSessionPoolerUrl(dbUrl, environment)
+  const args = [
+    'db', 'push', '--db-url', dbUrl,
+    ...(dryRun ? ['--dry-run'] : []),
+    '--workdir', channel.workdir, '--yes',
+  ]
+  if (args.includes('--linked') || args.includes('--password') ||
+      args.some((value) => value.includes(environment.PGPASSWORD))) {
+    throw new Error('ACL repair push arguments contain a forbidden connection secret or linked route')
+  }
+  const childEnvironment = {
+    ...inheritedEnvironment,
+    PGHOST: environment.PGHOST,
+    PGPORT: '5432',
+    PGUSER: environment.PGUSER,
+    PGPASSWORD: environment.PGPASSWORD,
+    PGDATABASE: environment.PGDATABASE,
+    PGSSLMODE: 'require',
+    PGCLIENTENCODING: 'UTF8',
+    PGOPTIONS: environment.PGOPTIONS ?? '-c jit=true',
+  }
+  delete childEnvironment.SUPABASE_DB_PASSWORD
+  delete childEnvironment.SUPABASE_DB_URL
+  delete childEnvironment.DATABASE_URL
+  delete childEnvironment.PGPASSFILE
+  delete childEnvironment.PGSERVICE
+  delete childEnvironment.PGSERVICEFILE
+  return { args, childEnvironment }
+}
+
+function clearPushInvocationSecret(invocation) {
+  if (invocation?.childEnvironment) invocation.childEnvironment.PGPASSWORD = ''
 }
 
 function acquireTemporaryDbEnvironment(workdir, cliPath) {
@@ -1621,14 +1833,21 @@ function assertRepairPushDryRun(evidence) {
 
 function runRepairPushDryRun(channel) {
   verifyTemporaryLink(channel.workdir)
-  const result = requireSuccess('signed ACL repair db push dry-run', run(channel.cliPath, [
-    'db', 'push', '--linked', '--dry-run', '--workdir', channel.workdir, '--yes',
-  ], { timeout: 180000 }))
+  const invocation = buildSessionPoolerPushInvocation(channel, { dryRun: true })
+  let result
   try {
+    result = run(channel.cliPath, invocation.args, {
+      env: invocation.childEnvironment,
+      timeout: 180000,
+    })
+    requireSuccess('signed ACL repair db push dry-run', result)
     return collectRepairPushDryRunEvidence(result.stdout, result.stderr)
   } finally {
-    result.stdout = ''
-    result.stderr = ''
+    if (result) {
+      result.stdout = ''
+      result.stderr = ''
+    }
+    clearPushInvocationSecret(invocation)
   }
 }
 
@@ -1660,16 +1879,22 @@ function finishRepairPushAttempt(attempt, result) {
 
 function runRepairPushOnce(channel, attempt) {
   verifyTemporaryLink(channel.workdir)
-  beginRepairPushAttempt(attempt)
-  attempt.currentStep = `apply-migration:${REPAIR_VERSION}`
-  const result = run(channel.cliPath, [
-    'db', 'push', '--linked', '--workdir', channel.workdir, '--yes',
-  ], { timeout: 300000 })
+  const invocation = buildSessionPoolerPushInvocation(channel, { dryRun: false })
   try {
-    finishRepairPushAttempt(attempt, result)
+    beginRepairPushAttempt(attempt)
+    attempt.currentStep = `apply-migration:${REPAIR_VERSION}`
+    const result = run(channel.cliPath, invocation.args, {
+      env: invocation.childEnvironment,
+      timeout: 300000,
+    })
+    try {
+      finishRepairPushAttempt(attempt, result)
+    } finally {
+      result.stdout = ''
+      result.stderr = ''
+    }
   } finally {
-    result.stdout = ''
-    result.stderr = ''
+    clearPushInvocationSecret(invocation)
   }
 }
 
