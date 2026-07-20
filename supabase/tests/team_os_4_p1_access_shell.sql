@@ -432,7 +432,9 @@ do $supervisor$
 declare
   resolution jsonb;
   navigation_value jsonb;
-  audit_count integer;
+  member_access_audit_count integer;
+  supervisor_system_audit_count integer;
+  supervisor_scope_audit_count integer;
 begin
   perform set_config('request.jwt.claim.sub', 'd4000000-0000-4000-8000-000000000003', true);
   resolution := public.resolve_responsible_profile_v1(
@@ -491,7 +493,11 @@ begin
     if sqlerrm <> 'ACCESS_ADMIN_REQUIRED' then raise; end if;
   end;
 
-  select count(*) into audit_count
+  select
+    count(*) filter (where action = 'team_os_4.member_access_applied'),
+    count(*) filter (where action = 'team_os_4.supervisor_system_set'),
+    count(*) filter (where action = 'team_os_4.supervisor_scope_replaced')
+  into member_access_audit_count, supervisor_system_audit_count, supervisor_scope_audit_count
   from public.audit_logs
   where actor_id = 'd4000000-0000-4000-8000-000000000001'
     and action in (
@@ -499,8 +505,11 @@ begin
       'team_os_4.supervisor_system_set',
       'team_os_4.supervisor_scope_replaced'
     );
-  if audit_count <> 6 then
-    raise exception 'P1 access mutations did not create exact audit evidence: %', audit_count;
+  if member_access_audit_count <> 5
+     or supervisor_system_audit_count <> 1
+     or supervisor_scope_audit_count <> 1 then
+    raise exception 'P1 access mutations did not create exact audit evidence: member=%, system=%, scope=%',
+      member_access_audit_count, supervisor_system_audit_count, supervisor_scope_audit_count;
   end if;
 end
 $supervisor$;

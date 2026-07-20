@@ -1,6 +1,6 @@
 # CanWin Team OS 4.0 — P0 监理台账
 
-> 状态：P0/G0 已验收；历史失败运行均保留且未重跑。历史资格签名 CI run `29699951990`（HEAD `a620bb541f4c5eb613413e8b40455b3988ee0cf3`）及 exact70 资格原样保留；正式续验 run `p1-resume-20260719T193911279Z-ea6ed9385d` 在第6个 SQL `notification_core.sql` 发现 worker RPC 暴露并首错停止，已通过5/27 SQL、5份逐项快照和6/29完整快照。当前单一 pre70/post71 候选同时完成六函数 ACL 收口（目标6、实际变化4）和一个私有成员授权函数的原子兼容定义变化；原子兼容仅为静态通过、数据库CI待验，`remote=false`、`dbPush=false`。G1=false，整体验收仍为25%。
+> 状态：P0/G0 已验收；历史失败运行均保留且未重跑。ACL/原子候选 CI run [`29726897764`](https://github.com/yccanwin/canwin-team-os/actions/runs/29726897764) 已首错停止：Linux 完成迁移71/71和前17个SQL后，在第18个 `team_os_4_p1_access_shell.sql` 发现审计断言把正确的 `5+1+1=7` 误写为6；Windows static19/19、local12/12通过。当前新候选已改为按动作分别锁定5/1/1，本地门禁通过，数据库CI待验；`remote=false`、`dbPush=false`，G1=false，整体验收仍为25%。
 > 基线：`CanWin-Team-OS-4.0-最终施工总方案.md`（2026-07-18）
 > 监理分支：`codex/team-os-4-p0-integration`
 
@@ -8,7 +8,7 @@
 
 ## 当前结论
 
-七项首批产物和 G0 已完成监理验收；P1 历史成功与失败证据均保留。当前施工合同为单一 pre70/post71 候选：六函数 ACL 最终状态（实际变化4）加 `private.admin_apply_member_access_v1` 定义变化1，兼容角色与4.0岗位在同一事务提交或回滚；27项 SQL、29份完整快照、2次Storage、6份签名制品、key5/raw9/inventory3、Auth/Session隔离、内容指纹及两项完整对账差异路径不变。旧resume入口永久关闭；原子兼容当前为 `static-passed-database-ci-pending`，新独立数据库CI签署前禁止远端执行和 db push。六类账号页面验收仍未完成，当前接受进度25%、G1=false；不提前开发 P3–P6，不修改生产数据库和生产 Storage 策略。
+七项首批产物和 G0 已完成监理验收；P1 历史成功与失败证据均保留。当前施工合同为单一 pre70/post71 候选：六函数 ACL 最终状态（实际变化4）加 `private.admin_apply_member_access_v1` 定义变化1，兼容角色与4.0岗位在同一事务提交或回滚；27项 SQL、29份完整快照、2次Storage、6份签名制品、key5/raw9/inventory3、Auth/Session隔离、内容指纹及两项完整对账差异路径不变。旧resume入口永久关闭；原子兼容当前为 `static-passed-prior-database-ci-failed-preserved-new-candidate-pending`，失败CI保留且不重跑，新候选签署前禁止远端执行和 db push。六类账号页面验收仍未完成，当前接受进度25%、G1=false；不提前开发 P3–P6，不修改生产数据库和生产 Storage 策略。
 
 当前已核实：
 
@@ -50,8 +50,8 @@
 - 换行修复后的独立 CI run [`29696529290`](https://github.com/yccanwin/canwin-team-os/actions/runs/29696529290)（HEAD `e04dfa3ee8a9f569b97c905c87f760d7b76a6e00`）已双平台全绿。Linux job `88218121933` 用时132秒，迁移70/70、SQL27/27（7/11/9）、catalog4/4和清理通过；Windows job `88218121940` 用时76秒，static19/19、local12/12、P1壳层71/71和1975模块构建通过，66文件静态制品 SHA256 `33505fcddc4b814379906406287b1fa715677b1e218497e1fe5a1693f50fc21b`，上传制品0。真实账号安全夹具和页面 runner 均只完成无网络自测，页面/账号实际验收仍未完成；仓库密钥、测试项目远端读写和生产读写均为0。
 - P1 新候选正式隔离尝试 1/1（run `p1-isolated-20260719T172151689Z-8273f5c69e`）通过迁移阶段70条控制流门后，在首个 SQL `access_control_foundation.sql` 的 `Legacy member received implicit customers.manage permission` 校验误报处首错停止。`preflight.json` SHA256 `e44d53b72c85a71eff2d7a5359220f86c20af56af02a9bf6c0a81716c6d65b97`，`failure.json` SHA256 `3a8077ad58b1a7ee1fc4a75340ab3db9b8f1c3d5ea772e019ff1282136029774`；证据目录 `D:\CanWin-Team-OS-4.0-P1-Validation\p1-isolated-20260719T172151689Z-8273f5c69e`。失败文件没有固化迁移后快照，失败后未重新远端读取，故不宣称当前远端仍为70条。SQL通过0/27、后26项未执行，catalog 0/4、全量对账、最终后快照和六类账号页面验收均未执行；测试项目现场保留，未重试、未清理、未外发，生产读写0。当前为 `post-apply verification candidate pending`，接受进度25%、G1=false。
 - 续验资格已由独立 CI run [`29699951990`](https://github.com/yccanwin/canwin-team-os/actions/runs/29699951990) 正式签署：HEAD `a620bb541f4c5eb613413e8b40455b3988ee0cf3`，Linux job `88227205377` 为70/27/7/11/9/4，Windows job `88227205362` 为19/19、12/12。最终 SHA 为 access-control `31fa286b318ad2b24e2d956005c4a5fcc9b0fddfd0269be029330d5c1c3e43f8`、runner `f9d9d6abed29a482757682d25002f2c414a1271e0f7fa2e9360fc62f009ed648`、isolated contract `f99e605341b36e2de18779b6dd52a624b1ef421a9b60c4517f59845a7ba22013`、validator `60a90fc8bf75d44a02c2d824e29b912d14fbbe844af79b0e5a705c77fe59c2af`，断言100/100、fixture pattern4/4。完整对账合同仍为29/27/2/6、key5/raw9/inventory3、内容指纹和两项合法差异。旧apply入口关闭；resume入口仅对签名HEAD之后的干净tracked提交开放，签名HEAD本身拒绝、tracked dirty拒绝、未跟踪 `.codex-audit` 允许；续验远端执行0。资格签署不提高进度，G1=false、25%。
-- 正式续验 run `p1-resume-20260719T193911279Z-ea6ed9385d` 已执行1次并首错停止：前5个 SQL 与5份逐项完整快照通过，第6个 `notification_core.sql` 报 `Notification worker RPC exposed`，共完成6/29完整快照和1次Storage归档。`preflight.json` SHA256 `e0ea653d3a411cc9baafbd4b98e7d6d458b99316e8da93a1db1600a21e2dc36a`，`failure.json` SHA256 `576a11005285cd708adca5b3486e0b929ace8d97fc3cc3284d657b57519b91ad`；目录仅有这两份文件，无success证据。当前第71迁移 `20260720015435_harden_server_only_rpc_acl.sql` 的 LF SHA256 为 `1bb13f29fc0f5512bd00115dc1c953a2c3aaa0ec21522b1cc8cbb45a18a5cdc0`：六函数 ACL 目标6/实际变化4，并精确重定义一个私有授权函数；迁移执行本身不改写员工档案。两份变更测试 SHA 为 notification `a3d87069899b986b191bc21826f5e23c65fe4734066e52adc4e14753c9e6e5a3`、P1 access `c4823724a65047b0e67af6ba62c954acf3085d70ffbbda1c5e1a0be23ce94dfb`；当前 runtime contract/runner/validator SHA 分别为 `421f78b398eb259d2a3fa43836e7a3ff9f2c70527ad88af1896b0d0a4e118d08`、`9f04478e3f218dad16eec3660919dfedabb3e69ad2a2c7522b7caa396a010620`、`168bd3e03b1fc3e9536fc74d353b10e01a2b51c1ff1ff8a3e9eb5d3930233577`。数据库CI仍待签署，远端与db push关闭，G1=false、25%。
-- 旧RPC应用兼容性已机械收口：4.0管理员页面改走 `admin-members` 服务端入口，Edge 写链改用v1岗位/主管RPC，三个退役写RPC静态调用为0；app-shell 99/99。原子兼容静态证据为角色映射5/5、失败回滚2/2、同团队守卫4/4、repair远端门负控5/5及atomic-only负控2/2，私有定义取证要求3/3；状态仍为 `static-passed-database-ci-pending`，不得冒充数据库CI或远端资格。ACL/原子候选正式应用、29份全量对账和六类账号页面验收尚未完成，因此remote/db push继续关闭，G1=false、进度25%。
+- 正式续验 run `p1-resume-20260719T193911279Z-ea6ed9385d` 已执行1次并首错停止，原现场继续保留。第71迁移 LF SHA256 为 `1bb13f29fc0f5512bd00115dc1c953a2c3aaa0ec21522b1cc8cbb45a18a5cdc0`；notification/P1 access测试SHA分别为 `a3d87069899b986b191bc21826f5e23c65fe4734066e52adc4e14753c9e6e5a3`、`c598b4e4ed3c7e26d9411cb4084685bea1233f47ae969c2685e048f480dac09e`，runtime contract/runner/validator SHA分别为 `0c0ccc0f72775ee1e6c6d46771846de88c5054a20b3f75b30a77db40ced08991`、`690dd490c4c66c84ed1d01654c77cdb6cf8ca068b6625c9f44ed78e32c0098ad`、`bc237b9b35ca6954a9c4cd6e905ff7a02608ad3509fcd439ba64a5a4882b8da3`。CI run `29726897764`/Linux job `88301987239` 的审计总数断言首错与Windows job `88301987280`成功均已写入合同；失败运行不重跑，当前新候选数据库CI待签署，remote/db push关闭，G1=false、25%。
+- 旧RPC应用兼容性已机械收口：4.0管理员页面改走 `admin-members` 服务端入口，Edge 写链改用v1岗位/主管RPC，三个退役写RPC静态调用为0；app-shell 99/99。原子兼容静态证据为角色映射5/5、失败回滚2/2、同团队守卫4/4、审计分项5/1/1、repair远端门负控5/5及atomic-only负控2/2，私有定义取证要求3/3；状态为 `static-passed-prior-database-ci-failed-preserved-new-candidate-pending`，不得冒充数据库CI或远端资格。ACL/原子候选正式应用、29份全量对账和六类账号页面验收尚未完成，因此remote/db push继续关闭，G1=false、进度25%。
 
 生产侧全程只读；测试侧恢复、对账、三视图隔离修复和对象分类证据已固化。七项首批产物和 G0 已联合签收，P1 执行已解锁。测试项目仍封闭，真实账号禁登、预览和外发均未开放。
 
@@ -65,7 +65,7 @@
 | 04 | 图片入口与 Storage 清理清单 | P0 清理方案已验收 | 7 个文件入口、7 个旧命名空间和两个最终图片槽已冻结；1 bucket、32 objects 已恢复，生产策略未改 |
 | 05 | 核心实体和状态机字典 | P0 已验收 | 业务语义 76/76；22 个实体、7 组现有表扩展、11 张新增表、16 组字典、12 条不变量及 RLS/RPC/索引边界均已冻结 |
 | 06 | 测试项目与备份恢复基线 | 已验收 | 正式封闭恢复 1/1、数据库/Auth/Storage 全量对账、禁登和外发隔离证据齐全 |
-| 07 | P1 工单及冻结接口 | ACL+原子兼容候选待数据库CI，remote关闭 | 历史run296999和exact70资格保留；正式续验在notification_core首错停止并锁定证据。第71迁移为ACL目标6/变化4加私有定义变化1；原子静态证据5/2/4、远端负控5/2，27项SQL和29份完整快照不变。新CI签名前禁止远端与db push；页面验收未完成，接受进度25%、G1=false |
+| 07 | P1 工单及冻结接口 | ACL+原子兼容新候选待数据库CI，remote关闭 | run29726897764在审计断言6/7处首错停止并保留，Windows19/19与12/12通过；新候选改为审计分项5/1/1。第71迁移仍为ACL目标6/变化4加私有定义变化1，27项SQL和29份完整快照不变。新CI签名前禁止远端与db push；页面验收未完成，接受进度25%、G1=false |
 
 ## G0 门禁
 
@@ -85,13 +85,13 @@
 当前新项目恢复、对象分类、物理对象、页面/Storage处置及 P1 接口冻结证据由本次台账固化。历史 GitHub 候选的 static 计数保留原始证据；本地统一静态入口现为 19 项，包含隔离运行器合同、PostgreSQL 回归、真实账号夹具和真实页面 runner 四项纯自测，均禁止默认执行真实数据库或远端操作。G0 已签署；该结论允许 P1 施工，但不等于 P1 运行态、G1、生产迁移、发布或合并授权。
 
 - 统一入口：12/12；首错即停和 skipped 计数已接入 Windows PR/手动 CI 候选；隔离连接边界负测不连接数据库。
-- 隔离数据库 CI 合同：当前候选为基线1、迁移71、测试27（数据库7、权限11、业务9）、catalog对账4；历史70迁移CI记录继续按原值保留。第71迁移由LF SHA锁定为ACL目标6/实际变化4加私有函数定义变化1；原子兼容静态验收为mapping5、rollback2、same-team4、私有定义快照3、repair远端负控5和atomic-only负控2。数据库CI仍为null，新独立CI尚未签署，远端执行关闭。
+- 隔离数据库 CI 合同：当前候选为基线1、迁移71、测试27（数据库7、权限11、业务9）、catalog对账4；历史70迁移CI记录继续按原值保留。run `29726897764` 已锁定为失败并保留：迁移71/71、SQL17/18后在审计总数6/7断言停止，Windows本地门禁全绿。新候选把审计改为分项5/1/1，数据库CI仍待签署，远端执行关闭。
 - 历史迁移：69/69；历史迁移改动 0。
 - 项目 ref 合同：17/17；生产与测试 ref 不同，输出 `readiness=READY restore=validated preview=disabled`。
 - 恢复台账：139/139；真实恢复状态为 `succeeded`、阻塞项 0；封闭恢复合同 73/73，备份模板合同 1113/1113。
 - 前端清单：36 路由、22 个 4.8 节页面、7 个文件入口、7 个 Storage 命名空间。
 - P1 导航合同：5 个主岗位、2 个附加职能、13 个应用上下文字段、36 个旧路由映射。
-- P1 接口合同：6 个物理 RPC、4 组字段白名单、6 类基础身份、16 个附加职能组合、13 个直接 API 攻击用例、13 项三团队工单；仓库职能按最终方案校正为管理员默认、仅可授实施，销售/运营/财务均有拒绝负控。历史资格签名 run `29699951990` 的70/27与exact70合同原样保留。当前pre70/post71候选冻结六函数ACL最终状态（实际变化4）、一个私有函数定义变化、27项逐项、29份完整快照和两项允许差异；原子兼容静态通过但数据库CI待验，remote/db push均关闭。页面验收仍pending，G1=false、进度25%。
+- P1 接口合同：6 个物理 RPC、4 组字段白名单、6 类基础身份、16 个附加职能组合、13 个直接 API 攻击用例、13 项三团队工单；仓库职能按最终方案校正为管理员默认、仅可授实施，销售/运营/财务均有拒绝负控。当前pre70/post71候选冻结六函数ACL最终状态（实际变化4）、一个私有函数定义变化、27项逐项、29份完整快照和两项允许差异；历史失败CI与新候选边界均已锁定，原子兼容静态通过但新候选数据库CI待验，remote/db push均关闭。页面验收仍pending，G1=false、进度25%。
 - 后端 catalog 只读校验：9 个自检案例、15 条只读 SQL。
 - 三视图候选校验：LF/CRLF/mixed/注释分号 4 种格式通过；4 个正例、6 个负例；3 个视图、4 条策略、3 个调用方；数据库调用 0。
 - 103 表四分类：完整17项证据和监理冻结 103/103；精确恢复副本总行数 796，运行时动态表名调用 0。该单项制品保持 `g0=false` 防止独立冒充整体门禁；整体 G0 已由联合签收单确认。

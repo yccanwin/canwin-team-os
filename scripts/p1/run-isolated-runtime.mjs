@@ -646,12 +646,15 @@ function assertFrozenContract() {
     Boolean(findRepairSignedCiRun())
   const repairCiPending = repair.remoteExecutionAllowed === false && repair.dbPushAllowed === false &&
     repair.applicationCompatibility?.status === 'passed' &&
-    repair.atomicLegacyRoleCompatibility?.status === 'static-passed-database-ci-pending' &&
+    repair.atomicLegacyRoleCompatibility?.status === 'static-passed-prior-database-ci-failed-preserved-new-candidate-pending' &&
     repair.atomicLegacyRoleCompatibility?.staticPassed === true &&
     repair.atomicLegacyRoleCompatibility?.databaseCiPassed === null &&
     repair.applicationCompatibility?.remoteQualificationAllowed === false &&
     repair.atomicLegacyRoleCompatibility?.remoteQualificationAllowed === false &&
-    ci?.runId === null && ci?.headSha === null && ci?.status === null
+    ci?.runId === '29726897764' && ci?.headSha === 'e774ead5a2857afb511400a12897e629033cf941' &&
+    ci?.status === 'failure' && ci?.failedAssertionExpectedAuditRows === 6 &&
+    ci?.failedAssertionActualAuditRows === 7 && ci?.preservedWithoutRerun === true &&
+    ci?.candidateRemoteExecutionAllowed === false && ci?.g1OverallClaim === false
   if (contract.candidate.remoteExecutionAllowed !== false || contract.postApplyResume?.remoteExecutionAllowed !== false ||
       contract.postApplyResume?.dbPushAllowed !== false || !['--resume-post-apply', 'retired'].includes(contract.postApplyResume?.mode) ||
       (repairCiQualified === repairCiPending)) {
@@ -682,7 +685,7 @@ function assertFrozenContract() {
         teamOs4P1: 'supabase/tests/team_os_4_p1_access_shell.sql',
         notificationCore: 'supabase/tests/notification_core.sql',
       }) || JSON.stringify(repair.testSha256Lf) !== JSON.stringify({
-        teamOs4P1: 'c4823724a65047b0e67af6ba62c954acf3085d70ffbbda1c5e1a0be23ce94dfb',
+        teamOs4P1: 'c598b4e4ed3c7e26d9411cb4084685bea1233f47ae969c2685e048f480dac09e',
         notificationCore: 'a3d87069899b986b191bc21826f5e23c65fe4734066e52adc4e14753c9e6e5a3',
       }) ||
       repair.preMigrationRows !== 70 || repair.postMigrationRows !== 71 ||
@@ -698,7 +701,7 @@ function assertFrozenContract() {
       JSON.stringify(privateDefinition?.expectedChangedFunctions) !== JSON.stringify([PRIVATE_MEMBER_ACCESS_IDENTITY]) ||
       privateDefinition?.expectedDefinitionChanges !== 1 || privateDefinition?.identityChangesAllowed !== 0 ||
       privateDefinition?.securityEnvelopeChangesAllowed !== 0 || privateDefinition?.unknownChangesAllowed !== false ||
-      atomicCompatibility?.status !== 'static-passed-database-ci-pending' ||
+      atomicCompatibility?.status !== 'static-passed-prior-database-ci-failed-preserved-new-candidate-pending' ||
       atomicCompatibility?.staticPassed !== true || atomicCompatibility?.databaseCiPassed !== null ||
       atomicCompatibility?.remoteQualificationAllowed !== false ||
       atomicCompatibility?.writeFunction !== PRIVATE_MEMBER_ACCESS_IDENTITY ||

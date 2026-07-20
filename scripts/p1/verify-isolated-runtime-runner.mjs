@@ -80,7 +80,7 @@ check(JSON.stringify(repair.testPaths) === JSON.stringify({
   notificationCore: 'supabase/tests/notification_core.sql',
 }), 'ACL repair current test paths drift')
 check(JSON.stringify(repair.testSha256Lf) === JSON.stringify({
-  teamOs4P1: 'c4823724a65047b0e67af6ba62c954acf3085d70ffbbda1c5e1a0be23ce94dfb',
+  teamOs4P1: 'c598b4e4ed3c7e26d9411cb4084685bea1233f47ae969c2685e048f480dac09e',
   notificationCore: 'a3d87069899b986b191bc21826f5e23c65fe4734066e52adc4e14753c9e6e5a3',
 }) && Object.entries(repair.testPaths).every(([name, path]) => (
   sha256Lf(resolve(repoRoot, path)) === repair.testSha256Lf[name]
@@ -105,7 +105,7 @@ check(JSON.stringify(privateDefinition?.expectedChangedFunctions) === JSON.strin
   privateDefinition?.securityEnvelopeChangesAllowed === 0 && privateDefinition?.unknownChangesAllowed === false,
   'private member-access routine definition transition contract drift')
 const atomicCompatibility = repair.atomicLegacyRoleCompatibility
-check(atomicCompatibility?.status === 'static-passed-database-ci-pending' &&
+check(atomicCompatibility?.status === 'static-passed-prior-database-ci-failed-preserved-new-candidate-pending' &&
   atomicCompatibility?.staticPassed === true && atomicCompatibility?.databaseCiPassed === null &&
   atomicCompatibility?.remoteQualificationAllowed === false &&
   atomicCompatibility?.writeFunction === PRIVATE_MEMBER_ACCESS_IDENTITY &&
@@ -150,10 +150,29 @@ check(JSON.stringify(repair.applicationCompatibility.resolvedEvidence.forbiddenR
 check(findLegacyRpcCalls("await client.rpc('admin_replace_profile_roles', {})").length === 1 &&
   findLegacyRpcCalls("await client.rpc('admin_replace_supervisor_subordinates', {})").length === 1,
   'legacy RPC compatibility detector negative control failed')
-check(contract.repairCiRunEvidence.runId === null && contract.repairCiRunEvidence.headSha === null &&
-  contract.repairCiRunEvidence.status === null && contract.repairCiRunEvidence.candidateRemoteExecutionAllowed === false &&
+check(contract.repairCiRunEvidence.runId === '29726897764' &&
+  contract.repairCiRunEvidence.runUrl === 'https://github.com/yccanwin/canwin-team-os/actions/runs/29726897764' &&
+  contract.repairCiRunEvidence.headSha === 'e774ead5a2857afb511400a12897e629033cf941' &&
+  contract.repairCiRunEvidence.linuxJobId === '88301987239' &&
+  contract.repairCiRunEvidence.windowsJobId === '88301987280' &&
+  contract.repairCiRunEvidence.status === 'failure' &&
+  contract.repairCiRunEvidence.linuxStatus === 'failure' &&
+  contract.repairCiRunEvidence.windowsStatus === 'success' &&
+  contract.repairCiRunEvidence.failedAssertionExpectedAuditRows === 6 &&
+  contract.repairCiRunEvidence.failedAssertionActualAuditRows === 7 &&
+  JSON.stringify(contract.repairCiRunEvidence.correctedExpectedAuditRowsByAction) ===
+    JSON.stringify({ memberAccess: 5, supervisorSystem: 1, supervisorScope: 1 }) &&
+  contract.repairCiRunEvidence.migrationsPassed === 71 &&
+  contract.repairCiRunEvidence.sqlTestsStarted === 18 &&
+  contract.repairCiRunEvidence.sqlTestsPassed === 17 &&
+  contract.repairCiRunEvidence.windowsStaticPassed === 19 &&
+  contract.repairCiRunEvidence.windowsLocalPassed === 12 &&
+  contract.repairCiRunEvidence.cleanupPassed === true &&
+  contract.repairCiRunEvidence.retryPerformed === false &&
+  contract.repairCiRunEvidence.preservedWithoutRerun === true &&
+  contract.repairCiRunEvidence.candidateRemoteExecutionAllowed === false &&
   contract.repairCiRunEvidence.g1OverallClaim === false,
-  'repair CI evidence is falsely qualified')
+  'failed repair CI evidence or remote lock drift')
 
 const failed = contract.formalResumeFailureEvidence
 check(failed.runId === SOURCE_RUN && failed.supervisionHeadSha === SOURCE_HEAD &&
