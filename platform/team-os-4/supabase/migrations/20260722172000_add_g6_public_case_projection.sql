@@ -1,4 +1,4 @@
-﻿-- G6 trusted case publication, redacted public projection, and archive boundary.
+-- G6 trusted case publication, redacted public projection, and archive boundary.
 -- Object byte copying/deletion remains a trusted-server responsibility. The
 -- database makes public reads disappear transactionally and queues byte cleanup;
 -- it does not pretend that SQL can copy or delete Storage object bytes safely.
