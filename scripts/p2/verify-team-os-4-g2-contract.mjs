@@ -130,6 +130,8 @@ const fixedNodeExecutorPath = 'C:\\Program Files\\nodejs\\node.exe'
 const fixedNpxCliPath = 'C:\\Program Files\\nodejs\\node_modules\\npm\\bin\\npx-cli.js'
 const adapterWithoutExecutorPath = stripKnownExecutorPath(normalizedPerformanceAdapter)
 const compactClosure = closure.replace(/\s+/gu, '')
+const normalizedFixedNode = normalizePathTextForMatch(fixedNodeExecutorPath)
+const normalizedFixedNpx = normalizePathTextForMatch(fixedNpxCliPath)
 
 const requiredBuckets = [
   'overdue_blocking', 'due_today', 'upcoming_business_date', 'first_contact',
@@ -330,11 +332,11 @@ for (const fragment of [
   `performance adapter contract missing: ${fragment}`,
 )
 assert.ok(
-  containsPathMarker(normalizedPerformanceAdapter, fixedNodeExecutorPath),
+  containsPathMarker(normalizedPerformanceAdapter, normalizedFixedNode),
   'performance adapter fixed Node executor path missing',
 )
 assert.ok(
-  containsPathMarker(normalizedPerformanceAdapter, fixedNpxCliPath),
+  containsPathMarker(adapterWithoutExecutorPath, normalizedFixedNpx),
   'performance adapter fixed npx-cli path missing',
 )
 assert.ok(!/insert\s+into\s+auth\.users/iu.test(performanceAdapter), 'performance adapter must never write auth.users through SQL')
