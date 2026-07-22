@@ -1,0 +1,1 @@
+-- Intentionally empty. Team OS 4.0 ships without company, user, or demo data.

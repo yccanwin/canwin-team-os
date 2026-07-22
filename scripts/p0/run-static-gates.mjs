@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const gates = [
+  ['greenfield-root-contract', resolve(repoRoot, 'scripts', 'p0', 'verify-greenfield-root-contract.mjs')],
+  ['team-os-4-foundation', resolve(repoRoot, 'platform', 'team-os-4', 'supabase', 'verify-foundation.mjs')],
   ['migration-manifest', resolve(repoRoot, 'scripts', 'p0', 'verify-migration-manifest.mjs')],
   ['project-ref-contract', resolve(repoRoot, 'scripts', 'p0', 'verify-project-ref-contract.mjs')],
   ['core-business-contract', resolve(repoRoot, 'scripts', 'p0', 'verify-core-business-contract.mjs')],

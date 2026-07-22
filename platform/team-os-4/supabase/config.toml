@@ -1,0 +1,21 @@
+project_id = "canwin-team-os-4"
+
+[api]
+enabled = true
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:3000"
+additional_redirect_urls = []
+enable_signup = false
+
+[storage]
+enabled = true
+file_size_limit = "10MiB"
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
