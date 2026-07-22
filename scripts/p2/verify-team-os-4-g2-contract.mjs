@@ -26,6 +26,7 @@ const normalizePathTextForMatch = (value) => {
     .replace(/%5c/giu, '/')
     .replace(/\\+/gu, '/')
     .replace(/\/+/gu, '/')
+    .replace(/[\u0000-\u001f\u007f]/gu, ' ')
     .replace(/%20/giu, ' ')
     .replace(/%3a/giu, ':')
     .replace(/%3A/giu, ':')
@@ -37,6 +38,8 @@ const normalizePathTextForMatch = (value) => {
 }
 
 const normalizePathTextForCheck = (value) => normalizePathTextForMatch(value)
+
+const normalizePathMatchSource = (value) => (typeof value === 'string' ? normalizePathTextForMatch(value) : '')
 
 const normalizeScriptTextForPathMatch = (value) => {
   if (typeof value !== 'string') return ''
@@ -98,7 +101,7 @@ const stripKnownExecutorPath = (sourceText) => {
     'file:///C:/Program%20Files/nodejs/node.exe',
     'file:///C:/Program Files/nodejs/node.exe',
   ]
-  let text = sourceText
+  let text = normalizePathMatchSource(sourceText)
   for (const candidate of executorPathCandidates) {
     text = removePathMarker(text, candidate)
   }
@@ -106,13 +109,14 @@ const stripKnownExecutorPath = (sourceText) => {
 }
 
 const containsPathMarker = (sourceText, pathText) => {
+  const source = normalizePathMatchSource(sourceText)
   const candidates = normalizePathMatchCandidates(pathText)
   if (!candidates.length) return false
-  return candidates.some((candidate) => sourceText.includes(candidate))
+  return candidates.some((candidate) => source.includes(candidate))
 }
 
 const removePathMarker = (sourceText, pathText) => {
-  let text = sourceText
+  let text = normalizePathMatchSource(sourceText)
   const candidates = normalizePathMatchCandidates(pathText)
   for (const candidate of candidates) {
     if (!candidate) continue
