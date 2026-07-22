@@ -16,11 +16,11 @@ const normalizePathTextForCheck = (value) => {
   if (typeof value !== 'string') return ''
   return safeDecodePath(value)
     .replace(/\r\n?/gu, '\n')
-    .replace(/%5c/gu, '/')
+    .replace(/%5c/giu, '/')
     .replace(/[\\]+/gu, '/')
     .replace(/[\\/]+/gu, '/')
     .replace(/\/+/gu, '/')
-    .replace(/%20/gu, ' ')
+    .replace(/%20/giu, ' ')
     .replace(/["']/gu, '')
     .replace(/\\(["'])/gu, '$1')
     .replace(/\s+/gu, ' ')
@@ -54,6 +54,21 @@ const normalizePathMatchCandidates = (pathText) => {
     quotedVariants.push(`'${variant}'`)
   }
   return [...new Set(quotedVariants.map(normalizePathTextForCheck))].filter((candidate) => candidate.length > 0)
+}
+
+const stripKnownExecutorPath = (sourceText) => {
+  if (!sourceText) return ''
+  const executorPathCandidates = [
+    'C:\\Program Files\\nodejs\\node.exe',
+    'C:/Program Files/nodejs/node.exe',
+    'C:%5cProgram%20Files%5cnodejs%5cnode.exe',
+    'C:/Program%20Files/nodejs/node.exe',
+  ]
+  let text = sourceText
+  for (const candidate of executorPathCandidates) {
+    text = removePathMarker(text, candidate)
+  }
+  return text
 }
 
 const containsPathMarker = (sourceText, pathText) => {
@@ -104,7 +119,7 @@ const performanceAdapter = read('scripts/p2/run-team-os-4-g2-performance-adapter
 const normalizedPerformanceAdapter = normalizeScriptTextForPathMatch(performanceAdapter)
 const fixedNodeExecutorPath = 'C:\\Program Files\\nodejs\\node.exe'
 const fixedNpxCliPath = 'C:\\Program Files\\nodejs\\node_modules\\npm\\bin\\npx-cli.js'
-const adapterWithoutExecutorPath = removePathMarker(normalizedPerformanceAdapter, fixedNodeExecutorPath)
+const adapterWithoutExecutorPath = stripKnownExecutorPath(normalizedPerformanceAdapter)
 const compactClosure = closure.replace(/\s+/gu, '')
 
 const requiredBuckets = [
