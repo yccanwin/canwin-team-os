@@ -360,12 +360,14 @@ for (const fragment of [
   adapterWithoutExecutorPath.includes(fragment.toLowerCase().replace(/["']/gu, '')),
   `performance adapter contract missing: ${fragment}`,
 )
+const hasFixedNodeExecutor = containsPathMarker(normalizedPerformanceAdapter, normalizedFixedNode)
+const hasFixedNpxWithoutExecutor = containsPathMarker(adapterWithoutExecutorPath, normalizedFixedNpx)
 assert.ok(
-  containsPathMarker(normalizedPerformanceAdapter, normalizedFixedNode),
+  hasFixedNodeExecutor,
   'performance adapter fixed Node executor path missing',
 )
 assert.ok(
-  containsPathMarker(adapterWithoutExecutorPath, normalizedFixedNpx),
+  hasFixedNpxWithoutExecutor,
   'performance adapter fixed npx-cli path missing',
 )
 assert.ok(!/insert\s+into\s+auth\.users/iu.test(performanceAdapter), 'performance adapter must never write auth.users through SQL')
