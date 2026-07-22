@@ -51,6 +51,7 @@ const normalizePathMatchCandidates = (pathText) => {
     raw.replace(/\\\\/gu, '/'),
     normalized.replace(/ /gu, '%20'),
     decoded.replace(/ /gu, '%20'),
+    raw.replace(/%5[cC]/gu, '/'),
   ])
   const quotedVariants = []
   for (const variant of [...variants]) {
