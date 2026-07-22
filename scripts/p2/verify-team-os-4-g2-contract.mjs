@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -12,6 +12,10 @@ const model = read('apps/team-os-4/src/domain/work-item.ts')
 const selector = read('apps/team-os-4/src/domain/select-work-items.ts')
 const query = read('apps/team-os-4/src/domain/work-item-query.ts')
 const mapper = read('apps/team-os-4/src/domain/map-work-item-row.ts')
+const transitionPath = resolve(repoRoot, 'platform/team-os-4/supabase/migrations/20260722134500_add_transition_work_item_v1.sql')
+const transitionMigration = existsSync(transitionPath)
+  ? readFileSync(transitionPath, 'utf8').replace(/\s+/gu, ' ')
+  : null
 
 assert.equal(contract.schemaVersion, 1)
 assert.equal(contract.phase, 'G2')
@@ -57,5 +61,35 @@ assert.ok(completionMigration.includes('for update;'))
 assert.ok(completionMigration.includes("set search_path = ''"))
 assert.ok(completionMigration.includes('to service_role;'))
 assert.ok(completionMigration.includes("event_type = 'completed'"))
+assert.ok(completionMigration.includes("v_item.status = 'completed'"))
+assert.ok(completionMigration.includes("'idempotent', true"))
+assert.ok(completionMigration.includes("update public.work_items set status = 'completed'"))
+assert.ok(completionMigration.includes('insert into public.business_events'))
+for (const role of ['public', 'anon', 'authenticated']) {
+  assert.ok(completionMigration.includes(`revoke all on function public.complete_work_item_v1(uuid, uuid, text, uuid, jsonb) from ${role};`))
+}
+for (const [property, column] of [
+  ['id', 'id'], ['companyId', 'company_id'], ['sourceBusiness', 'source_business'],
+  ['sourceRecordId', 'source_id'], ['assigneeId', 'assignee_id'], ['plannedAt', 'planned_at'],
+  ['dueAt', 'due_at'], ['nextStep', 'next_step'], ['blockedReason', 'blocked_reason'],
+  ['generationRule', 'generation_rule'], ['completedAt', 'completed_at'],
+]) assert.ok(mapper.includes(`${property}: `) && mapper.includes(`row, '${column}'`), `mapper field drift: ${property}`)
+for (const column of ['role_type', 'kind', 'priority', 'status']) {
+  assert.ok(mapper.includes(`requiredString(row, '${column}')`), `mapper discriminator drift: ${column}`)
+}
+if (transitionMigration !== null) {
+  for (const fragment of [
+    'create or replace function public.transition_work_item_v1(',
+    "p_target_status = 'completed'",
+    "p_target_status not in ('in_progress', 'waiting', 'cancelled')",
+    'for update;',
+    "v_item.status in ('completed', 'cancelled')",
+    'insert into public.business_events',
+    'grant execute on function public.transition_work_item_v1(uuid, uuid, text, text, uuid, jsonb) to service_role;',
+  ]) assert.ok(transitionMigration.includes(fragment), `transition contract missing: ${fragment}`)
+  for (const role of ['public', 'anon', 'authenticated']) {
+    assert.ok(transitionMigration.includes(`revoke all on function public.transition_work_item_v1(uuid, uuid, text, text, uuid, jsonb) from ${role};`))
+  }
+}
 
-console.log('TEAM_OS_4_G2_CONTRACT_OK checkpoints=35,40 status=pending tables=2 rls=2 uniqueKey=passed defaultStatus=pending completionTransaction=present surfaces=3 singleReader=passed runtimeEvidence=pending gateIntegrated=0')
+console.log(`TEAM_OS_4_G2_CONTRACT_OK checkpoints=35,40 status=pending tables=2 rls=2 uniqueKey=passed defaultStatus=pending completionTransaction=static mapper=static transition=${transitionMigration === null ? 'pending' : 'static'} surfaces=3 singleReader=passed runtimeEvidence=pending gateIntegrated=0`)
