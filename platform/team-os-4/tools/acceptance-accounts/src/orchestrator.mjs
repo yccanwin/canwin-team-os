@@ -13,7 +13,14 @@ const makePassword = () => randomBytes(32).toString('base64url') + 'Aa1!'
 const SAFE_STAGE = /^G1_STAGE_FAIL (?:anon-bootstrap-public|anon-bootstrap-private|anon-internal-read|anon-rest-dml|anon-write-rpc|anon-storage-read|anon-storage-write|browser-launch|(?:sign-in|profile-context|own-scope-read|role-business-read|cross-read|cross-write|management-api|role-business-boundary|bootstrap-public|bootstrap-private|page-login|auto-route|cross-url|management-page):(?:sales|implementation|operations|finance|admin))$/u
 const PROJECT_REF = /^[a-z0-9]{20}$/u
 const CODE_COMMIT = /^[a-f0-9]{40}$/u
+const SHA256 = /^[a-f0-9]{64}$/u
+const ABSOLUTE_PATH = /^(?:[A-Za-z]:[\\/]|\/)/u
 const GREENFIELD_TEST_PROJECT_REF = 'jgcrhoabvaowxnqksvkq'
+const RUNTIME_SCREENSHOT_STAGES = Object.freeze([
+  'role-business-page-real-remote-request',
+  'manual-cross-role-url-denied',
+  'management-page-matches-role-policy',
+])
 const STEP_EXPECTATIONS = Object.freeze({
   signIn: 'passed',
   profileContext: 'passed',
@@ -54,6 +61,46 @@ const validateAcceptanceResult = (result, context) => {
     if (JSON.stringify(actual.steps) !== JSON.stringify(STEP_EXPECTATIONS)) {
       throw new Error('acceptance runner identity steps did not pass')
     }
+  }
+  if (!Array.isArray(result.screenshotEvidence) || result.screenshotEvidence.length !== 15) {
+    throw new Error('acceptance runner screenshot evidence is incomplete')
+  }
+  const expectedScreenshotKeys = new Set(
+    ACCEPTANCE_IDENTITIES.flatMap((identity) =>
+      RUNTIME_SCREENSHOT_STAGES.map((stage) => `${identity.primaryRole}:${stage}`)),
+  )
+  const actualScreenshotKeys = new Set()
+  const screenshotPaths = new Set()
+  for (const item of result.screenshotEvidence) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)
+      || Object.keys(item).some((key) => ![
+        'role', 'stage', 'screenshotPath', 'screenshotSha256', 'pageUrl',
+      ].includes(key))) {
+      throw new Error('acceptance runner screenshot evidence shape is invalid')
+    }
+    const key = `${item.role}:${item.stage}`
+    if (!expectedScreenshotKeys.has(key) || actualScreenshotKeys.has(key)) {
+      throw new Error('acceptance runner screenshot role or stage is invalid')
+    }
+    if (!ABSOLUTE_PATH.test(item.screenshotPath ?? '') || screenshotPaths.has(item.screenshotPath)
+      || !SHA256.test(item.screenshotSha256 ?? '')) {
+      throw new Error('acceptance runner screenshot artifact is invalid')
+    }
+    let pageUrl
+    try {
+      pageUrl = new URL(item.pageUrl)
+    } catch {
+      throw new Error('acceptance runner screenshot page URL is invalid')
+    }
+    if (pageUrl.protocol !== 'https:' || pageUrl.username || pageUrl.password
+      || pageUrl.search || !pageUrl.hash.startsWith('#/')) {
+      throw new Error('acceptance runner screenshot page URL is unsafe')
+    }
+    actualScreenshotKeys.add(key)
+    screenshotPaths.add(item.screenshotPath)
+  }
+  if (actualScreenshotKeys.size !== expectedScreenshotKeys.size) {
+    throw new Error('acceptance runner screenshot matrix is incomplete')
   }
   return result
 }
@@ -155,6 +202,7 @@ export async function provisionAcceptanceAccounts({ adapter, emailFor, runAccept
         persistentBaselineReady: fixtureSummary.persistent_baseline_ready,
       },
       runtimeEvidence: sealedPassedRuntimeEvidence,
+      screenshotEvidence: result.screenshotEvidence,
       accounts: created.map((item) => ({
         projectRef,
         codeCommit,

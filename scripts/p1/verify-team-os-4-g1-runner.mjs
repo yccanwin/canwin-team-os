@@ -39,6 +39,22 @@ assert.deepEqual(contract.requiredDeploymentBindingEvidenceFields, [
   'previewRepository', 'previewCommit', 'pagesUrl',
 ])
 assert.deepEqual(contract.requiredScreenshotEvidenceFields, ['screenshotPath', 'screenshotSha256'])
+assert.deepEqual(contract.runtimeScreenshotEvidence, {
+  required: true,
+  roles,
+  stages: [
+    'role-business-page-real-remote-request',
+    'manual-cross-role-url-denied',
+    'management-page-matches-role-policy',
+  ],
+  requiredFields: ['role', 'stage', 'screenshotPath', 'screenshotSha256', 'pageUrl'],
+  exactTotal: 15,
+  credentialsOrTokensAllowed: false,
+})
+assert.equal(
+  contract.runtimeScreenshotEvidence.roles.length * contract.runtimeScreenshotEvidence.stages.length,
+  contract.runtimeScreenshotEvidence.exactTotal,
+)
 assert.equal(contract.accountPreflightRequired, true)
 assert.deepEqual(contract.requiredAccountPreflightEvidenceFields, [
   'databaseReady', 'existingAcceptanceAccounts',
@@ -246,6 +262,45 @@ for (const field of contract.requiredDeploymentBindingEvidenceFields) {
 }
 for (const field of contract.requiredScreenshotEvidenceFields) {
   assert.match(runnerSource, new RegExp(`\\b${field}\\b`, 'u'), `screenshot evidence field missing: ${field}`)
+}
+for (const marker of [
+  'screenshotEvidence',
+  'page.screenshot(',
+  'readFileSync(screenshotPath)',
+  "createHash('sha256').update(screenshot).digest('hex')",
+]) assert.ok(runnerSource.includes(marker), `runtime screenshot marker missing: ${marker}`)
+assert.equal(
+  (runnerSource.match(/await capturePageScreenshot\(/gu) ?? []).length,
+  contract.runtimeScreenshotEvidence.stages.length,
+  'runner must capture exactly three runtime screenshots per role',
+)
+for (const stage of contract.runtimeScreenshotEvidence.stages) {
+  assert.match(
+    runnerSource,
+    new RegExp(`capturePageScreenshot\\(\\{[\\s\\S]{0,200}?stage: '${stage}'`, 'u'),
+    `runtime screenshot stage missing: ${stage}`,
+  )
+}
+assert.match(
+  runnerSource,
+  /return\s*\{[\s\S]*?screenshotEvidence:\s*Object\.freeze\(\[\.\.\.screenshotEvidence\]\)/u,
+  'runner must return the runtime screenshot evidence list',
+)
+const screenshotRecordMatch = runnerSource.match(
+  /screenshotEvidence\.push\(Object\.freeze\(\{([^}]+)\}\)\)/u,
+)
+assert.ok(screenshotRecordMatch, 'runner must append a safe runtime screenshot evidence record')
+for (const field of contract.runtimeScreenshotEvidence.requiredFields) {
+  assert.match(screenshotRecordMatch[1], new RegExp(`\\b${field}\\b`, 'u'), `runtime screenshot field missing: ${field}`)
+}
+for (const forbiddenField of [
+  'email', 'password', 'token', 'authorization', 'serviceRole', 'publishableKey', 'credential',
+]) {
+  assert.doesNotMatch(
+    screenshotRecordMatch[1],
+    new RegExp(`\\b${forbiddenField}\\b`, 'iu'),
+    `runtime screenshot evidence must not contain credential field: ${forbiddenField}`,
+  )
 }
 assert.ok(
   !runnerSource.includes('previewCommit !== expectedApplicationCommit') &&

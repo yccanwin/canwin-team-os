@@ -12,6 +12,11 @@ import {
 
 const PROJECT_REF = 'jgcrhoabvaowxnqksvkq'
 const CODE_COMMIT = 'a'.repeat(40)
+const RUNTIME_SCREENSHOT_STAGES = Object.freeze([
+  'role-business-page-real-remote-request',
+  'manual-cross-role-url-denied',
+  'management-page-matches-role-policy',
+])
 const passedSteps = Object.freeze({
   signIn: 'passed', profileContext: 'passed', ownScopeApi: 'passed', roleBusinessRead: 'passed',
   crossReadPolicy: 'passed', crossWrite: 'denied', managementApi: 'passed',
@@ -46,6 +51,16 @@ const acceptanceResult = (accounts, context) => ({
     }),
     ...ANONYMOUS_NEGATIVE_STAGES.map((stage) => acceptanceRecord(context, 'anon', 'anonymous-attack', stage)),
   ],
+  screenshotEvidence: accounts.flatMap((account) => {
+    const role = account.key === 'admin_supervisor' ? 'admin' : account.key
+    return RUNTIME_SCREENSHOT_STAGES.map((stage) => ({
+      role,
+      stage,
+      screenshotPath: `C:\\team-os-4-g1-evidence\\${role}-${stage}.png`,
+      screenshotSha256: 'b'.repeat(64),
+      pageUrl: `https://example.invalid/#/workspace/${role}`,
+    }))
+  }),
 })
 
 assert.deepEqual(
@@ -108,6 +123,7 @@ assert.equal(success.evidenceSealed, true)
 assert.equal(success.provisioningEvidence.status, 'retained')
 assert.equal(success.provisioningEvidence.fixturesCountAsRuntimeEvidence, false)
 assert.equal(success.accounts.length, 5)
+assert.equal(success.screenshotEvidence.length, 15)
 assert.ok(success.accounts.every((item) => item.projectRef === PROJECT_REF && item.codeCommit === CODE_COMMIT && item.profileStatus === 'active'))
 assert.ok(success.accounts.every((item) => /^[a-f0-9]{64}$/.test(item.userIdSha256)))
 assert.equal(calls.filter((x) => x.startsWith('delete-')).length, 0)
@@ -140,6 +156,22 @@ assert.deepEqual(calls, [
   'delete-auth:new-3', 'delete-auth:new-2', 'delete-auth:new-1',
 ])
 assert.ok(!calls.some((item) => item.includes('existing-admin')))
+
+calls = []
+await assert.rejects(
+  provisionAcceptanceAccounts({
+    adapter,
+    emailFor: (key) => `${key}@example.invalid`,
+    projectRef: PROJECT_REF,
+    codeCommit: CODE_COMMIT,
+    runAcceptance: async (accounts, context) => {
+      const result = acceptanceResult(accounts, context)
+      return { ...result, screenshotEvidence: result.screenshotEvidence.slice(0, -1) }
+    },
+  }),
+  (error) => error.evidence?.status === 'failed-cleaned'
+    && error.evidence.evidenceRecordsRejected === true,
+)
 
 calls = []
 authCount = 0

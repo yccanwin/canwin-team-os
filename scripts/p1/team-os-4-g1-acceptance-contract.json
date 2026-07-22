@@ -28,6 +28,24 @@
     "screenshotPath",
     "screenshotSha256"
   ],
+  "runtimeScreenshotEvidence": {
+    "required": true,
+    "roles": ["sales", "implementation", "operations", "finance", "admin"],
+    "stages": [
+      "role-business-page-real-remote-request",
+      "manual-cross-role-url-denied",
+      "management-page-matches-role-policy"
+    ],
+    "requiredFields": [
+      "role",
+      "stage",
+      "screenshotPath",
+      "screenshotSha256",
+      "pageUrl"
+    ],
+    "exactTotal": 15,
+    "credentialsOrTokensAllowed": false
+  },
   "accountPreflightRequired": true,
   "requiredAccountPreflightEvidenceFields": [
     "databaseReady",

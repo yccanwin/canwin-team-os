@@ -69,6 +69,7 @@ const ROLE_BUSINESS_BOUNDARY = Object.freeze({
   admin: { table: 'case_candidates', boundary: 'authorized' },
 })
 const ZERO_UUID = '00000000-0000-0000-0000-000000000000'
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
 const required = (name) => {
   const value = process.env[name]
   if (!value) throw new Error(`${name} is required`)
@@ -261,8 +262,7 @@ export async function runPreflightOnly() {
     await Promise.resolve().then(() => browser?.close()).catch(() => undefined)
   }
   const screenshot = readFileSync(screenshotPath)
-  const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
-  if (screenshot.length <= pngSignature.length || !screenshot.subarray(0, pngSignature.length).equals(pngSignature)) {
+  if (screenshot.length <= PNG_SIGNATURE.length || !screenshot.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)) {
     throw new Error('preview login screenshot is empty or not a PNG')
   }
   const screenshotSha256 = createHash('sha256').update(screenshot).digest('hex')
@@ -285,9 +285,36 @@ export async function runAcceptance(accounts, context) {
   const runId = context.runId
   if (!/^[a-f0-9]{40}$/u.test(applicationCommit ?? '')) throw new Error('acceptance context commit is invalid')
   if (!/^[a-zA-Z0-9][a-zA-Z0-9._:-]{7,127}$/u.test(runId ?? '')) throw new Error('acceptance context run id is invalid')
+  const rawScreenshotDirectory = required('TEAM_OS_4_PREFLIGHT_SCREENSHOT_DIR')
+  if (!isAbsolute(rawScreenshotDirectory)) throw new Error('acceptance screenshot path must be an explicit absolute path')
+  const screenshotDirectory = resolve(rawScreenshotDirectory)
+  mkdirSync(screenshotDirectory, { recursive: true })
+  const runIdDigest = createHash('sha256').update(runId, 'utf8').digest('hex').slice(0, 16)
   const anon = createClient(supabaseUrl, publishableKey, { auth: { persistSession: false, autoRefreshToken: false } })
   const evidenceRecords = []
+  const screenshotEvidence = []
   const steps = new Map(accounts.map((account) => [account.key, {}]))
+  const capturePageScreenshot = async ({ page, role, stage, sequence }) => {
+    const pageUrl = new URL(page.url())
+    const previewBaseUrl = new URL(`${previewUrl}/`)
+    if (pageUrl.username || pageUrl.password || pageUrl.search || pageUrl.origin !== previewBaseUrl.origin ||
+        !pageUrl.pathname.startsWith(previewBaseUrl.pathname)) {
+      throw new Error('acceptance screenshot page URL is outside the credential-free preview boundary')
+    }
+    const sortableSequence = String(sequence).padStart(2, '0')
+    const screenshotPath = join(
+      screenshotDirectory,
+      `team-os-4-acceptance-${runIdDigest}-${sortableSequence}-${role}-${stage}.png`,
+    )
+    await page.screenshot({ path: screenshotPath, fullPage: true })
+    const screenshot = readFileSync(screenshotPath)
+    if (screenshot.length <= PNG_SIGNATURE.length ||
+        !screenshot.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)) {
+      throw new Error(`acceptance ${stage} screenshot is empty or not a PNG`)
+    }
+    const screenshotSha256 = createHash('sha256').update(screenshot).digest('hex')
+    screenshotEvidence.push(Object.freeze({ role, stage, screenshotPath, screenshotSha256, pageUrl: pageUrl.href }))
+  }
   const appendEvidenceRecord = ({
     role,
     identityKind,
@@ -636,7 +663,7 @@ export async function runAcceptance(accounts, context) {
   }
 
   browser = await runStage('browser-launch', launchAcceptanceBrowser)
-    for (const account of accounts) {
+    for (const [accountIndex, account] of accounts.entries()) {
       const role = roleFor(account.key)
       let pageContext
       let page
@@ -698,6 +725,9 @@ export async function runAcceptance(accounts, context) {
         if (JSON.stringify(actualRestSurfaces) !== JSON.stringify(sorted(business.expectedRestSurfaces))) {
           throw new Error('role business page remote REST surface set drifted')
         }
+        await capturePageScreenshot({
+          page, role, stage: 'role-business-page-real-remote-request', sequence: accountIndex * 3 + 1,
+        })
         appendPageEvidence({
           role,
           stage: 'role-business-page-real-remote-request',
@@ -714,6 +744,9 @@ export async function runAcceptance(accounts, context) {
         const startedAt = new Date().toISOString()
         await page.goto(`${previewUrl}/#/workspace/${wrongRole}`, { waitUntil: 'domcontentloaded' })
         await page.getByTestId('access-denied').waitFor()
+        await capturePageScreenshot({
+          page, role, stage: 'manual-cross-role-url-denied', sequence: accountIndex * 3 + 2,
+        })
         appendPageEvidence({
           role,
           stage: 'manual-cross-role-url-denied',
@@ -736,6 +769,9 @@ export async function runAcceptance(accounts, context) {
         if (management.boundary === 'authorized' && state !== 'real-data') {
           throw new Error('authorized management page did not render its required real fixture')
         }
+        await capturePageScreenshot({
+          page, role, stage: 'management-page-matches-role-policy', sequence: accountIndex * 3 + 3,
+        })
         appendPageEvidence({
           role,
           stage: 'management-page-matches-role-policy',
@@ -760,6 +796,7 @@ export async function runAcceptance(accounts, context) {
     global: { anonymousBootstrap: 'denied', browserLaunch: 'passed' },
     accounts: accounts.map((account) => ({ identityKey: account.key, steps: steps.get(account.key) })),
     evidenceRecords,
+    screenshotEvidence: Object.freeze([...screenshotEvidence]),
     runId,
     applicationCommit,
   }
