@@ -115,10 +115,14 @@ for (const marker of [
   "runtimeEvidenceStatus = 'not-started'",
   "databaseCleanupStatus = fixturePreparationState === 'not-started'",
   'await adapter.cleanupRunDatabase({ runId })',
-  'await adapter.deleteAcceptanceProfile(item.id)',
   'await adapter.deleteAuthUser(item.id)',
   'await adapter.quarantineAccounts({ runId, accounts: remainingAccounts })',
 ]) assert.ok(orchestratorSource.includes(marker), `lifecycle marker missing: ${marker}`)
+assert.ok(
+  orchestratorSource.includes('await adapter.deleteAcceptanceProfile(item.id)') ||
+    /await adapter\.deleteAcceptanceProfile\(\s*\{\s*id: item\.id,\s*runId,\s*identityKey: item\.key,\s*\}\s*\)/u.test(orchestratorSource),
+  'lifecycle marker missing: deleteAcceptanceProfile',
+)
 for (const marker of [
   'G1 ACCEPTANCE ${primaryRole}',
   "system: 'team-os-4-acceptance'",
