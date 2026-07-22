@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "phase": "G4",
+  "acceptedProgressBefore": 50,
+  "checkpoints": [
+    {
+      "progress": 55,
+      "status": "pending",
+      "required": [
+        "product-catalog-and-versioned-prices",
+        "quote-order-snapshot",
+        "payment-gated-inventory-reservation",
+        "service-and-fulfillment-transactions",
+        "store-allocation-conservation"
+      ]
+    },
+    {
+      "progress": 60,
+      "status": "pending",
+      "required": [
+        "sales-product-quote-order-pages",
+        "warehouse-reserve-and-ship-pages",
+        "implementation-fulfillment-pages",
+        "operations-service-pages"
+      ]
+    }
+  ],
+  "contracts": {
+    "productTypes": ["software", "hardware", "service"],
+    "frozenPrices": ["customer_sale_price", "sales_internal_price", "company_actual_cost"],
+    "quoteChangesInventory": false,
+    "reservationRequires": ["formal_order", "internal_payment_settled"],
+    "storeAllocation": "sum-store-allocations-equals-order-line-quantity",
+    "fulfillmentUnit": "store+order_line",
+    "inventoryConservationRequired": true,
+    "serverTransactionsRequired": ["reserve", "ship", "complete-fulfillment", "cancel-or-reverse"],
+    "rlsRequired": true,
+    "clientDirectWritesAllowed": false,
+    "fixturesMocksOrDemoDataAllowed": false,
+    "stableTestIds": [
+      "sales-product-catalog",
+      "sales-quote-editor",
+      "sales-order-detail",
+      "warehouse-reservation-queue",
+      "warehouse-shipping-queue",
+      "implementation-fulfillment-queue",
+      "operations-service-queue"
+    ]
+  },
+  "runtimeEvidence": "pending",
+  "transactionEvidence": "pending",
+  "g4Accepted": false
+}
