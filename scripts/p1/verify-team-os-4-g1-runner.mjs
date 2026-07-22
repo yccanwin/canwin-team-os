@@ -5,12 +5,13 @@ import { fileURLToPath } from 'node:url'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const contract = JSON.parse(readFileSync(resolve(repoRoot, 'scripts/p1/team-os-4-g1-acceptance-contract.json'), 'utf8'))
+const runnerSource = readFileSync(resolve(repoRoot, 'scripts/p1/run-team-os-4-g1-acceptance.mjs'), 'utf8')
 const expectedIdentities = ['anon', 'sales', 'implementation', 'operations', 'finance', 'admin']
 const expectedRoles = expectedIdentities.slice(1)
 const expectedChecks = [
   'real-login-auto-role-route',
   'manual-url-cross-role-denied',
-  'direct-rest-cross-identity-read-denied',
+  'direct-rest-cross-identity-read-policy',
   'direct-rest-cross-identity-write-denied',
   'bootstrap-public-entry-denied',
   'bootstrap-private-entry-denied',
@@ -24,6 +25,11 @@ assert.ok(exact(contract.capabilitiesNotSeparateIdentities, ['warehouse', 'super
 assert.ok(exact(contract.requiredChecks, expectedChecks))
 assert.equal(contract.runtimeStatus, 'pending')
 for (const role of expectedRoles) assert.equal(contract.workspaceRoutes[role], `/workspace/${role}`)
+for (const label of ['anon-rpc', 'sign-in:', 'cross-read:', 'cross-write:', 'role-rpc:', 'browser-launch', 'page-login:', 'auto-route:', 'cross-url:']) {
+  assert.ok(runnerSource.includes(label), `safe stage label missing: ${label}`)
+}
+assert.ok(runnerSource.includes("url.hash === `#/workspace/${role}`"), 'HashRouter auto-route check must compare URL hash')
+assert.ok(!runnerSource.includes('G1_STAGE_FAIL ${account.email}') && !runnerSource.includes('G1_STAGE_FAIL ${account.id}'))
 
 const results = []
 for (const identity of expectedIdentities) {

@@ -13,7 +13,7 @@
   "requiredChecks": [
     "real-login-auto-role-route",
     "manual-url-cross-role-denied",
-    "direct-rest-cross-identity-read-denied",
+    "direct-rest-cross-identity-read-policy",
     "direct-rest-cross-identity-write-denied",
     "bootstrap-public-entry-denied",
     "bootstrap-private-entry-denied"
