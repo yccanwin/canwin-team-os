@@ -17,6 +17,7 @@ import { CatalogPage, OrdersPage } from './CommercePages'
 import { FulfillmentPage, WarehousePage } from './FulfillmentPages'
 import { EarningsPage, FinancePage } from './FinancePages'
 import { CasesPage } from './CasesPage'
+import { roleBusinessLinks, roleBusinessPath } from './lib/role-navigation'
 
 const ROLE_FOCUS: Readonly<Record<PrimaryRole, string>> = {
   sales: '客户、商机、报价、订单与续费', implementation: '排期、安装、培训、验收与交接',
@@ -93,7 +94,12 @@ function Workspace({ user, items, loading, error }: { user: AuthenticatedWorkspa
       <div className="metric-grid"><KPICard label="今日推进" value={workbenchItems.length} note="来自统一工作项" tone="success" /><KPICard label="待我处理" value={workbenchItems.filter((item) => item.status === 'pending' || item.status === 'in_progress').length} note="本人当前开放工作项" tone="info" /><KPICard label="阻塞提醒" value={waitingCount} note="等待处理的阻塞工作项" tone="warning" /></div>
       <div className="foundation-progress"><ProgressBar label="G1 岗位壳层" value={30} /></div>
       <section className="work-items-section" data-testid="work-items-workbench" aria-labelledby="workbench-queue-title"><div className="section-heading"><p className="eyebrow">统一工作项</p><h2 id="workbench-queue-title">我的工作台队列</h2></div><WorkItemQueue items={items} surface="workbench" user={user} loading={loading} error={error} /></section>
-      {currentRole === 'admin' && <div className="notice" data-testid="admin-management-view"><strong>管理员管理视图</strong><p>人员、权限、经营配置与审计入口将在本视图内逐项开放。</p></div>}
+      <section className="work-items-section" data-testid={`role-business-${currentRole}`} aria-labelledby="role-business-title">
+        <div className="section-heading"><p className="eyebrow">当前岗位业务</p><h2 id="role-business-title">今天要用的真实业务入口</h2></div>
+        <ol className="work-item-list role-business-list">
+          {roleBusinessLinks(currentRole).map((link) => <li key={link.path}><div><strong>{link.label}</strong><span>{link.description}</span></div><NavLink className="ui-button ui-button--quiet" to={link.path}>进入</NavLink></li>)}
+        </ol>
+      </section>
     </section>
   )
 }
@@ -121,13 +127,6 @@ function ProfilePage({ user }: { user: AuthenticatedWorkspace }) {
       </dl>
     </section>
   )
-}
-
-function roleBusinessPath(role: PrimaryRole): string {
-  if (role === 'sales') return '/customers'
-  if (role === 'finance') return '/finance'
-  if (role === 'admin') return '/cases'
-  return '/fulfillment'
 }
 
 function MobileBottomNav({ user }: { user: AuthenticatedWorkspace }) {
@@ -171,7 +170,7 @@ function AuthenticatedApp({ user, onSignOut }: { user: AuthenticatedWorkspace; o
     <div className="app-shell" data-testid="authenticated-app">
       <aside>
         <div className="brand"><span>CW</span><div><strong>{user.companyName}</strong><small>Team OS 4.0</small></div></div>
-        <nav className="desktop-nav" aria-label="岗位工作台"><NavLink to={workspacePath(user.primaryRole)}>{PRIMARY_ROLE_LABELS[user.primaryRole]}工作台</NavLink><NavLink to="/progress">推进中心</NavLink><NavLink to="/calendar">日历</NavLink><NavLink to="/earnings">我的劳动收益</NavLink><NavLink to="/cases">案例馆</NavLink>{(user.primaryRole === 'sales' || user.primaryRole === 'admin') && <><NavLink to="/leads">今日线索与商机</NavLink><NavLink to="/customers">客户与门店</NavLink><NavLink to="/catalog">产品目录</NavLink><NavLink to="/orders">报价与订单</NavLink></>}{(user.primaryRole === 'finance' || user.primaryRole === 'admin') && <NavLink to="/finance">财务总账</NavLink>}{user.primaryRole === 'admin' && <NavLink to="/warehouse">仓库处理</NavLink>}{(['implementation','operations','admin'] as const).includes(user.primaryRole as 'implementation'|'operations'|'admin') && <NavLink to="/fulfillment">履约任务</NavLink>}</nav>
+        <nav className="desktop-nav" aria-label="岗位工作台"><NavLink to={workspacePath(user.primaryRole)}>{PRIMARY_ROLE_LABELS[user.primaryRole]}工作台</NavLink><NavLink to="/progress">推进中心</NavLink><NavLink to="/calendar">日历</NavLink><span className="desktop-nav__group-label">当前岗位业务</span>{roleBusinessLinks(user.primaryRole).map((link) => <NavLink key={link.path} to={link.path}>{link.label}</NavLink>)}</nav>
         <div className="environment ready" data-testid="environment-status"><span aria-hidden="true" />独立测试环境已连接</div>
       </aside>
       <main>
