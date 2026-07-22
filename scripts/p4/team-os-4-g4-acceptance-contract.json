@@ -30,6 +30,8 @@
     "frozenPrices": ["customer_sale_price", "sales_internal_price", "company_actual_cost"],
     "quoteChangesInventory": false,
     "reservationRequires": ["formal_order", "internal_payment_settled"],
+    "internalPaymentProof": "server-ledger-or-immutable-payment-event-only",
+    "frontendBooleanCountsAsSettlement": false,
     "storeAllocation": "sum-store-allocations-equals-order-line-quantity",
     "fulfillmentUnit": "store+order_line",
     "inventoryConservationRequired": true,
@@ -37,6 +39,12 @@
     "rlsRequired": true,
     "clientDirectWritesAllowed": false,
     "fixturesMocksOrDemoDataAllowed": false,
+    "inventoryFulfillment": {
+      "tablesRequired": ["inventory_events", "fulfillment_units", "fulfillment_events"],
+      "eventsImmutable": true,
+      "fulfillmentIdentity": "company_id+store_id+order_line_id",
+      "paymentGateStatus": "pending"
+    },
     "stableTestIds": [
       "sales-product-catalog",
       "sales-quote-editor",
