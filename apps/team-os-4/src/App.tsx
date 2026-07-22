@@ -18,6 +18,7 @@ import { FulfillmentPage, WarehousePage } from './FulfillmentPages'
 import { EarningsPage, FinancePage } from './FinancePages'
 import { CasesPage } from './CasesPage'
 import { roleBusinessLinks, roleBusinessPath } from './lib/role-navigation'
+import { RoleDayOverview } from './RoleDayOverview'
 
 const ROLE_FOCUS: Readonly<Record<PrimaryRole, string>> = {
   sales: '客户、商机、报价、订单与续费', implementation: '排期、安装、培训、验收与交接',
@@ -93,6 +94,7 @@ function Workspace({ user, items, loading, error }: { user: AuthenticatedWorkspa
       <p className="eyebrow">4.0 独立岗位工作台</p><h1 id="workspace-title">{PRIMARY_ROLE_LABELS[currentRole]}工作台</h1><p className="lead">{ROLE_FOCUS[currentRole]}</p>
       <div className="metric-grid"><KPICard label="今日推进" value={workbenchItems.length} note="来自统一工作项" tone="success" /><KPICard label="待我处理" value={workbenchItems.filter((item) => item.status === 'pending' || item.status === 'in_progress').length} note="本人当前开放工作项" tone="info" /><KPICard label="阻塞提醒" value={waitingCount} note="等待处理的阻塞工作项" tone="warning" /></div>
       <div className="foundation-progress"><ProgressBar label="G1 岗位壳层" value={30} /></div>
+      <RoleDayOverview user={user} />
       <section className="work-items-section" data-testid="work-items-workbench" aria-labelledby="workbench-queue-title"><div className="section-heading"><p className="eyebrow">统一工作项</p><h2 id="workbench-queue-title">我的工作台队列</h2></div><WorkItemQueue items={items} surface="workbench" user={user} loading={loading} error={error} /></section>
       <section className="work-items-section" data-testid={`role-business-${currentRole}`} aria-labelledby="role-business-title">
         <div className="section-heading"><p className="eyebrow">当前岗位业务</p><h2 id="role-business-title">今天要用的真实业务入口</h2></div>
