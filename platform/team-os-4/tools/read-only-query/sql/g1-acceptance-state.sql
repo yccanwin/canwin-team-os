@@ -22,7 +22,7 @@ select pg_catalog.jsonb_build_object(
     where display_name like 'G1 ACCEPTANCE %'
   ),
   'active_profiles_by_role', (
-    select pg_catalog.coalesce(
+    select coalesce(
       pg_catalog.jsonb_object_agg(role_key, profile_count order by role_key),
       '{}'::jsonb
     )
@@ -37,7 +37,7 @@ select pg_catalog.jsonb_build_object(
     ) as role_counts
   ),
   'primary_roles', (
-    select pg_catalog.coalesce(
+    select coalesce(
       pg_catalog.jsonb_agg(
         pg_catalog.jsonb_build_object('key', role_key, 'active', is_active)
         order by role_key
@@ -47,7 +47,7 @@ select pg_catalog.jsonb_build_object(
     from public.primary_roles
   ),
   'capabilities', (
-    select pg_catalog.coalesce(
+    select coalesce(
       pg_catalog.jsonb_agg(
         pg_catalog.jsonb_build_object('key', capability_key, 'active', is_active)
         order by capability_key
@@ -58,14 +58,14 @@ select pg_catalog.jsonb_build_object(
   ),
   'profile_capabilities_total', (select count(*) from public.profile_capabilities),
   'acceptance_capabilities_by_role', (
-    select pg_catalog.coalesce(
+    select coalesce(
       pg_catalog.jsonb_object_agg(role_key, capability_keys order by role_key),
       '{}'::jsonb
     )
     from (
       select
         r.role_key,
-        pg_catalog.coalesce(
+        coalesce(
           pg_catalog.jsonb_agg(c.capability_key order by c.capability_key)
             filter (where c.capability_key is not null),
           '[]'::jsonb
