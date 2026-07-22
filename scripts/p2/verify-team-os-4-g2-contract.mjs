@@ -23,7 +23,8 @@ const normalizePathTextForMatch = (value) => {
   }
   return normalized
     .replace(/\r\n?/gu, '\n')
-    .replace(/^file:\/+?/iu, '')
+    .replace(/^file:\/{2,3}/iu, '')
+    .replace(/^file:\/?/iu, '')
     .replace(/%5c/giu, '/')
     .replace(/%3a/giu, ':')
     .replace(/%5b/giu, '[')
@@ -31,6 +32,7 @@ const normalizePathTextForMatch = (value) => {
     .replace(/%5f/giu, '_')
     .replace(/\\+/gu, '/')
     .replace(/\/+/gu, '/')
+    .replace(/(?<=.)\u0000/gu, ' ')
     .replace(/[\u0000-\u001f\u007f]/gu, ' ')
     .replace(/%20/giu, ' ')
     .replace(/["']/gu, '')
@@ -145,6 +147,14 @@ const stripKnownExecutorPath = (sourceText) => {
   for (const candidate of normalizePathMatchCandidates('C:\\Program Files\\nodejs\\node.exe')) {
     text = removePathMarker(text, candidate)
   }
+  // 同时过滤可能出现的变体路径（含驱动符/编码/大小写差异），防止执行器路径误判为适配器缺失。
+  text = normalizePathMatchSource(text)
+    .replace(/\s+/gu, ' ')
+    .split(normalizePathTextForMatch('program files/nodejs/node.exe')).join(' ')
+    .replace(normalizePathTextForMatch('program files\\nodejs\\node.exe'), ' ')
+    .replace(/program%20files\/nodejs\/node\.exe/gu, ' ')
+    .replace(/program files\/nodejs\/node\.exe/gu, ' ')
+    .replace(/node\.exe/gu, ' ')
   text = text.replace(/\s+/gu, ' ').trim()
   return text
 }
