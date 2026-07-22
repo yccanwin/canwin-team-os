@@ -39,6 +39,16 @@
     "scheduleEventTypes": ["meeting", "visit", "break", "personal"],
     "scheduleEventVisibility": "owner-or-admin-rls",
     "calendarSourceTestIds": ["work-items-calendar", "schedule-events-calendar"],
+    "scaleAcceptance": {
+      "workItemCount": 100000,
+      "requiredIndexes": [
+        "work_items_generation_identity",
+        "work_items_assignee_status_due_idx"
+      ],
+      "requiredEvidence": ["dataset-manifest", "query-plan", "stable-sort", "response-percentiles"],
+      "status": "pending",
+      "scriptPresenceCountsAsPassed": false
+    },
     "mobileRequired": true
   },
   "runtimeEvidence": "pending",

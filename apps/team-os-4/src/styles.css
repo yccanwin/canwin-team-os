@@ -101,6 +101,10 @@ h1 { margin: 0; font-size: clamp(34px, 5vw, 58px); letter-spacing: -.04em; }
 .work-item-list li strong { color: #203429; }
 .work-item-list li span, .work-item-list li small, .work-item-list li p { color: #69756c; }
 .work-item-list li p { grid-column: 1 / -1; margin: 0; font-size: 13px; }
+.calendar-source { min-width: 0; padding: 18px; border: 1px solid #d7e1d7; border-radius: 16px; background: rgba(255,255,255,.48); overflow: hidden; }
+.calendar-source--schedule { border-color: #e6d8b4; }
+.schedule-event-list li { min-width: 0; border-left: 3px solid #d6a94b; }
+.schedule-event-list li > div, .schedule-event-list li strong, .schedule-event-list li span, .schedule-event-list li small { min-width: 0; overflow-wrap: anywhere; }
 
 @media (max-width: 760px) {
   .app-shell { grid-template-columns: 1fr; }

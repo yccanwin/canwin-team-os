@@ -62,11 +62,15 @@ function WorkItemQueue({ items, surface, user, loading, error }: {
   )
 }
 
+const SCHEDULE_KIND_LABELS: Readonly<Record<ScheduleEvent['kind'], string>> = { meeting: '会议', visit: '拜访', break: '休息', personal: '个人安排' }
+const LOCAL_DATE_TIME = new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })
+
 function ScheduleEventList({ events, loading, error }: { events: readonly ScheduleEvent[]; loading: boolean; error?: string }) {
   if (loading) return <section className="work-items-state" data-testid="schedule-events-calendar-loading"><StatusBadge tone="info">正在读取个人日程…</StatusBadge></section>
   if (error) return <section className="work-items-state" data-testid="schedule-events-calendar-error"><StatusBadge tone="danger">个人日程读取失败</StatusBadge></section>
   if (events.length === 0) return <div data-testid="schedule-events-calendar-empty"><EmptyState title="当前没有个人日程" description="会议、拜访、休息日和个人行程会显示在这里，不会复制成工作项。" /></div>
-  return <ol className="work-item-list schedule-event-list" data-testid="schedule-events-calendar-list">{events.map((event) => <li key={event.id} data-testid="schedule-event"><div><strong>{event.title}</strong><span>{event.kind}</span></div><StatusBadge tone="neutral">日程</StatusBadge><small>{event.startsAt} — {event.endsAt}</small>{event.location && <p>{event.location}</p>}</li>)}</ol>
+  const orderedEvents = events.toSorted((left, right) => Date.parse(left.startsAt) - Date.parse(right.startsAt) || left.id.localeCompare(right.id))
+  return <ol className="work-item-list schedule-event-list" data-testid="schedule-events-calendar-list">{orderedEvents.map((event) => <li key={event.id} data-testid="schedule-event"><div><strong>{event.title}</strong><span>{SCHEDULE_KIND_LABELS[event.kind]}</span></div><StatusBadge tone="neutral">个人日程</StatusBadge><small>{LOCAL_DATE_TIME.format(new Date(event.startsAt))} — {LOCAL_DATE_TIME.format(new Date(event.endsAt))}</small>{event.location && <p>{event.location}</p>}</li>)}</ol>
 }
 
 function Workspace({ user, items, loading, error }: { user: AuthenticatedWorkspace; items: readonly WorkItem[]; loading: boolean; error?: string }) {
@@ -89,7 +93,8 @@ function Workspace({ user, items, loading, error }: { user: AuthenticatedWorkspa
 }
 
 function WorkItemPage({ surface, title, user, items, loading, error, scheduleEvents = [], scheduleLoading = false, scheduleError }: { surface: 'progress' | 'calendar'; title: string; user: AuthenticatedWorkspace; items: readonly WorkItem[]; loading: boolean; error?: string; scheduleEvents?: readonly ScheduleEvent[]; scheduleLoading?: boolean; scheduleError?: string }) {
-  return <section className="workspace" data-testid={`${surface}-page`}><p className="eyebrow">统一工作项</p><h1>{title}</h1><p className="lead">与我的工作台使用同一份工作项来源。</p><div data-testid={`work-items-${surface}`}><WorkItemQueue items={items} surface={surface} user={user} loading={loading} error={error} /></div>{surface === 'calendar' && <section className="work-items-section" data-testid="schedule-events-calendar"><div className="section-heading"><p className="eyebrow">独立日程</p><h2>会议与个人安排</h2></div><ScheduleEventList events={scheduleEvents} loading={scheduleLoading} error={scheduleError} /></section>}</section>
+  const calendar = surface === 'calendar'
+  return <section className="workspace" data-testid={`${surface}-page`}><p className="eyebrow">{calendar ? '统一时间视图' : '统一工作项'}</p><h1>{title}</h1><p className="lead">{calendar ? '工作项时间与个人日程同屏展示，但始终保持两类独立记录。' : '与我的工作台使用同一份工作项来源。'}</p><section className={calendar ? 'calendar-source' : ''} data-testid={`work-items-${surface}`}>{calendar && <div className="section-heading"><p className="eyebrow">工作项时间</p><h2>截止与计划</h2></div>}<WorkItemQueue items={items} surface={surface} user={user} loading={loading} error={error} /></section>{calendar && <section className="work-items-section calendar-source calendar-source--schedule" data-testid="schedule-events-calendar"><div className="section-heading"><p className="eyebrow">个人日程</p><h2>会议、拜访与个人安排</h2></div><ScheduleEventList events={scheduleEvents} loading={scheduleLoading} error={scheduleError} /></section>}</section>
 }
 
 function AuthenticatedApp({ user, onSignOut }: { user: AuthenticatedWorkspace; onSignOut: () => Promise<void> }) {
