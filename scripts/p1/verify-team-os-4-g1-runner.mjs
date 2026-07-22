@@ -18,7 +18,7 @@ const cliSource = read('platform/team-os-4/tools/acceptance-accounts/src/cli.mjs
 const migrationSource = read('platform/team-os-4/supabase/migrations/20260722175000_add_g1_acceptance_fixture.sql')
 
 const roles = ['sales', 'implementation', 'operations', 'finance', 'admin']
-assert.equal(contract.schemaVersion, 3)
+assert.equal(contract.schemaVersion, 4)
 assert.equal(contract.phase, 'G1')
 assert.equal(contract.realEnabledAccounts, 5)
 assert.deepEqual(contract.realEnabledAccountRoles, roles)
@@ -28,6 +28,43 @@ assert.deepEqual(contract.capabilitiesNotSeparateIdentities, ['warehouse', 'supe
 for (const role of roles) assert.equal(contract.workspaceRoutes[role], `/workspace/${role}`)
 assert.equal(contract.authoritativeProvisioner, 'platform/team-os-4/tools/acceptance-accounts')
 assert.equal(contract.authoritativeRunner, 'scripts/p1/run-team-os-4-g1-acceptance.mjs')
+assert.equal(contract.sourceApplicationCommit, 'bb53df8184ef7b013262cf7fd5e91cada5fe0183')
+assert.match(contract.sourceApplicationCommit, /^[a-f0-9]{40}$/u)
+assert.equal(contract.previewRepository, 'yccanwin/canwin-team-os-4-preview')
+assert.equal(contract.previewCommit, 'd321e5e3479dcc1988ae2ab3f8533bfa7557a597')
+assert.match(contract.previewCommit, /^[a-f0-9]{40}$/u)
+assert.notEqual(contract.sourceApplicationCommit, contract.previewCommit)
+assert.equal(contract.pagesUrl, 'https://yccanwin.github.io/canwin-team-os-4-preview/')
+assert.deepEqual(contract.requiredDeploymentBindingEvidenceFields, [
+  'previewRepository', 'previewCommit', 'pagesUrl',
+])
+assert.deepEqual(contract.requiredScreenshotEvidenceFields, ['screenshotPath', 'screenshotSha256'])
+assert.equal(contract.accountPreflightRequired, true)
+assert.deepEqual(contract.requiredAccountPreflightEvidenceFields, [
+  'databaseReady', 'existingAcceptanceAccounts',
+])
+assert.deepEqual(contract.deploymentBindingRules, {
+  preflightOnlyRequired: true,
+  preflightMustNotCreateAccounts: true,
+  previewGitRepositoryMustBeIndependent: true,
+  previewCommitMustBeFullSha: true,
+  previewGitOriginMustMatchRepository: true,
+  githubPagesBuildCommitMustMatchPreviewCommit: true,
+  githubPagesUrlMustMatchPagesUrl: true,
+  githubPagesSourceMustMatchRepositoryPagesSource: true,
+  nodePlaywrightScreenshotRequired: true,
+  deploymentBindingMustBeIncludedInEvidence: true,
+  sourceAndPreviewCommitsMustRemainDistinct: true,
+  sourceApplicationCommitMustBeStoredInRuntimeEvidence: true,
+  previewCommitMustBeStoredInDeploymentEvidence: true,
+})
+assert.deepEqual(contract.accountPreflightRules, {
+  publicDeploymentBindingRunsFirst: true,
+  trustedDatabasePreflightRunsSecond: true,
+  serviceRoleKeyClearedBeforeExit: true,
+  preflightOnlyMayCreateAccounts: false,
+  preflightOnlyMayProvisionFixtures: false,
+})
 assert.deepEqual(contract.retiredNonAuthoritativeHarnesses, [
   'scripts/p1/run-real-page-acceptance.mjs',
   'scripts/p1/manage-real-page-accounts.mjs',
@@ -160,6 +197,86 @@ for (const label of [
 assert.ok(runnerSource.includes("getByTestId('authenticated-app')"), 'real authenticated page check is missing')
 assert.ok(runnerSource.includes('getByTestId(`workspace-${role}`)'), 'exact role workspace check is missing')
 assert.ok(runnerSource.includes("getByTestId('access-denied')"), 'cross-role page denial is missing')
+
+for (const marker of [
+  'TEAM_OS_4_PREVIEW_URL',
+  'TEAM_OS_4_PREVIEW_COMMIT',
+  'TEAM_OS_4_PREVIEW_REPOSITORY',
+  'TEAM_OS_4_PREVIEW_REPOSITORY_PATH',
+  'TEAM_OS_4_PREFLIGHT_SCREENSHOT_DIR',
+  'runPreflightOnly',
+  'pages/builds/latest',
+  'page.screenshot(',
+  'readFileSync(',
+]) assert.ok(runnerSource.includes(marker), `preview deployment binding marker missing: ${marker}`)
+for (const fixedDeploymentValue of [
+  contract.sourceApplicationCommit,
+  contract.previewRepository,
+  contract.previewCommit,
+  contract.pagesUrl,
+]) {
+  assert.ok(
+    !runnerSource.includes(fixedDeploymentValue) && !cliSource.includes(fixedDeploymentValue),
+    `authoritative acceptance code must not hardcode contract deployment value: ${fixedDeploymentValue}`,
+  )
+}
+assert.match(
+  runnerSource,
+  /spawnSync\(\s*['"]git['"]\s*,\s*\[\s*['"]-C['"]\s*,[\s\S]*?['"]rev-parse['"]\s*,\s*['"]--verify['"]/u,
+  'preview deployment binding must resolve the full commit with git -C in the independent repository',
+)
+assert.ok(runnerSource.includes('^{commit}'), 'preview deployment binding must verify a commit object')
+assert.match(
+  runnerSource,
+  /pages[\s\S]*?html_url[\s\S]*?preview|preview[\s\S]*?html_url[\s\S]*?pages/u,
+  'GitHub Pages URL binding is missing',
+)
+assert.match(
+  runnerSource,
+  /latestBuild[\s\S]*?commit[\s\S]*?previewCommit|previewCommit[\s\S]*?latestBuild[\s\S]*?commit/u,
+  'GitHub Pages build commit binding is missing',
+)
+assert.match(
+  runnerSource,
+  /latestBuild[\s\S]*?source[\s\S]*?pages[\s\S]*?source|pages[\s\S]*?source[\s\S]*?latestBuild[\s\S]*?source/u,
+  'GitHub Pages source binding is missing',
+)
+for (const field of contract.requiredDeploymentBindingEvidenceFields) {
+  assert.match(runnerSource, new RegExp(`\\b${field}\\b`, 'u'), `deployment binding evidence field missing: ${field}`)
+}
+for (const field of contract.requiredScreenshotEvidenceFields) {
+  assert.match(runnerSource, new RegExp(`\\b${field}\\b`, 'u'), `screenshot evidence field missing: ${field}`)
+}
+assert.ok(
+  !runnerSource.includes('previewCommit !== expectedApplicationCommit') &&
+    !runnerSource.includes("required('TEAM_OS_4_PREVIEW_COMMIT') !== applicationCommit"),
+  'source application commit and preview deployment commit must not be compared for equality',
+)
+
+const preflightFlagIndex = cliSource.indexOf("process.argv.includes('--preflight-only')")
+const preflightCallIndex = cliSource.indexOf('await runner.runPreflightOnly', preflightFlagIndex)
+const serviceRoleIndex = cliSource.indexOf('required(secretName)', preflightCallIndex)
+const createClientIndex = cliSource.indexOf('createClient(', preflightCallIndex)
+const adapterPreflightIndex = cliSource.indexOf('.preflightAcceptance(', createClientIndex)
+const clearClientIndex = cliSource.indexOf('preflightClient = undefined', adapterPreflightIndex)
+const clearKeyIndex = cliSource.indexOf('preflightServiceKey = undefined', clearClientIndex)
+const deleteKeyIndex = cliSource.indexOf('delete process.env[secretName]', clearKeyIndex)
+const preflightExitIndex = cliSource.indexOf('process.exit(', deleteKeyIndex)
+assert.ok(preflightFlagIndex >= 0, 'CLI preflight-only flag is missing')
+assert.ok(preflightCallIndex > preflightFlagIndex, 'CLI preflight-only runner call is missing')
+assert.ok(serviceRoleIndex > preflightCallIndex, 'trusted account preflight must require service role only after public deployment binding')
+assert.ok(createClientIndex > serviceRoleIndex, 'trusted account preflight client must be created after reading the service role key')
+assert.ok(adapterPreflightIndex > createClientIndex, 'trusted adapter account preflight is missing')
+assert.ok(clearClientIndex > adapterPreflightIndex, 'preflight-only must clear the trusted client after the account preflight')
+assert.ok(clearKeyIndex > clearClientIndex, 'preflight-only must clear the local service role key after the trusted client')
+assert.ok(deleteKeyIndex > clearKeyIndex, 'preflight-only must delete the service role environment value after clearing the local key')
+assert.ok(preflightExitIndex > deleteKeyIndex, 'preflight-only must clear all service role references before exiting')
+const preflightOnlySuccessPath = cliSource.slice(preflightFlagIndex, preflightExitIndex)
+assert.ok(!preflightOnlySuccessPath.includes('provisionAcceptanceAccounts('), 'preflight-only must not provision accounts or fixtures')
+assert.ok(!preflightOnlySuccessPath.includes('createAuthUser('), 'preflight-only must not create an Auth user')
+for (const field of contract.requiredAccountPreflightEvidenceFields) {
+  assert.match(preflightOnlySuccessPath, new RegExp(`\\b${field}\\b`, 'u'), `account preflight evidence field missing: ${field}`)
+}
 
 for (const field of [
   'accountProvisioningEvidence', 'pageEvidence', 'directApiEvidence',

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "phase": "G1",
   "realEnabledAccounts": 5,
   "realEnabledAccountRoles": ["sales", "implementation", "operations", "finance", "admin"],
@@ -15,6 +15,46 @@
   },
   "authoritativeProvisioner": "platform/team-os-4/tools/acceptance-accounts",
   "authoritativeRunner": "scripts/p1/run-team-os-4-g1-acceptance.mjs",
+  "sourceApplicationCommit": "bb53df8184ef7b013262cf7fd5e91cada5fe0183",
+  "previewRepository": "yccanwin/canwin-team-os-4-preview",
+  "previewCommit": "d321e5e3479dcc1988ae2ab3f8533bfa7557a597",
+  "pagesUrl": "https://yccanwin.github.io/canwin-team-os-4-preview/",
+  "requiredDeploymentBindingEvidenceFields": [
+    "previewRepository",
+    "previewCommit",
+    "pagesUrl"
+  ],
+  "requiredScreenshotEvidenceFields": [
+    "screenshotPath",
+    "screenshotSha256"
+  ],
+  "accountPreflightRequired": true,
+  "requiredAccountPreflightEvidenceFields": [
+    "databaseReady",
+    "existingAcceptanceAccounts"
+  ],
+  "deploymentBindingRules": {
+    "preflightOnlyRequired": true,
+    "preflightMustNotCreateAccounts": true,
+    "previewGitRepositoryMustBeIndependent": true,
+    "previewCommitMustBeFullSha": true,
+    "previewGitOriginMustMatchRepository": true,
+    "githubPagesBuildCommitMustMatchPreviewCommit": true,
+    "githubPagesUrlMustMatchPagesUrl": true,
+    "githubPagesSourceMustMatchRepositoryPagesSource": true,
+    "nodePlaywrightScreenshotRequired": true,
+    "deploymentBindingMustBeIncludedInEvidence": true,
+    "sourceAndPreviewCommitsMustRemainDistinct": true,
+    "sourceApplicationCommitMustBeStoredInRuntimeEvidence": true,
+    "previewCommitMustBeStoredInDeploymentEvidence": true
+  },
+  "accountPreflightRules": {
+    "publicDeploymentBindingRunsFirst": true,
+    "trustedDatabasePreflightRunsSecond": true,
+    "serviceRoleKeyClearedBeforeExit": true,
+    "preflightOnlyMayCreateAccounts": false,
+    "preflightOnlyMayProvisionFixtures": false
+  },
   "retiredNonAuthoritativeHarnesses": [
     "scripts/p1/run-real-page-acceptance.mjs",
     "scripts/p1/manage-real-page-accounts.mjs"

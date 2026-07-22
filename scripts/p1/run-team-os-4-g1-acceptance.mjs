@@ -1,7 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 import { chromium } from 'playwright'
-import { existsSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
+import { spawnSync } from 'node:child_process'
+import { isAbsolute, join, resolve } from 'node:path'
 import { createAcceptanceEvidenceRecord } from '../../platform/team-os-4/tools/acceptance-accounts/src/evidence.mjs'
 
 const roleFor = (key) => key === 'admin_supervisor' ? 'admin' : key
@@ -154,6 +156,117 @@ const launchAcceptanceBrowser = () => {
   const systemBrowser = WINDOWS_BROWSER_PATHS.find((path) => existsSync(path))
   if (!systemBrowser) throw new Error('no supported browser executable found')
   return chromium.launch({ headless: true, executablePath: systemBrowser })
+}
+
+const PREVIEW_COMMIT = /^[a-f0-9]{40}$/u
+const PREVIEW_REPOSITORY = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u
+const normalizePagesUrl = (value) => {
+  const url = new URL(value)
+  if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) {
+    throw new Error('TEAM_OS_4_PREVIEW_URL must be a credential-free HTTPS Pages URL')
+  }
+  url.pathname = `${url.pathname.replace(/\/+$/u, '')}/`
+  return url.href
+}
+const git = (repositoryPath, args) => {
+  const result = spawnSync('git', ['-C', repositoryPath, ...args], {
+    encoding: 'utf8', windowsHide: true, timeout: 15_000,
+  })
+  if (result.error || result.status !== 0) throw new Error('preview repository git verification failed')
+  return result.stdout.trim()
+}
+const repositoryFromOrigin = (origin) => {
+  const https = /^https:\/\/github\.com\/([^/]+\/[^/]+?)(?:\.git)?\/?$/iu.exec(origin)
+  const ssh = /^(?:ssh:\/\/git@github\.com\/|git@github\.com:)([^/]+\/[^/]+?)(?:\.git)?$/iu.exec(origin)
+  const repository = (https?.[1] ?? ssh?.[1] ?? '').replace(/\.git$/iu, '')
+  if (!PREVIEW_REPOSITORY.test(repository)) throw new Error('preview origin is not a GitHub repository')
+  return repository
+}
+const githubPagesJson = async (repository, endpoint) => {
+  const [owner, name] = repository.split('/')
+  const headers = {
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2026-03-10',
+    'User-Agent': 'canwin-team-os-4-acceptance-preflight',
+  }
+  const token = process.env.GITHUB_TOKEN?.trim() || process.env.GH_TOKEN?.trim()
+  if (token) headers.Authorization = `Bearer ${token}`
+  const response = await fetch(`https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/${endpoint}`, { headers })
+  if (!response.ok) throw new Error(`GitHub Pages metadata request failed with status ${response.status}`)
+  return response.json()
+}
+
+export async function runPreflightOnly() {
+  const previewUrl = normalizePagesUrl(required('TEAM_OS_4_PREVIEW_URL'))
+  const previewCommit = required('TEAM_OS_4_PREVIEW_COMMIT')
+  const previewRepository = required('TEAM_OS_4_PREVIEW_REPOSITORY')
+  const rawRepositoryPath = required('TEAM_OS_4_PREVIEW_REPOSITORY_PATH')
+  const rawScreenshotDirectory = required('TEAM_OS_4_PREFLIGHT_SCREENSHOT_DIR')
+  if (!PREVIEW_COMMIT.test(previewCommit)) throw new Error('TEAM_OS_4_PREVIEW_COMMIT must be a full lowercase 40-character SHA')
+  if (!PREVIEW_REPOSITORY.test(previewRepository)) throw new Error('TEAM_OS_4_PREVIEW_REPOSITORY must be owner/repository')
+  if (!isAbsolute(rawRepositoryPath) || !isAbsolute(rawScreenshotDirectory)) {
+    throw new Error('preview repository and screenshot paths must be explicit absolute paths')
+  }
+  const repositoryPath = resolve(rawRepositoryPath)
+  const screenshotDirectory = resolve(rawScreenshotDirectory)
+  if (!existsSync(repositoryPath)) throw new Error('preview repository path does not exist')
+
+  const verifiedCommit = git(repositoryPath, ['rev-parse', '--verify', `${previewCommit}^{commit}`])
+  if (verifiedCommit !== previewCommit) throw new Error('preview commit is not the verified repository commit')
+  const originRepository = repositoryFromOrigin(git(repositoryPath, ['remote', 'get-url', 'origin']))
+  if (originRepository.toLowerCase() !== previewRepository.toLowerCase()) {
+    throw new Error('preview repository does not match the local origin repository')
+  }
+
+  const [pages, latestBuild] = await Promise.all([
+    githubPagesJson(previewRepository, 'pages'),
+    githubPagesJson(previewRepository, 'pages/builds/latest'),
+  ])
+  const pagesUrl = normalizePagesUrl(pages.html_url)
+  if (pagesUrl !== previewUrl) throw new Error('GitHub Pages URL does not match TEAM_OS_4_PREVIEW_URL')
+  if (latestBuild.commit !== previewCommit || latestBuild.status !== 'built') {
+    throw new Error('latest GitHub Pages build is not the requested preview commit')
+  }
+  if (!pages.source?.branch || !['/', '/docs'].includes(pages.source?.path)) {
+    throw new Error('GitHub Pages source is missing or unsupported')
+  }
+  // GitHub's documented latest-build payload omits source. When an API variant includes
+  // it, require an exact match; otherwise the repository-scoped latest build is bound to
+  // the source returned by the Pages site endpoint.
+  const latestBuildSource = latestBuild.source ?? pages.source
+  if (latestBuildSource.branch !== pages.source.branch || latestBuildSource.path !== pages.source.path) {
+    throw new Error('latest GitHub Pages build source does not match the configured Pages source')
+  }
+
+  mkdirSync(screenshotDirectory, { recursive: true })
+  const stamp = new Date().toISOString().replaceAll(/[-:.]/gu, '')
+  const screenshotPath = join(screenshotDirectory, `team-os-4-login-${previewCommit}-${stamp}.png`)
+  let browser
+  try {
+    browser = await launchAcceptanceBrowser()
+    const context = await browser.newContext()
+    const page = await context.newPage()
+    const response = await page.goto(`${previewUrl}#/`, { waitUntil: 'domcontentloaded' })
+    if (!response || !response.ok()) throw new Error('preview login page did not return a successful response')
+    await page.getByTestId('login-gate').waitFor({ state: 'visible' })
+    await page.getByText('Team OS 4.0', { exact: true }).waitFor({ state: 'visible' })
+    if (await page.title() !== 'CanWin Team OS 4.0') throw new Error('preview page title is not Team OS 4.0')
+    if (await page.getByTestId('login-error').count()) throw new Error('preview login page rendered a configuration error')
+    if (await page.getByTestId('login-email').inputValue() || await page.getByTestId('login-password').inputValue()) {
+      throw new Error('preview login page contains credential material')
+    }
+    await page.screenshot({ path: screenshotPath, fullPage: true })
+    await context.close()
+  } finally {
+    await Promise.resolve().then(() => browser?.close()).catch(() => undefined)
+  }
+  const screenshot = readFileSync(screenshotPath)
+  const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+  if (screenshot.length <= pngSignature.length || !screenshot.subarray(0, pngSignature.length).equals(pngSignature)) {
+    throw new Error('preview login screenshot is empty or not a PNG')
+  }
+  const screenshotSha256 = createHash('sha256').update(screenshot).digest('hex')
+  return Object.freeze({ previewRepository, previewCommit, pagesUrl, screenshotPath, screenshotSha256 })
 }
 
 export async function runAcceptance(accounts, context) {
