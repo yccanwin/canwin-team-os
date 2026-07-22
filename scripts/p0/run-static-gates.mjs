@@ -8,6 +8,8 @@ const greenfieldGates = [
   ['team-os-4-foundation', resolve(repoRoot, 'platform', 'team-os-4', 'supabase', 'verify-foundation.mjs')],
   ['greenfield-bootstrap-page-qa', resolve(repoRoot, 'scripts', 'p0', 'verify-greenfield-bootstrap-page-qa.mjs')],
   ['team-os-4-bootstrap-selftest', resolve(repoRoot, 'platform', 'team-os-4', 'tools', 'bootstrap', 'src', 'selftest.mjs')],
+  ['team-os-4-g1-runner-selftest', resolve(repoRoot, 'scripts', 'p1', 'verify-team-os-4-g1-runner.mjs')],
+  ['team-os-4-acceptance-accounts-selftest', resolve(repoRoot, 'platform', 'team-os-4', 'tools', 'acceptance-accounts', 'src', 'selftest.mjs')],
 ]
 const legacyGates = [
   ['migration-manifest', resolve(repoRoot, 'scripts', 'p0', 'verify-migration-manifest.mjs')],

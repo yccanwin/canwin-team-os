@@ -14,6 +14,8 @@
     "test:team-os-4-foundation": "node platform/team-os-4/supabase/verify-foundation.mjs",
     "test:team-os-4-bootstrap-page-qa": "node scripts/p0/verify-greenfield-bootstrap-page-qa.mjs",
     "test:team-os-4-bootstrap": "npm run selftest --prefix platform/team-os-4/tools/bootstrap",
+    "test:team-os-4-g1-runner": "node scripts/p1/verify-team-os-4-g1-runner.mjs",
+    "test:team-os-4-acceptance-accounts": "npm run selftest --prefix platform/team-os-4/tools/acceptance-accounts",
     "test:p0:greenfield-root": "node scripts/p0/verify-greenfield-root-contract.mjs",
     "test:lead-parser": "node --experimental-strip-types scripts/test-lead-paste-parser.ts",
     "test:crm-ui": "node --experimental-strip-types scripts/test-crm-command-center-ui.ts",

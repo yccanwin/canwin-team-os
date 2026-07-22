@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "identities": ["anon", "sales", "implementation", "operations", "finance", "admin"],
+  "primaryRoles": ["sales", "implementation", "operations", "finance", "admin"],
+  "capabilitiesNotSeparateIdentities": ["warehouse", "supervisor"],
+  "workspaceRoutes": {
+    "sales": "/workspace/sales",
+    "implementation": "/workspace/implementation",
+    "operations": "/workspace/operations",
+    "finance": "/workspace/finance",
+    "admin": "/workspace/admin"
+  },
+  "requiredChecks": [
+    "real-login-auto-role-route",
+    "manual-url-cross-role-denied",
+    "direct-rest-cross-identity-read-denied",
+    "direct-rest-cross-identity-write-denied",
+    "bootstrap-public-entry-denied",
+    "bootstrap-private-entry-denied"
+  ],
+  "runtimeStatus": "pending"
+}

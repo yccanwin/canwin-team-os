@@ -1,0 +1,12 @@
+{
+  "name": "@canwin/team-os-4-acceptance-accounts",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dry-run": "node src/cli.mjs --dry-run",
+    "selftest": "node src/selftest.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.108.2"
+  }
+}

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json && vite build --config vite.config.ts",
+    "test:access": "node --experimental-strip-types src/lib/access.test.ts",
     "dev": "vite --config vite.config.ts",
     "preview": "vite preview --config vite.config.ts"
   }

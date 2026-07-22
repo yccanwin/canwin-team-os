@@ -7,8 +7,16 @@ const read = (path) => readFileSync(resolve(repoRoot, path), 'utf8')
 const plan = read('docs/team-os-4.0/p0/11-greenfield-bootstrap-and-page-qa-plan.md')
 const app = read('apps/team-os-4/src/App.tsx')
 const supabase = read('apps/team-os-4/src/lib/supabase.ts')
+const domainRoles = read('packages/team-os-4-domain/src/roles.ts')
 const failures = []
 const check = (condition, message) => { if (!condition) failures.push(message) }
+const rolesStart = domainRoles.indexOf('export const PRIMARY_ROLES')
+const rolesEnd = domainRoles.indexOf('] as const)', rolesStart)
+const rolesBlock = rolesStart >= 0 && rolesEnd > rolesStart
+  ? domainRoles.slice(rolesStart, rolesEnd + '] as const)'.length)
+  : ''
+const primaryRoles = [...rolesBlock.matchAll(/'(sales|implementation|operations|finance|admin)'/gu)]
+  .map((match) => match[1])
 
 for (const phrase of [
   '任一步注入失败后相关行数全部保持调用前值',
@@ -17,12 +25,24 @@ for (const phrase of [
   '六身份真实页面和直接 API 攻击全部通过',
 ]) check(plan.includes(phrase), `QA plan acceptance clause missing: ${phrase}`)
 
-check(app.includes('PRIMARY_ROLES.map'), 'workspace routes must derive from the five-role domain contract')
-check(app.includes('path={`/workspace/${workspace.id}`}'), 'stable role workspace route is missing')
+check(
+  JSON.stringify(primaryRoles) === JSON.stringify(['sales', 'implementation', 'operations', 'finance', 'admin']),
+  'five-role domain contract drift',
+)
+check(
+  app.includes('<Navigate to={workspacePath(user.primaryRole)} replace />') &&
+    app.includes('<Route path="/workspace/:role" element={<Workspace user={user} />} />'),
+  'authenticated workspace route must derive from the authenticated primary role',
+)
 check(app.includes('<Route path="*"'), 'unknown-route fallback is missing')
 check(
-  app.includes('data-testid={`workspace-${role}`}'),
+  app.includes('data-testid={`workspace-${currentRole}`}'),
   'stable role workspace selector is missing',
+)
+check(
+  app.includes('if (!canOpenWorkspace(user, role))') &&
+    app.includes('data-testid="access-denied"'),
+  'manual cross-workspace URL denial is missing',
 )
 check(
   app.includes('data-testid="environment-status"'),
