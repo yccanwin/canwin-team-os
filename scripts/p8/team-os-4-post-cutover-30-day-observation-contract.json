@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "phase": "P8",
+  "artifactKind": "team-os-4-post-cutover-observation-evidence",
+  "status": "pending",
+  "contracts": {
+    "observationTimeZone": "Asia/Shanghai",
+    "observationStarts": "first-calendar-day-after-successful-cutover",
+    "observationDayCount": 30,
+    "calendarDaysMustBeContinuous": true,
+    "missingDayAllowed": false,
+    "lateBackfillWithoutSourceEvidenceAllowed": false,
+    "dailyBusinessCategories": [
+      "receipts",
+      "internal-payables",
+      "profit",
+      "inventory",
+      "points",
+      "employee-earnings"
+    ],
+    "dailyOperationalCategories": [
+      "failed-jobs",
+      "authorization-denials",
+      "slow-queries",
+      "supervisor-fallbacks",
+      "disabled-entry-access-attempts"
+    ],
+    "dailyBusinessEvidenceFields": [
+      "date",
+      "category",
+      "record-count",
+      "signed-amount-or-quantity",
+      "source-fingerprint",
+      "target-fingerprint",
+      "difference",
+      "reviewer",
+      "reviewed-at"
+    ],
+    "dailyOperationalEvidenceFields": [
+      "date",
+      "category",
+      "event-count",
+      "severity-counts",
+      "oldest-opened-at",
+      "oldest-unresolved-at",
+      "resolution-state",
+      "evidence-reference",
+      "reviewer",
+      "reviewed-at"
+    ],
+    "businessDifferenceTolerance": "zero-unexplained-difference-per-day-per-category",
+    "aggregateOnlyEvidenceAllowed": false,
+    "monthlyTotalMayMaskCategoryDifference": false,
+    "crossDayNettingAllowed": false,
+    "crossCategoryNettingAllowed": false,
+    "zeroEventDayStillRequiresEvidence": true,
+    "failedJobRule": "every-failure-classified-owned-and-resolved-or-explicitly-open",
+    "authorizationDenialRule": "every-denial-preserved-and-reviewed-for-attack-or-policy-error",
+    "slowQueryRule": "record-query-fingerprint-duration-role-and-remediation-state",
+    "supervisorFallbackRule": "record-trigger-original-owner-supervisor-action-and-final-owner",
+    "disabledEntryAccessRule": "record-role-entry-route-denial-and-source-of-stale-access",
+    "dailySignoffRequired": true,
+    "finalSignoffRequiresAllThirtyDailySignoffs": true,
+    "observationFailureAction": "do-not-declare-complete-and-preserve-open-evidence"
+  },
+  "requiredRuntimeEvidence": {
+    "dailyBusinessReconciliation": "thirty-continuous-days-times-six-categories",
+    "dailyOperationalReview": "thirty-continuous-days-times-five-categories-including-zero-event-days",
+    "dailySignoffs": "thirty-date-bound-reviewer-signatures",
+    "finalReconciliation": "category-preserving-summary-derived-from-complete-daily-evidence"
+  },
+  "dailyBusinessReconciliationEvidence": "pending",
+  "dailyOperationalReviewEvidence": "pending",
+  "dailySignoffEvidence": "pending",
+  "finalReconciliationEvidence": "pending",
+  "runtimeEvidence": "pending",
+  "observationAccepted": false
+}
