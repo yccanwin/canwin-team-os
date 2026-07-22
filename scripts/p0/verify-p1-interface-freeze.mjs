@@ -174,7 +174,7 @@ function validate(candidate) {
   check(rules.supervisorFallbackPrimaryRole === 'admin', 'supervisor fallback must be admin')
   check(rules.switchChangeRewritesHistoricalResponsibility === false, 'switch must not rewrite history')
   check(rules.roleChangeRequiresAudit === true, 'role changes require audit')
-  check(JSON.stringify(candidate.warehouseAssignmentPolicy) === JSON.stringify({ defaultPrimaryRoles: ['admin'], grantablePrimaryRoles: ['implementation'], forbiddenPrimaryRoles: ['sales', 'operations', 'finance'], source: 'docs/CanWin-Team-OS-4.0-最终施工总方案.md:55' }), 'warehouse assignment policy drift')
+  check(JSON.stringify(candidate.warehouseAssignmentPolicy) === JSON.stringify({ defaultPrimaryRoles: ['admin'], grantablePrimaryRoles: ['implementation'], forbiddenPrimaryRoles: ['sales', 'operations', 'finance'], source: 'docs/CanWin-Team-OS-4.0-最终施工总方案.md:58' }), 'warehouse assignment policy drift')
 
   for (const rpc of rpcs) {
     check(/^[a-z][a-z0-9_]*_v1$/.test(rpc.name), `invalid versioned RPC name ${rpc.name}`)
@@ -521,6 +521,7 @@ function validate(candidate) {
   check(boundary.p1WorkOrdersFrozen === true, 'P1 work-order freeze missing')
   check(boundary.p1CodeStarted === true, 'P1 code start must be recorded')
   check(boundary.p1CandidateImplemented === true, 'P1 candidate implementation must be recorded')
+  check(boundary.p1CandidateScope === 'historical-in-place-route-only' && boundary.greenfieldP1CandidateImplemented === false, 'historical P1 candidate must not be presented as greenfield implementation')
   check(boundary.ciRuntimeAccepted === true, 'P1 CI runtime acceptance must be recorded')
   check(boundary.ciRepairCandidateLinuxAccepted === true, 'repair candidate Linux acceptance must be recorded')
   check(boundary.ciRepairCandidateWindowsStatic === '16/17', 'repair candidate Windows static boundary drift')
@@ -554,7 +555,8 @@ function validate(candidate) {
   check(boundary.isolatedTestProjectReconciliationPerformed === false, 'isolated reconciliation must remain not performed')
   check(boundary.pageAccountAcceptancePassed === false, 'real page/account acceptance must remain pending')
   check(boundary.runtimeAccepted === false, 'runtime acceptance must remain false')
-  check(boundary.g0OverallClaim === true, 'G0 success evidence is missing')
+  check(boundary.historicalG0EvidenceAccepted === true, 'historical G0 evidence must remain preserved')
+  check(boundary.g0OverallClaim === false && boundary.greenfieldG0OverallClaim === false, 'greenfield G0 must remain false before the new roots and blank baseline are accepted')
   check(boundary.g1OverallClaim === false, 'G1 must remain false before real page/account acceptance')
   check(boundary.overallAcceptedProgressPercent === 25, 'accepted progress must remain 25 percent before G1')
   check(boundary.productionReadPerformed === false && boundary.productionWritePerformed === false, 'production read/write must remain false')
@@ -657,7 +659,8 @@ const negativeCases = [
   ['repair hash mode changed', (value) => { value.repairCandidate.hashMode = 'raw-bytes' }],
   ['page acceptance falsely claimed', (value) => { value.acceptanceBoundary.pageAccountAcceptancePassed = true }],
   ['G1 falsely claimed', (value) => { value.acceptanceBoundary.g1OverallClaim = true }],
-  ['G0 success erased', (value) => { value.acceptanceBoundary.g0OverallClaim = false }],
+  ['historical G0 evidence erased', (value) => { value.acceptanceBoundary.historicalG0EvidenceAccepted = false }],
+  ['greenfield G0 falsely claimed', (value) => { value.acceptanceBoundary.greenfieldG0OverallClaim = true }],
   ['production write', (value) => { value.acceptanceBoundary.productionWritePerformed = true }],
 ]
 let negativePassed = 0
@@ -675,5 +678,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `P0_P1_INTERFACE_FREEZE_OK rpcs=${contract.rpcInterfaces.length} whitelists=${Object.keys(contract.fieldWhitelists).length} identities=${contract.baseTestIdentities.length} overlays=${contract.overlayTestCases.length} attacks=${contract.directApiAttackCases.length} workOrders=${contract.workOrders.length} negative=${negativePassed}/${negativeCases.length} historicalResumeCi=70/27 formalResumeFailure=p1-resume-20260719T193911279Z-ea6ed9385d formalResumeSql=5/27 formalResumeSnapshots=6/29 failurePreserved=true aclRepairMigration=20260720015435 aclRepairFunctions=6 aclRepairExpectedChanges=3 aclRepairRemote=${contract.aclRepairCandidate.remoteExecutionAllowed} resumeRemote=${contract.acceptanceBoundary.aclRepairResumeRemoteExecutionAllowed} historicalAclRepairCi=29750768517 appliedAclFailure=${contract.acceptanceBoundary.aclRepairAppliedFailureRunId} appliedRepairWrites=${contract.acceptanceBoundary.aclRepairConfirmedPersistentWrites} currentResumeWrites=${contract.acceptanceBoundary.aclRepairResumeCurrentWrites} priorParserFixRun=29738966326 priorAclRepairSuccessRun=29733854344 priorAclRepairFailureRun=29726897764 priorFormalAclRepairFailure=p1-acl-repair-20260720T104323349Z-4fa8de78a8 formalAclRepairFailure=p1-acl-repair-20260720T122757275Z-8fa1498850 connectionMode=session-pooler nextFullExactRows=71 nextSqlTests=27 nextPerTestFullSnapshots=27 nextFullSnapshots=29 pageAccountAcceptance=false runtimeAccepted=false progress=25 g0=true g1=false p1CandidateImplemented=true`,
+  `P0_P1_INTERFACE_FREEZE_OK rpcs=${contract.rpcInterfaces.length} whitelists=${Object.keys(contract.fieldWhitelists).length} identities=${contract.baseTestIdentities.length} overlays=${contract.overlayTestCases.length} attacks=${contract.directApiAttackCases.length} workOrders=${contract.workOrders.length} negative=${negativePassed}/${negativeCases.length} historicalResumeCi=70/27 formalResumeFailure=p1-resume-20260719T193911279Z-ea6ed9385d formalResumeSql=5/27 formalResumeSnapshots=6/29 failurePreserved=true aclRepairMigration=20260720015435 aclRepairFunctions=6 aclRepairExpectedChanges=3 aclRepairRemote=${contract.aclRepairCandidate.remoteExecutionAllowed} resumeRemote=${contract.acceptanceBoundary.aclRepairResumeRemoteExecutionAllowed} historicalAclRepairCi=29750768517 appliedAclFailure=${contract.acceptanceBoundary.aclRepairAppliedFailureRunId} appliedRepairWrites=${contract.acceptanceBoundary.aclRepairConfirmedPersistentWrites} currentResumeWrites=${contract.acceptanceBoundary.aclRepairResumeCurrentWrites} priorParserFixRun=29738966326 priorAclRepairSuccessRun=29733854344 priorAclRepairFailureRun=29726897764 priorFormalAclRepairFailure=p1-acl-repair-20260720T104323349Z-4fa8de78a8 formalAclRepairFailure=p1-acl-repair-20260720T122757275Z-8fa1498850 connectionMode=session-pooler nextFullExactRows=71 nextSqlTests=27 nextPerTestFullSnapshots=27 nextFullSnapshots=29 pageAccountAcceptance=false runtimeAccepted=false progress=25 historicalG0=true greenfieldG0=false g1=false historicalP1CandidateImplemented=true greenfieldP1CandidateImplemented=false`,
 )

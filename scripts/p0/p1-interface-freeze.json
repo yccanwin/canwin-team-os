@@ -46,7 +46,7 @@
     "defaultPrimaryRoles": ["admin"],
     "grantablePrimaryRoles": ["implementation"],
     "forbiddenPrimaryRoles": ["sales", "operations", "finance"],
-    "source": "docs/CanWin-Team-OS-4.0-最终施工总方案.md:55"
+    "source": "docs/CanWin-Team-OS-4.0-最终施工总方案.md:58"
   },
   "rpcInterfaces": [
     {
@@ -938,6 +938,8 @@
     "p1WorkOrdersFrozen": true,
     "p1CodeStarted": true,
     "p1CandidateImplemented": true,
+    "p1CandidateScope": "historical-in-place-route-only",
+    "greenfieldP1CandidateImplemented": false,
     "ciRuntimeAccepted": true,
     "ciRepairCandidateLinuxAccepted": true,
     "ciRepairCandidateWindowsStatic": "16/17",
@@ -1016,7 +1018,9 @@
     "isolatedTestProjectReconciliationPerformed": false,
     "pageAccountAcceptancePassed": false,
     "runtimeAccepted": false,
-    "g0OverallClaim": true,
+    "historicalG0EvidenceAccepted": true,
+    "g0OverallClaim": false,
+    "greenfieldG0OverallClaim": false,
     "g1OverallClaim": false,
     "overallAcceptedProgressPercent": 25,
     "productionReadPerformed": false,

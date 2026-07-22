@@ -131,7 +131,9 @@
   "acceptanceBoundary": {
     "contractAccepted": true,
     "actualGithubRunEvidence": "passed",
-    "g0OverallClaim": true,
+    "historicalG0EvidenceAccepted": true,
+    "g0OverallClaim": false,
+    "greenfieldG0OverallClaim": false,
     "p1ActualGithubRunEvidence": "passed",
     "ciRepairCandidateLinuxAccepted": true,
     "ciRepairCandidateWindowsStatic": "16/17",
