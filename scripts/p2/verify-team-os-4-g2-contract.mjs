@@ -10,9 +10,19 @@ const read = (path) => readRaw(path).replace(/\s+/gu, ' ')
 const json = (path) => JSON.parse(readRaw(path))
 const normalizeScriptTextForPathMatch = (value) => value
   .toLowerCase()
+  .replace(/\r\n?/gu, '\n')
+  .replace(/[\\]+/gu, '/')
   .replace(/[\\/]+/gu, '/')
+  .replace(/\/+/gu, '/')
   .replace(/\\(["'])/gu, '$1')
   .replace(/["']/gu, '')
+  .replace(/\s+/gu, ' ')
+
+const removePathMarker = (sourceText, pathText) => {
+  const escaped = pathText
+    .replace(/[.*+?^${}()|[\]\\\/]/gu, '\\$&')
+  return sourceText.replace(new RegExp(escaped, 'gu'), ' ')
+}
 
 const contract = json('scripts/p2/team-os-4-g2-acceptance-contract.json')
 const dependencies = contract.contracts.migrationDependencies
@@ -45,7 +55,7 @@ const scaleRunner = read('scripts/p2/run-team-os-4-g2-scale-acceptance.mjs')
 const performanceAdapter = read('scripts/p2/run-team-os-4-g2-performance-adapter.mjs')
 const normalizedPerformanceAdapter = normalizeScriptTextForPathMatch(performanceAdapter)
 const normalizedExecutorPath = normalizeScriptTextForPathMatch('C:\\Program Files\\nodejs\\node.exe')
-const adapterWithoutExecutorPath = normalizedPerformanceAdapter.replace(normalizedExecutorPath, '')
+const adapterWithoutExecutorPath = removePathMarker(normalizedPerformanceAdapter, normalizedExecutorPath)
 const compactClosure = closure.replace(/\s+/gu, '')
 
 const requiredBuckets = [
