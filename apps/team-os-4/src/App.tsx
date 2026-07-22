@@ -103,6 +103,45 @@ function WorkItemPage({ surface, title, user, items, loading, error, scheduleEve
   return <section className="workspace" data-testid={`${surface}-page`}><p className="eyebrow">{calendar ? '统一时间视图' : '统一工作项'}</p><h1>{title}</h1><p className="lead">{calendar ? '工作项时间与个人日程同屏展示，但始终保持两类独立记录。' : '与我的工作台使用同一份工作项来源。'}</p><section className={calendar ? 'calendar-source' : ''} data-testid={`work-items-${surface}`}>{calendar && <div className="section-heading"><p className="eyebrow">工作项时间</p><h2>截止与计划</h2></div>}<WorkItemQueue items={items} surface={surface} user={user} loading={loading} error={error} /></section>{calendar && <section className="work-items-section calendar-source calendar-source--schedule" data-testid="schedule-events-calendar"><div className="section-heading"><p className="eyebrow">个人日程</p><h2>会议、拜访与个人安排</h2></div><ScheduleEventList events={scheduleEvents} loading={scheduleLoading} error={scheduleError} /></section>}</section>
 }
 
+function ProfilePage({ user }: { user: AuthenticatedWorkspace }) {
+  return (
+    <section className="workspace profile-page" data-testid="profile-page">
+      <p className="eyebrow">个人中心</p>
+      <h1>我的</h1>
+      <p className="lead">这里展示当前登录账号在 4.0 中的真实公司与岗位资料。</p>
+      <article className="profile-card">
+        <div className="profile-avatar" aria-hidden="true">{user.displayName.trim().slice(0, 1).toUpperCase()}</div>
+        <div><h2>{user.displayName}</h2><StatusBadge tone="success">{PRIMARY_ROLE_LABELS[user.primaryRole]}</StatusBadge></div>
+      </article>
+      <dl className="profile-details">
+        <div><dt>所属公司</dt><dd>{user.companyName}</dd></div>
+        <div><dt>主岗位</dt><dd>{PRIMARY_ROLE_LABELS[user.primaryRole]}</dd></div>
+        <div><dt>账号状态</dt><dd>正常使用</dd></div>
+        <div><dt>用户编号</dt><dd>{user.userId}</dd></div>
+      </dl>
+    </section>
+  )
+}
+
+function roleBusinessPath(role: PrimaryRole): string {
+  if (role === 'sales') return '/customers'
+  if (role === 'finance') return '/finance'
+  if (role === 'admin') return '/cases'
+  return '/fulfillment'
+}
+
+function MobileBottomNav({ user }: { user: AuthenticatedWorkspace }) {
+  return (
+    <nav className="mobile-bottom-nav" aria-label="移动端主导航">
+      <NavLink to={workspacePath(user.primaryRole)}><span aria-hidden="true">⌂</span>工作台</NavLink>
+      <NavLink to="/progress"><span aria-hidden="true">↗</span>推进</NavLink>
+      <NavLink to="/calendar"><span aria-hidden="true">□</span>日历</NavLink>
+      <NavLink to={roleBusinessPath(user.primaryRole)}><span aria-hidden="true">◇</span>岗位业务</NavLink>
+      <NavLink to="/profile"><span aria-hidden="true">○</span>我的</NavLink>
+    </nav>
+  )
+}
+
 function AuthenticatedApp({ user, onSignOut }: { user: AuthenticatedWorkspace; onSignOut: () => Promise<void> }) {
   const [items, setItems] = useState<readonly WorkItem[]>([])
   const [itemsLoading, setItemsLoading] = useState(true)
@@ -130,8 +169,16 @@ function AuthenticatedApp({ user, onSignOut }: { user: AuthenticatedWorkspace; o
   }, [user.companyId, user.userId])
   return (
     <div className="app-shell" data-testid="authenticated-app">
-      <aside><div className="brand"><span>CW</span><div><strong>{user.companyName}</strong><small>Team OS 4.0</small></div></div><nav aria-label="岗位工作台"><NavLink to={workspacePath(user.primaryRole)}>{PRIMARY_ROLE_LABELS[user.primaryRole]}工作台</NavLink><NavLink to="/progress">推进中心</NavLink><NavLink to="/calendar">日历</NavLink><NavLink to="/earnings">我的劳动收益</NavLink><NavLink to="/cases">案例馆</NavLink>{(user.primaryRole === 'sales' || user.primaryRole === 'admin') && <><NavLink to="/leads">今日线索与商机</NavLink><NavLink to="/customers">客户与门店</NavLink><NavLink to="/catalog">产品目录</NavLink><NavLink to="/orders">报价与订单</NavLink></>}{(user.primaryRole === 'finance' || user.primaryRole === 'admin') && <NavLink to="/finance">财务总账</NavLink>}{user.primaryRole === 'admin' && <NavLink to="/warehouse">仓库处理</NavLink>}{(['implementation','operations','admin'] as const).includes(user.primaryRole as 'implementation'|'operations'|'admin') && <NavLink to="/fulfillment">履约任务</NavLink>}</nav><div className="environment ready" data-testid="environment-status"><span aria-hidden="true" />独立测试环境已连接</div></aside>
-      <main><header><div><b>{user.displayName}</b><StatusBadge tone="success">{PRIMARY_ROLE_LABELS[user.primaryRole]}</StatusBadge></div><button className="ui-button ui-button--quiet" data-testid="sign-out" onClick={() => void onSignOut()}>退出登录</button></header><Routes><Route path="/" element={<Navigate to={workspacePath(user.primaryRole)} replace />} /><Route path="/workspace/:role" element={<Workspace user={user} items={items} loading={itemsLoading} error={itemsError} />} /><Route path="/progress" element={<WorkItemPage surface="progress" title="推进中心" user={user} items={items} loading={itemsLoading} error={itemsError} />} /><Route path="/calendar" element={<WorkItemPage surface="calendar" title="日历" user={user} items={items} loading={itemsLoading} error={itemsError} scheduleEvents={scheduleEvents} scheduleLoading={scheduleLoading} scheduleError={scheduleError} />} /><Route path="/leads" element={<SalesPipelinePage user={user} />} /><Route path="/customers" element={<CustomerDirectoryPage user={user} />} /><Route path="/catalog" element={<CatalogPage user={user} />} /><Route path="/orders" element={<OrdersPage user={user} />} /><Route path="/finance" element={<FinancePage user={user} />} /><Route path="/earnings" element={<EarningsPage user={user} />} /><Route path="/warehouse" element={<WarehousePage user={user} />} /><Route path="/fulfillment" element={<FulfillmentPage user={user} />} /><Route path="/cases" element={<CasesPage user={user} />} /><Route path="*" element={<Navigate to={workspacePath(user.primaryRole)} replace />} /></Routes></main>
+      <aside>
+        <div className="brand"><span>CW</span><div><strong>{user.companyName}</strong><small>Team OS 4.0</small></div></div>
+        <nav className="desktop-nav" aria-label="岗位工作台"><NavLink to={workspacePath(user.primaryRole)}>{PRIMARY_ROLE_LABELS[user.primaryRole]}工作台</NavLink><NavLink to="/progress">推进中心</NavLink><NavLink to="/calendar">日历</NavLink><NavLink to="/earnings">我的劳动收益</NavLink><NavLink to="/cases">案例馆</NavLink>{(user.primaryRole === 'sales' || user.primaryRole === 'admin') && <><NavLink to="/leads">今日线索与商机</NavLink><NavLink to="/customers">客户与门店</NavLink><NavLink to="/catalog">产品目录</NavLink><NavLink to="/orders">报价与订单</NavLink></>}{(user.primaryRole === 'finance' || user.primaryRole === 'admin') && <NavLink to="/finance">财务总账</NavLink>}{user.primaryRole === 'admin' && <NavLink to="/warehouse">仓库处理</NavLink>}{(['implementation','operations','admin'] as const).includes(user.primaryRole as 'implementation'|'operations'|'admin') && <NavLink to="/fulfillment">履约任务</NavLink>}</nav>
+        <div className="environment ready" data-testid="environment-status"><span aria-hidden="true" />独立测试环境已连接</div>
+      </aside>
+      <main>
+        <header><div><b>{user.displayName}</b><StatusBadge tone="success">{PRIMARY_ROLE_LABELS[user.primaryRole]}</StatusBadge></div><div className="topbar-actions"><NavLink className="topbar-message" to="/progress">消息</NavLink><button className="ui-button ui-button--quiet" data-testid="sign-out" onClick={() => void onSignOut()}>退出登录</button></div></header>
+        <Routes><Route path="/" element={<Navigate to={workspacePath(user.primaryRole)} replace />} /><Route path="/workspace/:role" element={<Workspace user={user} items={items} loading={itemsLoading} error={itemsError} />} /><Route path="/progress" element={<WorkItemPage surface="progress" title="推进中心" user={user} items={items} loading={itemsLoading} error={itemsError} />} /><Route path="/calendar" element={<WorkItemPage surface="calendar" title="日历" user={user} items={items} loading={itemsLoading} error={itemsError} scheduleEvents={scheduleEvents} scheduleLoading={scheduleLoading} scheduleError={scheduleError} />} /><Route path="/leads" element={<SalesPipelinePage user={user} />} /><Route path="/customers" element={<CustomerDirectoryPage user={user} />} /><Route path="/catalog" element={<CatalogPage user={user} />} /><Route path="/orders" element={<OrdersPage user={user} />} /><Route path="/finance" element={<FinancePage user={user} />} /><Route path="/earnings" element={<EarningsPage user={user} />} /><Route path="/warehouse" element={<WarehousePage user={user} />} /><Route path="/fulfillment" element={<FulfillmentPage user={user} />} /><Route path="/cases" element={<CasesPage user={user} />} /><Route path="/profile" element={<ProfilePage user={user} />} /><Route path="*" element={<Navigate to={workspacePath(user.primaryRole)} replace />} /></Routes>
+        <MobileBottomNav user={user} />
+      </main>
     </div>
   )
 }

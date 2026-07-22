@@ -11,7 +11,8 @@
         "implementation-core-day",
         "operations-core-day",
         "finance-core-day",
-        "admin-core-day"
+        "admin-core-day",
+        "ordinary-user-management-pages-denied"
       ]
     },
     {
@@ -22,25 +23,80 @@
         "case-customer-display-authorization",
         "case-admin-review",
         "authorization-revocation-unpublishes-case",
-        "case-image-slot-policy"
+        "case-public-projection-isolation",
+        "case-image-slot-policy",
+        "case-storage-policy"
       ]
     }
   ],
   "contracts": {
     "coreDayRoles": ["sales", "implementation", "operations", "finance", "admin"],
+    "coreDayByRole": {
+      "sales": ["today-work", "lead-follow-up", "customer-contact", "opportunity-and-quote", "order-status", "payment-and-internal-payable-status", "renewal", "own-performance-points-and-profit"],
+      "implementation": ["today-work", "assigned-fulfillment-units", "schedule", "install", "train", "accept", "handoff", "implementation-exception", "own-service-earnings"],
+      "operations": ["today-work", "service-queue", "customer-maintenance", "after-sales-exception", "renewal-collaboration", "case-text-contribution", "service-step", "own-service-earnings"],
+      "finance": ["today-work", "confirm-receipt", "internal-payable", "refund-and-reversal", "sales-profit-settlement", "labor-earning-settlement", "company-cost-and-cash-support"],
+      "admin": ["today-work", "business-dashboard", "approval-and-assignment", "organization-role-and-permission", "catalog-price-warehouse-and-service", "customer-brand-and-store", "finance-cost-and-settlement", "case-review-and-publication", "system-settings"]
+    },
+    "ordinaryUserForbiddenManagementAreas": ["organization-role-and-permission", "catalog-price-warehouse-and-service-management", "global-customer-brand-and-store-management", "global-finance-cost-and-settlement", "case-publication-management", "system-settings"],
     "mobileActions": ["today-work", "progress", "calendar", "role-business", "profile"],
+    "mobileFixedOrder": ["today-work", "progress", "calendar", "role-business", "profile"],
+    "mobileRoleBusinessByRole": {
+      "sales": "sales-customers",
+      "implementation": "implementation-tasks",
+      "operations": "operations-services",
+      "finance": "finance-receipts",
+      "admin": "admin-approvals"
+    },
+    "mobileTopbar": ["messages"],
+    "mobileHighFrequencyActions": ["view-today-work", "record-follow-up", "contact-customer", "process-implementation-or-operations-step", "view-order-status", "complete-personal-task"],
+    "desktopOnlyCompleteAreas": ["catalog-maintenance", "general-ledger", "permission-configuration", "bulk-import", "complex-reporting"],
     "casePublicationRequires": ["customer-display-authorization", "admin-review"],
-    "authorizationRecords": ["source", "scope", "valid_from", "valid_until", "revoked_at", "revoked_by", "reason"],
+    "caseCandidateSource": "one-candidate-per-completed-store-fulfillment",
+    "caseCandidateAutoPublic": false,
+    "caseTextContributors": ["participating-sales", "participating-implementation", "participating-operations", "admin"],
+    "authorizationRecords": ["status", "source", "external_evidence_reference", "scope", "valid_from", "valid_until", "revoked_at", "revoked_by", "reason"],
+    "authorizationEvidenceUploadAllowed": false,
+    "authorizationMustBeValidAtPublication": true,
+    "caseLifecycleAdminActions": ["edit", "publish", "unpublish", "archive"],
     "authorizationRevocation": "immediate-unpublish-and-public-projection-removal",
+    "authorizationRevocationRetains": "private-internal-candidate",
+    "authorizationRevocationDeletes": ["public-logo-copy", "public-display-code-copy"],
     "publicWebsiteSource": "desensitized-published-case-projection-only",
+    "anonymousInternalCaseTableAccessAllowed": false,
+    "publicCaseProjectionAllowlist": ["brand-display-name", "store-display-name", "industry", "region", "store-kind", "products-and-services", "original-problem", "solution", "launch-result", "service-team-display", "logo-public-path", "display-code-public-path", "sort-order"],
+    "publicCaseProjectionForbidden": ["contact", "phone", "detailed-address", "quote", "internal-price", "sales-profit", "company-profit", "internal-operation-record"],
     "allowedImageSlots": ["logo", "display_code"],
     "maxImagesPerCase": 2,
     "thirdImageRejected": true,
     "imageMimeAllowlist": ["image/png", "image/jpeg", "image/webp"],
     "maxImageBytesBySlot": { "logo": 204800, "display_code": 307200 },
+    "imageExtensionAllowlist": ["png", "jpg", "jpeg", "webp"],
+    "imageFormatsRejected": ["svg", "gif"],
+    "imageEnforcementLayers": ["frontend", "storage-path-policy", "database-api"],
+    "caseImageUploaders": ["admin"],
+    "caseImageUploadDeniedRoles": ["sales", "implementation", "operations", "finance", "anon"],
+    "draftImageLocation": "private-case-bucket",
+    "publishedImageLocation": "separate-public-case-directory",
+    "publicImageCopyCondition": "authorized-and-admin-reviewed-case-publication",
+    "publicImageWriteAuthority": "trusted-server-only",
+    "browserServiceRoleAllowed": false,
+    "storageReplacementRequires": ["insert", "select", "update"],
+    "storageObjectPathMustBind": ["company_id", "case_id", "slot"],
+    "allowedImagesRequireIndependentFileBackup": true,
     "allOtherUploadsAllowed": false,
+    "removedUploadSurfaces": ["team-album", "photo-upload", "achievement-image", "avatar", "receipt", "delivery-photo", "ordinary-attachment"],
     "rlsAndStoragePoliciesRequired": true,
+    "storagePolicyRequiredChecks": ["explicit-grant", "rls-enabled", "company-admin-write-authorization", "private-draft-read-isolation", "anonymous-public-read-only", "slot-path-validation", "mime-validation", "size-validation", "third-image-rejection", "revocation-public-copy-deletion"],
     "fixturesMocksOrDemoDataAllowed": false
+  },
+  "requiredRuntimeEvidence": {
+    "roleAccounts": ["sales", "implementation", "operations", "finance", "admin", "unauthorized-attacker"],
+    "roleDay": "real-account-real-page-real-api",
+    "mobileWidths": [360, 390, 430],
+    "mobile": "five-fixed-entries-and-role-specific-fourth-entry",
+    "caseAuthorization": "publish-denied-without-valid-authorization-or-admin-review-and-revocation-removes-public-projection",
+    "storage": "allowed-two-slots-pass-and-all-role-path-mime-size-count-attacks-denied"
   },
   "runtimeEvidence": "pending",
   "mobileEvidence": "pending",
