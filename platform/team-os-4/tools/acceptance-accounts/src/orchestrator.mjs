@@ -9,6 +9,7 @@ export const ACCEPTANCE_IDENTITIES = Object.freeze([
 ])
 
 const makePassword = () => randomBytes(32).toString('base64url') + 'Aa1!'
+const SAFE_STAGE = /^G1_STAGE_FAIL (?:anon-rpc|browser-launch|(?:sign-in|cross-read|cross-write|role-rpc|page-login|auto-route|cross-url):(?:sales|implementation|operations|finance|admin))$/u
 
 export async function provisionAcceptanceAccounts({ adapter, emailFor, runAcceptance }) {
   const created = []
@@ -38,7 +39,13 @@ export async function provisionAcceptanceAccounts({ adapter, emailFor, runAccept
       if (item.profileCreated) await adapter.deleteProfile(item.id)
       await adapter.deleteAuthUser(item.id)
     }
-    throw new Error('acceptance account provisioning failed; this batch was removed', { cause: error })
+    const safeStage = error instanceof Error && SAFE_STAGE.test(error.message) ? error.message : null
+    throw new Error(
+      safeStage
+        ? `acceptance account provisioning failed; this batch was removed; ${safeStage}`
+        : 'acceptance account provisioning failed; this batch was removed',
+      { cause: error },
+    )
   } finally {
     for (const item of created) item.password = undefined
   }

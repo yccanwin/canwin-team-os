@@ -64,6 +64,24 @@ await assert.rejects(
   provisionAcceptanceAccounts({
     adapter: {
       ...adapter,
+      createAuthUser: async () => ({ id: `stage-${++authCount}` }),
+      createProfile: async ({ userId }) => calls.push(`profile:${userId}`),
+      deleteProfile: async (id) => calls.push(`delete-profile:${id}`),
+      deleteAuthUser: async (id) => calls.push(`delete-auth:${id}`),
+    },
+    emailFor: (key) => `${key}@example.invalid`,
+    runAcceptance: async () => { throw new Error('G1_STAGE_FAIL auto-route:sales') },
+  }),
+  (error) => error.message.endsWith('G1_STAGE_FAIL auto-route:sales'),
+)
+assert.equal(calls.filter((item) => item.startsWith('delete-auth:')).length, 5)
+
+calls = []
+authCount = 0
+await assert.rejects(
+  provisionAcceptanceAccounts({
+    adapter: {
+      ...adapter,
       createAuthUser: async () => ({ id: `batch-${++authCount}` }),
       createProfile: async ({ userId }) => calls.push(`profile:${userId}`),
       deleteProfile: async (id) => calls.push(`delete-profile:${id}`),
@@ -93,4 +111,4 @@ assert.ok(adapterSource.includes("await client.from('profiles').delete().eq('id'
 
 assert.equal(typeof createSupabaseAcceptanceAdapter, 'function')
 
-process.stdout.write('TEAM_OS_4_ACCEPTANCE_ACCOUNTS_SELFTEST_OK identities=6 new=5 existingAdminDeleted=0 cleanup=reverse-5 overlayResidual=0 refUrlBound=1 runnerRequired=1 secretsLogged=0 secretsWritten=0 success=sealed-not-deleted adapter=present\n')
+process.stdout.write('TEAM_OS_4_ACCEPTANCE_ACCOUNTS_SELFTEST_OK identities=6 new=5 existingAdminDeleted=0 cleanup=reverse-5 overlayResidual=0 refUrlBound=1 runnerRequired=1 safeStageVisible=1 unsafeDetailHidden=1 secretsLogged=0 secretsWritten=0 success=sealed-not-deleted adapter=present\n')
