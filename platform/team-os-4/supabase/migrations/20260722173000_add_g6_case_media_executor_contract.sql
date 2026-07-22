@@ -75,16 +75,29 @@ set search_path = ''
 as $function$
 declare
   v_actor uuid := (select auth.uid());
-  v_candidate public.case_candidates%rowtype;
   v_status text;
+  v_display_authorization_valid public.case_candidates.display_authorization_valid%type;
+  v_authorization_evidence_reference public.case_candidates.authorization_evidence_reference%type;
+  v_authorization_withdrawn_at public.case_candidates.authorization_withdrawn_at%type;
+  v_authorization_valid_until public.case_candidates.authorization_valid_until%type;
   v_media jsonb;
 begin
   if v_actor is null or not private.is_company_admin(p_company_id) then
     raise exception 'active company admin required' using errcode = '42501';
   end if;
 
-  select cases.status, candidate
-  into v_status, v_candidate
+  select
+    cases.status,
+    candidate.display_authorization_valid,
+    candidate.authorization_evidence_reference,
+    candidate.authorization_withdrawn_at,
+    candidate.authorization_valid_until
+  into
+    v_status,
+    v_display_authorization_valid,
+    v_authorization_evidence_reference,
+    v_authorization_withdrawn_at,
+    v_authorization_valid_until
   from public.cases as cases
   join public.case_candidates as candidate
     on candidate.id = cases.candidate_id
@@ -99,13 +112,13 @@ begin
   if v_status = 'archived' then
     raise exception 'archived case cannot be published' using errcode = '55000';
   end if;
-  if not v_candidate.display_authorization_valid
-     or v_candidate.authorization_evidence_reference is null
-     or btrim(v_candidate.authorization_evidence_reference) = ''
-     or v_candidate.authorization_withdrawn_at is not null
+  if not v_display_authorization_valid
+     or v_authorization_evidence_reference is null
+     or btrim(v_authorization_evidence_reference) = ''
+     or v_authorization_withdrawn_at is not null
      or (
-       v_candidate.authorization_valid_until is not null
-       and v_candidate.authorization_valid_until <= pg_catalog.now()
+       v_authorization_valid_until is not null
+       and v_authorization_valid_until <= pg_catalog.now()
      ) then
     raise exception 'current display authorization with external evidence reference required'
       using errcode = '23514';
