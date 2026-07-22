@@ -30,6 +30,21 @@
     "migrationMapping": "immutable-source-id-to-target-id-with-disposition-and-reconciliation",
     "fastProgressionCannotSkip": ["customer-identity", "quote-snapshot", "payment", "inventory", "fulfillment"],
     "crossRegion": "create-to-region-pool-or-authorized-sales-never-silent-self-ownership",
+    "leadOwnership": {
+      "states": ["owned", "regional_pool"],
+      "cleanupAfterUnclaimedDays": 20,
+      "claimAndCleanupUseSameRowLock": true,
+      "claimWinsConcurrentCleanup": true,
+      "claimClearsCleanupAt": true,
+      "protectedBusinessRecordsPreventPhysicalDelete": true
+    },
+    "opportunityRelations": ["settlement_customer", "store"],
+    "stableTestIds": [
+      "sales-lead-pool",
+      "sales-lead-owned",
+      "sales-opportunity-list",
+      "customer-360"
+    ],
     "rlsRequired": true,
     "clientDirectWritesAllowed": false,
     "fixturesMocksOrDemoDataAllowed": false

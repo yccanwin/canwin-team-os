@@ -10,6 +10,8 @@ const migration = read('platform/team-os-4/supabase/migrations/20260722144500_ad
 const app = read('apps/team-os-4/src/App.tsx')
 const page = read('apps/team-os-4/src/CustomerDirectoryPage.tsx')
 const reader = read('apps/team-os-4/src/lib/supabase-customer-directory-reader.ts')
+const salesMigration = read('platform/team-os-4/supabase/migrations/20260722150000_add_g3_leads_opportunities_and_claim.sql')
+const salesPage = read('apps/team-os-4/src/SalesPipelinePage.tsx')
 
 assert.equal(contract.schemaVersion, 1)
 assert.equal(contract.phase, 'G3')
@@ -32,6 +34,21 @@ assert.deepEqual(contract.contracts.crmLifecycle, ['lead', 'customer', 'opportun
 assert.equal(contract.contracts.migrationMapping, 'immutable-source-id-to-target-id-with-disposition-and-reconciliation')
 assert.deepEqual(contract.contracts.fastProgressionCannotSkip, ['customer-identity', 'quote-snapshot', 'payment', 'inventory', 'fulfillment'])
 assert.equal(contract.contracts.crossRegion, 'create-to-region-pool-or-authorized-sales-never-silent-self-ownership')
+assert.deepEqual(contract.contracts.leadOwnership, {
+  states: ['owned', 'regional_pool'],
+  cleanupAfterUnclaimedDays: 20,
+  claimAndCleanupUseSameRowLock: true,
+  claimWinsConcurrentCleanup: true,
+  claimClearsCleanupAt: true,
+  protectedBusinessRecordsPreventPhysicalDelete: true,
+})
+assert.deepEqual(contract.contracts.opportunityRelations, ['settlement_customer', 'store'])
+assert.deepEqual(contract.contracts.stableTestIds, [
+  'sales-lead-pool',
+  'sales-lead-owned',
+  'sales-opportunity-list',
+  'customer-360',
+])
 assert.equal(contract.contracts.rlsRequired, true)
 assert.equal(contract.contracts.clientDirectWritesAllowed, false)
 assert.equal(contract.contracts.fixturesMocksOrDemoDataAllowed, false)
@@ -49,5 +66,10 @@ assert.ok(app.includes('<Route path="/customers"'))
 assert.ok(page.includes('data-testid="customer-directory-list"'))
 assert.ok(reader.includes("query('customers', 'id,company_id,name,region,sales_owner_id')"))
 assert.ok(!/\b(?:fixture|mock|demo)(?:s|data)?\b/iu.test(`${app} ${page} ${reader}`))
+for (const table of ['profile_regions', 'leads', 'opportunities']) assert.ok(salesMigration.includes(`create table public.${table} (`))
+assert.ok(salesMigration.includes('for update skip locked'))
+assert.ok(salesMigration.includes('cleanup_due_at = null'))
+assert.ok(salesMigration.includes('opportunities_store_customer_guard'))
+for (const testId of ['sales-lead-pool', 'sales-lead-owned', 'sales-opportunity-list']) assert.ok(salesPage.includes(`data-testid="${testId}"`))
 
 console.log('TEAM_OS_4_G3_CONTRACT_OK checkpoints=45,50 hierarchy=3 tables=3 rls=3 customerRoute=present crmLifecycle=5 fakeData=forbidden runtime=pending migration=pending gateIntegrated=0')
