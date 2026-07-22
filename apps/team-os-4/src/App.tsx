@@ -154,7 +154,7 @@ function AuthenticatedApp({ user, onSignOut }: { user: AuthenticatedWorkspace; o
     const controller = new AbortController()
     setItemsLoading(true); setItemsError(undefined)
     new SupabaseWorkItemReader().load({ companyId: user.companyId, assigneeId: user.userId, signal: controller.signal })
-      .then(setItems)
+      .then((page) => setItems(page.items))
       .catch((reason) => { if (!controller.signal.aborted) setItemsError(reason instanceof Error ? reason.message : 'WORK_ITEM_QUERY_FAILED') })
       .finally(() => { if (!controller.signal.aborted) setItemsLoading(false) })
     return () => controller.abort()

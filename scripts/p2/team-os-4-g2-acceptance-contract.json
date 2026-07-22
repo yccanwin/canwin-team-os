@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "phase": "G2",
   "acceptedProgressBefore": 30,
   "checkpoints": [
@@ -25,7 +25,32 @@
     "uniqueGenerationKey": "company_id+source_business+source_id+generation_rule",
     "assigneeReassignment": "updates-existing-work-item-without-generating-duplicate",
     "stateMachine": ["pending", "in_progress", "waiting", "completed", "cancelled"],
-    "businessCompletion": "server-transaction-closes-work-item-idempotently",
+    "businessCompletion": {
+      "reminder": "generic-completion-assignee-or-admin-only",
+      "businessAction": "owning-business-transaction-only",
+      "atomicProofTransaction": "claim_lead_v1",
+      "idempotent": true
+    },
+    "waiting": {
+      "blockedReasonRequired": true,
+      "blockedReasonClearedOnExit": true,
+      "sortsFirstInsideBusinessBucket": true
+    },
+    "serverQueue": {
+      "rpc": "list_work_items_v1",
+      "sortBuckets": [
+        "overdue_blocking",
+        "due_today",
+        "upcoming_business_date",
+        "first_contact",
+        "reclaim_soon",
+        "renewal",
+        "normal"
+      ],
+      "cursor": ["sort_rank", "waiting_rank", "sort_at", "priority_rank", "id"],
+      "maximumPageSize": 100,
+      "clientResortAllowed": false
+    },
     "singleSourceEntrypoints": ["workspace", "progress-center", "calendar"],
     "stableTestIds": ["work-items-workbench", "work-items-progress", "work-items-calendar"],
     "sharedReader": "SupabaseWorkItemReader",
@@ -43,7 +68,8 @@
       "workItemCount": 100000,
       "requiredIndexes": [
         "work_items_generation_identity",
-        "work_items_assignee_status_due_idx"
+        "work_items_assignee_status_due_idx",
+        "work_items_server_queue_cursor_idx"
       ],
       "requiredEvidence": ["dataset-manifest", "query-plan", "stable-sort", "response-percentiles"],
       "status": "pending",

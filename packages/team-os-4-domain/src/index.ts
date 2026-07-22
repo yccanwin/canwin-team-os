@@ -23,3 +23,32 @@ export {
 } from './green-route.js'
 
 export type { TeamOs4GreenRoute } from './green-route.js'
+
+export {
+  WORK_ITEM_KINDS,
+  WORK_ITEM_PAGE_DEFAULT_LIMIT,
+  WORK_ITEM_PAGE_MAX_LIMIT,
+  WORK_ITEM_PRIORITIES,
+  WORK_ITEM_PRIORITY_RANK,
+  WORK_ITEM_SORT_BUCKETS,
+  WORK_ITEM_SORT_BUCKET_RANK,
+  WORK_ITEM_STATUSES,
+  WORK_ITEM_STATE_TRANSITIONS,
+  canTransitionWorkItemStatus,
+  canUseGenericWorkItemCompletion,
+  compareWorkItemStableSortKeys,
+  isServerOrderedWorkItemPage,
+} from './work-item.js'
+
+export type {
+  RankedWorkItem,
+  WorkItem,
+  WorkItemCursor,
+  WorkItemKind,
+  WorkItemPage,
+  WorkItemPageRequest,
+  WorkItemPriority,
+  WorkItemSortBucket,
+  WorkItemStableSortKey,
+  WorkItemStatus,
+} from './work-item.js'

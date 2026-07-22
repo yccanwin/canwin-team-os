@@ -36,8 +36,8 @@ const migrations = readdirSync(migrationsDir)
   .filter((name) => /^\d{14}_[a-z0-9_]+\.sql$/.test(name))
   .sort()
 
-if (JSON.stringify(migrations) !== JSON.stringify(expectedMigrations)) {
-  throw new Error(`foundation migration set/order drift: ${migrations.join(',')}`)
+if (JSON.stringify(migrations.slice(0, expectedMigrations.length)) !== JSON.stringify(expectedMigrations)) {
+  throw new Error(`foundation migration prefix/order drift: ${migrations.join(',')}`)
 }
 
 const migrationPath = join(migrationsDir, expectedMigrations[0])

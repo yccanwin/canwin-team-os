@@ -1,5 +1,19 @@
-import { isPrimaryRole } from '../../../../packages/team-os-4-domain/src/index'
-import type { WorkItem, WorkItemKind, WorkItemPriority, WorkItemStatus } from './work-item'
+import {
+  WORK_ITEM_PRIORITY_RANK,
+  WORK_ITEM_SORT_BUCKET_RANK,
+  WORK_ITEM_SORT_BUCKETS,
+} from '../../../../packages/team-os-4-domain/src/work-item.ts'
+import { isPrimaryRole } from '../../../../packages/team-os-4-domain/src/roles.ts'
+import type {
+  RankedWorkItem,
+  WorkItem,
+  WorkItemCursor,
+  WorkItemKind,
+  WorkItemPage,
+  WorkItemPriority,
+  WorkItemSortBucket,
+  WorkItemStatus,
+} from './work-item'
 
 const KINDS = new Set<WorkItemKind>(['reminder', 'business_action'])
 const PRIORITIES = new Set<WorkItemPriority>(['urgent', 'high', 'normal', 'low'])
@@ -29,6 +43,20 @@ function nullableTimestamp(row: Record<string, unknown>, key: string): string | 
   return value
 }
 
+function requiredInteger(row: Record<string, unknown>, key: string, minimum: number, maximum: number): number {
+  const value = row[key]
+  if (!Number.isInteger(value) || (value as number) < minimum || (value as number) > maximum) {
+    throw new Error(`WORK_ITEM_FIELD_INVALID:${key}`)
+  }
+  return value as number
+}
+
+function requiredTimestamp(row: Record<string, unknown>, key: string): string {
+  const value = requiredString(row, key)
+  if (!Number.isFinite(Date.parse(value))) throw new Error(`WORK_ITEM_FIELD_INVALID:${key}`)
+  return value
+}
+
 export function mapWorkItemRow(value: unknown): WorkItem {
   const row = rowObject(value)
   const role = requiredString(row, 'role_type')
@@ -48,6 +76,7 @@ export function mapWorkItemRow(value: unknown): WorkItem {
     role,
     assigneeId: requiredString(row, 'assignee_id'),
     kind: kind as WorkItemKind,
+    title: requiredString(row, 'title'),
     priority: priority as WorkItemPriority,
     status: status as WorkItemStatus,
     plannedAt: nullableTimestamp(row, 'planned_at'),
@@ -56,5 +85,55 @@ export function mapWorkItemRow(value: unknown): WorkItem {
     blockedReason: nullableString(row, 'blocked_reason'),
     generationRule: requiredString(row, 'generation_rule'),
     completedAt: nullableTimestamp(row, 'completed_at'),
+  })
+}
+
+export function mapRankedWorkItemRow(value: unknown): RankedWorkItem {
+  const row = rowObject(value)
+  const item = mapWorkItemRow(row)
+  const sortBucket = requiredString(row, 'sort_bucket')
+  if (!(WORK_ITEM_SORT_BUCKETS as readonly string[]).includes(sortBucket)) {
+    throw new Error('WORK_ITEM_FIELD_INVALID:sort_bucket')
+  }
+  const sortRank = requiredInteger(row, 'sort_rank', 1, 7) as RankedWorkItem['sortKey']['sortRank']
+  const waitingRank = requiredInteger(row, 'waiting_rank', 0, 1) as RankedWorkItem['sortKey']['waitingRank']
+  const priorityRank = requiredInteger(row, 'priority_rank', 1, 4) as RankedWorkItem['sortKey']['priorityRank']
+  if (WORK_ITEM_SORT_BUCKET_RANK[sortBucket as WorkItemSortBucket] !== sortRank ||
+      (item.status === 'waiting' ? waitingRank !== 0 : waitingRank !== 1) ||
+      WORK_ITEM_PRIORITY_RANK[item.priority] !== priorityRank) {
+    throw new Error('WORK_ITEM_FIELD_INVALID:server_sort_contract')
+  }
+  return Object.freeze({
+    ...item,
+    sortBucket: sortBucket as WorkItemSortBucket,
+    sortKey: Object.freeze({
+      sortRank,
+      waitingRank,
+      sortAt: requiredTimestamp(row, 'sort_at'),
+      priorityRank,
+      id: item.id,
+    }),
+  })
+}
+
+function mapWorkItemCursor(value: unknown): WorkItemCursor | null {
+  if (value === null) return null
+  const row = rowObject(value)
+  return Object.freeze({
+    sortRank: requiredInteger(row, 'sort_rank', 1, 7) as WorkItemCursor['sortRank'],
+    waitingRank: requiredInteger(row, 'waiting_rank', 0, 1) as WorkItemCursor['waitingRank'],
+    sortAt: requiredTimestamp(row, 'sort_at'),
+    priorityRank: requiredInteger(row, 'priority_rank', 1, 4) as WorkItemCursor['priorityRank'],
+    id: requiredString(row, 'id'),
+  })
+}
+
+export function mapWorkItemPage(value: unknown): WorkItemPage {
+  const row = rowObject(value)
+  if (!Array.isArray(row.items)) throw new Error('WORK_ITEM_PAGE_INVALID:items')
+  return Object.freeze({
+    ordering: 'server-authoritative',
+    items: Object.freeze(row.items.map(mapRankedWorkItemRow)),
+    nextCursor: mapWorkItemCursor(row.next_cursor),
   })
 }

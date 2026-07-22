@@ -1,5 +1,52 @@
 -- Aggregate-only G1 state. This query intentionally returns no email, user id,
 -- credential, token, or row-level business payload.
+with acceptance_identity_state as (
+  select
+    u.raw_app_meta_data ->> 'identity_key' as identity_key,
+    r.role_key as primary_role,
+    p.is_active as profile_active,
+    u.raw_app_meta_data ->> 'acceptance_state' as acceptance_state_raw,
+    case u.raw_app_meta_data ->> 'acceptance_state'
+      when 'retained' then 'accepted'
+      when 'provisioning' then 'pending'
+      when 'quarantined' then 'failed-isolated'
+      else 'unknown'
+    end as acceptance_result
+  from auth.users as u
+  left join public.profiles as p on p.id = u.id
+  left join public.primary_roles as r
+    on r.id = p.primary_role_id and r.company_id = p.company_id
+  where u.raw_app_meta_data ->> 'system' = 'team-os-4-acceptance'
+),
+g1_run_state as (
+  select
+    run_id,
+    status,
+    target_project_ref,
+    application_commit,
+    retained_at is not null as retained_at_exists,
+    runtime_evidence ->> 'status' as runtime_evidence_status,
+    runtime_evidence -> 'current_run_counts' as runtime_current_run_counts,
+    case
+      when pg_catalog.jsonb_typeof(runtime_evidence #> '{current_run_counts,total}') = 'number'
+        then (runtime_evidence #>> '{current_run_counts,total}')::integer
+      else null
+    end as runtime_total,
+    case
+      when pg_catalog.jsonb_typeof(runtime_evidence -> 'records') = 'array'
+        then pg_catalog.jsonb_array_length(runtime_evidence -> 'records')
+      else null
+    end as runtime_records_array_length,
+    case
+      when pg_catalog.jsonb_typeof(runtime_evidence -> 'first_failure_stopped') = 'boolean'
+        then (runtime_evidence ->> 'first_failure_stopped')::boolean
+      else null
+    end as first_failure_stopped,
+    runtime_evidence ->> 'totals_source' as totals_source,
+    runtime_evidence_sha256 is not null
+      and runtime_evidence_sha256 = runtime_evidence ->> 'evidence_sha256' as runtime_sha256_matches
+  from private.g1_acceptance_runs
+)
 select pg_catalog.jsonb_build_object(
   'project_ref_from_init', (
     select details ->> 'target_project_ref'
@@ -20,6 +67,38 @@ select pg_catalog.jsonb_build_object(
     select count(*)
     from public.profiles
     where display_name like 'G1 ACCEPTANCE %'
+  ),
+  'acceptance_identities', (
+    select coalesce(
+      pg_catalog.jsonb_agg(
+        pg_catalog.jsonb_build_object(
+          'identity_key', identity_key,
+          'primary_role', primary_role,
+          'profile_active', profile_active,
+          'acceptance_state_raw', acceptance_state_raw,
+          'acceptance_result', acceptance_result
+        )
+        order by identity_key
+      ),
+      '[]'::jsonb
+    )
+    from acceptance_identity_state
+  ),
+  'acceptance_identity_matrix_valid', (
+    select
+      count(*) = 5
+      and count(distinct identity_key) = 5
+      and coalesce(
+        pg_catalog.bool_and(
+          (identity_key = 'sales' and primary_role = 'sales')
+          or (identity_key = 'implementation' and primary_role = 'implementation')
+          or (identity_key = 'operations' and primary_role = 'operations')
+          or (identity_key = 'finance' and primary_role = 'finance')
+          or (identity_key = 'admin_supervisor' and primary_role = 'admin')
+        ),
+        false
+      )
+    from acceptance_identity_state
   ),
   'active_profiles_by_role', (
     select coalesce(
@@ -86,6 +165,40 @@ select pg_catalog.jsonb_build_object(
   ),
   'g1_runs_retained', (
     select count(*) from private.g1_acceptance_runs where status = 'retained'
+  ),
+  'g1_runs', (
+    select coalesce(
+      pg_catalog.jsonb_agg(
+        pg_catalog.jsonb_build_object(
+          'run_id', run_id,
+          'status', status,
+          'target_project_ref', target_project_ref,
+          'application_commit', application_commit,
+          'retained_at_exists', retained_at_exists,
+          'runtime_evidence_status', runtime_evidence_status,
+          'runtime_current_run_counts', runtime_current_run_counts,
+          'runtime_records_array_length', runtime_records_array_length,
+          'first_failure_stopped', first_failure_stopped,
+          'totals_source', totals_source,
+          'runtime_sha256_matches', runtime_sha256_matches
+        )
+        order by run_id
+      ),
+      '[]'::jsonb
+    )
+    from g1_run_state
+  ),
+  'official_seal_present', (
+    select exists (
+      select 1
+      from g1_run_state
+      where status = 'retained'
+        and retained_at_exists
+        and runtime_evidence_status = 'passed'
+        and runtime_total = 82
+        and runtime_records_array_length = 82
+        and runtime_sha256_matches
+    )
   ),
   'g1_baselines', (select count(*) from private.g1_acceptance_baselines),
   'g1_functions', (
