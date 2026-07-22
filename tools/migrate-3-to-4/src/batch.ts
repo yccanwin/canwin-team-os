@@ -10,6 +10,8 @@ export function assertSafeTargetWrite(write: TargetWrite): void {
   if (!write.statement.trim()) throw new Error('empty target write is forbidden')
   if (/\bon\s+conflict\s+do\s+nothing\b/i.test(write.statement)) throw new Error('ON CONFLICT DO NOTHING is forbidden')
   if (/\b(upsert|insert\s+or\s+ignore)\b/i.test(write.statement)) throw new Error('silent target overwrite or skip is forbidden')
+  if (/\bon\s+conflict\b/i.test(write.statement)) throw new Error('ON CONFLICT is forbidden for migration writes')
+  if (/\bupdate\b/i.test(write.statement)) throw new Error('target UPDATE is forbidden during insert-only migration')
 }
 
 export async function writeTargetBatch(writer: TargetWriter, executionBatchId: string, writes: readonly TargetWrite[]): Promise<void> {
