@@ -1,16 +1,33 @@
-do$$begin
+do $$declare
+ company_def text:=pg_get_functiondef('public.get_company_profit_summary()'::regprocedure);
+ company_view text:=pg_get_viewdef('public.company_profit_summary'::regclass,true);
+begin
  if to_regclass('public.performance_quarterly_targets')is null or to_regclass('public.official_reconciliation_batches')is null or to_regclass('public.profit_adjustments')is null then raise exception'Performance tables missing';end if;
- if to_regclass('public.company_profit_summary')is null or to_regclass('public.supervisor_order_margin')is null or to_regclass('public.personal_performance_summary')is null then raise exception'Performance views missing';end if;
- if position('deal_internal_settlements' in pg_get_viewdef('public.company_profit_summary'::regclass,true))=0 or position('deal_procurement_cost_payments' in pg_get_viewdef('public.company_profit_summary'::regclass,true))=0 or position('profit_adjustments' in pg_get_viewdef('public.company_profit_summary'::regclass,true))=0 then raise exception'Actual company profit ledger incomplete';end if;
- if position('deal_payments' in pg_get_viewdef('public.company_profit_summary'::regclass,true))>0 or position('deal_payment_reversals' in pg_get_viewdef('public.company_profit_summary'::regclass,true))>0 then raise exception'Customer cash path incorrectly changes company profit';end if;
- if position('forecast_profit' in pg_get_viewdef('public.company_profit_summary'::regclass,true))=0 or position('actual_profit' in pg_get_viewdef('public.company_profit_summary'::regclass,true))=0 then raise exception'Actual/forecast separation missing';end if;
- if position('customers.supervise' in pg_get_viewdef('public.company_profit_summary'::regclass,true))>0 then raise exception'Supervisor can read company profit';end if;
+ if to_regprocedure('public.get_company_profit_summary()')is null or to_regclass('public.company_profit_summary')is null or to_regclass('public.supervisor_order_margin')is null or to_regclass('public.personal_performance_summary')is null then raise exception'Performance summary interfaces missing';end if;
+ if position('get_company_profit_summary' in company_view)=0 then raise exception'Company profit wrapper view is not bound to the secure summary function';end if;
+ if position('deal_internal_settlements' in company_def)=0 or position('deal_procurement_cost_payments' in company_def)=0 or position('profit_adjustments' in company_def)=0 then raise exception'Actual company profit ledger incomplete';end if;
+ if position('deal_payments' in company_def)>0 or position('deal_payment_reversals' in company_def)>0 then raise exception'Customer cash path incorrectly changes company profit';end if;
+ if position('forecast_profit' in company_def)=0 or position('actual_profit' in company_def)=0 then raise exception'Actual/forecast separation missing';end if;
+ if position('customers.supervise' in company_def)>0 then raise exception'Supervisor can read company profit';end if;
  if position('can_supervise_performance' in pg_get_viewdef('public.supervisor_order_margin'::regclass,true))=0 then raise exception'Subordinate margin authorization missing';end if;
  if to_regclass('public.personal_sales_margin')is null or to_regprocedure('public.get_order_sales_ledger(text,uuid)')is null then raise exception'Sales margin interfaces missing';end if;
  if position('deal_payments' in pg_get_functiondef('public.get_order_sales_ledger(text,uuid)'::regprocedure))=0 or position('deal_payment_reversals' in pg_get_functiondef('public.get_order_sales_ledger(text,uuid)'::regprocedure))=0 or position('internal_due' in pg_get_functiondef('public.get_order_sales_ledger(text,uuid)'::regprocedure))=0 or position('deal_sales_expenses' in pg_get_functiondef('public.get_order_sales_ledger(text,uuid)'::regprocedure))=0 then raise exception'Sales margin formula incomplete';end if;
  if position('recipient_type' in pg_get_functiondef('public.get_order_sales_ledger(text,uuid)'::regprocedure))>0 then raise exception'Customer payment path changes sales ownership formula';end if;
- if position('profile_id = auth.uid()' in pg_get_viewdef('public.personal_performance_summary'::regclass,true))=0 then raise exception'Personal summary isolation missing';end if;
- if exists(select 1 from pg_policies where schemaname='public'and tablename in('performance_target_events','official_reconciliation_lines','profit_adjustments')and cmd in('UPDATE','DELETE','ALL'))then raise exception'Performance history client-mutable';end if;
+ if position('profile_id=auth.uid()' in lower(regexp_replace(pg_get_viewdef('public.personal_performance_summary'::regclass,true),'[[:space:]]+','','g')))=0 then raise exception'Personal summary isolation missing';end if;
+ if(select count(*)from pg_policies where schemaname='public'
+  and tablename in('performance_target_events','official_reconciliation_lines','profit_adjustments')
+  and policyname='sales os v3 server gate'and permissive='RESTRICTIVE'and cmd='ALL'
+  and'authenticated'=any(roles))<>3 then raise exception'Performance history restrictive gates missing';end if;
+ if exists(select 1 from pg_policies where schemaname='public'
+  and tablename in('performance_target_events','official_reconciliation_lines','profit_adjustments')
+  and permissive='PERMISSIVE'and cmd in('INSERT','UPDATE','DELETE','ALL'))then
+  raise exception'Performance history permissive write policy found';end if;
+ if exists(select 1
+  from(values('anon'),('authenticated'))as r(role_name)
+  cross join(values('public.performance_target_events'),('public.official_reconciliation_lines'),('public.profit_adjustments'))as t(table_name)
+  cross join(values('INSERT'),('UPDATE'),('DELETE'))as p(privilege_name)
+  where has_table_privilege(r.role_name,t.table_name,p.privilege_name))then
+  raise exception'Performance history direct client write privilege found';end if;
  if position('for update' in lower(pg_get_functiondef('public.confirm_official_reconciliation(uuid)'::regprocedure)))=0 then raise exception'Reconciliation confirmation lock missing';end if;
  if has_table_privilege('anon','public.company_profit_summary','SELECT')or has_function_privilege('anon','public.add_profit_adjustment(text,numeric,date,text,uuid)','EXECUTE')then raise exception'Financial reporting exposed to anon';end if;
  if(select count(*)from pg_policies where schemaname='public'and tablename in('performance_quarterly_targets','official_reconciliation_batches','profit_adjustments')and policyname='sales os v3 server gate'and permissive='RESTRICTIVE')<>3 then raise exception'Performance server gates missing';end if;

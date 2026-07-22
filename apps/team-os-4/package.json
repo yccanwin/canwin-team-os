@@ -1,0 +1,14 @@
+{
+  "name": "@canwin/team-os-4-app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && vite build --config vite.config.ts",
+    "test:access": "node --experimental-strip-types src/lib/access.test.ts",
+    "test:work-item-contract": "node --experimental-strip-types src/domain/work-item-contract.test.ts",
+    "test:work-item-view": "node --experimental-strip-types src/domain/work-item-view.test.ts && node --experimental-strip-types src/domain/work-item-command.test.ts && node --experimental-strip-types src/domain/work-item-ui-contract.test.ts",
+    "dev": "vite --config vite.config.ts",
+    "preview": "vite preview --config vite.config.ts"
+  }
+}

@@ -1,0 +1,268 @@
+{
+  "schemaVersion": 1,
+  "contractStatus": "p0_disposition_plan_frozen_runtime_pending",
+  "scope": "Static cross-check candidate only. It does not implement P1 navigation, close production Storage, or authorize route deletion.",
+  "sources": {
+    "frontendInventory": "docs/team-os-4.0/p0/frontend-inventory.json",
+    "pageInventory": "docs/team-os-4.0/p0/03-page-retain-merge-retire-inventory.md",
+    "mediaInventory": "docs/team-os-4.0/p0/04-media-and-storage-cleanup-inventory.md",
+    "plan": "docs/CanWin-Team-OS-4.0-最终施工总方案.md",
+    "routes": "src/App.tsx",
+    "p1NavigationContract": "docs/team-os-4.0/p0/p1-app-navigation-contract.json"
+  },
+  "expectedCounts": {
+    "routes": 36,
+    "section48Items": 22,
+    "fileInputs": 7,
+    "storageNamespaces": 7,
+    "nonFileWriteEntrances": 2,
+    "mediaSlots": 2
+  },
+  "allowedCandidateActions": {
+    "pages": ["retain", "merge", "redirect", "close"],
+    "routes": ["retain", "merge", "redirect", "close"],
+    "uploadEntrances": ["close", "close_migrate_candidate", "retain_bulk_import_exemption"],
+    "storageNamespaces": ["close", "close_migrate_candidate"]
+  },
+  "accessBoundaryProfiles": {
+    "closed_route": {
+      "anonymous": "deny",
+      "defaultDecision": "deny",
+      "authentication": "not_applicable",
+      "allowedPrimaryRoles": [],
+      "additionalFunctionExceptions": [],
+      "desktopOnly": false,
+      "authority": "application_router"
+    },
+    "authenticated_all_primary_roles": {
+      "anonymous": "deny",
+      "defaultDecision": "deny",
+      "authentication": "required",
+      "allowedPrimaryRoles": ["sales", "implementation", "operations", "finance", "admin"],
+      "additionalFunctionExceptions": [],
+      "desktopOnly": false,
+      "authority": "server"
+    },
+    "sales_admin": {
+      "anonymous": "deny",
+      "defaultDecision": "deny",
+      "authentication": "required",
+      "allowedPrimaryRoles": ["sales", "admin"],
+      "additionalFunctionExceptions": [],
+      "desktopOnly": false,
+      "authority": "server"
+    },
+    "implementation_operations_admin": {
+      "anonymous": "deny",
+      "defaultDecision": "deny",
+      "authentication": "required",
+      "allowedPrimaryRoles": ["implementation", "operations", "admin"],
+      "additionalFunctionExceptions": [],
+      "desktopOnly": false,
+      "authority": "server"
+    },
+    "sales_delivery_admin": {
+      "anonymous": "deny",
+      "defaultDecision": "deny",
+      "authentication": "required",
+      "allowedPrimaryRoles": ["sales", "implementation", "operations", "admin"],
+      "additionalFunctionExceptions": [],
+      "desktopOnly": false,
+      "authority": "server"
+    },
+    "finance_admin": {
+      "anonymous": "deny",
+      "defaultDecision": "deny",
+      "authentication": "required",
+      "allowedPrimaryRoles": ["finance", "admin"],
+      "additionalFunctionExceptions": [],
+      "desktopOnly": false,
+      "authority": "server"
+    },
+    "admin_only": {
+      "anonymous": "deny",
+      "defaultDecision": "deny",
+      "authentication": "required",
+      "allowedPrimaryRoles": ["admin"],
+      "additionalFunctionExceptions": [],
+      "desktopOnly": false,
+      "authority": "server"
+    },
+    "admin_desktop_only": {
+      "anonymous": "deny",
+      "defaultDecision": "deny",
+      "authentication": "required",
+      "allowedPrimaryRoles": ["admin"],
+      "additionalFunctionExceptions": [],
+      "desktopOnly": true,
+      "authority": "server"
+    },
+    "admin_primary_with_warehouse_inventory_exception": {
+      "anonymous": "deny",
+      "defaultDecision": "deny",
+      "authentication": "required",
+      "allowedPrimaryRoles": ["admin"],
+      "additionalFunctionExceptions": [
+        { "function": "warehouse", "allowedViews": ["inventory"], "requiresAssignedWarehouseScope": true }
+      ],
+      "desktopOnly": false,
+      "authority": "server"
+    },
+    "admin_primary_with_enabled_supervisor_scope_exception": {
+      "anonymous": "deny",
+      "defaultDecision": "deny",
+      "authentication": "required",
+      "allowedPrimaryRoles": ["admin"],
+      "additionalFunctionExceptions": [
+        { "function": "supervisor", "allowedViews": ["approvals"], "requiresSupervisorEnabled": true, "requiresAssignedSupervisorScope": true }
+      ],
+      "desktopOnly": false,
+      "authority": "server"
+    }
+  },
+  "section48Dispositions": [
+    { "mappingId": "dashboard", "sourceTreatment": "retain_rebuild", "candidateAction": "retain", "routeActions": ["redirect", "retain"], "acceptanceStatus": "candidate_unaccepted", "reason": "Keep the address and rebuild it as the role-generated personal workbench." },
+    { "mappingId": "work", "sourceTreatment": "retain_rebuild", "candidateAction": "retain", "routeActions": ["retain"], "acceptanceStatus": "candidate_unaccepted", "reason": "Keep the shell and rebuild it as the unified progression center." },
+    { "mappingId": "tasks", "sourceTreatment": "merge_redirect", "candidateAction": "merge", "routeActions": ["redirect"], "acceptanceStatus": "candidate_unaccepted", "reason": "Merge task capability into /work and redirect the legacy address." },
+    { "mappingId": "calendar", "sourceTreatment": "retain_rebuild", "candidateAction": "retain", "routeActions": ["retain"], "acceptanceStatus": "candidate_unaccepted", "reason": "Keep the address as the time projection of unified work items." },
+    { "mappingId": "profile", "sourceTreatment": "retain_rebuild", "candidateAction": "retain", "routeActions": ["retain"], "acceptanceStatus": "candidate_unaccepted", "reason": "Keep and extend profile while closing avatar writes." },
+    { "mappingId": "goals", "sourceTreatment": "merge_redirect", "candidateAction": "merge", "routeActions": ["redirect"], "acceptanceStatus": "candidate_unaccepted", "reason": "Merge personal goals into profile and gate team goals by admin or enabled supervisor." },
+    { "mappingId": "sales-v3", "sourceTreatment": "retain_compatibility", "candidateAction": "retain", "routeActions": ["retain"], "acceptanceStatus": "candidate_unaccepted", "reason": "Keep the compatibility address while removing the second navigation in P1." },
+    { "mappingId": "quotes-v3", "sourceTreatment": "retain_capability", "candidateAction": "retain", "routeActions": ["retain"], "acceptanceStatus": "candidate_unaccepted", "reason": "Keep quotation capability inside the unified role shell." },
+    { "mappingId": "orders-v3", "sourceTreatment": "retain_split_views", "candidateAction": "retain", "routeActions": ["retain"], "acceptanceStatus": "candidate_unaccepted", "reason": "Keep order capability with later role-specific projections." },
+    { "mappingId": "sales", "sourceTreatment": "merge_redirect", "candidateAction": "merge", "routeActions": ["redirect"], "acceptanceStatus": "candidate_unaccepted", "reason": "Merge legacy sales earnings into profile and the sales role view." },
+    { "mappingId": "operations-lead-intake", "sourceTreatment": "merge_capability", "candidateAction": "merge", "routeActions": ["retain"], "acceptanceStatus": "candidate_unaccepted", "reason": "Merge the capability into implementation and operations quick actions while retaining compatibility." },
+    { "mappingId": "finance", "sourceTreatment": "retain_rebuild", "candidateAction": "retain", "routeActions": ["retain"], "acceptanceStatus": "candidate_unaccepted", "reason": "Keep the address and rebuild it as the finance role workspace." },
+    { "mappingId": "asset-center", "sourceTreatment": "retain_restrict", "candidateAction": "retain", "routeActions": ["retain"], "acceptanceStatus": "candidate_unaccepted", "reason": "Keep as the admin product, inventory and asset entry." },
+    { "mappingId": "inventory-assets", "sourceTreatment": "redirect", "candidateAction": "redirect", "routeActions": ["redirect"], "acceptanceStatus": "candidate_unaccepted", "reason": "Redirect both legacy addresses to matching asset-center views." },
+    { "mappingId": "members-skills", "sourceTreatment": "merge_redirect", "candidateAction": "merge", "routeActions": ["redirect"], "acceptanceStatus": "candidate_unaccepted", "reason": "Merge both capabilities into admin organization and access settings." },
+    { "mappingId": "achievements", "sourceTreatment": "audit_merge_redirect", "candidateAction": "merge", "routeActions": ["redirect"], "acceptanceStatus": "candidate_unaccepted", "reason": "Move verified reusable data into case candidates and redirect the legacy address." },
+    { "mappingId": "culture-center", "sourceTreatment": "close_split_archive", "candidateAction": "close", "routeActions": ["close"], "acceptanceStatus": "candidate_unaccepted", "reason": "Close the old route after mixed content is separated or archived; preserve all source data and attachments." },
+    { "mappingId": "photos", "sourceTreatment": "close_route_disable_write", "candidateAction": "close", "routeActions": ["close"], "acceptanceStatus": "candidate_unaccepted", "reason": "Close the old route and new uploads while preserving the historical media archive and recovery evidence." },
+    { "mappingId": "timeline", "sourceTreatment": "close_after_fact_migration", "candidateAction": "close", "routeActions": ["close"], "acceptanceStatus": "candidate_unaccepted", "reason": "Close the old route after retained facts are mapped to 4.0 customer timelines or audit history; preserve the source backup." },
+    { "mappingId": "management-v3", "sourceTreatment": "merge_compatibility", "candidateAction": "merge", "routeActions": ["merge"], "acceptanceStatus": "candidate_unaccepted", "reason": "Merge the compatibility page into the admin operating cockpit." },
+    { "mappingId": "settings", "sourceTreatment": "merge_preserve_deep_links", "candidateAction": "merge", "routeActions": ["redirect", "retain"], "acceptanceStatus": "candidate_unaccepted", "reason": "Merge settings into one admin shell while preserving compatible deep links." },
+    { "mappingId": "deferred-tools", "sourceTreatment": "close_archive_data", "candidateAction": "close", "routeActions": ["close"], "acceptanceStatus": "candidate_unaccepted", "reason": "Close votes, war room and toolbox in 4.0 while preserving their data and audit evidence for recovery." }
+  ],
+  "routeDispositions": [
+    { "path": "/", "mappingId": "dashboard", "compatibilityState": "redirect", "candidateAction": "redirect", "canonicalTarget": "/dashboard", "hiddenFromDefaultNavigation": true, "readOnly": false, "writeMode": null, "accessBoundary": "authenticated_all_primary_roles", "acceptanceStatus": "candidate_unaccepted", "reason": "Root remains a compatibility alias for the role workbench." },
+    { "path": "/dashboard", "mappingId": "dashboard", "compatibilityState": "retain_rebuild", "candidateAction": "retain", "canonicalTarget": "/dashboard", "hiddenFromDefaultNavigation": false, "readOnly": false, "writeMode": null, "accessBoundary": "authenticated_all_primary_roles", "acceptanceStatus": "candidate_unaccepted", "reason": "Canonical personal workbench address." },
+    { "path": "/work", "mappingId": "work", "compatibilityState": "retain_rebuild", "candidateAction": "retain", "canonicalTarget": "/work", "hiddenFromDefaultNavigation": false, "readOnly": false, "writeMode": null, "accessBoundary": "authenticated_all_primary_roles", "acceptanceStatus": "candidate_unaccepted", "reason": "Canonical unified progression center." },
+    { "path": "/tasks", "mappingId": "tasks", "compatibilityState": "redirect", "candidateAction": "redirect", "canonicalTarget": "/work", "hiddenFromDefaultNavigation": true, "readOnly": false, "writeMode": null, "accessBoundary": "authenticated_all_primary_roles", "acceptanceStatus": "candidate_unaccepted", "reason": "Legacy task address redirects after capability merge." },
+    { "path": "/goals", "mappingId": "goals", "compatibilityState": "redirect", "candidateAction": "redirect", "canonicalTarget": "/profile?view=goals", "hiddenFromDefaultNavigation": true, "readOnly": false, "writeMode": null, "accessBoundary": "authenticated_all_primary_roles", "acceptanceStatus": "candidate_unaccepted", "reason": "Personal goals move into profile." },
+    { "path": "/votes", "mappingId": "deferred-tools", "compatibilityState": "close_route_preserve_data", "candidateAction": "close", "canonicalTarget": null, "hiddenFromDefaultNavigation": true, "readOnly": false, "writeMode": "disabled", "accessBoundary": "closed_route", "acceptanceStatus": "candidate_unaccepted", "reason": "Close the old vote route; preserve vote data and audit evidence for recovery." },
+    { "path": "/votes/:voteId", "mappingId": "deferred-tools", "compatibilityState": "close_route_preserve_data", "candidateAction": "close", "canonicalTarget": null, "hiddenFromDefaultNavigation": true, "readOnly": false, "writeMode": "disabled", "accessBoundary": "closed_route", "acceptanceStatus": "candidate_unaccepted", "reason": "Close historical vote deep links without deleting vote details or audit evidence." },
+    { "path": "/inventory", "mappingId": "inventory-assets", "compatibilityState": "redirect", "candidateAction": "redirect", "canonicalTarget": "/asset-center?view=inventory", "hiddenFromDefaultNavigation": true, "readOnly": false, "writeMode": null, "accessBoundary": "admin_primary_with_warehouse_inventory_exception", "acceptanceStatus": "candidate_unaccepted", "reason": "Legacy inventory address redirects to the admin asset-center, with only a scoped warehouse inventory exception." },
+    { "path": "/finance", "mappingId": "finance", "compatibilityState": "retain_rebuild", "candidateAction": "retain", "canonicalTarget": "/finance", "hiddenFromDefaultNavigation": false, "readOnly": false, "writeMode": null, "accessBoundary": "finance_admin", "acceptanceStatus": "candidate_unaccepted", "reason": "Canonical finance and admin role workspace." },
+    { "path": "/sales", "mappingId": "sales", "compatibilityState": "redirect", "candidateAction": "redirect", "canonicalTarget": "/profile?view=earnings", "hiddenFromDefaultNavigation": true, "readOnly": false, "writeMode": null, "accessBoundary": "sales_admin", "acceptanceStatus": "candidate_unaccepted", "reason": "Legacy earnings page redirects after merge." },
+    { "path": "/timeline", "mappingId": "timeline", "compatibilityState": "close_route_preserve_data", "candidateAction": "close", "canonicalTarget": null, "hiddenFromDefaultNavigation": true, "readOnly": false, "writeMode": "disabled", "accessBoundary": "closed_route", "acceptanceStatus": "candidate_unaccepted", "reason": "Close the old page after retained facts are mapped elsewhere; preserve the source backup." },
+    { "path": "/achievements", "mappingId": "achievements", "compatibilityState": "redirect", "candidateAction": "redirect", "canonicalTarget": "/management-v3?view=case-candidates", "hiddenFromDefaultNavigation": true, "readOnly": false, "writeMode": null, "accessBoundary": "admin_only", "acceptanceStatus": "candidate_unaccepted", "reason": "Verified reusable data moves to admin case candidates." },
+    { "path": "/photos", "mappingId": "photos", "compatibilityState": "close_route_preserve_data", "candidateAction": "close", "canonicalTarget": null, "hiddenFromDefaultNavigation": true, "readOnly": false, "writeMode": "disabled", "accessBoundary": "closed_route", "acceptanceStatus": "candidate_unaccepted", "reason": "Close the old page and new writes; preserve the historical media archive and recovery evidence." },
+    { "path": "/assets", "mappingId": "inventory-assets", "compatibilityState": "redirect", "candidateAction": "redirect", "canonicalTarget": "/asset-center?view=assets", "hiddenFromDefaultNavigation": true, "readOnly": false, "writeMode": null, "accessBoundary": "admin_only", "acceptanceStatus": "candidate_unaccepted", "reason": "Legacy asset address redirects to the admin asset-center." },
+    { "path": "/calendar", "mappingId": "calendar", "compatibilityState": "retain_rebuild", "candidateAction": "retain", "canonicalTarget": "/calendar", "hiddenFromDefaultNavigation": false, "readOnly": false, "writeMode": null, "accessBoundary": "authenticated_all_primary_roles", "acceptanceStatus": "candidate_unaccepted", "reason": "Canonical work-item time projection." },
+    { "path": "/toolbox", "mappingId": "deferred-tools", "compatibilityState": "close_route_preserve_data", "candidateAction": "close", "canonicalTarget": null, "hiddenFromDefaultNavigation": true, "readOnly": false, "writeMode": "disabled", "accessBoundary": "closed_route", "acceptanceStatus": "candidate_unaccepted", "reason": "Close the old toolbox route while preserving its data and audit evidence for recovery." },
+    { "path": "/skills", "mappingId": "members-skills", "compatibilityState": "redirect", "candidateAction": "redirect", "canonicalTarget": "/settings-v3/access?view=skills", "hiddenFromDefaultNavigation": true, "readOnly": false, "writeMode": null, "accessBoundary": "admin_desktop_only", "acceptanceStatus": "candidate_unaccepted", "reason": "Skills move into desktop admin access settings." },
+    { "path": "/warroom", "mappingId": "deferred-tools", "compatibilityState": "close_route_preserve_data", "candidateAction": "close", "canonicalTarget": null, "hiddenFromDefaultNavigation": true, "readOnly": false, "writeMode": "disabled", "accessBoundary": "closed_route", "acceptanceStatus": "candidate_unaccepted", "reason": "Close the old war-room route while preserving its data and audit evidence for recovery." },
+    { "path": "/members", "mappingId": "members-skills", "compatibilityState": "redirect", "candidateAction": "redirect", "canonicalTarget": "/settings-v3/access?view=members", "hiddenFromDefaultNavigation": true, "readOnly": false, "writeMode": null, "accessBoundary": "admin_desktop_only", "acceptanceStatus": "candidate_unaccepted", "reason": "Members move into desktop admin access settings." },
+    { "path": "/profile", "mappingId": "profile", "compatibilityState": "retain_rebuild", "candidateAction": "retain", "canonicalTarget": "/profile", "hiddenFromDefaultNavigation": true, "readOnly": false, "writeMode": null, "accessBoundary": "authenticated_all_primary_roles", "acceptanceStatus": "candidate_unaccepted", "reason": "Canonical personal profile and work-view account area." },
+    { "path": "/settings", "mappingId": "settings", "compatibilityState": "redirect", "candidateAction": "redirect", "canonicalTarget": "/settings-v3", "hiddenFromDefaultNavigation": true, "readOnly": false, "writeMode": null, "accessBoundary": "admin_only", "acceptanceStatus": "candidate_unaccepted", "reason": "Legacy settings address redirects to the admin-only shell." },
+    { "path": "/asset-center", "mappingId": "asset-center", "compatibilityState": "retain_restrict_admin", "candidateAction": "retain", "canonicalTarget": "/asset-center", "hiddenFromDefaultNavigation": false, "readOnly": false, "writeMode": null, "accessBoundary": "admin_primary_with_warehouse_inventory_exception", "acceptanceStatus": "candidate_unaccepted", "reason": "Admin product, inventory and asset center; warehouse exception is limited to its assigned inventory view." },
+    { "path": "/culture-center", "mappingId": "culture-center", "compatibilityState": "close_route_preserve_data", "candidateAction": "close", "canonicalTarget": null, "hiddenFromDefaultNavigation": true, "readOnly": false, "writeMode": "disabled", "accessBoundary": "closed_route", "acceptanceStatus": "candidate_unaccepted", "reason": "Close the old mixed-content route after its data is separated or archived; do not delete source records or attachments." },
+    { "path": "/sales-v3", "mappingId": "sales-v3", "compatibilityState": "retain_compatibility", "candidateAction": "retain", "canonicalTarget": "/sales-v3", "hiddenFromDefaultNavigation": true, "readOnly": false, "writeMode": null, "accessBoundary": "sales_admin", "acceptanceStatus": "candidate_unaccepted", "reason": "Compatibility address retained for sales capability." },
+    { "path": "/operations/lead-intake", "mappingId": "operations-lead-intake", "compatibilityState": "retain_compatibility", "candidateAction": "retain", "canonicalTarget": "/operations/lead-intake", "hiddenFromDefaultNavigation": true, "readOnly": false, "writeMode": null, "accessBoundary": "implementation_operations_admin", "acceptanceStatus": "candidate_unaccepted", "reason": "Compatibility address retained for implementation and operations quick actions." },
+    { "path": "/orders-v3", "mappingId": "orders-v3", "compatibilityState": "retain_compatibility", "candidateAction": "retain", "canonicalTarget": "/orders-v3", "hiddenFromDefaultNavigation": true, "readOnly": false, "writeMode": null, "accessBoundary": "sales_delivery_admin", "acceptanceStatus": "candidate_unaccepted", "reason": "Compatibility address retained for sales, implementation, operations and admin order views." },
+    { "path": "/quotes-v3", "mappingId": "quotes-v3", "compatibilityState": "retain_compatibility", "candidateAction": "retain", "canonicalTarget": "/quotes-v3", "hiddenFromDefaultNavigation": true, "readOnly": false, "writeMode": null, "accessBoundary": "sales_admin", "acceptanceStatus": "candidate_unaccepted", "reason": "Compatibility address retained for sales quotation capability." },
+    { "path": "/management-v3", "mappingId": "management-v3", "compatibilityState": "merge_compatibility", "candidateAction": "merge", "canonicalTarget": "/management-v3", "hiddenFromDefaultNavigation": true, "readOnly": false, "writeMode": null, "accessBoundary": "admin_primary_with_enabled_supervisor_scope_exception", "acceptanceStatus": "candidate_unaccepted", "reason": "Admin cockpit with an enabled and assigned supervisor approval exception." },
+    { "path": "/access-v3", "mappingId": "settings", "compatibilityState": "redirect", "candidateAction": "redirect", "canonicalTarget": "/settings-v3/access", "hiddenFromDefaultNavigation": true, "readOnly": false, "writeMode": null, "accessBoundary": "admin_desktop_only", "acceptanceStatus": "candidate_unaccepted", "reason": "Existing admin compatibility redirect remains." },
+    { "path": "/settings-v3", "mappingId": "settings", "compatibilityState": "retain_compatibility", "candidateAction": "retain", "canonicalTarget": "/settings-v3", "hiddenFromDefaultNavigation": true, "readOnly": false, "writeMode": null, "accessBoundary": "admin_only", "acceptanceStatus": "candidate_unaccepted", "reason": "Canonical admin-only settings shell." },
+    { "path": "/settings-v3/regions", "mappingId": "settings", "compatibilityState": "retain_compatibility", "candidateAction": "retain", "canonicalTarget": "/settings-v3/regions", "hiddenFromDefaultNavigation": true, "readOnly": false, "writeMode": null, "accessBoundary": "admin_only", "acceptanceStatus": "candidate_unaccepted", "reason": "Preserved admin region deep link." },
+    { "path": "/settings-v3/catalog", "mappingId": "settings", "compatibilityState": "retain_compatibility", "candidateAction": "retain", "canonicalTarget": "/settings-v3/catalog", "hiddenFromDefaultNavigation": true, "readOnly": false, "writeMode": null, "accessBoundary": "admin_desktop_only", "acceptanceStatus": "candidate_unaccepted", "reason": "Preserved desktop admin catalog deep link." },
+    { "path": "/settings-v3/catalog/packages", "mappingId": "settings", "compatibilityState": "retain_compatibility", "candidateAction": "retain", "canonicalTarget": "/settings-v3/catalog/packages", "hiddenFromDefaultNavigation": true, "readOnly": false, "writeMode": null, "accessBoundary": "admin_desktop_only", "acceptanceStatus": "candidate_unaccepted", "reason": "Preserved desktop admin package deep link." },
+    { "path": "/settings-v3/access", "mappingId": "settings", "compatibilityState": "retain_compatibility", "candidateAction": "retain", "canonicalTarget": "/settings-v3/access", "hiddenFromDefaultNavigation": true, "readOnly": false, "writeMode": null, "accessBoundary": "admin_desktop_only", "acceptanceStatus": "candidate_unaccepted", "reason": "Preserved desktop admin access deep link." },
+    { "path": "/settings-v3/customer-import", "mappingId": "settings", "compatibilityState": "retain_compatibility", "candidateAction": "retain", "canonicalTarget": "/settings-v3/customer-import", "hiddenFromDefaultNavigation": true, "readOnly": false, "writeMode": null, "accessBoundary": "admin_desktop_only", "acceptanceStatus": "candidate_unaccepted", "reason": "Desktop admin bulk-import exemption remains a structured-data tool." },
+    { "path": "/notifications-v3", "mappingId": null, "compatibilityState": "retain_topbar_compatibility", "candidateAction": "retain", "canonicalTarget": "/notifications-v3", "hiddenFromDefaultNavigation": true, "readOnly": false, "writeMode": null, "accessBoundary": "authenticated_all_primary_roles", "acceptanceStatus": "candidate_unaccepted", "reason": "Additional compatibility route required by the top-bar message contract." }
+  ],
+  "fileInputDispositions": [
+    { "fileInputId": "timeline-images", "pageRoute": "/timeline", "storageNamespace": "timeline", "candidateAction": "close", "newWrite": "deny", "anonymous": "deny", "targetSlot": null, "acceptanceStatus": "candidate_unaccepted", "reason": "Close new legacy timeline image writes and preserve historical reads." },
+    { "fileInputId": "timeline-attachments", "pageRoute": "/timeline", "storageNamespace": "timeline/attachments", "candidateAction": "close", "newWrite": "deny", "anonymous": "deny", "targetSlot": null, "acceptanceStatus": "candidate_unaccepted", "reason": "Close new legacy attachment writes and preserve historical reads." },
+    { "fileInputId": "customer-bulk-import", "pageRoute": "/settings-v3/customer-import", "storageNamespace": null, "candidateAction": "retain_bulk_import_exemption", "newWrite": "structured_admin_import_only", "anonymous": "deny", "targetSlot": null, "accessBoundary": "admin_desktop_only", "acceptanceStatus": "candidate_unaccepted", "reason": "Structured XLSX/CSV desktop admin import does not use media Storage." },
+    { "fileInputId": "asset-images", "pageRoute": "/assets", "storageNamespace": "assets", "candidateAction": "close", "newWrite": "deny", "anonymous": "deny", "targetSlot": null, "acceptanceStatus": "candidate_unaccepted", "reason": "Close new asset image writes and preserve historical reads." },
+    { "fileInputId": "achievement-logo", "pageRoute": "/achievements", "storageNamespace": "achievements/icons", "candidateAction": "close_migrate_candidate", "newWrite": "deny", "anonymous": "deny", "targetSlot": "case.logo", "acceptanceStatus": "candidate_unaccepted", "reason": "Close the legacy writer; verified data may later migrate only to the admin-only case.logo slot." },
+    { "fileInputId": "achievement-images", "pageRoute": "/achievements", "storageNamespace": "achievements/images", "candidateAction": "close", "newWrite": "deny", "anonymous": "deny", "targetSlot": null, "forbiddenTargetSlots": ["case.miniprogram_code"], "acceptanceStatus": "candidate_unaccepted", "reason": "Close ordinary achievement image writes; they cannot substitute for the mini-program code slot." },
+    { "fileInputId": "team-photo", "pageRoute": "/photos", "storageNamespace": "photos", "candidateAction": "close", "newWrite": "deny", "anonymous": "deny", "targetSlot": null, "acceptanceStatus": "candidate_unaccepted", "reason": "Retire team-photo uploads and preserve historical reads or archive evidence." }
+  ],
+  "nonFileWriteEntrances": [
+    { "id": "member-avatar-url", "source": "src/pages/Settings/MemberFormModal.tsx", "pageRoute": "/profile", "storageNamespace": null, "candidateAction": "close", "newWrite": "deny", "anonymous": "deny", "acceptanceStatus": "candidate_unaccepted", "reason": "Remove profile avatar URL writes while preserving historical display." },
+    { "id": "personal-goal-progress-image", "source": "src/services/personalGoals.ts", "pageRoute": "/profile", "storageNamespace": "personal-goals/updates", "candidateAction": "close", "newWrite": "deny", "anonymous": "deny", "acceptanceStatus": "candidate_unaccepted", "reason": "Close the latent service-layer upload capability; no current file input exists." }
+  ],
+  "storageNamespaceDispositions": [
+    { "namespace": "photos", "candidateAction": "close", "fileInputIds": ["team-photo"], "nonFileEntranceIds": [], "newWrite": "deny", "anonymous": "deny", "historicalReadMode": "preserve_candidate", "runtimePolicyStatus": "pending", "acceptanceStatus": "candidate_unaccepted", "reason": "Close new team-photo writes after the future cutover gate." },
+    { "namespace": "achievements/icons", "candidateAction": "close_migrate_candidate", "fileInputIds": ["achievement-logo"], "nonFileEntranceIds": [], "targetSlot": "case.logo", "newWrite": "deny", "anonymous": "deny", "historicalReadMode": "preserve_candidate", "runtimePolicyStatus": "pending", "acceptanceStatus": "candidate_unaccepted", "reason": "Legacy logos require review before any later case.logo migration." },
+    { "namespace": "achievements/images", "candidateAction": "close", "fileInputIds": ["achievement-images"], "nonFileEntranceIds": [], "targetSlot": null, "newWrite": "deny", "anonymous": "deny", "historicalReadMode": "preserve_candidate", "runtimePolicyStatus": "pending", "acceptanceStatus": "candidate_unaccepted", "reason": "Close ordinary legacy achievement image writes; never map them to case.miniprogram_code." },
+    { "namespace": "assets", "candidateAction": "close", "fileInputIds": ["asset-images"], "nonFileEntranceIds": [], "newWrite": "deny", "anonymous": "deny", "historicalReadMode": "preserve_candidate", "runtimePolicyStatus": "pending", "acceptanceStatus": "candidate_unaccepted", "reason": "Close asset-image writes while retaining historical reads." },
+    { "namespace": "timeline", "candidateAction": "close", "fileInputIds": ["timeline-images"], "nonFileEntranceIds": [], "newWrite": "deny", "anonymous": "deny", "historicalReadMode": "preserve_candidate", "runtimePolicyStatus": "pending", "acceptanceStatus": "candidate_unaccepted", "reason": "Close timeline-image writes while retained facts are mapped." },
+    { "namespace": "timeline/attachments", "candidateAction": "close", "fileInputIds": ["timeline-attachments"], "nonFileEntranceIds": [], "newWrite": "deny", "anonymous": "deny", "historicalReadMode": "preserve_candidate", "runtimePolicyStatus": "pending", "acceptanceStatus": "candidate_unaccepted", "reason": "Close legacy attachment writes while retaining historical reads." },
+    { "namespace": "personal-goals/updates", "candidateAction": "close", "fileInputIds": [], "nonFileEntranceIds": ["personal-goal-progress-image"], "newWrite": "deny", "anonymous": "deny", "historicalReadMode": "preserve_candidate", "runtimePolicyStatus": "pending", "acceptanceStatus": "candidate_unaccepted", "reason": "Close the latent service writer even though no current file input exists." }
+  ],
+  "mediaSlotPolicies": [
+    {
+      "slot": "case.logo",
+      "maxCount": 1,
+      "maxBytes": 204800,
+      "mimeTypes": ["image/png", "image/jpeg", "image/webp"],
+      "rejectedMimeTypes": ["image/svg+xml", "image/gif"],
+      "writer": "admin_only",
+      "storageMode": "private_draft",
+      "anonymousDraftAccess": "deny",
+      "publishRule": {
+        "requiresValidCustomerDisplayAuthorization": true,
+        "requiresAdminApproval": true,
+        "copiesApprovedAssetToPublicProjection": true,
+        "publicCopyAccess": "published_projection_only"
+      },
+      "legacyMigrationFileInputIds": ["achievement-logo"],
+      "acceptanceStatus": "candidate_unaccepted",
+      "runtimePolicyStatus": "pending"
+    },
+    {
+      "slot": "case.miniprogram_code",
+      "maxCount": 1,
+      "maxBytes": 307200,
+      "mimeTypes": ["image/png", "image/jpeg", "image/webp"],
+      "rejectedMimeTypes": ["image/svg+xml", "image/gif"],
+      "writer": "admin_only",
+      "storageMode": "private_draft",
+      "anonymousDraftAccess": "deny",
+      "publishRule": {
+        "requiresValidCustomerDisplayAuthorization": true,
+        "requiresAdminApproval": true,
+        "copiesApprovedAssetToPublicProjection": true,
+        "publicCopyAccess": "published_projection_only"
+      },
+      "legacyMigrationFileInputIds": [],
+      "noLegacyMigrationReason": "No current legacy upload entrance is a mini-program code slot; ordinary achievement images must not be renamed or remapped.",
+      "acceptanceStatus": "candidate_unaccepted",
+      "runtimePolicyStatus": "pending"
+    }
+  ],
+  "acceptanceBoundary": {
+    "candidateOnly": false,
+    "p0DispositionPlanAccepted": true,
+    "runtimeAccepted": false,
+    "p1UiComplete": false,
+    "productionStorageChanged": false,
+    "legacyRouteClosureApproved": true,
+    "legacySourceDeletionApproved": false,
+    "legacyDataDeletionApproved": false,
+    "runtimeEvidence": {
+      "route403Matrix": "pending",
+      "anonymousRouteDenial": "pending",
+      "storagePolicyInspection": "pending",
+      "legacyNamespaceWriteDenial": "pending",
+      "legacyClosedRouteAndDataRecovery": "pending",
+      "isolatedStorageBackupRestore": "pending",
+      "twoSlotAllowDenyAttackMatrix": "pending",
+      "authorizedPublishCopyAndWithdrawal": "pending"
+    }
+  }
+}

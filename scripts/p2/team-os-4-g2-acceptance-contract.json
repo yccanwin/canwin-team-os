@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 3,
+  "phase": "G2",
+  "acceptedProgressBefore": 30,
+  "checkpoints": [
+    {
+      "progress": 35,
+      "status": "pending",
+      "required": [
+        "work-item-unique-generation-key",
+        "work-item-state-machine",
+        "business-completion-idempotency"
+      ]
+    },
+    {
+      "progress": 40,
+      "status": "pending",
+      "required": [
+        "workspace-progress-calendar-single-source",
+        "mobile-workspace-progress-calendar-acceptance"
+      ]
+    }
+  ],
+  "contracts": {
+    "migrationDependencies": {
+      "workItemFoundation": "20260722130000_add_g2_work_items_and_business_events.sql",
+      "backendClosure": "20260722180000_g2_backend_closure.sql",
+      "leadFoundation": "20260722150000_add_g3_leads_opportunities_and_claim.sql",
+      "leadWorkItemClosure": "20260722181000_g2_lead_claim_work_item_closure.sql",
+      "performanceFixture": "20260722182000_add_g2_performance_fixture_and_index.sql",
+      "strictOrderRequired": true
+    },
+    "uniqueGenerationKey": "company_id+source_business+source_id+generation_rule",
+    "assigneeReassignment": "updates-existing-work-item-without-generating-duplicate",
+    "stateMachine": ["pending", "in_progress", "waiting", "completed", "cancelled"],
+    "businessCompletion": {
+      "reminder": "generic-completion-assignee-or-admin-only",
+      "businessAction": "owning-business-transaction-only",
+      "atomicProofTransaction": "claim_lead_v1",
+      "claimCandidate": "oldest-eligible-lead-with-matching-open-assigned-business-action",
+      "idempotent": true
+    },
+    "waiting": {
+      "blockedReasonRequired": true,
+      "blockedReasonClearedOnExit": true,
+      "sortsFirstInsideBusinessBucket": true,
+      "legacyPreflight": "reject-invalid-without-rewrite",
+      "legacyPreflightError": "G2_WAITING_PRECHECK_FAILED",
+      "validatedConstraintRequired": true
+    },
+    "serverQueue": {
+      "rpc": "list_work_items_v1",
+      "sortBuckets": [
+        "overdue_blocking",
+        "due_today",
+        "upcoming_business_date",
+        "first_contact",
+        "reclaim_soon",
+        "renewal",
+        "normal"
+      ],
+      "cursor": ["sort_rank", "waiting_rank", "sort_at", "priority_rank", "id", "business_date"],
+      "cursorBusinessDateFrozen": true,
+      "crossBusinessDateCursorRejected": true,
+      "maximumPageSize": 100,
+      "clientResortAllowed": false
+    },
+    "singleSourceEntrypoints": ["workspace", "progress-center", "calendar"],
+    "stableTestIds": ["work-items-workbench", "work-items-progress", "work-items-calendar"],
+    "sharedReader": "SupabaseWorkItemReader",
+    "sharedSelector": "selectWorkItems",
+    "fixturesAndMocksAllowed": false,
+    "calendarSources": {
+      "workItems": "view-only-no-copy",
+      "scheduleEvents": "independent-events-with-optional-work-item-link",
+      "duplicateTaskGenerationAllowed": false
+    },
+    "scheduleEventTypes": ["meeting", "visit", "break", "personal"],
+    "scheduleEventVisibility": "owner-or-admin-rls",
+    "calendarSourceTestIds": ["work-items-calendar", "schedule-events-calendar"],
+    "scaleAcceptance": {
+      "workItemCount": 100000,
+      "activeUserCount": 30,
+      "concurrency": 30,
+      "waves": 3,
+      "samplesPerScenario": 90,
+      "requiredIndexes": [
+        "work_items_generation_identity",
+        "work_items_assignee_status_due_idx",
+        "work_items_server_queue_cursor_idx"
+      ],
+      "requiredEvidence": ["dataset-manifest", "query-plan", "stable-sort", "response-percentiles"],
+      "status": "pending",
+      "scriptPresenceCountsAsPassed": false
+    },
+    "remoteRunner": {
+      "defaultMode": "read-only-preflight",
+      "remoteCallsWithoutExecute": 0,
+      "executeRequiresExplicitRemoteWriteApproval": true,
+      "firstFailureStops": true,
+      "confirmationTemplate": "TEAM_OS_4_G2_REMOTE_ACCEPTANCE:<project-ref>",
+      "allowedProjectRef": "jgcrhoabvaowxnqksvkq",
+      "allowedSupabaseUrl": "https://jgcrhoabvaowxnqksvkq.supabase.co",
+      "fixedAdapter": "scripts/p2/run-team-os-4-g2-performance-adapter.mjs",
+      "evidenceRoot": ".codex-audit/team-os-4/g2",
+      "requiredArguments": [
+          "project-ref",
+          "expected-project-ref",
+          "commit",
+          "business-date",
+          "run-id",
+          "company-id",
+          "evidence-out",
+          "confirmation",
+          "allow-remote-writes"
+      ],
+      "requiredEvidence": [
+          "migration-state",
+          "waiting-preflight",
+          "missing-task-rollback",
+          "cleanup-idempotency",
+          "stable-cursor",
+          "cross-day-cursor-rejection",
+          "rls",
+          "dataset-manifest",
+          "query-plans",
+          "response-percentiles",
+          "cleanup"
+      ]
+    },
+    "mobileRequired": true
+  },
+  "runtimeEvidence": "pending",
+  "g2Accepted": false
+}

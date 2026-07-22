@@ -1,0 +1,365 @@
+{
+    "schemaVersion":  1,
+    "algorithm":  "sha256",
+    "hashMode":  "utf8-lf",
+    "expectedCount":  71,
+    "migrationDirectory":  "supabase/migrations",
+    "generatedFromCommit":  "ed853ebbab250f562d03f433f4d2df4ada87de4e",
+    "entries":  [
+                    {
+                        "version":  "20260710024500",
+                        "file":  "20260710024500_add_skill_tree.sql",
+                        "sha256":  "d88d2da127b841f5c464d623428f65c6dc5e8ff351fafbb4d5a388cca155a0b2"
+                    },
+                    {
+                        "version":  "20260710040500",
+                        "file":  "20260710040500_open_cases_photos_to_team.sql",
+                        "sha256":  "c5b34724d002d7d328599f5b9299bec066a1c5ab50e247d493f5f1210210de78"
+                    },
+                    {
+                        "version":  "20260710082000",
+                        "file":  "20260710082000_add_sales_center.sql",
+                        "sha256":  "6b457ed88c7b0e2a345febeba77eb684115361b2e5f566a23868c9108ce0472e"
+                    },
+                    {
+                        "version":  "20260710091000",
+                        "file":  "20260710091000_sales_points_decimal.sql",
+                        "sha256":  "dbbc89f5b6d15651cc418a8234cfc2c463beb9e354201d9349c18737e9944d78"
+                    },
+                    {
+                        "version":  "20260710103000",
+                        "file":  "20260710103000_add_salespeople_selection.sql",
+                        "sha256":  "56ee5db6c7e8b37e3d87694aa71c77bf504600b23d38d50e49d56b209fafef9a"
+                    },
+                    {
+                        "version":  "20260713080000",
+                        "file":  "20260713080000_add_access_control_foundation.sql",
+                        "sha256":  "685ff0160198e40ef55fa4a0a3c245f02b8f428df6f510ee34dfe9dbddc88bd7"
+                    },
+                    {
+                        "version":  "20260713090000",
+                        "file":  "20260713090000_add_crm_core.sql",
+                        "sha256":  "7bcb93c3e7c785d9b7cc337101866bda1bb62b783b0b22ec9f21cb8240391005"
+                    },
+                    {
+                        "version":  "20260713100000",
+                        "file":  "20260713100000_add_deal_core.sql",
+                        "sha256":  "66f6ee864a6e7da1ebdd21e8d0af8e0331612d2192106b2e3f4da30b3bd818c2"
+                    },
+                    {
+                        "version":  "20260713110000",
+                        "file":  "20260713110000_add_fulfillment_core.sql",
+                        "sha256":  "6bf4b6d9a1ea7147ea2a85723cd3e776d39daba51b9aec30dfd97394bc1a183e"
+                    },
+                    {
+                        "version":  "20260713120000",
+                        "file":  "20260713120000_add_sales_automation.sql",
+                        "sha256":  "cf3205072c582d36f1df08bd8e5e78c9d2f58640cd3c5fc720cc2565c41fbf9d"
+                    },
+                    {
+                        "version":  "20260713130000",
+                        "file":  "20260713130000_add_notification_core.sql",
+                        "sha256":  "77b39a575155181844de94d961cb3f5cfdf64804d1acf980cf870c8a82758de3"
+                    },
+                    {
+                        "version":  "20260713140000",
+                        "file":  "20260713140000_add_performance_core.sql",
+                        "sha256":  "b844510dc3c896557afa7677ac73b8990cb5446b2ab3035171511be83587311c"
+                    },
+                    {
+                        "version":  "20260713150000",
+                        "file":  "20260713150000_add_customer_import.sql",
+                        "sha256":  "7fe6f8150906314d40d91c840ed270b32d2608a10f61aafc8bda69416a7e2582"
+                    },
+                    {
+                        "version":  "20260713161000",
+                        "file":  "20260713161000_upgrade_dual_ledger_owner_access.sql",
+                        "sha256":  "9fe80e8313a378a7bfeed58afcf58b6a21e84ede1d1cc6d929100196caf0141f"
+                    },
+                    {
+                        "version":  "20260713162000",
+                        "file":  "20260713162000_secure_dual_ledger_upgrade.sql",
+                        "sha256":  "84ee3c1f6ea6fd5ddce7039822ad92ead9d6074d22a3e07d75ef8c1f25e2de70"
+                    },
+                    {
+                        "version":  "20260713163000",
+                        "file":  "20260713163000_finalize_summary_only_owner_finance.sql",
+                        "sha256":  "9f34f1cd13fa789f3cfbb7d49cfe502742bd50dc355037fff2b39c50daf1a712"
+                    },
+                    {
+                        "version":  "20260713170000",
+                        "file":  "20260713170000_harden_customer_import_rollback.sql",
+                        "sha256":  "fdfdde4b04d6a30bafba5a87a2ec2162f571fd875d7ee1ce104dcc891acee9ce"
+                    },
+                    {
+                        "version":  "20260713180000",
+                        "file":  "20260713180000_add_crm_workbench_mutation_rpcs.sql",
+                        "sha256":  "37ef8cb50849a7aae7bd44d8816219939019dba83a22edda4cd8c5cd36e3dabe"
+                    },
+                    {
+                        "version":  "20260713181000",
+                        "file":  "20260713181000_harden_crm_qualification_evidence.sql",
+                        "sha256":  "4ff182274e4c8dd2ce80b240aaf99fa3e221ef915de51b2cf9e61b0ca689b6fe"
+                    },
+                    {
+                        "version":  "20260713181100",
+                        "file":  "20260713181100_make_crm_evidence_append_only.sql",
+                        "sha256":  "0fce63a28b6bb834f3224a0440c429fa1ff2e6ccec8d5d423079e39d9946a401"
+                    },
+                    {
+                        "version":  "20260713181200",
+                        "file":  "20260713181200_audit_crm_qualification_promotion.sql",
+                        "sha256":  "cceda89b8ad133afed9d1c1a5717d13dc62b2a432e590d094832635d90fc9b3a"
+                    },
+                    {
+                        "version":  "20260713181250",
+                        "file":  "20260713181250_expose_active_opportunity_stage.sql",
+                        "sha256":  "998bab2d983dcab11f2eed5d7233afe2ddbde5120fbdd55b3ff92f42e7e2f1da"
+                    },
+                    {
+                        "version":  "20260713182000",
+                        "file":  "20260713182000_add_safe_quote_draft_rpcs.sql",
+                        "sha256":  "fc9d5a65ffda70f91da4c6d6f52f5a7d0acc1968335167ac9351bb50c307b738"
+                    },
+                    {
+                        "version":  "20260713182100",
+                        "file":  "20260713182100_harden_quote_draft_rpcs.sql",
+                        "sha256":  "ed1f4210808c71c2e942d7a961926becb71e01b95531c6303c890888568752b9"
+                    },
+                    {
+                        "version":  "20260713182200",
+                        "file":  "20260713182200_add_real_a_grade_demo_completion.sql",
+                        "sha256":  "7bc7ebf643eead6fc405b8b96d65be257ae596cece14968a9a934b445c13df77"
+                    },
+                    {
+                        "version":  "20260713183000",
+                        "file":  "20260713183000_add_internal_payment_workbench.sql",
+                        "sha256":  "68a2c2a1cf59e3c13df5323e96d4ce8891c88dd4a42735b3eaaa99b61a421795"
+                    },
+                    {
+                        "version":  "20260713184000",
+                        "file":  "20260713184000_harden_hardware_inventory_fulfillment.sql",
+                        "sha256":  "1bfed8f3f34d3fc011377eca5f1376792f01c243b243c9d9b6807fde9e0a2b5b"
+                    },
+                    {
+                        "version":  "20260713184100",
+                        "file":  "20260713184100_enforce_order_hardware_quantities.sql",
+                        "sha256":  "70194c551696e44160b593523eb6f449857396007c265376185b82346fc1d7f6"
+                    },
+                    {
+                        "version":  "20260713184200",
+                        "file":  "20260713184200_enforce_final_hardware_shipping_chain.sql",
+                        "sha256":  "00d3c2e45d46412261a46e2f9cf39d1d291848618eb755b79a25154558d26fcf"
+                    },
+                    {
+                        "version":  "20260713184300",
+                        "file":  "20260713184300_bind_inventory_to_order_quote_snapshot.sql",
+                        "sha256":  "7a3308ba04d92f5b9f44fc87abda32a42df30499ffef1b32d283c150ddda6394"
+                    },
+                    {
+                        "version":  "20260713200000",
+                        "file":  "20260713200000_enable_sales_os_v3_pilot.sql",
+                        "sha256":  "470b579731ae733a09c76e8403ed3ec137b8946cdcc45949e53c5cdef3ad6c5f"
+                    },
+                    {
+                        "version":  "20260713201000",
+                        "file":  "20260713201000_add_quick_lead_capture.sql",
+                        "sha256":  "df634c36b07ce1ac8a2cb113e4ab428a05fb7991d5340f5efda7c45ee5f73883"
+                    },
+                    {
+                        "version":  "20260713202000",
+                        "file":  "20260713202000_expose_server_lead_recycle_risk.sql",
+                        "sha256":  "999e351a873da216b9da3ac2d06bea4a8db9fc4820b8a92db54de11ff371a40e"
+                    },
+                    {
+                        "version":  "20260713203000",
+                        "file":  "20260713203000_add_lead_followup_history_rpc.sql",
+                        "sha256":  "3bf9842e33d3c8e0718844cbef18cb2e3c850e23278237dfe6e1911b8024ce27"
+                    },
+                    {
+                        "version":  "20260713204000",
+                        "file":  "20260713204000_add_atomic_lead_customer_conversion.sql",
+                        "sha256":  "a3438e83f20deda284eb1e160e2436ab198ecee69f80e66c7e8825b858fd8df4"
+                    },
+                    {
+                        "version":  "20260713205000",
+                        "file":  "20260713205000_complete_crm_opportunity_qualification.sql",
+                        "sha256":  "b145c51d7fd574495db0d04041340d95185b4ccd370d1bc84c0143ad63d2d7b9"
+                    },
+                    {
+                        "version":  "20260713206000",
+                        "file":  "20260713206000_add_server_today_action_queue.sql",
+                        "sha256":  "9b9ab37b4ab393fd7ea6cf1284a3716d077492ab85abb0ff6d63c1290b31bc1e"
+                    },
+                    {
+                        "version":  "20260713210000",
+                        "file":  "20260713210000_add_special_quote_approval_workflow.sql",
+                        "sha256":  "205ec737ff3349f1a76ecb4589ac35cd330eb1b31ade9f4cf75784933629e3b1"
+                    },
+                    {
+                        "version":  "20260713211000",
+                        "file":  "20260713211000_add_region_admin_rpcs.sql",
+                        "sha256":  "c847099c7e980abd01a5da28fa49ce3483a7550d07af406f71e2caa5914f1dee"
+                    },
+                    {
+                        "version":  "20260713212000",
+                        "file":  "20260713212000_add_catalog_item_admin_rpcs.sql",
+                        "sha256":  "b0f6b3c76f00ab4b10b1e91beed8aba5d63d4e33a3f59acdfc549643aefd5f44"
+                    },
+                    {
+                        "version":  "20260713213000",
+                        "file":  "20260713213000_harden_deposit_order_closure.sql",
+                        "sha256":  "c12e34c322689751659e2d9ac4d03787cea87a87e63d3d9102661837205b250d"
+                    },
+                    {
+                        "version":  "20260713214000",
+                        "file":  "20260713214000_complete_order_finance_workbench.sql",
+                        "sha256":  "93e578b23c95140daa4952a820afb5adfd3d4466a7dd4773b7422ede1c97e269"
+                    },
+                    {
+                        "version":  "20260713214100",
+                        "file":  "20260713214100_complete_order_inventory_fulfillment.sql",
+                        "sha256":  "e630abf58930815b20052cd597ff8cad7125193fa546ca6ef8f08177b7e02080"
+                    },
+                    {
+                        "version":  "20260713215000",
+                        "file":  "20260713215000_add_catalog_version_management.sql",
+                        "sha256":  "97a69766df329a975610825280103138520a644d44a97267acaa7f4b17c5c617"
+                    },
+                    {
+                        "version":  "20260713216000",
+                        "file":  "20260713216000_add_package_admin_rpcs.sql",
+                        "sha256":  "34f7bb273c165a46c1abbcb693e83c90d17bc3201cbc49249e004ed565fe805d"
+                    },
+                    {
+                        "version":  "20260713216100",
+                        "file":  "20260713216100_complete_after_sales_implementation_renewal.sql",
+                        "sha256":  "ac38384e94d798e7e5f2a9fdbb05e2ceee540f84f8043e70dd579c15827415ed"
+                    },
+                    {
+                        "version":  "20260713217000",
+                        "file":  "20260713217000_add_access_admin_operations.sql",
+                        "sha256":  "c86efbb2eac31c2c8b81d2504410a3e12ee206a234311135a7247ff80f9153a1"
+                    },
+                    {
+                        "version":  "20260713217100",
+                        "file":  "20260713217100_complete_management_performance_profit.sql",
+                        "sha256":  "95d5e80c07282c70ecf76c306c18d53dab21c962529c591618ecc575eebcd9bc"
+                    },
+                    {
+                        "version":  "20260713218000",
+                        "file":  "20260713218000_productize_customer_import.sql",
+                        "sha256":  "ef20cccaeed17b0d40c868a9ae017dc815337bd3e96c04a7e1e9ecc852fbedad"
+                    },
+                    {
+                        "version":  "20260713219000",
+                        "file":  "20260713219000_add_personal_sales_performance_workspace.sql",
+                        "sha256":  "68376e6756393654588922d6fd68f9975d1f200950d178c550d30983685955ac"
+                    },
+                    {
+                        "version":  "20260713220000",
+                        "file":  "20260713220000_security_integration_hardening.sql",
+                        "sha256":  "32698a804e52793e8c1e489b9561dcdb8d5074150ec96514ce7db83f9e5d85e2"
+                    },
+                    {
+                        "version":  "20260713221000",
+                        "file":  "20260713221000_harden_wecom_notification_operations.sql",
+                        "sha256":  "911abf24035ea4faaa9ef3f303db45ee10e81a2b13be58e0c62294cb9e030994"
+                    },
+                    {
+                        "version":  "20260714030000",
+                        "file":  "20260714030000_restore_legacy_profile_security_functions.sql",
+                        "sha256":  "3eb14256626c483b6a935f9d9d713f54796c506ea306d79ea288a656c10eb8e7"
+                    },
+                    {
+                        "version":  "20260714050000",
+                        "file":  "20260714050000_track_failed_team_invitations.sql",
+                        "sha256":  "3916110e7a223928c5035dcc0510bea0eec97bea6e540ab299003f2f53414c9a"
+                    },
+                    {
+                        "version":  "20260714051000",
+                        "file":  "20260714051000_fix_quick_lead_uuid_region_selection.sql",
+                        "sha256":  "2f8edae3ce43a68cbe173718c48d8a76762b225cab9de0f1e2c43cbae47802b9"
+                    },
+                    {
+                        "version":  "20260714052000",
+                        "file":  "20260714052000_localize_system_access_roles.sql",
+                        "sha256":  "2ecde41dab47dc95130800a0df78251440404b289228b0960d6170b3dc94df83"
+                    },
+                    {
+                        "version":  "20260714053000",
+                        "file":  "20260714053000_harden_team_photo_persistence.sql",
+                        "sha256":  "ce95d45063f3ffcbff1344ee437cff599932c4d296a47c40888859dd8f69f484"
+                    },
+                    {
+                        "version":  "20260714054000",
+                        "file":  "20260714054000_limit_performance_dashboard_to_sales_roles.sql",
+                        "sha256":  "0ad628cc282856fd3f56de7267e930dd9fd4a832b7bfb4646b5d1875de9b50c6"
+                    },
+                    {
+                        "version":  "20260714170400",
+                        "file":  "20260714170400_align_photo_policies_with_current_profile_role.sql",
+                        "sha256":  "8a35529aaa74cc5596aaef287c53cd8f2f88881a0a249aa61bbc84eb6795b9c6"
+                    },
+                    {
+                        "version":  "20260714173420",
+                        "file":  "20260714173420_isolate_crm_team_reference_fields.sql",
+                        "sha256":  "8bb1adf91204e148699bbd9b112b7d1ccd7704adf0b028c0f01fb5a45ebb4c43"
+                    },
+                    {
+                        "version":  "20260714181530",
+                        "file":  "20260714181530_add_operations_lead_submission.sql",
+                        "sha256":  "e7f8c0792b0aec888aaf32a6616cecdca3eb434809ea8857de3159e8e2c27305"
+                    },
+                    {
+                        "version":  "20260714183749",
+                        "file":  "20260714183749_harden_operations_lead_rpc_grants.sql",
+                        "sha256":  "d2e28fdbe8cca1ddcd71e7e1f7becc79138d4f4fb56c99f2e84e5d40405d5cc3"
+                    },
+                    {
+                        "version":  "20260715102019",
+                        "file":  "20260715102019_add_order_performance_foundation.sql",
+                        "sha256":  "ec0c94c0486f86577bf7ebb6fd97d30dd61e42ab57555d1bce1fa3b4490ec852"
+                    },
+                    {
+                        "version":  "20260715133937",
+                        "file":  "20260715133937_add_field_lead_and_current_catalog.sql",
+                        "sha256":  "36e4ca19fbdda89bb08ddbe4063f5577ffe78599168881588bd7762f31165023"
+                    },
+                    {
+                        "version":  "20260716033301",
+                        "file":  "20260716033301_secure_toolbox_editing.sql",
+                        "sha256":  "43132aca159c88a6e33a27be9b4d610aa417c40abbd2fa1a0f7568b26092200f"
+                    },
+                    {
+                        "version":  "20260716051000",
+                        "file":  "20260716051000_fix_canwin_media_object_path_policies.sql",
+                        "sha256":  "1cb87e46a8289f6b93d725133a3800f03e09a07cdafb99dbe59333ef45e76d47"
+                    },
+                    {
+                        "version":  "20260716114824",
+                        "file":  "20260716114824_add_package_price_and_relax_qualification.sql",
+                        "sha256":  "626c60c9360fbfb08637732efa3ff75352e3bc0654e44c8afcc3904a5cf7dd52"
+                    },
+                    {
+                        "version":  "20260717184206",
+                        "file":  "20260717184206_add_quick_lead_address.sql",
+                        "sha256":  "fe4ff033cf9c038b4e1ae4fb548db458813ce064ada1dcdec71e8a33598484fc"
+                    },
+                    {
+                        "version":  "20260718010119",
+                        "file":  "20260718010119_complete_performance_center_snapshot.sql",
+                        "sha256":  "2e969ed0e47b2316f6d48d2da367239a016417984916dcbc9e7a1251a4273954"
+                    },
+                    {
+                        "version":  "20260719130910",
+                        "file":  "20260719130910_team_os_4_p1_access_shell.sql",
+                        "sha256":  "acc7f15afa502d7a124c2a13d74d0a71c2b98c11664d58de2d4639081d5a7597"
+                    },
+                    {
+                        "version":  "20260720015435",
+                        "file":  "20260720015435_harden_server_only_rpc_acl.sql",
+                        "sha256":  "1bb13f29fc0f5512bd00115dc1c953a2c3aaa0ec21522b1cc8cbb45a18a5cdc0"
+                    }
+                ]
+}

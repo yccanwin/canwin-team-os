@@ -1,5 +1,7 @@
 -- Minimal post-migration smoke test. Run in a disposable/local Supabase DB.
--- It is read-only and raises on missing objects or unsafe defaults.
+-- Synthetic legacy-member role cases are transactional and fully rolled back.
+begin;
+
 do $$
 declare
   missing_count integer;
@@ -32,24 +34,11 @@ begin
     raise exception '% access tables do not have RLS enabled', unsafe_count;
   end if;
 
-  if public.is_feature_enabled('CANWIN_TEAM', 'sales_os_v3') then
-    raise exception 'sales_os_v3 must default to disabled';
-  end if;
-
-  -- Compatibility bootstrap must fail closed: a legacy member is not
-  -- implicitly a salesperson and receives no customer-management permission.
-  if exists (
-    select 1
-    from public.profiles p
-    join public.profile_access_roles par
-      on par.profile_id = p.id and par.team_id = p.team_id
-    join public.access_roles ar
-      on ar.id = par.role_id and ar.team_id = par.team_id
-    join public.access_role_permissions arp on arp.role_id = ar.id
-    where p.role = 'member'
-      and arp.permission_code = 'customers.manage'
-  ) then
-    raise exception 'Legacy member received implicit customers.manage permission';
+  -- The foundation migration inserts this flag disabled, then the immutable
+  -- 20260713200000 pilot migration explicitly enables it. This post-chain test
+  -- must verify the final 69-migration state rather than the earlier default.
+  if not public.is_feature_enabled('CANWIN_TEAM', 'sales_os_v3') then
+    raise exception 'sales_os_v3 pilot enable migration is missing';
   end if;
 
   if exists (
@@ -88,4 +77,60 @@ begin
   end if;
 end $$;
 
+insert into auth.users(
+  id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+)
+values
+  -- Synthetic negative control plus the two owner-confirmed explicit-role shapes.
+  ('d5100000-0000-4000-8000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'access-negative@example.invalid', '', now(), '{}', '{}', now(), now()),
+  ('d5100000-0000-4000-8000-000000000002', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'access-sales@example.invalid', '', now(), '{}', '{}', now(), now()),
+  ('d5100000-0000-4000-8000-000000000003', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'access-admin@example.invalid', '', now(), '{}', '{}', now(), now());
+
+insert into public.profiles(id, team_id, name, role, status)
+values
+  ('d5100000-0000-4000-8000-000000000001', 'CANWIN_TEAM', 'Access Negative', 'member', 'active'),
+  ('d5100000-0000-4000-8000-000000000002', 'CANWIN_TEAM', 'Access Sales', 'member', 'active'),
+  ('d5100000-0000-4000-8000-000000000003', 'CANWIN_TEAM', 'Access Admin', 'member', 'active')
+on conflict(id) do update
+set team_id = excluded.team_id,
+    name = excluded.name,
+    role = excluded.role,
+    status = excluded.status;
+
+insert into public.profile_access_roles(team_id, profile_id, role_id, assignment_kind)
+select 'CANWIN_TEAM', fixture.profile_id, ar.id, 'primary'
+from (values
+  ('d5100000-0000-4000-8000-000000000002'::uuid, 'sales'::text),
+  ('d5100000-0000-4000-8000-000000000003'::uuid, 'admin'::text)
+) fixture(profile_id, role_code)
+join public.access_roles ar
+  on ar.team_id = 'CANWIN_TEAM'
+ and ar.code = fixture.role_code;
+
+set constraints profile_access_roles_one_primary immediate;
+set constraints profile_access_roles_one_primary deferred;
+
+do $legacy_member_roles$
+begin
+  perform set_config('request.jwt.claim.sub', 'd5100000-0000-4000-8000-000000000001', true);
+  if public.has_permission('CANWIN_TEAM', 'customers.manage')
+    or public.has_permission('CANWIN_TEAM', 'access.manage') then
+    raise exception 'Legacy member without an explicit primary role received managed access';
+  end if;
+
+  perform set_config('request.jwt.claim.sub', 'd5100000-0000-4000-8000-000000000002', true);
+  if not public.has_permission('CANWIN_TEAM', 'customers.manage')
+    or public.has_permission('CANWIN_TEAM', 'access.manage') then
+    raise exception 'Explicit sales primary role permission contract failed';
+  end if;
+
+  perform set_config('request.jwt.claim.sub', 'd5100000-0000-4000-8000-000000000003', true);
+  if not public.has_permission('CANWIN_TEAM', 'access.manage') then
+    raise exception 'Explicit admin primary role permission contract failed';
+  end if;
+end
+$legacy_member_roles$;
+
 select 'access_control_foundation_ok' as result;
+rollback;

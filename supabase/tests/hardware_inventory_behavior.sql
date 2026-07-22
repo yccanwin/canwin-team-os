@@ -49,12 +49,12 @@ insert into public.deal_quote_lines(team_id,quote_id,source_item_id,item_name_sn
 ('CANWIN_TEAM','f8400000-0000-4000-8000-000000000043','f8400000-0000-4000-8000-000000000021','Hardware A','HW-A','hardware',1,100,55),
 ('CANWIN_TEAM','f8400000-0000-4000-8000-000000000044','f8400000-0000-4000-8000-000000000021','Hardware A','HW-A','hardware',1,100,55),
 ('CANWIN_TEAM','f8400000-0000-4000-8000-000000000045','f8400000-0000-4000-8000-000000000021','Hardware A','HW-A','hardware',2,100,55);
-insert into public.deal_orders(id,team_id,quote_id,opportunity_id,customer_total,internal_due,internal_paid,status,fulfillment_allowed_at)values
-('f8400000-0000-4000-8000-000000000051','CANWIN_TEAM','f8400000-0000-4000-8000-000000000041','f8400000-0000-4000-8000-000000000013',500,300,300,'internal_paid',now()),
-('f8400000-0000-4000-8000-000000000052','CANWIN_TEAM','f8400000-0000-4000-8000-000000000042','f8400000-0000-4000-8000-000000000013',300,200,200,'internal_paid',now()),
-('f8400000-0000-4000-8000-000000000053','CANWIN_TEAM','f8400000-0000-4000-8000-000000000043','f8400000-0000-4000-8000-000000000013',100,100,0,'deposit_confirmed',null),
-('f8400000-0000-4000-8000-000000000054','CANWIN_TEAM','f8400000-0000-4000-8000-000000000044','f8400000-0000-4000-8000-000000000013',100,100,100,'internal_paid',now()),
-('f8400000-0000-4000-8000-000000000055','CANWIN_TEAM','f8400000-0000-4000-8000-000000000045','f8400000-0000-4000-8000-000000000013',200,100,100,'internal_paid',now());
+insert into public.deal_orders(id,team_id,quote_id,opportunity_id,order_number,customer_total,internal_due,internal_paid,status,fulfillment_allowed_at)values
+('f8400000-0000-4000-8000-000000000051','CANWIN_TEAM','f8400000-0000-4000-8000-000000000041','f8400000-0000-4000-8000-000000000013','CW-TEST-HW-051',500,300,300,'internal_paid',now()),
+('f8400000-0000-4000-8000-000000000052','CANWIN_TEAM','f8400000-0000-4000-8000-000000000042','f8400000-0000-4000-8000-000000000013','CW-TEST-HW-052',300,200,200,'internal_paid',now()),
+('f8400000-0000-4000-8000-000000000053','CANWIN_TEAM','f8400000-0000-4000-8000-000000000043','f8400000-0000-4000-8000-000000000013','CW-TEST-HW-053',100,100,0,'deposit_confirmed',null),
+('f8400000-0000-4000-8000-000000000054','CANWIN_TEAM','f8400000-0000-4000-8000-000000000044','f8400000-0000-4000-8000-000000000013','CW-TEST-HW-054',100,100,100,'internal_paid',now()),
+('f8400000-0000-4000-8000-000000000055','CANWIN_TEAM','f8400000-0000-4000-8000-000000000045','f8400000-0000-4000-8000-000000000013','CW-TEST-HW-055',200,100,100,'internal_paid',now());
 insert into public.fulfillment_deliveries(id,team_id,order_id,store_id,created_by)values
 ('f8400000-0000-4000-8000-000000000061','CANWIN_TEAM','f8400000-0000-4000-8000-000000000051','f8400000-0000-4000-8000-000000000012','f8400000-0000-4000-8000-000000000001'),
 ('f8400000-0000-4000-8000-000000000062','CANWIN_TEAM','f8400000-0000-4000-8000-000000000052','f8400000-0000-4000-8000-000000000012','f8400000-0000-4000-8000-000000000001'),
@@ -66,7 +66,7 @@ insert into public.fulfillment_states(team_id,delivery_id)select'CANWIN_TEAM',id
 -- is not an inventory runtime gate.
 update public.deal_quotes set status='submitted'where id='f8400000-0000-4000-8000-000000000044';
 
-do$$declare blocked boolean;reservation_id uuid;begin
+do $$declare blocked boolean;reservation_id uuid;begin
  -- expected_on is mandatory and cannot be historical.
  blocked:=false;begin perform public.reserve_delivery_stock('f8400000-0000-4000-8000-000000000061','f8400000-0000-4000-8000-000000000031',1,null);exception when others then blocked:=position('VALID_EXPECTED_ARRIVAL_REQUIRED'in sqlerrm)>0;end;if not blocked then raise exception'NULL expected_on accepted';end if;
  blocked:=false;begin perform public.reserve_delivery_stock('f8400000-0000-4000-8000-000000000061','f8400000-0000-4000-8000-000000000031',1,current_date-1);exception when others then blocked:=position('VALID_EXPECTED_ARRIVAL_REQUIRED'in sqlerrm)>0;end;if not blocked then raise exception'Past expected_on accepted';end if;
@@ -97,7 +97,7 @@ end$$;
 -- A legacy shipped reservation for an extra SKU must not satisfy the ordered SKU.
 insert into public.fulfillment_inventory_reservations(id,team_id,delivery_id,stock_id,quantity,status,created_by)
 values('f8400000-0000-4000-8000-000000000071','CANWIN_TEAM','f8400000-0000-4000-8000-000000000065','f8400000-0000-4000-8000-000000000034',2,'shipped','f8400000-0000-4000-8000-000000000001');
-do$$declare blocked boolean:=false;definition text;begin
+do $$declare blocked boolean:=false;definition text;begin
  begin perform public.complete_delivery_hardware('f8400000-0000-4000-8000-000000000065');exception when others then blocked:=position('HARDWARE_ORDER_QUANTITY_MISMATCH'in sqlerrm)>0;end;
  if not blocked then raise exception'Legacy bad reservation satisfied quote';end if;
  -- Concurrency contract: reservation allocation is serialized by a stock row lock.

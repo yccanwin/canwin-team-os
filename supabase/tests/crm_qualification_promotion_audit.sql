@@ -1,4 +1,4 @@
-do$$declare f text:=pg_get_functiondef('public.audit_crm_qualification_promotion()'::regprocedure);begin
+do $$declare f text:=pg_get_functiondef('public.audit_crm_qualification_promotion()'::regprocedure);begin
  if not exists(select 1 from pg_trigger t join pg_class c on c.oid=t.tgrelid
    where c.oid='public.crm_leads'::regclass and t.tgname='crm_lead_qualification_audit'and not t.tgisinternal)then
    raise exception'Qualification audit trigger missing';end if;

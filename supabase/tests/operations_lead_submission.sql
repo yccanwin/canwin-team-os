@@ -2,7 +2,10 @@
 -- changed. Behavioral branches are asserted from the deployed function body.
 do $test$
 declare
-  submit_def text;
+  submit_wrapper_def text;
+  submit_implementation_def text;
+  submit_implementation_compact text;
+  submit_legacy_def text;
   list_def text;
   automation_def text;
   automation_compact text;
@@ -15,6 +18,10 @@ begin
   if to_regprocedure('public.submit_operations_lead(text,text,text,text,text,text,text)')is null then
     raise exception 'operations lead submission RPC missing';
   end if;
+  if to_regprocedure('public.submit_operations_lead(text,text,text,text,text,text,text,text)')is null
+    or to_regprocedure('public.submit_operations_lead_legacy_inner(text,text,text,text,text,text,text)')is null then
+    raise exception 'operations lead implementation layers missing';
+  end if;
   if to_regprocedure('public.get_my_lead_submissions(integer)')is null then
     raise exception 'own submission status RPC missing';
   end if;
@@ -22,20 +29,39 @@ begin
     raise exception 'lead intake preview RPC missing';
   end if;
 
-  select lower(pg_get_functiondef('public.submit_operations_lead(text,text,text,text,text,text,text)'::regprocedure))into submit_def;
+  select lower(pg_get_functiondef('public.submit_operations_lead(text,text,text,text,text,text,text)'::regprocedure))into submit_wrapper_def;
+  submit_implementation_def:=lower(pg_get_functiondef('public.submit_operations_lead(text,text,text,text,text,text,text,text)'::regprocedure));
+  submit_implementation_compact:=regexp_replace(submit_implementation_def,'\s+','','g');
+  submit_legacy_def:=lower(pg_get_functiondef('public.submit_operations_lead_legacy_inner(text,text,text,text,text,text,text)'::regprocedure));
   select lower(pg_get_functiondef('public.get_my_lead_submissions(integer)'::regprocedure))into list_def;
   select lower(pg_get_functiondef('public.run_sales_automation_batch(text,timestamp with time zone)'::regprocedure))into automation_def;
   automation_compact:=regexp_replace(automation_def,'\s+','','g');
 
-  if position('security definer' in submit_def)=0
-    or position('set search_path to ''''' in submit_def)=0
-    or position('auth.uid() is null' in submit_def)=0
-    or position('leads.submit' in submit_def)=0 then
-    raise exception 'submission RPC security boundary incomplete';
+  if (select p.prosecdef
+      from pg_proc p
+      where p.oid='public.submit_operations_lead(text,text,text,text,text,text,text)'::regprocedure)
+    or position('set search_path to ''''' in submit_wrapper_def)=0
+    or position('submit_operations_lead' in submit_wrapper_def)=0
+    or position('''operations''' in submit_wrapper_def)=0 then
+    raise exception 'submission compatibility wrapper boundary incomplete';
+  end if;
+  if position('security definer' in submit_implementation_def)=0
+    or position('set search_path to ''''' in submit_implementation_def)=0
+    or position('auth.uid()' in submit_implementation_def)=0
+    or position('actor.idisnull' in submit_implementation_compact)=0
+    or position('leads.submit' in submit_implementation_def)=0
+    or position('submit_operations_lead_legacy_inner' in submit_implementation_def)=0 then
+    raise exception 'submission implementation security boundary incomplete';
   end if;
   if has_function_privilege('anon','public.submit_operations_lead(text,text,text,text,text,text,text)','EXECUTE')
     or not has_function_privilege('authenticated','public.submit_operations_lead(text,text,text,text,text,text,text)','EXECUTE')then
     raise exception 'submission RPC grants unsafe';
+  end if;
+  if has_function_privilege('anon','public.submit_operations_lead(text,text,text,text,text,text,text,text)','EXECUTE')
+    or not has_function_privilege('authenticated','public.submit_operations_lead(text,text,text,text,text,text,text,text)','EXECUTE')
+    or has_function_privilege('anon','public.submit_operations_lead_legacy_inner(text,text,text,text,text,text,text)','EXECUTE')
+    or has_function_privilege('authenticated','public.submit_operations_lead_legacy_inner(text,text,text,text,text,text,text)','EXECUTE')then
+    raise exception 'submission implementation grants unsafe';
   end if;
   if has_function_privilege('anon','public.get_operations_lead_intake_context(text,text)','EXECUTE')
     or not has_function_privilege('authenticated','public.get_operations_lead_intake_context(text,text)','EXECUTE')then
@@ -54,6 +80,7 @@ begin
       and p.proname=any(array[
         'get_operations_lead_intake_context',
         'submit_operations_lead',
+        'submit_operations_lead_legacy_inner',
         'get_my_lead_submissions'
       ])
       and acl.grantee=0
@@ -82,29 +109,29 @@ begin
   end if;
 
   -- Phone normalization + advisory lock + duplicate exit.
-  if position('regexp_replace' in submit_def)=0
-    or position('lead-phone:' in submit_def)=0
-    or position('''duplicate'',true' in submit_def)=0 then
+  if position('regexp_replace' in submit_legacy_def)=0
+    or position('lead-phone:' in submit_legacy_def)=0
+    or position('''duplicate'',true' in submit_legacy_def)=0 then
     raise exception 'phone duplicate protection incomplete';
   end if;
   -- Exact region match and no/ambiguous-region public-pool fallback.
-  if position('lower(trim(sr.name))=lower(trim(p_region_text))' in submit_def)=0
-    or position('unmatched_lead_pool' in submit_def)=0
-    or position('''unmatched_pool''' in submit_def)=0
-    or position('''regional_pool''' in submit_def)=0 then
+  if position('lower(trim(sr.name))=lower(trim(p_region_text))' in submit_legacy_def)=0
+    or position('unmatched_lead_pool' in submit_legacy_def)=0
+    or position('''unmatched_pool''' in submit_legacy_def)=0
+    or position('''regional_pool''' in submit_legacy_def)=0 then
     raise exception 'regional pool fallback incomplete';
   end if;
   -- One/many salesperson fairness uses eligible sales roles, least assignments,
   -- and a per-region transaction lock.
-  if position('ar.code=''sales''' in submit_def)=0
-    or position('lead-region:' in submit_def)=0
-    or position('select count(*) from public.crm_lead_submissions' in submit_def)=0
-    or position('assigned_owner_id=p.id' in submit_def)=0 then
+  if position('ar.code=''sales''' in submit_legacy_def)=0
+    or position('lead-region:' in submit_legacy_def)=0
+    or position('select count(*) from public.crm_lead_submissions' in submit_legacy_def)=0
+    or position('assigned_owner_id=p.id' in submit_legacy_def)=0 then
     raise exception 'single/multiple salesperson assignment incomplete';
   end if;
   -- Claimed timer begins only for direct assignment; pools remain public/null.
-  if position('case when target_owner.id is null then''public''else''claimed''end' in submit_def)=0
-    or position('case when target_owner.id is null then null else now()end' in submit_def)=0 then
+  if position('case when target_owner.id is null then''public''else''claimed''end' in submit_legacy_def)=0
+    or position('case when target_owner.id is null then null else now()end' in submit_legacy_def)=0 then
     raise exception 'claimed timing contract incomplete';
   end if;
   -- Submitter status lookup is own-team/own-user only even though it bypasses RLS.

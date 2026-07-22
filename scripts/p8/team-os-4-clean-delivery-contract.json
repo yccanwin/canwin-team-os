@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "phase": "P8",
+  "artifactKind": "team-os-4-clean-installation-package",
+  "status": "pending",
+  "deliveryRoots": [
+    "apps/team-os-4",
+    "packages/team-os-4-domain",
+    "platform/team-os-4"
+  ],
+  "requiredTopLevelInventory": [
+    "VERSION",
+    "LICENSE",
+    "NOTICE",
+    "DELIVERY.json",
+    "MANIFEST.sha256"
+  ],
+  "requiredDeliveryMetadataFields": [
+    "product",
+    "artifactKind",
+    "version",
+    "code_commit",
+    "built_at",
+    "license_file",
+    "notice_file",
+    "source_roots",
+    "contains_exported_business_data",
+    "contains_credentials"
+  ],
+  "forbiddenBusinessData": [
+    "employee-records",
+    "customer-records",
+    "orders",
+    "financial-records",
+    "business-logs",
+    "cases",
+    "images",
+    "auth-users"
+  ],
+  "forbiddenSecretKinds": [
+    "service-role-key",
+    "anon-or-publishable-key",
+    "jwt-secret",
+    "database-password",
+    "access-token",
+    "refresh-token",
+    "private-key",
+    "webhook-secret"
+  ],
+  "forbiddenFilePatterns": [
+    ".env",
+    ".env.*",
+    "*.pem",
+    "*.key",
+    "*.p12",
+    "*.pfx",
+    "*.dump",
+    "*.backup",
+    "*.sql.gz",
+    "*.log",
+    "*.png",
+    "*.jpg",
+    "*.jpeg",
+    "*.webp",
+    "*.gif",
+    "*.svg"
+  ],
+  "forbiddenDirectories": [
+    "node_modules",
+    "dist",
+    ".vite",
+    ".temp",
+    "exports",
+    "snapshots",
+    "fixtures",
+    "evidence",
+    "cache"
+  ],
+  "allowedNonSecretEnvironmentTemplate": "apps/team-os-4/.env.example",
+  "businessSeedDataAllowed": false,
+  "fixturesMocksDemoDataAllowed": false,
+  "authUserExportAllowed": false,
+  "storageObjectExportAllowed": false,
+  "source3MigrationsAllowed": false,
+  "source3MigrationPath": "supabase/migrations",
+  "target4MigrationPath": "platform/team-os-4/supabase/migrations",
+  "migrationTool": {
+    "path": "tools/migrate-3-to-4",
+    "includedInCleanInstallationPackage": false,
+    "artifactKind": "separate-offline-one-shot-migration-tool",
+    "mayContainExportedBusinessData": false,
+    "mayContainCredentials": false
+  },
+  "packageAssemblyRule": "explicit-allowlist-only",
+  "packageVerificationRule": "unpack-and-scan-every-file-before-signing",
+  "runtimeEvidence": "pending",
+  "p8Accepted": false
+}

@@ -7,7 +7,7 @@
 export interface User {
   id: string;
   name: string;
-  role: 'admin' | 'captain' | 'finance' | 'warehouse' | 'member';
+  role: 'admin' | 'sales' | 'implementation' | 'operations' | 'finance' | 'captain' | 'warehouse' | 'member';
   avatar?: string;
   position: string;
   joinDate: string;       // ISO 格式
@@ -179,7 +179,7 @@ export interface BadgeConfig {
   icon: string;
   description: string;
   triggerType: 'task_count' | 'login_streak' | 'metric' | 'custom';
-  triggerParams: Record<string, any>;
+  triggerParams: Record<string, unknown>;
   memoryWeight: number;
   category: 'basic' | 'business' | 'behavior';
 }

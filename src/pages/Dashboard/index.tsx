@@ -1,230 +1,147 @@
-import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, ArrowRight, Boxes, History } from 'lucide-react'
-import { useFinanceStore } from '@/stores/useFinanceStore'
-import { useTaskStore } from '@/stores/useTaskStore'
-import { useGoalStore } from '@/stores/useGoalStore'
-import { useUserStore } from '@/stores/useUserStore'
-import { useInventoryStore } from '@/stores/useInventoryStore'
-import { useTimelineStore } from '@/stores/useTimelineStore'
-import { usePhotoStore } from '@/stores/usePhotoStore'
-import { useWarRoomStore } from '@/stores/useWarRoomStore'
-import { useYanchengWeather } from '@/hooks/useYanchengWeather'
-import { KPISection } from './KPISection'
-import GoalProgressSection from './GoalProgressSection'
-import GoalRoadmapSection from './GoalRoadmapSection'
-import { SurvivalStatusSection } from './SurvivalStatusSection'
-import QuickVoteSection from './QuickVoteSection'
-import TrendChartSection from './TrendChartSection'
-import ActivityFeedSection from './ActivityFeedSection'
-import TaskCenterSection from './TaskCenterSection'
-import CollaborationSnapshotSection from './CollaborationSnapshotSection'
+import {
+  ArrowRight,
+  BriefcaseBusiness,
+  CalendarDays,
+  CheckCircle2,
+  CheckSquare,
+  MapPinned,
+  ShieldCheck,
+  Sparkles,
+  Warehouse,
+} from 'lucide-react'
+import { useAppContextStore } from '@/features/app-shell/useAppContextStore'
+import type { PrimaryRoleId } from '@/features/app-shell/types'
+
+const ROLE_PRESENTATION: Record<PrimaryRoleId, { label: string; headline: string; description: string; accent: string }> = {
+  sales: {
+    label: '销售',
+    headline: '先处理今天最接近成交和续费的事项',
+    description: '线索、客户、商机、报价、订单与回款协作只按本人和授权区域展开。',
+    accent: 'from-cyan-500 to-blue-600',
+  },
+  implementation: {
+    label: '实施',
+    headline: '把待排期、安装、培训与验收顺序推进',
+    description: '这里只汇总分配给你的订单、门店和交付异常。',
+    accent: 'from-violet-500 to-indigo-600',
+  },
+  operations: {
+    label: '运维',
+    headline: '优先解决售后异常和即将到期的服务',
+    description: '客户维护、续费协作和服务事项只显示已分配范围。',
+    accent: 'from-emerald-500 to-teal-600',
+  },
+  finance: {
+    label: '财务',
+    headline: '先确认收付款、内部应付和待冲销事项',
+    description: '资金记录与必要订单摘要在财务岗位范围内统一处理。',
+    accent: 'from-amber-500 to-orange-600',
+  },
+  admin: {
+    label: '管理员',
+    headline: '先处理待审批、人员权限和经营异常',
+    description: '主管体系关闭时，全部审批、分配和异常责任自动回到管理员。',
+    accent: 'from-slate-700 to-slate-950',
+  },
+}
 
 export default function Dashboard() {
-  const records = useFinanceStore((s) => s.records)
-  const tasks = useTaskStore((s) => s.tasks)
-  const goals = useGoalStore((s) => s.goals)
-  const users = useUserStore((s) => s.users)
-  const inventoryItems = useInventoryStore((s) => s.items)
-  const timelineEvents = useTimelineStore((s) => s.events)
-  const photos = usePhotoStore((s) => s.photos)
-  const policies = useWarRoomStore((s) => s.policies)
-  const { weather } = useYanchengWeather()
+  const context = useAppContextStore((state) => state.context)
+  const navigation = useAppContextStore((state) => state.navigation)
+  if (!context) return null
 
-  const todayRevenue = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10)
-    return records
-      .filter((r) => r.date === today && r.type === 'income')
-      .reduce((sum, r) => sum + r.amount, 0)
-  }, [records])
-
-  const pendingTasks = useMemo(
-    () => tasks.filter((t) => t.status === 'in_progress').length,
-    [tasks],
-  )
-
-  const goalCompletionRate = useMemo(() => {
-    const totalTarget = goals.reduce((s, g) => s + g.targetAmount, 0)
-    const totalCurrent = goals.reduce((s, g) => s + g.currentAmount, 0)
-    return totalTarget > 0 ? Math.round((totalCurrent / totalTarget) * 100) : 0
-  }, [goals])
-
-  const hour = new Date().getHours()
-  const greeting = hour < 12 ? '早上好' : hour < 18 ? '下午好' : '晚上好'
-  const todayWeekday = new Date().getDay()
-  const restDayIndex: Record<string, number> = {
-    周日: 0,
-    周一: 1,
-    周二: 2,
-    周三: 3,
-    周四: 4,
-    周五: 5,
-    周六: 6,
-  }
-  const restUsers = users.filter((user) =>
-    (user.restDays ?? []).some((day) => restDayIndex[day] === todayWeekday)
-  )
-  const todayKey = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' })
-  const overdueTasks = tasks.filter(
-    (task) => task.status !== 'done' && Boolean(task.deadline) && task.deadline!.slice(0, 10) < todayKey,
-  )
-  const todayTasks = tasks
-    .filter((task) => task.status !== 'done')
-    .filter((task) => !task.deadline || task.deadline.slice(0, 10) <= todayKey)
-    .sort((a, b) => (a.deadline || '9999').localeCompare(b.deadline || '9999'))
-    .slice(0, 4)
-  const lowStockItems = inventoryItems.filter((item) => item.quantity <= 3).slice(0, 4)
-  const latestMemory = [...timelineEvents]
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, 2)
-  const latestPhoto = photos[0]
-  const latestPolicy = policies[0]
+  const role = ROLE_PRESENTATION[context.currentWorkView]
+  const roleLinks = navigation
+    .filter((item) => item.group === 'role_business' && item.visible && item.enabled)
+    .slice(0, 6)
+  const hasWarehouse = context.additionalFunctions.includes('warehouse')
+  const hasSupervisor = context.additionalFunctions.includes('supervisor')
+  const supervisorActive = hasSupervisor && context.supervisorEnabled
 
   return (
-    <div className="space-y-5">
-      <div className="dashboard-command-panel rounded-2xl border border-amber-100 bg-[#fffaf0] p-4 sm:p-6">
-        <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr] lg:items-start">
-          <div>
-            <p className="command-eyebrow text-sm text-amber-700">{greeting}，今天先看团队状态</p>
-            <h2 className="mt-1 font-heading text-2xl font-semibold text-brand-400 sm:text-3xl">
-              今日团队状态
-            </h2>
-            <p className="command-summary mt-2 text-sm leading-6 text-brand-300">
-              今日营收 ¥{todayRevenue.toLocaleString()} · 本周目标完成度 {goalCompletionRate}% · {pendingTasks} 项进行中任务
-            </p>
+    <div className="mx-auto max-w-7xl space-y-5">
+      <section className={`overflow-hidden rounded-3xl bg-gradient-to-br ${role.accent} p-6 text-white shadow-xl sm:p-8`}>
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl">
+            <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-white/75">
+              <span className="rounded-full bg-white/15 px-3 py-1">{role.label}工作视图</span>
+              <span>{context.company.name}</span>
+            </div>
+            <p className="mt-5 text-sm text-white/75">{context.user.name}，今天从这里开始</p>
+            <h1 className="mt-2 text-2xl font-semibold leading-tight sm:text-4xl">{role.headline}</h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-white/80">{role.description}</p>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
-            <div className="rounded-xl border border-cyan-100 bg-white/80 px-4 py-3">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-medium text-brand-300">盐城天气</p>
-                <span className="rounded-full bg-cyan-50 px-2 py-0.5 text-[11px] font-medium text-cyan-700">6小时缓存</span>
-              </div>
-              {weather ? (
-                <>
-                  <p className="mt-1 text-sm font-medium text-brand-400">
-                    {weather.weatherText} · {weather.temperature ?? '--'}°C · {weather.minTemperature ?? '--'}-{weather.maxTemperature ?? '--'}°C
-                  </p>
-                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-brand-300">
-                    降雨概率 {weather.rainProbability ?? 0}%{weather.nextRainTime ? ` · ${weather.nextRainTime} 可能下雨` : ''}。{weather.advisory}
-                  </p>
-                </>
-              ) : (
-                <p className="mt-1 text-sm text-brand-300">天气预报加载中</p>
-              )}
-            </div>
-            <div className="rounded-xl bg-white/80 px-4 py-3">
-              <p className="text-xs font-medium text-brand-300">今日休息</p>
-              <p className="mt-1 text-sm text-brand-400">{restUsers.length ? restUsers.map((u) => u.name).join('、') : '无人休息'}</p>
-            </div>
-            <div className="rounded-xl bg-white/80 px-4 py-3">
-              <p className="text-xs font-medium text-brand-300">近期公告</p>
-              <p className="mt-1 line-clamp-2 text-sm text-brand-400">{latestPolicy?.title || '暂无新公告'}</p>
-            </div>
-          </div>
+          <Link to="/work" className="inline-flex w-fit items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-slate-900 shadow-sm transition hover:-translate-y-0.5">
+            打开推进中心
+            <ArrowRight className="h-4 w-4" />
+          </Link>
         </div>
-      </div>
+      </section>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Link to="/tasks" className={`group rounded-card border p-5 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-md ${overdueTasks.length ? 'border-red-200 bg-gradient-to-br from-white to-red-50' : 'border-blue-100 bg-gradient-to-br from-white to-blue-50'}`}>
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className={`h-5 w-5 ${overdueTasks.length ? 'text-red-500' : 'text-blue-500'}`} />
-              <h3 className="font-heading text-base font-semibold text-brand-400">今天要处理</h3>
-            </div>
-            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${overdueTasks.length ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
-              {overdueTasks.length ? `${overdueTasks.length} 项逾期` : `${todayTasks.length} 项待办`}
-            </span>
+      <section className="grid gap-4 md:grid-cols-3">
+        <Link to="/work" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-cyan-200 hover:shadow-md">
+          <div className="flex items-center justify-between">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-700"><CheckSquare className="h-5 w-5" /></span>
+            <ArrowRight className="h-4 w-4 text-slate-300" />
           </div>
-          {todayTasks.length ? (
-            <div className="space-y-2">
-              {todayTasks.map((task) => (
-                <div key={task.id} className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm ${task.deadline && task.deadline.slice(0, 10) < todayKey ? 'bg-red-100/80 text-red-900' : 'bg-blue-100/70 text-blue-900'}`}>
-                  <span className="truncate">{task.title}</span>
-                  {task.deadline && task.deadline.slice(0, 10) < todayKey && <span className="shrink-0 text-[11px] font-semibold">已逾期</span>}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-brand-200">暂无紧急事项</p>
-          )}
-          <div className="mt-3 flex items-center justify-end gap-1 text-xs font-medium text-blue-700">进入任务中心 <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" /></div>
+          <h2 className="mt-4 font-semibold text-slate-900">推进中心</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-500">全部、今天、逾期和等待他人的统一入口。</p>
         </Link>
-        <Link to="/asset-center?view=inventory" className={`group rounded-card border p-5 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-md ${lowStockItems.length ? 'border-amber-200 bg-gradient-to-br from-white to-amber-50' : 'border-emerald-100 bg-gradient-to-br from-white to-emerald-50'}`}>
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Boxes className={`h-5 w-5 ${lowStockItems.length ? 'text-amber-500' : 'text-emerald-500'}`} />
-              <h3 className="font-heading text-base font-semibold text-brand-400">库存提醒</h3>
-            </div>
-            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${lowStockItems.length ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
-              {lowStockItems.length ? `${lowStockItems.length} 项偏低` : '库存正常'}
-            </span>
+        <Link to="/calendar" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-violet-200 hover:shadow-md">
+          <div className="flex items-center justify-between">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-700"><CalendarDays className="h-5 w-5" /></span>
+            <ArrowRight className="h-4 w-4 text-slate-300" />
           </div>
-          {lowStockItems.length ? (
-            <div className="space-y-2">
-              {lowStockItems.map((item) => (
-                <div key={item.id} className="flex justify-between rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                  <span>{item.name}</span>
-                  <span>{item.quantity}{item.unit}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-brand-200">暂无低库存提醒</p>
-          )}
-          <div className="mt-3 flex items-center justify-end gap-1 text-xs font-medium text-amber-700">进入资产中心 <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" /></div>
+          <h2 className="mt-4 font-semibold text-slate-900">日历</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-500">与推进中心共用同一批工作事项。</p>
         </Link>
-        <Link to="/culture-center" className="group rounded-card border border-violet-100 bg-gradient-to-br from-white via-violet-50/70 to-pink-50/70 p-5 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-md">
-          <div className="mb-3 flex items-center gap-2">
-            <History className="h-5 w-5 text-violet-500" />
-            <h3 className="font-heading text-base font-semibold text-brand-400">最近团队记忆</h3>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700"><CheckCircle2 className="h-5 w-5" /></span>
+          <h2 className="mt-4 font-semibold text-slate-900">权限已按岗位收口</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-500">页面入口由服务器返回；前端不再自行猜测你能看什么。</p>
+        </div>
+      </section>
+
+      <section className="grid gap-5 lg:grid-cols-[1.5fr_0.8fr]">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700"><BriefcaseBusiness className="h-5 w-5" /></span>
+            <div>
+              <h2 className="font-semibold text-slate-900">{role.label}业务入口</h2>
+              <p className="text-xs text-slate-500">当前工作视图</p>
+            </div>
           </div>
-          {latestMemory.length ? (
-            <div className="space-y-2">
-              {latestMemory.map((event) => (
-                <div key={event.id} className="rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-900">
-                  {event.title}
-                </div>
-              ))}
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            {roleLinks.map((item) => (
+              <Link key={item.routeId} to={item.canonicalPath} className="group flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-cyan-200 hover:bg-cyan-50/50 hover:text-cyan-800">
+                <span>{item.label}</span>
+                <ArrowRight className="h-4 w-4 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-cyan-600" />
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center gap-2 text-sm font-semibold text-slate-900"><MapPinned className="h-4 w-4 text-cyan-600" />我的工作范围</div>
+            <div className="mt-3 space-y-2 text-sm text-slate-600">
+              <p>区域：{context.regionScopeIds.length ? `${context.regionScopeIds.length} 个已授权区域` : '按本人分配事项'}</p>
+              <p>技能：{context.skills.length ? context.skills.join('、') : '暂无专项技能标签'}</p>
             </div>
-          ) : latestPhoto ? (
-            <p className="text-sm text-brand-300">{latestPhoto.title || '有新的团队照片'}</p>
-          ) : (
-            <p className="text-sm text-brand-200">等待记录第一条团队时刻</p>
-          )}
-          <div className="mt-3 flex items-center justify-end gap-1 text-xs font-medium text-violet-700">进入团队文化 <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" /></div>
-        </Link>
-      </div>
+          </div>
 
-      <KPISection />
-
-      {/* 上半部分：趋势图 + 目标进度 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-2">
-          <TrendChartSection />
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center gap-2 text-sm font-semibold text-slate-900"><Sparkles className="h-4 w-4 text-violet-600" />附加职能</div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {hasWarehouse && <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800"><Warehouse className="h-3.5 w-3.5" />仓库处理</span>}
+              {supervisorActive && <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-800"><ShieldCheck className="h-3.5 w-3.5" />团队审批</span>}
+              {hasSupervisor && !context.supervisorEnabled && <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600">主管体系未开启，责任回到管理员</span>}
+              {!hasWarehouse && !hasSupervisor && <span className="text-sm text-slate-500">当前没有附加职能</span>}
+            </div>
+          </div>
         </div>
-        <div className="space-y-5 lg:col-span-1">
-          <GoalProgressSection />
-        </div>
-      </div>
-
-      {/* 下半部分：路线图 + 生存状态 + 任务中心 */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-        <div className="xl:col-span-2 space-y-5">
-          <GoalRoadmapSection />
-          <SurvivalStatusSection />
-        </div>
-        <div className="space-y-5">
-          <TaskCenterSection />
-          <QuickVoteSection />
-        </div>
-      </div>
-
-      {/* 底部：活动动态 + 协作快照 */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-        <ActivityFeedSection />
-        <CollaborationSnapshotSection />
-      </div>
+      </section>
     </div>
   )
 }
-

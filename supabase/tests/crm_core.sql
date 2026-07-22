@@ -47,11 +47,14 @@ begin
     raise exception 'CRM restrictive feature-gate policies missing';
   end if;
 
-  if public.crm_is_valid_opportunity('D',true,true,null)
-    or public.crm_is_valid_opportunity('A',false,true,null)
-    or public.crm_is_valid_opportunity('B',true,false,null)
-    or not public.crm_is_valid_opportunity('C',true,true,null) then
-    raise exception 'Qualification rule skeleton failed';
+  -- 20260716114824 makes confirmed contact the promotion gate. Once this
+  -- helper is reached, A-D grades are eligible and the other facts are
+  -- advisory; an out-of-dictionary grade must still be rejected.
+  if public.crm_is_valid_opportunity('D',false,false,null) is distinct from true
+    or public.crm_is_valid_opportunity('A',false,false,null) is distinct from true
+    or public.crm_is_valid_opportunity('C',true,true,null) is distinct from true
+    or public.crm_is_valid_opportunity('E',true,true,null) is distinct from false then
+    raise exception 'Final-chain qualification rule failed';
   end if;
 
   if not exists (select 1 from information_schema.columns where table_schema='public'
@@ -69,15 +72,19 @@ begin
   if exists (select 1 from information_schema.columns where table_schema='public'
       and table_name='crm_leads_visible' and column_name='phone')
     or not exists (select 1 from information_schema.columns where table_schema='public'
-      and table_name='crm_leads_visible' and column_name='masked_phone') then
-    raise exception 'Visible lead contract leaks phone or lacks masked_phone';
+      and table_name='crm_leads_visible' and column_name='masked_phone')
+    or not exists (select 1 from information_schema.columns where table_schema='public'
+      and table_name='crm_leads_visible' and column_name='address') then
+    raise exception 'Visible lead contract leaks phone or lacks final columns';
   end if;
 
+  -- 20260717184206 appends address as the twentieth, privacy-filtered column.
   if (select array_agg(column_name::text order by ordinal_position)
       from information_schema.columns where table_schema='public' and table_name='crm_leads_visible')
     is distinct from array['id','read_scope','store_name','contact_name','masked_phone','district_name',
       'business_type','source','created_at','next_action_at','stage','facts','lead_status',
-      'owner_display_name','claimable','active_opportunity_id','recycle_risk','recycle_due_at','recycle_paused'] then
+      'owner_display_name','claimable','active_opportunity_id','recycle_risk','recycle_due_at','recycle_paused',
+      'address'] then
     raise exception 'crm_leads_visible column contract changed';
   end if;
 

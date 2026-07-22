@@ -10,8 +10,9 @@ do $$declare f text;begin
   if position('auth.uid()' in pg_get_functiondef(('public.'||f)::regprocedure))=0 or position('is_feature_enabled' in pg_get_functiondef(('public.'||f)::regprocedure))=0 then raise exception '% lacks explicit auth/flag gate',f;end if;
  end loop;
  if position('p_annual_fee_viable' in pg_get_function_arguments('public.qualify_crm_lead(uuid)'::regprocedure))>0 or position('crm_calculate_value_grade' in pg_get_functiondef('public.qualify_crm_lead(uuid)'::regprocedure))=0 or position('crm_qualification_evidence' in pg_get_functiondef('public.qualify_crm_lead(uuid)'::regprocedure))=0 then raise exception 'qualification still trusts client facts';end if;
- if position('s.region_id<>p_region_id' in replace(pg_get_functiondef('public.upsert_crm_lead(uuid,uuid,uuid,uuid,text,text)'::regprocedure),' ',''))=0 then raise exception 'lead store/region consistency missing';end if;
- if position('s.brand_idisdistinctfroml.brand_id' in replace(pg_get_functiondef('public.qualify_crm_lead(uuid)'::regprocedure),' ',''))=0 then raise exception 'qualification brand/store consistency missing';end if;
+ if position('s.region_id<>p_region_id' in lower(regexp_replace(pg_get_functiondef('public.upsert_crm_lead(uuid,uuid,uuid,uuid,text,text)'::regprocedure),'[[:space:]]+','','g')))=0
+  or position('p_brand_idisdistinctfroms.brand_id' in lower(regexp_replace(pg_get_functiondef('public.upsert_crm_lead(uuid,uuid,uuid,uuid,text,text)'::regprocedure),'[[:space:]]+','','g')))=0 then raise exception 'lead store/region/brand consistency missing';end if;
+ if position('LEAD_CONTACT_REQUIRED' in pg_get_functiondef('public.qualify_crm_lead(uuid)'::regprocedure))=0 then raise exception 'qualification contact gate missing';end if;
  if public.crm_calculate_value_grade(null)is not null then raise exception 'grade helper invalid null behavior';end if;
 end$$;
 select 'crm_qualification_evidence_ok' as result;

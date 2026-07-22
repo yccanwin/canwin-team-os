@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "manifestType": "canwin-team-os-4-p1-isolated-rollback-readonly-evidence",
+  "verifiedAtUtc": "2026-07-19T16:33:23.5401222Z",
+  "target": {
+    "projectRef": "zdmuaqokndhhbarudhtw",
+    "projectName": "canwinos-team-os-4-p0-test-4",
+    "environment": "isolated-test"
+  },
+  "forbiddenProductionProjectRef": "agygfhmkazcbqaqwmljb",
+  "sourceFailure": {
+    "runId": "p1-isolated-20260719T150630589Z-ed853ebbab",
+    "failurePath": "D:/CanWin-Team-OS-4.0-P1-Validation/p1-isolated-20260719T150630589Z-ed853ebbab/failure.json",
+    "failureSha256": "773bf49d6fa8eb3abbe564969cbec83b22755282153fd11e5d5d0fc161cfc996",
+    "preflightPath": "D:/CanWin-Team-OS-4.0-P1-Validation/p1-isolated-20260719T150630589Z-ed853ebbab/preflight.json",
+    "preflightSha256": "4ea5d3dc8f63feb56b8c0339c5734b79453f32ed6b6c905663e869e76b3287ac"
+  },
+  "readOnlyMethod": {
+    "projectRefHardLocked": true,
+    "connectionMode": "session-pooler",
+    "credentialMode": "temporary-memory-only",
+    "transactionReadOnly": true,
+    "credentialPrinted": false,
+    "credentialWritten": false,
+    "formalAttemptStarted": false,
+    "remoteWritePerformed": false
+  },
+  "comparison": {
+    "exactPreflightMatch": true,
+    "comparedFieldCount": 13,
+    "comparisonSnapshotSha256": "83169f289d0a411a9fb54296a9f6900f0e9337f7b9e2ca5e321480994fbc9cd7",
+    "differenceKeys": [],
+    "publicTableCount": 103,
+    "migrationRows": 69,
+    "lastMigrationVersion": "20260718010119",
+    "authUsers": 7,
+    "storageBuckets": 1,
+    "storageObjects": 32
+  },
+  "p1ResidualChecks": {
+    "migrationHistoryRows": 0,
+    "assignmentKindColumnPresent": false,
+    "p1Indexes": 0,
+    "p1Triggers": 0,
+    "p1Functions": 0,
+    "authFixtureUsers": 0,
+    "profileFixtureRows": 0,
+    "regionFixtureRows": 0,
+    "requestFixtureRows": 0,
+    "supervisorFeatureFlags": 0,
+    "idleInTransactionSessions": 0
+  },
+  "result": {
+    "sqlstate55006FailureFullyRolledBack": true,
+    "isolatedBaselineClean": true,
+    "eligibleForNewQualifiedCandidate": true,
+    "productionReads": 0,
+    "productionWrites": 0
+  }
+}

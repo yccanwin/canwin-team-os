@@ -1,0 +1,6 @@
+CanWin Team OS 4.0 One-Time Migration Tool
+Copyright (c) 2026 CanWin.
+
+This is a separate offline tool for one coordinated Team OS 3.0 to Team OS 4.0 migration. It is not part of the clean daily installation package.
+
+The delivered tool must not contain exported business records, authentication users, uploaded files, credentials, environment files, or generated migration evidence. Third-party components remain subject to their respective licenses and notices.

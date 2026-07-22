@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "phase": "G7",
+  "acceptedProgressBefore": 80,
+  "checkpoint": {
+    "progress": 85,
+    "status": "pending",
+    "required": [
+      "team-os-3-physical-read-only-freeze",
+      "freeze-fingerprint-stability",
+      "all-write-path-attacks-denied",
+      "one-shot-migration-failure-sealed-without-retry"
+    ]
+  },
+  "contracts": {
+    "sourceSystem": "team-os-3",
+    "targetSystem": "team-os-4",
+    "sourceFreezeMode": "physical-read-only",
+    "sourceFreezeRequires": [
+      "disable-login",
+      "disable-registration",
+      "disable-token-refresh",
+      "deny-rest-dml",
+      "deny-rpc-dml",
+      "deny-storage-write",
+      "disable-edge-functions",
+      "disable-cron",
+      "disable-webhooks",
+      "disable-notifications",
+      "revoke-ordinary-dml",
+      "revoke-write-rpc",
+      "remove-online-high-privilege-credentials"
+    ],
+    "forbiddenSourceOperations": ["insert", "update", "delete", "truncate", "ddl", "storage-upload", "storage-update", "storage-delete"],
+    "highPrivilegeCredentialRule": "offline-only-short-lived-and-never-present-in-online-runtime",
+    "freezeFingerprintCategories": ["table-rows", "money", "inventory", "auth", "storage"],
+    "freezeFingerprintRule": "signed-before-and-after-fingerprints-must-be-identical-by-category",
+    "freezeAttackActors": ["anonymous", "ordinary-user", "old-session", "direct-api-attacker"],
+    "freezeAttackSurfaces": ["auth-login", "auth-register", "auth-refresh", "rest-dml", "rpc-write", "storage-write", "function", "cron", "webhook", "notification"],
+    "attackSuccessAllowed": false,
+    "migrationExecutionCount": 1,
+    "migrationRetryAllowed": false,
+    "migrationFailureAction": "seal-entire-failed-run-and-preserve-evidence",
+    "migrationFailureMayResume": false,
+    "failedRunMustRecord": ["run-id", "source-snapshot-id", "target-project-ref", "code-commit", "started-at", "failed-at", "failure-stage", "error-digest", "reconciliation-state"],
+    "failedRunTargetRule": "failed-target-is-forensic-only-and-must-never-be-promoted-or-reused",
+    "failureEvidenceMutability": "append-only",
+    "silentSkipAllowed": false,
+    "partialAcceptanceAllowed": false
+  },
+  "requiredRuntimeEvidence": {
+    "freezeControlPlane": "provider-and-database-evidence-for-every-disabled-or-revoked-write-path",
+    "freezeFingerprint": "signed-before-and-after-category-fingerprints-with-zero-difference",
+    "attackMatrix": "anonymous-ordinary-old-session-and-direct-api-attacks-all-denied-on-every-surface",
+    "credentialInventory": "zero-online-high-privilege-credentials",
+    "oneShotFailureDrill": "failed-run-sealed-target-not-reused-and-no-retry-observed"
+  },
+  "freezeControlPlaneEvidence": "pending",
+  "freezeFingerprintEvidence": "pending",
+  "attackMatrixEvidence": "pending",
+  "credentialInventoryEvidence": "pending",
+  "oneShotFailureDrillEvidence": "pending",
+  "runtimeEvidence": "pending",
+  "g7FreezeAccepted": false
+}

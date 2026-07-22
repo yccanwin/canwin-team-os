@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 4,
+  "phase": "G1",
+  "realEnabledAccounts": 5,
+  "realEnabledAccountRoles": ["sales", "implementation", "operations", "finance", "admin"],
+  "attackIdentities": ["anon"],
+  "disabledAccountRequired": false,
+  "capabilitiesNotSeparateIdentities": ["warehouse", "supervisor"],
+  "workspaceRoutes": {
+    "sales": "/workspace/sales",
+    "implementation": "/workspace/implementation",
+    "operations": "/workspace/operations",
+    "finance": "/workspace/finance",
+    "admin": "/workspace/admin"
+  },
+  "authoritativeProvisioner": "platform/team-os-4/tools/acceptance-accounts",
+  "authoritativeRunner": "scripts/p1/run-team-os-4-g1-acceptance.mjs",
+  "sourceApplicationCommit": "bb53df8184ef7b013262cf7fd5e91cada5fe0183",
+  "previewRepository": "yccanwin/canwin-team-os-4-preview",
+  "previewCommit": "d321e5e3479dcc1988ae2ab3f8533bfa7557a597",
+  "pagesUrl": "https://yccanwin.github.io/canwin-team-os-4-preview/",
+  "requiredDeploymentBindingEvidenceFields": [
+    "previewRepository",
+    "previewCommit",
+    "pagesUrl"
+  ],
+  "requiredScreenshotEvidenceFields": [
+    "screenshotPath",
+    "screenshotSha256"
+  ],
+  "runtimeScreenshotEvidence": {
+    "required": true,
+    "roles": ["sales", "implementation", "operations", "finance", "admin"],
+    "stages": [
+      "role-business-page-real-remote-request",
+      "manual-cross-role-url-denied",
+      "management-page-matches-role-policy"
+    ],
+    "requiredFields": [
+      "role",
+      "stage",
+      "screenshotPath",
+      "screenshotSha256",
+      "pageUrl"
+    ],
+    "exactTotal": 15,
+    "credentialsOrTokensAllowed": false
+  },
+  "accountPreflightRequired": true,
+  "requiredAccountPreflightEvidenceFields": [
+    "databaseReady",
+    "existingAcceptanceAccounts"
+  ],
+  "deploymentBindingRules": {
+    "preflightOnlyRequired": true,
+    "preflightMustNotCreateAccounts": true,
+    "previewGitRepositoryMustBeIndependent": true,
+    "previewCommitMustBeFullSha": true,
+    "previewGitOriginMustMatchRepository": true,
+    "githubPagesBuildCommitMustMatchPreviewCommit": true,
+    "githubPagesUrlMustMatchPagesUrl": true,
+    "githubPagesSourceMustMatchRepositoryPagesSource": true,
+    "nodePlaywrightScreenshotRequired": true,
+    "deploymentBindingMustBeIncludedInEvidence": true,
+    "sourceAndPreviewCommitsMustRemainDistinct": true,
+    "sourceApplicationCommitMustBeStoredInRuntimeEvidence": true,
+    "previewCommitMustBeStoredInDeploymentEvidence": true
+  },
+  "accountPreflightRules": {
+    "publicDeploymentBindingRunsFirst": true,
+    "trustedDatabasePreflightRunsSecond": true,
+    "serviceRoleKeyClearedBeforeExit": true,
+    "preflightOnlyMayCreateAccounts": false,
+    "preflightOnlyMayProvisionFixtures": false
+  },
+  "retiredNonAuthoritativeHarnesses": [
+    "scripts/p1/run-real-page-acceptance.mjs",
+    "scripts/p1/manage-real-page-accounts.mjs"
+  ],
+  "retiredHarnessRule": "must-not-contribute-runtime-evidence-or-target-a-team-os-4-project",
+  "perAccountPositiveChecks": [
+    "auth-real-password-login",
+    "app-context-exact-primary-role-and-capabilities",
+    "navigation-manifest-exact-role-boundary",
+    "workspace-auto-route-and-visible-content",
+    "role-business-page-real-remote-request",
+    "own-scope-direct-api-read",
+    "role-business-direct-api-read"
+  ],
+  "perAccountBoundaryChecks": [
+    "manual-cross-role-url-denied",
+    "cross-identity-read-matches-role-policy",
+    "cross-identity-write-denied",
+    "management-page-matches-role-policy",
+    "management-api-matches-role-policy",
+    "role-business-api-matches-role-policy",
+    "bootstrap-public-entry-denied",
+    "bootstrap-private-entry-denied"
+  ],
+  "anonymousAttackChecks": [
+    "bootstrap-public-entry-denied",
+    "bootstrap-private-entry-denied",
+    "internal-table-read-denied",
+    "rest-dml-denied",
+    "write-rpc-denied",
+    "private-storage-read-denied",
+    "storage-write-denied"
+  ],
+  "requiredEvidenceFields": [
+    "run_id",
+    "target_project_ref",
+    "application_commit",
+    "account_role",
+    "identity_kind",
+    "stage",
+    "started_at",
+    "finished_at",
+    "page_url_or_api_surface",
+    "http_status_or_postgres_code",
+    "row_count_or_result_digest",
+    "page_test_id_or_trace_digest",
+    "outcome",
+    "evidence_sha256"
+  ],
+  "evidenceRules": {
+    "oneRecordPerAccountPerCheck": true,
+    "aggregateOnlySummaryAllowed": false,
+    "credentialsOrTokensAllowed": false,
+    "realNetworkRequired": true,
+    "realPageRequired": true,
+    "simulatedEvidenceAllowed": false,
+    "fixtureRowsMaySupportRealRemoteChecks": true,
+    "fixtureProvisioningCountsAsRuntimeEvidence": false,
+    "firstFailureStopsRun": true,
+    "failedRunEvidencePreserved": true,
+    "targetMustBeIndependentTeamOs4Project": true
+  },
+  "expectedRuntimeEvidenceCount": {
+    "enabledAccountPositive": 35,
+    "enabledAccountBoundary": 40,
+    "anonymousNegative": 7,
+    "exactTotal": 82
+  },
+  "lifecycle": {
+    "successOrder": [
+      "preflight",
+      "create-five-acceptance-identities",
+      "prepare-acceptance-only-fixtures",
+      "run-real-page-and-api-acceptance",
+      "seal-82-runtime-records",
+      "persist-evidence-and-retain-baseline"
+    ],
+    "failureOrder": [
+      "preserve-runner-evidence-if-started",
+      "attempt-database-cleanup-once-if-fixture-may-exist",
+      "remove-or-disable-acceptance-profiles",
+      "delete-or-ban-acceptance-auth-identities"
+    ],
+    "runnerNotStartedEvidenceStatus": "not-started",
+    "retentionFailureEvidenceStatus": "sealed-passed-retention-indeterminate",
+    "databaseCleanupStates": ["not-required", "confirmed-cleaned", "confirmed-not-prepared", "indeterminate"],
+    "fixturePreparationStates": ["not-started", "indeterminate", "confirmed-prepared", "confirmed-retained"],
+    "retainedAccountsArePermanentAcceptanceBaseline": true,
+    "acceptanceAccountsMustRemainSeparatedFromOperatingData": true
+  },
+  "accountProvisioningEvidence": "pending",
+  "pageEvidence": "pending",
+  "directApiEvidence": "pending",
+  "anonymousAttackEvidence": "pending",
+  "runtimeStatus": "pending",
+  "g1AccountsAccepted": false
+}

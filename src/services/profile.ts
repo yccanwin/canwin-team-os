@@ -1,9 +1,11 @@
 import type { Session } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
-import { CANWIN_TEAM_ID } from '@/config/team'
+import { supabase, supabaseAuthStorageKey, supabaseLegacyAuthStorageKey } from '@/lib/supabase'
+import { loadAppContext } from '@/features/app-shell/supabaseDataSource'
+import { useAppContextStore } from '@/features/app-shell/useAppContextStore'
+import type { PrimaryRoleId } from '@/features/app-shell/types'
 import type { User } from '@/types'
 
-export type UserRole = 'admin' | 'captain' | 'finance' | 'warehouse' | 'member'
+export type UserRole = PrimaryRoleId | 'captain' | 'warehouse' | 'member'
 
 type ProfileRow = {
   id: string
@@ -32,8 +34,6 @@ type PackedProfileNotes = {
 }
 
 const ADMIN_LOGIN_EMAIL = 'admin@yccanwin.com'
-const SUPABASE_AUTH_STORAGE_KEY = 'sb-agygfhmkazcbqaqwmljb-auth-token'
-
 function normalizeLoginEmail(value: string): string {
   const input = value.trim()
   if (input.toLowerCase() === 'admin') return ADMIN_LOGIN_EMAIL
@@ -64,12 +64,12 @@ function packProfileNotes(notes?: string, learningNotes?: string): string {
   } satisfies PackedProfileNotes)
 }
 
-function profileToUser(profile: ProfileRow): User {
+function profileToUser(profile: ProfileRow, roleOverride?: PrimaryRoleId): User {
   const unpackedNotes = unpackProfileNotes(profile.notes)
   return {
     id: profile.id,
     name: profile.name || '未命名成员',
-    role: profile.role || 'member',
+    role: roleOverride ?? profile.role ?? 'member',
     position: profile.position || '',
     avatar: profile.avatar_url || undefined,
     joinDate: profile.join_date || new Date().toISOString(),
@@ -107,6 +107,9 @@ async function loadProfileLearningNotes(ids: string[]): Promise<Record<string, s
 
 export function roleLabel(role: UserRole): string {
   const labels: Record<UserRole, string> = {
+    sales: '销售',
+    implementation: '实施',
+    operations: '运维',
     admin: '管理员',
     captain: '队长',
     finance: '财务',
@@ -129,7 +132,8 @@ export function isFinanceRole(role?: UserRole): boolean {
 }
 
 export function isWarehouseRole(role?: UserRole): boolean {
-  return role === 'admin' || role === 'captain' || role === 'warehouse'
+  if (role === 'warehouse') return true
+  return useAppContextStore.getState().context?.additionalFunctions.includes('warehouse') ?? false
 }
 
 export async function loadCurrentProfile(session?: Session | null): Promise<User | null> {
@@ -141,23 +145,27 @@ export async function loadCurrentProfile(session?: Session | null): Promise<User
     .from('profiles')
     .select(PROFILE_SELECT)
     .eq('id', authUser.id)
-    .eq('team_id', CANWIN_TEAM_ID)
     .maybeSingle()
 
   if (error) throw new Error(error.message)
   if (!data) throw new Error('当前账号缺少 profiles 资料，请先执行 Supabase schema 并初始化 admin profile。')
   if (data.status && data.status !== 'active') throw new Error('当前账号已停用，请联系管理员。')
 
-  const user = profileToUser(data as ProfileRow)
+  const appContext = await loadAppContext()
+  if (appContext.user.id !== authUser.id || appContext.company.id !== (data as ProfileRow).team_id) {
+    throw new Error('4.0 当前账号与公司身份不一致，已停止登录。')
+  }
+  const user = profileToUser(data as ProfileRow, appContext.primaryRole)
   const learningNotes = await loadProfileLearningNotes([user.id])
   return { ...user, learningNotes: learningNotes[user.id] }
 }
 
 export async function loadTeamProfiles(): Promise<User[]> {
+  const appContext = await loadAppContext()
   const { data, error } = await supabase
     .from('profiles')
     .select(PROFILE_SELECT)
-    .eq('team_id', CANWIN_TEAM_ID)
+    .eq('team_id', appContext.company.id)
     .eq('status', 'active')
     .order('created_at', { ascending: true })
 
@@ -255,9 +263,12 @@ export async function signInWithPassword(login: string, password: string): Promi
 export async function signOut(): Promise<void> {
   if (typeof window !== 'undefined') {
     const authKeys = [
-      SUPABASE_AUTH_STORAGE_KEY,
-      `${SUPABASE_AUTH_STORAGE_KEY}-code-verifier`,
-      `${SUPABASE_AUTH_STORAGE_KEY}-user`,
+      supabaseAuthStorageKey,
+      `${supabaseAuthStorageKey}-code-verifier`,
+      `${supabaseAuthStorageKey}-user`,
+      supabaseLegacyAuthStorageKey,
+      `${supabaseLegacyAuthStorageKey}-code-verifier`,
+      `${supabaseLegacyAuthStorageKey}-user`,
       'canwin-auth-session',
       'canwin-auth-session-code-verifier',
       'canwin-auth-session-user',

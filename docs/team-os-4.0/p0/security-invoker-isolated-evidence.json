@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "canwin-team-os-4-p0-security-invoker-isolated-acceptance",
+  "targetProjectRef": "zdmuaqokndhhbarudhtw",
+  "targetProjectName": "canwinos-team-os-4-p0-test-4",
+  "runId": "p0-security-invoker-20260719T080315371Z-d732e96f17",
+  "gitCommit": "d732e96f17d4470327d0e91ea8acf9f15111431c",
+  "candidateSha256": "443f048e13d49388ff503d870ec7045df6bb94db95c121f6159cdc1ccbb7a702",
+  "status": "accepted-isolated-and-rolled-back",
+  "formalAttempts": 1,
+  "subgateAccepted": true,
+  "g0Accepted": false,
+  "runtimeAcceptance": {
+    "views": 3,
+    "roles": 5,
+    "anonymousDenied": 3,
+    "crossTeamRows": 0,
+    "viewWritesDenied": 15,
+    "advisorBeforeRollback": {
+      "ERROR": 0,
+      "WARN": 137,
+      "INFO": 3,
+      "securityDefinerViewCount": 0,
+      "newWarnings": 0
+    }
+  },
+  "rollbackAcceptance": {
+    "attempts": 1,
+    "atomic": true,
+    "restoredViews": 3,
+    "restoredPolicies": 4,
+    "syntheticUsersRemaining": 0,
+    "syntheticProfilesRemaining": 0,
+    "fixtureRowsRemaining": 0,
+    "realUsers": 7,
+    "realUsersBanned": 7,
+    "baselineAdvisorRestored": true
+  },
+  "evidence": {
+    "directory": "D:\\CanWin-Team-OS-4.0-Security-Validation\\p0-security-invoker-20260719T080315371Z-d732e96f17",
+    "preExecutionSnapshotSha256": "3efb4adef3882640b959f6e9be7ca3686f360559d88f8123d02e03675cca903a",
+    "validationEvidenceSha256": "f85aee9ddb64cc57dbf6caaf3a80d25bab81a942163ea57b3664b88231dd354d",
+    "advisorEvidenceSha256": "7e847c66a49153c49b68b950fe51aefe718db667fe53b37c13f5d1bc1f5ffe87",
+    "rollbackEvidenceSha256": "eca7ef46aaccd18f0d02a10b8f58e46b3ec96d23c17920faaf6f98393e499999"
+  },
+  "safety": {
+    "productionWrites": 0,
+    "realUsersLoginEnabled": false,
+    "previewEnabled": false,
+    "outboundEnabled": false,
+    "secretsPrinted": 0,
+    "secretsWritten": 0
+  },
+  "remainingG0Blockers": [
+    "103-table-classification-supervisor-freeze",
+    "security-function-and-zero-policy-table-classification",
+    "foreign-key-index-runtime-evidence",
+    "github-ci-actual-run-evidence"
+  ]
+}

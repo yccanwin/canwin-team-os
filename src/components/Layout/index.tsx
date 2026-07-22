@@ -1,18 +1,24 @@
-import { useState, useEffect, useRef } from 'react'
-import { Outlet, NavLink, useLocation } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
-  Menu,
   BarChart3,
+  Bell,
   ChevronDown,
   ChevronRight,
+  LoaderCircle,
   LogOut,
+  Menu,
+  RefreshCw,
 } from 'lucide-react'
-import { useUserStore } from '@/stores/useUserStore'
-import { roleLabel, signOut } from '@/services/profile'
 import PersonalReminderTicker from '@/components/PersonalReminderTicker'
+import { useAppContextStore } from '@/features/app-shell/useAppContextStore'
+import type { PrimaryRoleId } from '@/features/app-shell/types'
+import { roleLabel, signOut } from '@/services/profile'
+import { useUserStore } from '@/stores/useUserStore'
 import {
-  NAVIGATION_GROUPS,
-  MOBILE_PRIMARY_LINKS,
+  buildMobileLinks,
+  buildNavigationGroups,
+  findTopbarLink,
   navigationItemMatches,
   type NavigationCollection,
   type NavigationLink,
@@ -30,23 +36,30 @@ function SidebarLink({
   onNavigate: () => void
 }) {
   const isActive = navigationItemMatches(item, currentLocation)
+  const className = `
+    app-nav-item flex items-center gap-3 rounded-lg text-sm transition-colors duration-150
+    ${nested ? 'py-2 pl-9 pr-3 text-[13px]' : 'px-3 py-2.5'}
+    ${item.disabled
+      ? 'cursor-not-allowed text-cyan-100/30'
+      : isActive
+        ? 'is-active ml-[-12px] rounded-l-none border-l-[3px] border-cyan-300 bg-cyan-300/12 pl-[9px] font-medium text-cyan-50'
+        : 'text-cyan-100/58 hover:bg-cyan-300/10 hover:text-cyan-50'}
+  `
+
+  if (item.disabled) {
+    return (
+      <span className={className} aria-disabled="true">
+        <item.icon className="h-5 w-5 shrink-0" />
+        <span className="truncate">{item.label}</span>
+      </span>
+    )
+  }
 
   return (
-    <NavLink
-      to={item.to}
-      onClick={onNavigate}
-      className={`
-        app-nav-item flex items-center gap-3 rounded-lg text-sm transition-colors duration-150
-        ${nested ? 'py-2 pl-9 pr-3 text-[13px]' : 'px-3 py-2.5'}
-        ${
-          isActive
-            ? 'is-active bg-cyan-300/12 text-cyan-50 font-medium border-l-[3px] border-cyan-300 ml-[-12px] pl-[9px] rounded-l-none'
-            : 'text-cyan-100/58 hover:bg-cyan-300/10 hover:text-cyan-50'
-        }
-      `}
-    >
+    <NavLink to={item.to} onClick={onNavigate} className={className}>
       <item.icon className={`h-5 w-5 shrink-0 ${nested ? 'h-4 w-4' : ''} ${isActive ? 'text-cyan-200' : ''}`} />
       <span className="truncate">{item.label}</span>
+      {item.readOnly && <span className="ml-auto text-[10px] text-cyan-100/45">只读</span>}
     </NavLink>
   )
 }
@@ -65,7 +78,6 @@ function SidebarCollection({
   onNavigate: () => void
 }) {
   const isActive = navigationItemMatches(item, currentLocation)
-
   return (
     <div>
       <button
@@ -86,7 +98,7 @@ function SidebarCollection({
         <div className="mt-1 space-y-0.5 border-l border-cyan-200/10">
           {item.children.map((child) => (
             <SidebarLink
-              key={`${item.label}-${child.label}`}
+              key={child.routeId}
               item={child}
               currentLocation={currentLocation}
               nested
@@ -99,43 +111,72 @@ function SidebarCollection({
   )
 }
 
-
-// ============================================================
-// 主布局组件
-// ============================================================
+function ShellStatus({ error, retry }: { error?: string; retry?: () => void }) {
+  return (
+    <div className="flex h-screen items-center justify-center bg-slate-50 px-5">
+      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-lg">
+        {error ? (
+          <>
+            <h1 className="text-lg font-semibold text-slate-900">4.0 工作台已安全停止</h1>
+            <p className="mt-3 text-sm leading-6 text-slate-600">{error}</p>
+            {retry && (
+              <button
+                type="button"
+                onClick={retry}
+                className="mt-5 inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white"
+              >
+                <RefreshCw className="h-4 w-4" />
+                重新读取权限
+              </button>
+            )}
+          </>
+        ) : (
+          <div className="flex items-center justify-center gap-3 text-sm font-medium text-slate-600">
+            <LoaderCircle className="h-5 w-5 animate-spin" />
+            正在读取4.0岗位与权限
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [userDropdownOpen, setUserDropdownOpen] = useState(false)
-  const [expandedCollection, setExpandedCollection] = useState<string | null>(() => {
-    const activeItem = NAVIGATION_GROUPS.flatMap((group) => group.items)
-      .find((item) => item.type === 'collection' && navigationItemMatches(item, `${window.location.pathname}${window.location.search}`))
-    return activeItem?.label ?? null
-  })
+  const [expandedCollection, setExpandedCollection] = useState<string | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const location = useLocation()
   const currentLocation = `${location.pathname}${location.search}`
-  const usesSalesMobileNavigation = location.pathname === '/sales-v3'
 
-  const currentUser = useUserStore((s) => s.currentUser)
-  const logout = useUserStore((s) => s.logout)
+  const currentUser = useUserStore((state) => state.currentUser)
+  const logout = useUserStore((state) => state.logout)
+  const context = useAppContextStore((state) => state.context)
+  const navigation = useAppContextStore((state) => state.navigation)
+  const status = useAppContextStore((state) => state.status)
+  const error = useAppContextStore((state) => state.error)
+  const load = useAppContextStore((state) => state.load)
+  const switchWorkView = useAppContextStore((state) => state.switchWorkView)
+  const resetAppContext = useAppContextStore((state) => state.reset)
+
+  const navigationGroups = useMemo(() => buildNavigationGroups(navigation), [navigation])
+  const mobileLinks = useMemo(() => buildMobileLinks(navigation), [navigation])
+  const messagesLink = useMemo(() => findTopbarLink(navigation, 'messages'), [navigation])
+  const activeCollectionLabel = useMemo(
+    () => navigationGroups
+      .flatMap((group) => group.items)
+      .find((item) => item.type === 'collection' && navigationItemMatches(item, currentLocation))?.label ?? null,
+    [currentLocation, navigationGroups],
+  )
+  const visibleExpandedCollection = expandedCollection ?? activeCollectionLabel
 
   useEffect(() => {
-    const activeItem = NAVIGATION_GROUPS.flatMap((group) => group.items)
-      .find((item) => item.type === 'collection' && navigationItemMatches(item, currentLocation))
-    let active = true
-    if (activeItem) {
-      queueMicrotask(() => {
-        if (active) setExpandedCollection(activeItem.label)
-      })
-    }
-    return () => { active = false }
-  }, [currentLocation])
+    if (status === 'idle') void load()
+  }, [load, status])
 
-  // 点击外部关闭下拉
   useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setUserDropdownOpen(false)
       }
     }
@@ -143,160 +184,129 @@ export default function Layout() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // 防御：如果用户数据损坏，显示重置按钮
-  if (!currentUser || !currentUser.id || !currentUser.name) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-brand-50">
-        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-sm w-full text-center">
-          <p className="text-brand-400 mb-4">用户数据加载失败，可能是本地存储损坏。</p>
-          <button
-            onClick={() => {
-              useUserStore.persist.clearStorage()
-              window.location.reload()
-            }}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700"
-          >
-            重置数据并刷新
-          </button>
-        </div>
-      </div>
-    )
+  if (!currentUser?.id || !currentUser.name) {
+    return <ShellStatus error="成员资料未加载，无法进入4.0工作台。" />
+  }
+  if (status === 'idle' || status === 'loading') return <ShellStatus />
+  if (status === 'error' || !context) return <ShellStatus error={error ?? '岗位权限读取失败。'} retry={() => void load()} />
+
+  const handleWorkViewSwitch = async (workView: PrimaryRoleId) => {
+    await switchWorkView(workView)
+    setUserDropdownOpen(false)
+  }
+
+  const handleSignOut = () => {
+    setUserDropdownOpen(false)
+    resetAppContext()
+    logout()
+    void signOut().catch(() => undefined)
   }
 
   return (
     <div className="desktop-tech-mode flex h-screen overflow-hidden page-surface">
-      {/* 移动端遮罩 */}
       {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-20 bg-black/50 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
+        <div className="fixed inset-0 z-20 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
-      {/* 左侧导航栏 */}
-      <aside
-        className={`
-          fixed lg:static inset-y-0 left-0 z-30
-          flex flex-col
-          app-sidebar w-[200px] bg-slate-950 text-white shadow-2xl shadow-slate-900/20
-          transition-transform duration-300 ease-in-out
-          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-        `}
-      >
-        {/* Logo */}
-        <div className="app-sidebar-brand px-6 py-5 border-b border-cyan-300/15 bg-gradient-to-br from-cyan-400/15 via-slate-950 to-emerald-400/10">
+      <aside className={`fixed inset-y-0 left-0 z-30 flex w-[220px] flex-col bg-slate-950 text-white shadow-2xl shadow-slate-900/20 transition-transform duration-300 ease-in-out lg:static ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+        <div className="app-sidebar-brand border-b border-cyan-300/15 bg-gradient-to-br from-cyan-400/15 via-slate-950 to-emerald-400/10 px-5 py-5">
           <div className="flex items-center gap-2">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-300/25 bg-cyan-300/10 shadow-[0_0_24px_rgba(34,211,238,.18)]">
-              <BarChart3 className="w-5 h-5 text-cyan-200 animate-soft-pulse" />
+              <BarChart3 className="h-5 w-5 text-cyan-200" />
             </span>
-            <span className="text-lg font-semibold tracking-wide text-cyan-50">fanshon team</span>
+            <span className="min-w-0 truncate text-base font-semibold tracking-wide text-cyan-50">{context.company.name}</span>
           </div>
-          <p className="mt-1 ml-11 text-[10px] uppercase tracking-[0.22em] text-cyan-100/55">team operating system</p>
+          <p className="ml-11 mt-1 text-[10px] uppercase tracking-[0.22em] text-cyan-100/55">CanWin Team OS</p>
         </div>
 
-        {/* 导航菜单 */}
-        <nav className="flex-1 overflow-y-auto px-3 py-2">
-          {NAVIGATION_GROUPS.map((group, groupIdx) => (
-            <div key={group.label}>
-              {groupIdx > 0 && (
-                <div className="mx-3 my-2 border-t border-white/10" />
-              )}
-              <p className="app-nav-group-label px-3 pt-3 pb-1 text-[10px] uppercase tracking-wider text-cyan-100/45">
+        <nav className="flex-1 overflow-y-auto px-3 py-2" aria-label="4.0岗位导航">
+          {navigationGroups.map((group, groupIndex) => (
+            <div key={group.id}>
+              {groupIndex > 0 && <div className="mx-3 my-2 border-t border-white/10" />}
+              <p className="app-nav-group-label px-3 pb-1 pt-3 text-[10px] uppercase tracking-wider text-cyan-100/45">
                 {group.label}
               </p>
               <div className="space-y-0.5">
-                {group.items.map((item) =>
-                  item.type === 'link' ? (
-                    <SidebarLink
-                      key={item.label}
-                      item={item}
-                      currentLocation={currentLocation}
-                      onNavigate={() => setSidebarOpen(false)}
-                    />
-                  ) : (
-                    <SidebarCollection
-                      key={item.label}
-                      item={item}
-                      currentLocation={currentLocation}
-                      expanded={expandedCollection === item.label}
-                      onToggle={() => setExpandedCollection((current) => current === item.label ? null : item.label)}
-                      onNavigate={() => setSidebarOpen(false)}
-                    />
-                  ),
-                )}
+                {group.items.map((item) => item.type === 'link' ? (
+                  <SidebarLink
+                    key={item.routeId}
+                    item={item}
+                    currentLocation={currentLocation}
+                    onNavigate={() => setSidebarOpen(false)}
+                  />
+                ) : (
+                  <SidebarCollection
+                    key={item.label}
+                    item={item}
+                    currentLocation={currentLocation}
+                    expanded={visibleExpandedCollection === item.label}
+                    onToggle={() => setExpandedCollection(visibleExpandedCollection === item.label ? '' : item.label)}
+                    onNavigate={() => setSidebarOpen(false)}
+                  />
+                ))}
               </div>
             </div>
           ))}
         </nav>
 
-        {/* 底部版本号 */}
-        <div className="app-sidebar-footer px-5 py-3 border-t border-cyan-300/15 flex items-center gap-2">
-          <span className="w-2 h-2 bg-emerald-300 rounded-full shrink-0 shadow-[0_0_12px_rgba(52,211,153,.7)]" />
-          <span className="bg-cyan-300/10 text-cyan-100/60 px-2 py-0.5 rounded-full text-[10px]">v3.0</span>
+        <div className="app-sidebar-footer flex items-center gap-2 border-t border-cyan-300/15 px-5 py-3">
+          <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-300 shadow-[0_0_12px_rgba(52,211,153,.7)]" />
+          <span className="rounded-full bg-cyan-300/10 px-2 py-0.5 text-[10px] text-cyan-100/60">v4.0 岗位壳层</span>
         </div>
       </aside>
 
-      {/* 右侧主区域 */}
-      <div className="flex-1 flex flex-col overflow-visible bg-transparent">
-        {/* 顶栏 */}
-        <header className="app-topbar relative z-40 flex items-center justify-between h-14 px-4 overflow-visible bg-white/80 backdrop-blur border-b border-white/70 shadow-sm shrink-0">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="lg:hidden p-2 rounded-lg hover:bg-gray-100"
-          >
-            <Menu className="w-5 h-5 text-brand-400" />
+      <div className="flex flex-1 flex-col overflow-visible bg-transparent">
+        <header className="app-topbar relative z-40 flex h-14 shrink-0 items-center justify-between overflow-visible border-b border-white/70 bg-white/80 px-4 shadow-sm backdrop-blur">
+          <button type="button" onClick={() => setSidebarOpen(true)} className="rounded-lg p-2 hover:bg-gray-100 lg:hidden">
+            <Menu className="h-5 w-5 text-brand-400" />
           </button>
 
           <PersonalReminderTicker />
 
-          {/* 用户切换 */}
-          <div className="flex items-center gap-3 md:ml-0 ml-auto" ref={dropdownRef}>
+          <div className="ml-auto flex items-center gap-2 md:ml-0" ref={dropdownRef}>
+            {messagesLink && !messagesLink.disabled && (
+              <NavLink to={messagesLink.to} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900" aria-label={messagesLink.label}>
+                <Bell className="h-5 w-5" />
+              </NavLink>
+            )}
             <div className="relative">
-              <button
-                onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                className="app-user-button flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white"
-                  style={{ backgroundColor: '#6366F1' }}
-                >
-                  {currentUser.name.charAt(0)}
+              <button type="button" onClick={() => setUserDropdownOpen((open) => !open)} className="app-user-button flex items-center gap-2 rounded-lg px-3 py-1.5 transition-colors hover:bg-gray-100">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-500 text-sm font-bold text-white">
+                  {context.user.name.charAt(0)}
                 </div>
-                <div className="text-left hidden sm:block">
-                  <p className="text-sm font-medium text-brand-400">{currentUser.name}</p>
-                  <p className="text-xs text-brand-200">
-                    {roleLabel(currentUser.role)}
-                  </p>
+                <div className="hidden text-left sm:block">
+                  <p className="text-sm font-medium text-brand-400">{context.user.name}</p>
+                  <p className="text-xs text-brand-200">{roleLabel(context.currentWorkView)}</p>
                 </div>
-                <ChevronDown className="w-4 h-4 text-brand-200" />
+                <ChevronDown className="h-4 w-4 text-brand-200" />
               </button>
 
-              {/* 下拉菜单 */}
               {userDropdownOpen && (
-                <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-lg shadow-lg border border-brand-100 py-1 z-50">
+                <div className="absolute right-0 top-full z-50 mt-1 w-64 rounded-xl border border-brand-100 bg-white py-1 shadow-lg">
                   <div className="px-3 py-3">
-                    <p className="text-sm font-medium text-brand-400">{currentUser.name}</p>
-                    <p className="text-xs text-brand-200">
-                      {roleLabel(currentUser.role)}
-                    </p>
+                    <p className="text-sm font-medium text-brand-400">{context.user.name}</p>
+                    <p className="text-xs text-brand-200">主岗位：{roleLabel(context.primaryRole)}</p>
                   </div>
-                  <div className="border-t border-gray-100 mt-1 pt-1">
-                    <NavLink
-                      to="/profile"
-                      onClick={() => setUserDropdownOpen(false)}
-                      className="block px-3 py-2 text-sm text-brand-400 hover:bg-brand-50"
-                    >
+                  {context.availableWorkViews.length > 1 && (
+                    <div className="border-t border-gray-100 px-2 py-2">
+                      <p className="px-2 pb-1 text-[11px] font-medium text-slate-400">切换工作视图</p>
+                      {context.availableWorkViews.map((view) => (
+                        <button
+                          key={view.id}
+                          type="button"
+                          onClick={() => void handleWorkViewSwitch(view.id)}
+                          className={`block w-full rounded-lg px-2 py-2 text-left text-sm ${view.id === context.currentWorkView ? 'bg-cyan-50 font-medium text-cyan-800' : 'text-slate-700 hover:bg-slate-50'}`}
+                        >
+                          {view.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <div className="border-t border-gray-100 pt-1">
+                    <NavLink to="/profile" onClick={() => setUserDropdownOpen(false)} className="block px-3 py-2 text-sm text-brand-400 hover:bg-brand-50">
                       个人主页
                     </NavLink>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setUserDropdownOpen(false)
-                        logout()
-                        void signOut().catch(() => undefined)
-                      }}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-sm text-expense hover:bg-red-50"
-                    >
+                    <button type="button" onClick={handleSignOut} className="flex w-full items-center gap-2 px-3 py-2 text-sm text-expense hover:bg-red-50">
                       <LogOut className="h-4 w-4" />
                       退出登录
                     </button>
@@ -307,38 +317,22 @@ export default function Layout() {
           </div>
         </header>
 
-        {/* 内容区域 */}
-        <main className={`app-main flex-1 overflow-y-auto p-3 pb-24 sm:p-5 sm:pb-24 lg:pb-5 animate-fade-in-up ${usesSalesMobileNavigation ? 'app-main--sales-fullscreen' : ''}`}>
+        <main className="app-main flex-1 overflow-y-auto p-3 pb-24 sm:p-5 sm:pb-24 lg:pb-5">
           <Outlet />
         </main>
 
-        {!usesSalesMobileNavigation && <nav aria-label="移动端主导航" className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-slate-200 bg-white/95 px-1 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-1.5 shadow-[0_-10px_30px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden">
-          {MOBILE_PRIMARY_LINKS.map((item) => {
+        <nav aria-label="移动端岗位导航" className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-slate-200 bg-white/95 px-1 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-1.5 shadow-[0_-10px_30px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden">
+          {mobileLinks.map((item) => {
             const active = navigationItemMatches(item, currentLocation)
             return (
-              <NavLink
-                key={item.label}
-                to={item.to}
-                onClick={() => setSidebarOpen(false)}
-                className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg text-[10px] font-medium ${active ? 'bg-cyan-50 text-cyan-700' : 'text-slate-500'}`}
-              >
+              <NavLink key={item.routeId} to={item.to} className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg text-[10px] font-medium ${active ? 'bg-cyan-50 text-cyan-700' : 'text-slate-500'}`}>
                 <item.icon className="h-5 w-5" />
                 <span>{item.label}</span>
               </NavLink>
             )
           })}
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(true)}
-            className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg text-[10px] font-medium text-slate-500"
-          >
-            <Menu className="h-5 w-5" />
-            <span>更多</span>
-          </button>
-        </nav>}
+        </nav>
       </div>
-
     </div>
   )
 }
-

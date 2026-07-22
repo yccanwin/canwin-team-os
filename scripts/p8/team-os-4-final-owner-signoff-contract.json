@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "product": "CanWin Team OS 4.0",
+  "phase": "P8-final-owner-signoff",
+  "status": "pending",
+  "signoffAuthority": "client-owner",
+  "signoffs": [
+    {
+      "id": "real-business-acceptance",
+      "title": "真实业务验收",
+      "requiredEvidence": ["五个真实岗位账号页面验收", "真实业务主链验收", "直接 API 权限验收"],
+      "status": "pending",
+      "accepted": false,
+      "evidence": [],
+      "acceptedBy": null,
+      "acceptedAt": null
+    },
+    {
+      "id": "entry-cutover",
+      "title": "4.0 入口切换",
+      "requiredEvidence": ["4.0 正式入口可用", "入口只指向 4.0", "切换时间和负责人记录"],
+      "status": "pending",
+      "accepted": false,
+      "evidence": [],
+      "acceptedBy": null,
+      "acceptedAt": null
+    },
+    {
+      "id": "legacy-3-controlled-archive",
+      "title": "3.0 受控归档",
+      "requiredEvidence": ["3.0 永久只读", "完整快照签名", "归档位置和保留期限"],
+      "status": "pending",
+      "accepted": false,
+      "evidence": [],
+      "acceptedBy": null,
+      "acceptedAt": null
+    },
+    {
+      "id": "rollback-package",
+      "title": "回退包",
+      "requiredEvidence": ["回退包清单与签名", "恢复演练结果", "回退触发条件和负责人"],
+      "status": "pending",
+      "accepted": false,
+      "evidence": [],
+      "acceptedBy": null,
+      "acceptedAt": null
+    },
+    {
+      "id": "clean-source-package",
+      "title": "Clean 空白源码包",
+      "requiredEvidence": ["成品包哈希", "解包后零业务数据扫描", "空库安装验收"],
+      "status": "pending",
+      "accepted": false,
+      "evidence": [],
+      "acceptedBy": null,
+      "acceptedAt": null
+    },
+    {
+      "id": "migration-tool-package",
+      "title": "一次性搬家工具包",
+      "requiredEvidence": ["独立工具包哈希", "完整搬家对账", "工具包零数据零凭据扫描"],
+      "status": "pending",
+      "accepted": false,
+      "evidence": [],
+      "acceptedBy": null,
+      "acceptedAt": null
+    },
+    {
+      "id": "release-metadata-and-signatures",
+      "title": "版本、许可、NOTICE 与签名",
+      "requiredEvidence": ["VERSION", "LICENSE", "NOTICE", "MANIFEST.sha256", "代码提交号与构建时间"],
+      "status": "pending",
+      "accepted": false,
+      "evidence": [],
+      "acceptedBy": null,
+      "acceptedAt": null
+    },
+    {
+      "id": "handover-guide",
+      "title": "交接说明",
+      "requiredEvidence": ["部署与初始化说明", "日常运维说明", "备份恢复与升级说明", "故障联系人和责任边界"],
+      "status": "pending",
+      "accepted": false,
+      "evidence": [],
+      "acceptedBy": null,
+      "acceptedAt": null
+    }
+  ],
+  "allIndependentSignoffsAccepted": false,
+  "ownerFinalAcceptance": false,
+  "progress100": false
+}

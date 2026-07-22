@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "manifestType": "canwin-team-os-role-migration",
+  "source": {
+    "environment": "production",
+    "projectRef": "agygfhmkazcbqaqwmljb",
+    "snapshotAt": "2026-07-19T01:20:39.674Z",
+    "readOnly": true,
+    "writePerformed": false
+  },
+  "targetModel": {
+    "primaryRoles": [
+      "sales",
+      "implementation",
+      "operations",
+      "finance",
+      "admin"
+    ],
+    "additionalFunctions": [
+      "warehouse",
+      "supervisor"
+    ],
+    "onePrimaryRoleRequired": true,
+    "supervisorSystemDefaultEnabled": false,
+    "fallbackApprover": "admin"
+  },
+  "existingAccessRoleMapping": {
+    "owner": { "kind": "primary-alias", "primaryRole": "admin", "additionalFunction": null },
+    "admin": { "kind": "primary", "primaryRole": "admin", "additionalFunction": null },
+    "sales": { "kind": "primary", "primaryRole": "sales", "additionalFunction": null },
+    "implementation": { "kind": "primary", "primaryRole": "implementation", "additionalFunction": null },
+    "operations": { "kind": "primary", "primaryRole": "operations", "additionalFunction": null },
+    "finance": { "kind": "primary", "primaryRole": "finance", "additionalFunction": null },
+    "warehouse": { "kind": "additional", "primaryRole": null, "additionalFunction": "warehouse" },
+    "supervisor": { "kind": "additional", "primaryRole": null, "additionalFunction": "supervisor" }
+  },
+  "legacyProfileRoleMapping": {
+    "admin": { "automaticPrimaryRole": "admin", "automaticAdditionalFunctions": [] },
+    "finance": { "automaticPrimaryRole": "finance", "automaticAdditionalFunctions": [] },
+    "captain": { "automaticPrimaryRole": null, "automaticAdditionalFunctions": ["supervisor"] },
+    "warehouse": { "automaticPrimaryRole": null, "automaticAdditionalFunctions": ["warehouse"] },
+    "member": { "automaticPrimaryRole": null, "automaticAdditionalFunctions": [] }
+  },
+  "population": {
+    "activeProfiles": 7,
+    "activeWithExactlyOnePrimaryRole": 5,
+    "activeWithoutPrimaryRole": 2,
+    "activeWithMultiplePrimaryRoles": 0,
+    "activeSupervisors": 3,
+    "activeWarehouseFunctions": 0
+  },
+  "manualPrimaryRoleDecisions": {
+    "required": 2,
+    "resolved": 2,
+    "status": "owner-confirmed-isolated-applied-production-unchanged",
+    "allowedPrimaryRoles": [
+      "sales",
+      "implementation",
+      "operations",
+      "finance",
+      "admin"
+    ],
+    "resolutionSummary": {
+      "sales": 1,
+      "implementation": 0,
+      "operations": 0,
+      "finance": 0,
+      "admin": 1
+    },
+    "liveMatchEvidence": {
+      "verifiedAt": "2026-07-19T02:25:55.737Z",
+      "projectRef": "agygfhmkazcbqaqwmljb",
+      "requestedPeople": 2,
+      "uniqueActiveMatches": 2,
+      "requiredRoleCodesAvailable": true,
+      "readOnly": true,
+      "writePerformed": false
+    },
+    "isolatedApplicationEvidence": {
+      "projectRef": "zdmuaqokndhhbarudhtw",
+      "assignmentsWritten": 2,
+      "restoreStatus": "succeeded",
+      "restoreEvidenceSha256": "04a6c5d6ac9510747abf5efee27dfe0ecb2a8550191b8ce047b9a1a8d5b458a8",
+      "finishedAt": "2026-07-19T07:59:27.295Z"
+    },
+    "productionAssignmentsWritten": 0
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "phase": "G3",
+  "acceptedProgressBefore": 40,
+  "checkpoints": [
+    {
+      "progress": 45,
+      "status": "pending",
+      "required": [
+        "settlement-customer-brand-store-hierarchy",
+        "crm-lifecycle-state-machine",
+        "legacy-source-id-mapping-and-reconciliation"
+      ]
+    },
+    {
+      "progress": 50,
+      "status": "pending",
+      "required": [
+        "sales-workspace",
+        "customer-360",
+        "fast-progression-with-recorded-reason",
+        "server-filter-search-and-clear",
+        "cross-region-assignment-and-denial"
+      ]
+    }
+  ],
+  "contracts": {
+    "hierarchy": ["settlement_customer", "brand", "store"],
+    "crmLifecycle": ["lead", "customer", "opportunity", "quote", "order"],
+    "migrationMapping": "immutable-source-id-to-target-id-with-disposition-and-reconciliation",
+    "fastProgressionCannotSkip": ["customer-identity", "quote-snapshot", "payment", "inventory", "fulfillment"],
+    "crossRegion": "create-to-region-pool-or-authorized-sales-never-silent-self-ownership",
+    "leadOwnership": {
+      "states": ["owned", "regional_pool"],
+      "cleanupAfterUnclaimedDays": 20,
+      "claimAndCleanupUseSameRowLock": true,
+      "claimWinsConcurrentCleanup": true,
+      "claimClearsCleanupAt": true,
+      "protectedBusinessRecordsPreventPhysicalDelete": true
+    },
+    "opportunityRelations": ["settlement_customer", "store"],
+    "stableTestIds": [
+      "sales-lead-pool",
+      "sales-lead-owned",
+      "sales-opportunity-list",
+      "customer-360"
+    ],
+    "leadCleanupAudit": {
+      "retains": ["random_id", "region", "deleted_at", "reason", "job_version"],
+      "forbids": ["phone", "follow_up_body", "customer_content"],
+      "timezone": "Asia/Shanghai",
+      "idempotent": true
+    },
+    "customer360DataSource": "existing-supabase-customers-brands-stores-only",
+    "rlsRequired": true,
+    "clientDirectWritesAllowed": false,
+    "fixturesMocksOrDemoDataAllowed": false
+  },
+  "runtimeEvidence": "pending",
+  "migrationEvidence": "pending",
+  "g3Accepted": false
+}

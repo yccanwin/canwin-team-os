@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "manifestType": "canwin-team-os-4-greenfield-root-contract",
+  "contractStatus": "greenfield_roots_required_runtime_not_accepted",
+  "scope": "Statically require the four isolated Team OS 4.0 roots, reject dependencies on the legacy root src and supabase/migrations trees, and require a comment-only blank seed. This contract performs no database or network operation.",
+  "sources": [
+    "docs/CanWin-Team-OS-4.0-最终施工总方案.md",
+    "docs/team-os-4.0/p0/10-empty-baseline-and-bootstrap-contract.md"
+  ],
+  "roots": [
+    {
+      "id": "application",
+      "path": "apps/team-os-4"
+    },
+    {
+      "id": "domain",
+      "path": "packages/team-os-4-domain"
+    },
+    {
+      "id": "database",
+      "path": "platform/team-os-4/supabase"
+    },
+    {
+      "id": "migration_tool",
+      "path": "tools/migrate-3-to-4"
+    }
+  ],
+  "legacyReadOnlyRoots": [
+    {
+      "id": "legacy_application",
+      "path": "src",
+      "dependencyAllowed": false
+    },
+    {
+      "id": "legacy_migrations",
+      "path": "supabase/migrations",
+      "dependencyAllowed": false
+    }
+  ],
+  "scan": {
+    "extensions": [
+      ".bat",
+      ".cjs",
+      ".cmd",
+      ".css",
+      ".html",
+      ".js",
+      ".json",
+      ".jsx",
+      ".mjs",
+      ".ps1",
+      ".sh",
+      ".sql",
+      ".toml",
+      ".ts",
+      ".tsx",
+      ".yaml",
+      ".yml"
+    ],
+    "fileNames": [
+      ".env.example",
+      "Dockerfile"
+    ],
+    "ignoredDirectories": [
+      ".git",
+      "coverage",
+      "dist",
+      "node_modules"
+    ],
+    "maxScannedFileBytes": 1048576,
+    "symbolicLinksAllowed": false
+  },
+  "blankSeed": {
+    "path": "platform/team-os-4/supabase/seed.sql",
+    "mustBeCommentOnly": true,
+    "businessRowsAllowed": 0,
+    "demoDataInstalledByDefault": false,
+    "forbiddenMarkers": [
+      "CANWIN_TEAM",
+      "翻身小队",
+      "admin@yccanwin.com",
+      "agygfhmkazcbqaqwmljb",
+      "zdmuaqokndhhbarudhtw"
+    ]
+  },
+  "acceptanceBoundary": {
+    "historicalG0OverallClaim": true,
+    "historicalAcceptedProgressPercent": 25,
+    "greenfieldG0OverallClaim": false,
+    "greenfieldG1OverallClaim": false,
+    "runtimeAccepted": false,
+    "productionWritePerformed": false,
+    "networkCallsPerformed": false,
+    "staticOnly": true,
+    "totalStaticRunnerUpdated": true
+  }
+}
