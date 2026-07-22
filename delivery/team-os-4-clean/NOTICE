@@ -1,0 +1,6 @@
+CanWin Team OS 4.0
+Copyright (c) 2026 CanWin.
+
+This clean installation package is for Team OS 4.0 only. It must not include Team OS 3.0 source assets, migrations, business records, authentication users, uploaded files, or access credentials.
+
+Third-party components remain subject to their respective licenses and notices. A generated dependency license inventory must accompany each signed release package.
