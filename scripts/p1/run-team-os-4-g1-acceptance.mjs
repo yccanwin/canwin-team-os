@@ -87,13 +87,19 @@ export async function runAcceptance(accounts) {
       const page = await context.newPage()
       await stage(`page-login:${role}`, async () => {
         await page.goto(`${previewUrl}/#/`, { waitUntil: 'domcontentloaded' })
+        await page.getByTestId('login-gate').waitFor({ state: 'visible' })
         await page.getByTestId('login-email').fill(account.email)
         await page.getByTestId('login-password').fill(account.password)
         await page.getByTestId('login-submit').click()
+        const outcome = await Promise.race([
+          page.getByTestId('authenticated-app').waitFor({ state: 'visible' }).then(() => 'authenticated'),
+          page.getByTestId('login-error').waitFor({ state: 'visible' }).then(() => 'login-error'),
+        ])
+        if (outcome !== 'authenticated') throw new Error('login rejected')
       })
       await stage(`auto-route:${role}`, async () => {
-        await page.waitForURL((url) => url.hash === `#/workspace/${role}`)
         await page.getByTestId(`workspace-${role}`).waitFor()
+        if (new URL(page.url()).hash !== `#/workspace/${role}`) throw new Error('role hash mismatch')
       })
       const wrongRole = role === 'sales' ? 'finance' : 'sales'
       await stage(`cross-url:${role}`, async () => {

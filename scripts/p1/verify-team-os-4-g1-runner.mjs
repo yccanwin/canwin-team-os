@@ -28,7 +28,12 @@ for (const role of expectedRoles) assert.equal(contract.workspaceRoutes[role], `
 for (const label of ['anon-rpc', 'sign-in:', 'cross-read:', 'cross-write:', 'role-rpc:', 'browser-launch', 'page-login:', 'auto-route:', 'cross-url:']) {
   assert.ok(runnerSource.includes(label), `safe stage label missing: ${label}`)
 }
-assert.ok(runnerSource.includes("url.hash === `#/workspace/${role}`"), 'HashRouter auto-route check must compare URL hash')
+assert.ok(runnerSource.includes("getByTestId('login-gate').waitFor({ state: 'visible' })"))
+assert.ok(runnerSource.includes("getByTestId('authenticated-app').waitFor({ state: 'visible' })"))
+assert.ok(runnerSource.includes("getByTestId('login-error').waitFor({ state: 'visible' })"))
+assert.ok(runnerSource.includes("if (outcome !== 'authenticated') throw new Error('login rejected')"))
+assert.ok(runnerSource.indexOf('getByTestId(`workspace-${role}`).waitFor()') < runnerSource.indexOf("new URL(page.url()).hash !== `#/workspace/${role}`"))
+assert.ok(!runnerSource.includes("getByTestId('login-error').textContent"), 'runner must not read login error text')
 assert.ok(runnerSource.includes('chromium.executablePath()') && runnerSource.includes('existsSync(bundled)'))
 for (const path of [
   'C:\\\\Program Files\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe',
