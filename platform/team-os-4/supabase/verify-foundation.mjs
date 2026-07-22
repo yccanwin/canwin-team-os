@@ -19,9 +19,9 @@ const expectedPrivateFunctions = [
   'prevent_initialization_audit_mutation',
 ]
 const expectedMigrations = [
-  '20260722032824_initial_team_os_4_foundation.sql',
-  '20260722034113_add_foundation_foreign_key_indexes.sql',
-  '20260722050000_add_controlled_bootstrap_and_permanent_seal.sql',
+  '20260722034027_initial_team_os_4_foundation.sql',
+  '20260722035617_add_foundation_foreign_key_indexes.sql',
+  '20260722042037_add_controlled_bootstrap_and_permanent_seal.sql',
 ]
 const expectedForeignKeyIndexes = [
   ['profiles_primary_role_company_fk_idx', 'profiles', 'primary_role_id,company_id'],

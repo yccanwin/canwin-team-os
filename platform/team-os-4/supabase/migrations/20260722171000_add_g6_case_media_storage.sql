@@ -134,6 +134,3 @@ using (
 
 comment on function private.validate_case_media_storage_object() is
   'Binds case media metadata to one fixed company/case/slot object and verifies MIME and slot-specific byte limits.';
-
-comment on policy team_os_4_public_case_media_read on storage.objects is
-  'Only trusted-server copies in the separate public case directory are anonymously readable while their case remains published and authorized.';
