@@ -17,18 +17,40 @@ const ROLE_NAVIGATION_PATHS = Object.freeze({
   admin: ['/leads', '/customers', '/catalog', '/orders', '/warehouse', '/finance', '/cases'],
 })
 const ROLE_PAGE = Object.freeze({
-  sales: { path: '/leads', surface: 'sales-pipeline-page', error: 'sales-pipeline-error' },
-  implementation: { path: '/fulfillment', surface: 'implementation-service-page', error: 'fulfillment-error' },
-  operations: { path: '/fulfillment', surface: 'operations-service-page', error: 'fulfillment-error' },
-  finance: { path: '/finance', surface: ['finance-page', 'finance-empty'], error: 'finance-error' },
-  admin: { path: '/cases', surface: 'cases-page', error: 'cases-error' },
+  sales: {
+    path: '/leads', surface: 'sales-pipeline-page', error: 'sales-pipeline-error',
+    realDataTestId: 'opportunity-row', expectedRestSurfaces: ['leads', 'opportunities'],
+  },
+  implementation: {
+    path: '/fulfillment', surface: 'implementation-service-page', error: 'fulfillment-error',
+    realDataTestId: 'service-assignment-installation',
+    expectedRestSurfaces: ['fulfillment_units', 'service_assignments', 'stock_items'],
+  },
+  operations: {
+    path: '/fulfillment', surface: 'operations-service-page', error: 'fulfillment-error',
+    realDataTestId: 'service-assignment-operations_handoff',
+    expectedRestSurfaces: ['fulfillment_units', 'service_assignments', 'stock_items'],
+  },
+  finance: {
+    path: '/finance', surface: ['finance-page', 'finance-empty'], error: 'finance-error',
+    realDataTestId: 'finance-payment-count',
+    expectedRestSurfaces: ['internal_payment_events', 'payment_events', 'profit_ledger_entries', 'refund_events'],
+  },
+  admin: {
+    path: '/cases', surface: 'cases-page', error: 'cases-error',
+    realDataTestId: 'case-admin-row',
+    expectedRestSurfaces: ['case_candidates', 'case_media', 'cases', 'published_cases_public'],
+  },
 })
 const MANAGEMENT_PAGE = Object.freeze({
   sales: { path: '/warehouse', surface: 'warehouse-denied', boundary: 'denied' },
   implementation: { path: '/finance', surface: 'finance-denied', boundary: 'denied' },
   operations: { path: '/finance', surface: 'finance-denied', boundary: 'denied' },
   finance: { path: '/warehouse', surface: 'warehouse-denied', boundary: 'denied' },
-  admin: { path: '/warehouse', surface: 'warehouse-page', boundary: 'authorized' },
+  admin: {
+    path: '/warehouse', surface: 'warehouse-page', boundary: 'authorized',
+    realDataTestId: 'warehouse-row',
+  },
 })
 const ROLE_BUSINESS_READ = Object.freeze({
   sales: { table: 'opportunities', ownerColumn: 'owner_id' },
@@ -65,10 +87,19 @@ const sorted = (values) => [...values].sort((left, right) => left.localeCompare(
 const pageSurface = (path) => `page:#${path}`
 const restSurface = (tables) => `rest:${sorted(tables).join('/')}`
 const traceDigest = (value) => `trace:${digest(value)}`
-const visibleState = async (page, rootTestId) => {
+const visibleState = async (page, rootTestId, realDataTestId) => {
   const root = page.getByTestId(rootTestId)
   await root.waitFor({ state: 'visible' })
-  return (await root.locator('.ui-empty').count()) > 0 || rootTestId.endsWith('-empty') ? 'explicit-empty' : 'real-data'
+  if (realDataTestId) {
+    const realData = page.getByTestId(realDataTestId)
+    if (await realData.count() > 0) {
+      const count = await realData.first().getAttribute('data-count')
+      if (count === null || Number(count) >= 1) return 'real-data'
+    }
+  }
+  return (await root.locator('.ui-empty').count()) > 0 || rootTestId.endsWith('-empty')
+    ? 'explicit-empty'
+    : 'visible-without-required-data'
 }
 const workspaceState = async (page) => {
   const result = await Promise.race([
@@ -85,15 +116,23 @@ const sidebarPaths = async (page) => page.locator('aside nav.desktop-nav a').eva
 }))
 const captureRemoteRest = (page, supabaseUrl) => {
   const calls = []
+  const startedRequests = new WeakSet()
   const origin = new URL(supabaseUrl).origin
+  const requestListener = (request) => {
+    const url = new URL(request.url())
+    if (url.origin === origin && url.pathname.startsWith('/rest/v1/')) startedRequests.add(request)
+  }
   const listener = (response) => {
+    if (!startedRequests.has(response.request())) return
     const url = new URL(response.url())
     if (url.origin !== origin || !url.pathname.startsWith('/rest/v1/')) return
     calls.push({ surface: url.pathname.slice('/rest/v1/'.length), status: response.status() })
   }
+  page.on('request', requestListener)
   page.on('response', listener)
   return {
     finish() {
+      page.off('request', requestListener)
       page.off('response', listener)
       const unique = [...new Map(calls.map((call) => [`${call.surface}:${call.status}`, call])).values()]
       if (!unique.length || unique.some((call) => call.status < 200 || call.status >= 300)) {
@@ -416,7 +455,7 @@ export async function runAcceptance(accounts, context) {
       role, identityKind: 'enabled-account', evidenceStage: 'cross-identity-write-denied',
       surface: restSurface(['profiles']),
     }, async () => {
-      const result = await client.from('profiles').update({ display_name: 'forbidden-cross-write' })
+      const result = await client.from('profiles').update({ display_name: `G1 ACCEPTANCE ${roleFor(other.key)}` })
         .eq('id', other.id).select('id')
       if (!result.error && (result.data?.length ?? 0) !== 0) throw new Error('cross write visible')
       if (result.error) expectDenied(result, 'cross identity write')
@@ -539,8 +578,13 @@ export async function runAcceptance(accounts, context) {
           page.getByTestId(business.error).waitFor({ state: 'visible' }).then(() => ({ kind: 'error', testId: business.error })),
         ])
         if (outcome.kind !== 'surface') throw new Error('role business page returned an error state')
-        const businessState = await visibleState(page, outcome.testId)
+        const businessState = await visibleState(page, outcome.testId, business.realDataTestId)
+        if (businessState !== 'real-data') throw new Error('role business page did not render its required real fixture')
         const remoteCalls = remote.finish()
+        const actualRestSurfaces = sorted(remoteCalls.map((call) => call.split(':').at(0)))
+        if (JSON.stringify(actualRestSurfaces) !== JSON.stringify(sorted(business.expectedRestSurfaces))) {
+          throw new Error('role business page remote REST surface set drifted')
+        }
         appendPageEvidence({
           role,
           stage: 'role-business-page-real-remote-request',
@@ -575,7 +619,10 @@ export async function runAcceptance(accounts, context) {
         await page.getByTestId(management.surface).waitFor({ state: 'visible' })
         const state = management.boundary === 'denied'
           ? 'access-denied'
-          : await visibleState(page, management.surface)
+          : await visibleState(page, management.surface, management.realDataTestId)
+        if (management.boundary === 'authorized' && state !== 'real-data') {
+          throw new Error('authorized management page did not render its required real fixture')
+        }
         appendPageEvidence({
           role,
           stage: 'management-page-matches-role-policy',

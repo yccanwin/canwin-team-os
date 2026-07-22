@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "phase": "G1",
   "realEnabledAccounts": 5,
   "realEnabledAccountRoles": ["sales", "implementation", "operations", "finance", "admin"],
@@ -70,7 +70,9 @@
     "credentialsOrTokensAllowed": false,
     "realNetworkRequired": true,
     "realPageRequired": true,
-    "simulatedOrFixtureEvidenceAllowed": false,
+    "simulatedEvidenceAllowed": false,
+    "fixtureRowsMaySupportRealRemoteChecks": true,
+    "fixtureProvisioningCountsAsRuntimeEvidence": false,
     "firstFailureStopsRun": true,
     "failedRunEvidencePreserved": true,
     "targetMustBeIndependentTeamOs4Project": true
@@ -80,6 +82,28 @@
     "enabledAccountBoundary": 40,
     "anonymousNegative": 7,
     "exactTotal": 82
+  },
+  "lifecycle": {
+    "successOrder": [
+      "preflight",
+      "create-five-acceptance-identities",
+      "prepare-acceptance-only-fixtures",
+      "run-real-page-and-api-acceptance",
+      "seal-82-runtime-records",
+      "persist-evidence-and-retain-baseline"
+    ],
+    "failureOrder": [
+      "preserve-runner-evidence-if-started",
+      "attempt-database-cleanup-once-if-fixture-may-exist",
+      "remove-or-disable-acceptance-profiles",
+      "delete-or-ban-acceptance-auth-identities"
+    ],
+    "runnerNotStartedEvidenceStatus": "not-started",
+    "retentionFailureEvidenceStatus": "sealed-passed-retention-indeterminate",
+    "databaseCleanupStates": ["not-required", "confirmed-cleaned", "confirmed-not-prepared", "indeterminate"],
+    "fixturePreparationStates": ["not-started", "indeterminate", "confirmed-prepared", "confirmed-retained"],
+    "retainedAccountsArePermanentAcceptanceBaseline": true,
+    "acceptanceAccountsMustRemainSeparatedFromOperatingData": true
   },
   "accountProvisioningEvidence": "pending",
   "pageEvidence": "pending",

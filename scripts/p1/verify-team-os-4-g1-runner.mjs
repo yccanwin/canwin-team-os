@@ -13,9 +13,12 @@ const read = (path) => readFileSync(resolve(repoRoot, path), 'utf8')
 const contract = JSON.parse(read('scripts/p1/team-os-4-g1-acceptance-contract.json'))
 const runnerSource = read(contract.authoritativeRunner)
 const orchestratorSource = read('platform/team-os-4/tools/acceptance-accounts/src/orchestrator.mjs')
+const adapterSource = read('platform/team-os-4/tools/acceptance-accounts/src/supabase-adapter.mjs')
+const cliSource = read('platform/team-os-4/tools/acceptance-accounts/src/cli.mjs')
+const migrationSource = read('platform/team-os-4/supabase/migrations/20260722175000_add_g1_acceptance_fixture.sql')
 
 const roles = ['sales', 'implementation', 'operations', 'finance', 'admin']
-assert.equal(contract.schemaVersion, 2)
+assert.equal(contract.schemaVersion, 3)
 assert.equal(contract.phase, 'G1')
 assert.equal(contract.realEnabledAccounts, 5)
 assert.deepEqual(contract.realEnabledAccountRoles, roles)
@@ -72,7 +75,9 @@ assert.deepEqual(contract.evidenceRules, {
   credentialsOrTokensAllowed: false,
   realNetworkRequired: true,
   realPageRequired: true,
-  simulatedOrFixtureEvidenceAllowed: false,
+  simulatedEvidenceAllowed: false,
+  fixtureRowsMaySupportRealRemoteChecks: true,
+  fixtureProvisioningCountsAsRuntimeEvidence: false,
   firstFailureStopsRun: true,
   failedRunEvidencePreserved: true,
   targetMustBeIndependentTeamOs4Project: true,
@@ -83,6 +88,56 @@ assert.deepEqual(contract.expectedRuntimeEvidenceCount, {
   anonymousNegative: 7,
   exactTotal: 82,
 })
+assert.deepEqual(contract.lifecycle, {
+  successOrder: [
+    'preflight', 'create-five-acceptance-identities', 'prepare-acceptance-only-fixtures',
+    'run-real-page-and-api-acceptance', 'seal-82-runtime-records',
+    'persist-evidence-and-retain-baseline',
+  ],
+  failureOrder: [
+    'preserve-runner-evidence-if-started',
+    'attempt-database-cleanup-once-if-fixture-may-exist',
+    'remove-or-disable-acceptance-profiles',
+    'delete-or-ban-acceptance-auth-identities',
+  ],
+  runnerNotStartedEvidenceStatus: 'not-started',
+  retentionFailureEvidenceStatus: 'sealed-passed-retention-indeterminate',
+  databaseCleanupStates: ['not-required', 'confirmed-cleaned', 'confirmed-not-prepared', 'indeterminate'],
+  fixturePreparationStates: ['not-started', 'indeterminate', 'confirmed-prepared', 'confirmed-retained'],
+  retainedAccountsArePermanentAcceptanceBaseline: true,
+  acceptanceAccountsMustRemainSeparatedFromOperatingData: true,
+})
+for (const marker of [
+  "fixturePreparationState = 'indeterminate'",
+  "runtimeEvidenceStatus = 'not-started'",
+  "databaseCleanupStatus = fixturePreparationState === 'not-started'",
+  'await adapter.cleanupRunDatabase({ runId })',
+  'await adapter.deleteAcceptanceProfile(item.id)',
+  'await adapter.deleteAuthUser(item.id)',
+  'await adapter.quarantineAccounts({ runId, accounts: remainingAccounts })',
+]) assert.ok(orchestratorSource.includes(marker), `lifecycle marker missing: ${marker}`)
+for (const marker of [
+  'G1 ACCEPTANCE ${primaryRole}',
+  "system: 'team-os-4-acceptance'",
+  "acceptance_state: 'retained'",
+  "metadata?.run_id !== runId",
+]) assert.ok(adapterSource.includes(marker), `acceptance identity marker missing: ${marker}`)
+for (const marker of [
+  "evidenceSealed: false",
+  "runtimeEvidenceStatus: 'not-started'",
+  "databaseCleanupStatus: 'not-required'",
+  "fixturePreparationState: 'not-started'",
+  'runtimeEvidence: null',
+]) assert.ok(cliSource.includes(marker), `pre-provisioning fallback marker missing: ${marker}`)
+for (const marker of [
+  "data_class text not null default 'acceptance-only'",
+  "p_target_project_ref <> 'jgcrhoabvaowxnqksvkq'",
+  'and migration_mode and not business_writes_enabled',
+  'runtime_evidence jsonb',
+  "is distinct from 'passed'",
+  "is distinct from 'number'",
+  'is distinct from 82',
+]) assert.ok(migrationSource.includes(marker), `acceptance baseline marker missing: ${marker}`)
 
 // The authoritative construction path must remain exactly five enabled role
 // accounts. Anonymous is an attack client and is never provisioned as a user.

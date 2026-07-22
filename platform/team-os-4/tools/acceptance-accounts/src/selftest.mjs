@@ -10,7 +10,7 @@ import {
   createAcceptanceEvidenceRecord,
 } from './evidence.mjs'
 
-const PROJECT_REF = 'abcdefghijklmnopqrst'
+const PROJECT_REF = 'jgcrhoabvaowxnqksvkq'
 const CODE_COMMIT = 'a'.repeat(40)
 const passedSteps = Object.freeze({
   signIn: 'passed', profileContext: 'passed', ownScopeApi: 'passed', roleBusinessRead: 'passed',
@@ -55,6 +55,7 @@ assert.deepEqual(
 
 let calls = []
 const adapter = {
+  preflightAcceptance: async () => { calls.push('preflight'); return { status: 'ready' } },
   createAuthUser: async ({ email, password }) => {
     assert.ok(password.length >= 32)
     calls.push(`auth:${email}`)
@@ -64,7 +65,29 @@ const adapter = {
     calls.push(`profile:${userId}:${primaryRole}:${capability}`)
     return { status: 'active' }
   },
-  deleteProfile: async (id) => calls.push(`delete-profile:${id}`),
+  createRunFixtures: async () => {
+    calls.push('fixtures')
+    return {
+      status: 'prepared', baseline_version: 1, enabled_accounts: 5,
+      run_work_items: 5, run_business_rows: 4, persistent_baseline_ready: true,
+    }
+  },
+  retainRun: async () => { calls.push('retain'); return { status: 'retained' } },
+  cleanupRunDatabase: async () => { calls.push('cleanup-db'); return { status: 'confirmed-cleaned' } },
+  deleteAcceptanceProfile: async ({ id, runId, identityKey }) => {
+    assert.ok(runId)
+    assert.ok(identityKey)
+    calls.push(`delete-profile:${id}`)
+    return { status: 'deleted' }
+  },
+  quarantineAccounts: async ({ accounts }) => {
+    calls.push('quarantine')
+    return {
+      status: 'quarantined',
+      profileDisabledIds: accounts.map((account) => account.id),
+      authBannedIds: accounts.map((account) => account.id),
+    }
+  },
   deleteAuthUser: async (id) => calls.push(`delete-auth:${id}`),
 }
 
@@ -82,6 +105,8 @@ const success = await provisionAcceptanceAccounts({
 })
 assert.equal(success.status, 'sealed-not-deleted')
 assert.equal(success.evidenceSealed, true)
+assert.equal(success.provisioningEvidence.status, 'retained')
+assert.equal(success.provisioningEvidence.fixturesCountAsRuntimeEvidence, false)
 assert.equal(success.accounts.length, 5)
 assert.ok(success.accounts.every((item) => item.projectRef === PROJECT_REF && item.codeCommit === CODE_COMMIT && item.profileStatus === 'active'))
 assert.ok(success.accounts.every((item) => /^[a-f0-9]{64}$/.test(item.userIdSha256)))
@@ -106,13 +131,13 @@ await assert.rejects(
     runAcceptance: async () => assert.fail('must not run'),
   }),
   (error) => error.evidence?.status === 'failed-cleaned' && error.evidence.cleanedAccounts === 3
-    && error.evidence.evidenceSealed === true && error.evidence.evidenceRecordsRejected === false,
+    && error.evidence.evidenceSealed === false && error.evidence.runtimeEvidenceStatus === 'not-started'
+    && error.evidence.evidenceRecordsRejected === false,
 )
 assert.deepEqual(calls, [
-  'profile:new-1', 'profile:new-2', 'profile:new-3',
-  'delete-auth:new-3',
-  'delete-profile:new-2', 'delete-auth:new-2',
-  'delete-profile:new-1', 'delete-auth:new-1',
+  'preflight', 'profile:new-1', 'profile:new-2', 'profile:new-3',
+  'delete-profile:new-3', 'delete-profile:new-2', 'delete-profile:new-1',
+  'delete-auth:new-3', 'delete-auth:new-2', 'delete-auth:new-1',
 ])
 assert.ok(!calls.some((item) => item.includes('existing-admin')))
 
@@ -124,7 +149,6 @@ await assert.rejects(
       ...adapter,
       createAuthUser: async () => ({ id: `stage-${++authCount}` }),
       createProfile: async ({ userId }) => { calls.push(`profile:${userId}`); return { status: 'active' } },
-      deleteProfile: async (id) => calls.push(`delete-profile:${id}`),
       deleteAuthUser: async (id) => calls.push(`delete-auth:${id}`),
     },
     emailFor: (key) => `${key}@example.invalid`,
@@ -145,7 +169,6 @@ await assert.rejects(
       ...adapter,
       createAuthUser: async () => ({ id: `batch-${++authCount}` }),
       createProfile: async ({ userId }) => { calls.push(`profile:${userId}`); return { status: 'active' } },
-      deleteProfile: async (id) => calls.push(`delete-profile:${id}`),
       deleteAuthUser: async (id) => calls.push(`delete-auth:${id}`),
     },
     emailFor: (key) => `${key}@example.invalid`,
@@ -156,23 +179,122 @@ await assert.rejects(
   (error) => !error.message.includes('must-not-log-secret') && error.evidence?.safeStage === 'G1_STAGE_FAIL concealed'
     && error.evidence.evidenceSealed === false && error.evidence.evidenceRecordsRejected === true,
 )
-assert.deepEqual(calls.slice(-10), [
-  'delete-profile:batch-5', 'delete-auth:batch-5',
-  'delete-profile:batch-4', 'delete-auth:batch-4',
-  'delete-profile:batch-3', 'delete-auth:batch-3',
-  'delete-profile:batch-2', 'delete-auth:batch-2',
-  'delete-profile:batch-1', 'delete-auth:batch-1',
+assert.deepEqual(calls.filter((item) => item.startsWith('delete-auth:')), [
+  'delete-auth:batch-5', 'delete-auth:batch-4', 'delete-auth:batch-3',
+  'delete-auth:batch-2', 'delete-auth:batch-1',
 ])
 assert.ok(!calls.some((item) => item.includes('existing-admin')))
+
+calls = []
+await assert.rejects(
+  provisionAcceptanceAccounts({
+    adapter: { ...adapter, preflightAcceptance: async () => { throw new Error('residual acceptance run') } },
+    emailFor: (key) => `${key}@example.invalid`, projectRef: PROJECT_REF, codeCommit: CODE_COMMIT,
+    runAcceptance: async () => assert.fail('must not run'),
+  }),
+  (error) => error.evidence?.createdAccounts === 0
+    && error.evidence.databaseCleanupStatus === 'not-required'
+    && error.evidence.runtimeEvidenceStatus === 'not-started',
+)
+
+calls = []
+authCount = 0
+await assert.rejects(
+  provisionAcceptanceAccounts({
+    adapter: {
+      ...adapter,
+      createAuthUser: async () => ({ id: `fixture-${++authCount}` }),
+      createProfile: async () => ({ status: 'active' }),
+      createRunFixtures: async () => { throw new Error('fixture response lost') },
+      cleanupRunDatabase: async () => ({ status: 'not-found' }),
+    },
+    emailFor: (key) => `${key}@example.invalid`, projectRef: PROJECT_REF, codeCommit: CODE_COMMIT,
+    runAcceptance: async () => assert.fail('must not run'),
+  }),
+  (error) => error.evidence?.fixturePreparationState === 'indeterminate'
+    && error.evidence.databaseCleanupStatus === 'confirmed-not-prepared'
+    && error.evidence.runtimeEvidenceStatus === 'not-started',
+)
+
+calls = []
+authCount = 0
+await assert.rejects(
+  provisionAcceptanceAccounts({
+    adapter: {
+      ...adapter,
+      createAuthUser: async () => ({ id: `quarantine-${++authCount}` }),
+      createProfile: async () => ({ status: 'active' }),
+      cleanupRunDatabase: async () => { throw new Error('cleanup failed') },
+      quarantineAccounts: async ({ accounts }) => ({
+        status: 'quarantine-incomplete',
+        profileDisabledIds: accounts.slice(0, 3).map((item) => item.id),
+        authBannedIds: accounts.slice(0, 2).map((item) => item.id),
+      }),
+    },
+    emailFor: (key) => `${key}@example.invalid`, projectRef: PROJECT_REF, codeCommit: CODE_COMMIT,
+    runAcceptance: async () => { throw new Error('G1_STAGE_FAIL auto-route:sales') },
+  }),
+  (error) => error.evidence?.status === 'failed-cleanup-incomplete'
+    && error.evidence.databaseCleanupStatus === 'indeterminate'
+    && error.evidence.authBannedAccounts === 2
+    && error.evidence.remainingUserIdHashes.length === 5,
+)
+
+calls = []
+authCount = 0
+await assert.rejects(
+  provisionAcceptanceAccounts({
+    adapter: {
+      ...adapter,
+      createAuthUser: async () => ({ id: `partial-delete-${++authCount}` }),
+      createProfile: async () => ({ status: 'active' }),
+      deleteAuthUser: async (id) => {
+        if (id === 'partial-delete-3') throw new Error('one auth delete failed')
+      },
+    },
+    emailFor: (key) => `${key}@example.invalid`, projectRef: PROJECT_REF, codeCommit: CODE_COMMIT,
+    runAcceptance: async () => { throw new Error('G1_STAGE_FAIL auto-route:sales') },
+  }),
+  (error) => error.evidence?.status === 'failed-quarantined'
+    && error.evidence.cleanedAccounts === 4
+    && error.evidence.authBannedAccounts === 1
+    && error.evidence.remainingUserIdHashes.length === 1,
+)
+
+calls = []
+authCount = 0
+await assert.rejects(
+  provisionAcceptanceAccounts({
+    adapter: {
+      ...adapter,
+      createAuthUser: async () => ({ id: `retain-${++authCount}` }),
+      createProfile: async () => ({ status: 'active' }),
+      retainRun: async () => { throw new Error('retention response lost') },
+    },
+    emailFor: (key) => `${key}@example.invalid`, projectRef: PROJECT_REF, codeCommit: CODE_COMMIT,
+    runAcceptance: acceptanceResult,
+  }),
+  (error) => error.evidence?.evidenceRecordsRejected === false
+    && error.evidence.runtimeEvidenceStatus === 'sealed-passed-retention-indeterminate'
+    && error.evidence.runtimeEvidence?.current_run_counts?.total === 82,
+)
 
 const cliSource = readFileSync(fileURLToPath(new URL('./cli.mjs', import.meta.url)), 'utf8')
 const adapterSource = readFileSync(fileURLToPath(new URL('./supabase-adapter.mjs', import.meta.url)), 'utf8')
 assert.ok(cliSource.indexOf("runner must export runAcceptance") < cliSource.indexOf('createClient('))
 assert.ok(cliSource.includes("url !== `https://${ref}.supabase.co`"))
+assert.ok(cliSource.includes("GREENFIELD_TEST_PROJECT_REF = 'jgcrhoabvaowxnqksvkq'"))
+assert.ok(cliSource.includes("evidenceSealed: false"))
+assert.ok(cliSource.includes("runtimeEvidenceStatus: 'not-started'"))
+assert.ok(cliSource.includes("databaseCleanupStatus: 'not-required'"))
+assert.ok(cliSource.includes("fixturePreparationState: 'not-started'"))
+assert.ok(cliSource.includes('runtimeEvidence: null'))
 assert.ok(cliSource.includes('delete process.env[secretName]'))
 assert.ok(!cliSource.includes('writeFile'))
-assert.ok(adapterSource.includes("await client.from('profiles').delete().eq('id', userId)"))
+assert.ok(adapterSource.includes("client.rpc('create_g1_acceptance_run_v1'"))
+assert.ok(adapterSource.includes("client.rpc('cleanup_g1_acceptance_run_v1'"))
+assert.ok(adapterSource.includes("acceptance_state: 'quarantined'"))
 
 assert.equal(typeof createSupabaseAcceptanceAdapter, 'function')
 
-process.stdout.write('TEAM_OS_4_ACCEPTANCE_ACCOUNTS_SELFTEST_OK enabledIdentities=5 anon=attack-only new=5 existingAdminDeleted=0 cleanup=reverse-5 overlayResidual=0 refUrlBound=1 runnerRequired=1 safeStageVisible=1 unsafeDetailHidden=1 secretsLogged=0 secretsWritten=0 success=sealed-not-deleted adapter=present\n')
+process.stdout.write('TEAM_OS_4_ACCEPTANCE_ACCOUNTS_SELFTEST_OK enabledIdentities=5 anon=attack-only new=5 fixture=real-remote cleanup=database-first retention=sealed-not-deleted quarantine=present existingAdminDeleted=0 secretsLogged=0 secretsWritten=0 adapter=present\n')

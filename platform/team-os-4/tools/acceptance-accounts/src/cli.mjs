@@ -8,7 +8,8 @@ const dryRun = process.argv.includes('--dry-run')
 const required = (name) => process.env[name] || (() => { throw new Error(`${name} is required`) })()
 const ref = required('TEAM_OS_4_TARGET_PROJECT_REF')
 const url = required('TEAM_OS_4_SUPABASE_URL')
-if (!/^[a-z0-9]{20}$/.test(ref) || url !== `https://${ref}.supabase.co`) {
+const GREENFIELD_TEST_PROJECT_REF = 'jgcrhoabvaowxnqksvkq'
+if (ref !== GREENFIELD_TEST_PROJECT_REF || url !== `https://${ref}.supabase.co`) {
   throw new Error('target ref and Supabase URL mismatch')
 }
 
@@ -41,7 +42,9 @@ try {
   const evidence = error instanceof AcceptanceProvisioningError
     ? error.evidence
     : {
-        schemaVersion: 1, status: 'failed-before-provisioning', evidenceSealed: true,
+        schemaVersion: 1, status: 'failed-before-provisioning', evidenceSealed: false,
+        runtimeEvidenceStatus: 'not-started', databaseCleanupStatus: 'not-required',
+        fixturePreparationState: 'not-started', runtimeEvidence: null,
         safeStage: 'G1_STAGE_FAIL concealed', createdAccounts: 0, cleanedAccounts: 0,
         credentialsExposed: false,
       }
