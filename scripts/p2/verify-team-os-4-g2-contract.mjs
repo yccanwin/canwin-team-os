@@ -25,12 +25,14 @@ const normalizePathTextForMatch = (value) => {
     .replace(/\r\n?/gu, '\n')
     .replace(/^file:\/+?/iu, '')
     .replace(/%5c/giu, '/')
+    .replace(/%3a/giu, ':')
+    .replace(/%5b/giu, '[')
+    .replace(/%5d/giu, ']')
+    .replace(/%5f/giu, '_')
     .replace(/\\+/gu, '/')
     .replace(/\/+/gu, '/')
     .replace(/[\u0000-\u001f\u007f]/gu, ' ')
     .replace(/%20/giu, ' ')
-    .replace(/%3a/giu, ':')
-    .replace(/%3A/giu, ':')
     .replace(/["']/gu, '')
     .replace(/\\(["'])/gu, '$1')
     .replace(/\s+/gu, ' ')
@@ -103,9 +105,18 @@ const stripKnownExecutorPath = (sourceText) => {
     'file:///C:/Program Files/nodejs/node.exe',
   ]
   let text = normalizePathMatchSource(sourceText)
+  for (let i = 0; i < 3; i += 1) {
+    const onceDecoded = safeDecodePath(text).replace(/%5c/giu, '/')
+    if (onceDecoded === text) break
+    text = onceDecoded
+  }
   for (const candidate of executorPathCandidates) {
     text = removePathMarker(text, candidate)
   }
+  for (const candidate of normalizePathMatchCandidates('C:\\Program Files\\nodejs\\node.exe')) {
+    text = removePathMarker(text, candidate)
+  }
+  text = text.replace(/\s+/gu, ' ').trim()
   return text
 }
 
@@ -361,7 +372,10 @@ for (const fragment of [
   adapterWithoutExecutorPath.includes(fragment.toLowerCase().replace(/["']/gu, '')),
   `performance adapter contract missing: ${fragment}`,
 )
-const hasFixedNodeExecutor = containsPathMarker(normalizedPerformanceAdapter, normalizedFixedNode)
+const hasFixedNodeExecutor = (
+  containsPathMarker(performanceAdapter, fixedNodeExecutorPath)
+  && /(spawnSync\s*\(|execSync\s*\().*FIXED_NODE/.test(performanceAdapter)
+)
 const hasFixedNpxWithoutExecutor = containsPathMarker(adapterWithoutExecutorPath, normalizedFixedNpx)
 assert.ok(
   hasFixedNodeExecutor,
