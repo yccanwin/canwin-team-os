@@ -1,10 +1,12 @@
 import { createHash } from 'node:crypto'
-import { access, copyFile, lstat, mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
+import { access, copyFile, lstat, mkdir, readFile, readdir, realpath, writeFile } from 'node:fs/promises'
 import { dirname, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const sourceRoot = resolve(repoRoot, 'tools/migrate-3-to-4')
+const PRODUCT = 'CanWin Team OS 4.0'
+const ARTIFACT_KIND = 'separate-offline-one-shot-migration-tool'
 const SHA256 = /^[a-f0-9]{40}$/
 const VERSION = /^4\.0\.\d+(?:-[0-9A-Za-z.-]+)?$/
 const FORBIDDEN_PATH = /(?:^|\/)(?:\.env(?:\..*)?|node_modules|dist|\.vite|\.temp|exports?|snapshots?|fixtures?|evidence|backups?|cache|data|auth-users|storage-objects)(?:\/|$)/i
@@ -25,7 +27,7 @@ const ALLOWED_SOURCE_MODULES = new Set([
 ])
 
 function usage() {
-  throw new Error('usage: node scripts/p8/assemble-team-os-4-migration-tool-delivery.mjs --template <delivery-template.json> --output <new-directory>')
+  throw new Error('usage: node scripts/p8/assemble-team-os-4-migration-tool-delivery.mjs --metadata <delivery-metadata-directory> --output <new-directory> --commit <40-hex-commit> --built-at <ISO-8601-time>')
 }
 
 function parseArguments(argv) {
@@ -36,8 +38,14 @@ function parseArguments(argv) {
     if (!name?.startsWith('--') || !value) usage()
     values.set(name, value)
   }
-  if (values.size !== 2 || !values.has('--template') || !values.has('--output')) usage()
-  return { templatePath: resolve(values.get('--template')), outputRoot: resolve(values.get('--output')) }
+  const expected = ['--metadata', '--output', '--commit', '--built-at']
+  if (values.size !== expected.length || expected.some((name) => !values.has(name))) usage()
+  return {
+    metadataRoot: resolve(values.get('--metadata')),
+    outputRoot: resolve(values.get('--output')),
+    codeCommit: values.get('--commit'),
+    builtAt: values.get('--built-at'),
+  }
 }
 
 function normalizeRelative(root, absolutePath) {
@@ -64,19 +72,13 @@ async function collectFiles(directory) {
   return collected
 }
 
-function validateTemplate(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('delivery template must be an object')
-  const expected = ['schemaVersion', 'product', 'artifactKind', 'version', 'code_commit', 'built_at', 'license_text', 'notice_text']
-  const actual = Object.keys(value).sort()
-  if (JSON.stringify(actual) !== JSON.stringify([...expected].sort())) throw new Error('delivery template fields are invalid')
-  if (value.schemaVersion !== 1 || value.product !== 'CanWin Team OS 4.0') throw new Error('delivery template identity is invalid')
-  if (value.artifactKind !== 'separate-offline-one-shot-migration-tool') throw new Error('delivery artifact kind is invalid')
-  if (!VERSION.test(value.version) || !SHA256.test(value.code_commit)) throw new Error('delivery version or commit is invalid')
-  if (!Number.isFinite(Date.parse(value.built_at))) throw new Error('delivery build time is invalid')
+function validateMetadata({ version, licenseText, noticeText, codeCommit, builtAt }) {
+  if (!VERSION.test(version) || !SHA256.test(codeCommit)) throw new Error('delivery version or commit is invalid')
+  if (!Number.isFinite(Date.parse(builtAt))) throw new Error('delivery build time is invalid')
   const validLegalText = (text) => typeof text === 'string' && text.trim().length > 0 && text.length <= 1_000_000 && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(text)
-  if (!validLegalText(value.license_text)) throw new Error('license text is invalid')
-  if (!validLegalText(value.notice_text)) throw new Error('notice text is invalid')
-  if (FORBIDDEN_VALUE.test(JSON.stringify(value))) throw new Error('delivery template contains a credential value')
+  if (!validLegalText(licenseText)) throw new Error('license text is invalid')
+  if (!validLegalText(noticeText)) throw new Error('notice text is invalid')
+  if (FORBIDDEN_VALUE.test(JSON.stringify({ version, licenseText, noticeText, codeCommit, builtAt }))) throw new Error('delivery metadata contains a credential value')
 }
 
 function digest(bytes) {
@@ -93,10 +95,22 @@ async function assertNewOutput(outputRoot) {
   if (outputRoot === sourceRoot || outputRoot.startsWith(`${sourceRoot}${sep}`)) throw new Error('output directory must not be inside migration tool source')
 }
 
-const { templatePath, outputRoot } = parseArguments(process.argv.slice(2))
+const { metadataRoot, outputRoot, codeCommit, builtAt } = parseArguments(process.argv.slice(2))
 await assertNewOutput(outputRoot)
-const template = JSON.parse(await readFile(templatePath, 'utf8'))
-validateTemplate(template)
+if ((await lstat(metadataRoot)).isSymbolicLink()) throw new Error('symbolic metadata root is forbidden')
+const resolvedMetadataRoot = await realpath(metadataRoot)
+const metadata = {}
+for (const name of ['VERSION', 'LICENSE', 'NOTICE']) {
+  const path = resolve(resolvedMetadataRoot, name)
+  if (normalizeRelative(resolvedMetadataRoot, path) !== name) throw new Error(`invalid metadata path: ${name}`)
+  const info = await lstat(path)
+  if (info.isSymbolicLink() || !info.isFile()) throw new Error(`delivery metadata must be a regular file: ${name}`)
+  metadata[name] = await readFile(path, 'utf8')
+}
+const version = metadata.VERSION.trim()
+const licenseText = metadata.LICENSE.trimEnd()
+const noticeText = metadata.NOTICE.trimEnd()
+validateMetadata({ version, licenseText, noticeText, codeCommit, builtAt })
 
 const sourceFiles = await collectFiles(sourceRoot)
 const selected = []
@@ -119,11 +133,11 @@ for (const file of selected) {
 
 const deliveryMetadata = {
   schemaVersion: 1,
-  product: template.product,
-  artifactKind: template.artifactKind,
-  version: template.version,
-  code_commit: template.code_commit,
-  built_at: template.built_at,
+  product: PRODUCT,
+  artifactKind: ARTIFACT_KIND,
+  version,
+  code_commit: codeCommit,
+  built_at: builtAt,
   license_file: 'LICENSE',
   notice_file: 'NOTICE',
   source_root: 'tools/migrate-3-to-4',
@@ -131,9 +145,9 @@ const deliveryMetadata = {
   contains_credentials: false,
 }
 const generated = new Map([
-  ['VERSION', Buffer.from(`${template.version}\n`, 'utf8')],
-  ['LICENSE', Buffer.from(`${template.license_text.trimEnd()}\n`, 'utf8')],
-  ['NOTICE', Buffer.from(`${template.notice_text.trimEnd()}\n`, 'utf8')],
+  ['VERSION', Buffer.from(`${version}\n`, 'utf8')],
+  ['LICENSE', Buffer.from(`${licenseText}\n`, 'utf8')],
+  ['NOTICE', Buffer.from(`${noticeText}\n`, 'utf8')],
   ['DELIVERY.json', Buffer.from(`${JSON.stringify(deliveryMetadata, null, 2)}\n`, 'utf8')],
 ])
 for (const [path, bytes] of generated) await writeFile(resolve(outputRoot, path), bytes, { flag: 'wx' })
@@ -146,7 +160,7 @@ const manifest = inventory.map((file) => `${digest(file.bytes)}  ${file.path}`).
 await writeFile(resolve(outputRoot, 'MANIFEST.sha256'), manifest, { flag: 'wx' })
 
 const result = {
-  artifactKind: template.artifactKind,
+  artifactKind: ARTIFACT_KIND,
   outputDirectory: outputRoot,
   fileCount: inventory.length + 1,
   manifestSha256: digest(manifest),

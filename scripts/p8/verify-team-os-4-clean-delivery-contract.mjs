@@ -15,9 +15,10 @@ assert.deepEqual(contract.deliveryRoots, [
   'packages/team-os-4-domain',
   'platform/team-os-4',
 ])
-assert.deepEqual(contract.requiredTopLevelInventory, ['VERSION', 'LICENSE', 'NOTICE', 'MANIFEST.sha256'])
-assert.deepEqual(contract.requiredManifestFields, [
-  'product', 'version', 'code_commit', 'built_at', 'license_file', 'notice_file', 'files', 'sha256',
+assert.deepEqual(contract.requiredTopLevelInventory, ['VERSION', 'LICENSE', 'NOTICE', 'DELIVERY.json', 'MANIFEST.sha256'])
+assert.deepEqual(contract.requiredDeliveryMetadataFields, [
+  'product', 'artifactKind', 'version', 'code_commit', 'built_at', 'license_file', 'notice_file',
+  'source_roots', 'contains_exported_business_data', 'contains_credentials',
 ])
 assert.deepEqual(contract.forbiddenBusinessData, [
   'employee-records', 'customer-records', 'orders', 'financial-records',

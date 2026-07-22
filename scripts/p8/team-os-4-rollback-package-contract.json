@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "phase": "P8",
+  "artifactKind": "team-os-4-rollback-package",
+  "status": "pending",
+  "contracts": {
+    "beforeCutoverFailureAction": "do-not-cut-over",
+    "beforeCutoverSource3State": "physical-read-only",
+    "beforeCutoverTarget4CandidateAction": "seal-failed-candidate",
+    "afterCutoverFirstAction": "disable-all-team-os-4-writes",
+    "afterCutoverWriteDisableSurfaces": [
+      "auth-login-register-refresh",
+      "rest-dml",
+      "rpc-write",
+      "storage-write",
+      "edge-functions",
+      "cron",
+      "webhooks",
+      "notifications",
+      "online-high-privilege-credentials"
+    ],
+    "target4BackupRequiredBeforeRecovery": true,
+    "target4BackupKinds": [
+      "database",
+      "auth",
+      "storage",
+      "configuration",
+      "audit-evidence"
+    ],
+    "target4RecoveryRule": "restore-to-new-isolated-candidate-and-verify-before-any-routing-change",
+    "source3DefaultRollbackState": "physical-read-only",
+    "source3WriteReopenByDefault": false,
+    "source3WriteReopenRequiresSeparateBusinessAuthorization": true,
+    "newWritesAfterCutoverRule": "reverse-incremental-migration-and-full-reconciliation-required-before-source3-write-reopen",
+    "reverseIncrementalScope": [
+      "business-tables",
+      "money",
+      "inventory",
+      "auth-identities",
+      "storage-objects",
+      "immutable-ledgers",
+      "audit-events"
+    ],
+    "reverseIncrementalRules": [
+      "signed-snapshot",
+      "stable-source-id-mapping",
+      "insert-only-or-explicit-compensation",
+      "no-silent-skip",
+      "no-overwrite",
+      "single-transaction-per-batch",
+      "failure-rolls-back-entire-batch"
+    ],
+    "fullReconciliationCategories": [
+      "table-rows",
+      "money",
+      "inventory",
+      "auth",
+      "storage"
+    ],
+    "reconciliationTolerance": "zero-unexplained-difference",
+    "routingChangeAllowedBeforeReconciliation": false,
+    "failedCandidateAction": "seal-and-preserve-forensics",
+    "failedCandidateReusable": false,
+    "failedCandidateRetryable": false,
+    "failedCandidateEvidenceMutability": "append-only",
+    "partialRollbackAccepted": false
+  },
+  "requiredStaticEvidence": [
+    "pre-cutover-stop-procedure",
+    "team-os-4-write-freeze-procedure",
+    "team-os-4-backup-and-isolated-restore-procedure",
+    "team-os-3-read-only-preservation-procedure",
+    "reverse-incremental-migration-plan",
+    "full-reconciliation-plan",
+    "failed-candidate-sealing-procedure"
+  ],
+  "requiredRuntimeEvidence": {
+    "preCutoverStopDrill": "failure-does-not-change-routing",
+    "target4WriteFreezeDrill": "all-write-surfaces-and-old-sessions-denied",
+    "target4RecoveryDrill": "backup-restored-to-new-isolated-candidate-and-reconciled",
+    "source3ReadOnlyDrill": "rollback-does-not-reopen-any-source3-write-path",
+    "reverseIncrementalDrill": "new-target4-writes-replayed-with-zero-unexplained-difference",
+    "failedCandidateDrill": "candidate-sealed-not-reused-and-evidence-remains-append-only"
+  },
+  "staticEvidence": "pending",
+  "preCutoverStopEvidence": "pending",
+  "target4WriteFreezeEvidence": "pending",
+  "target4RecoveryEvidence": "pending",
+  "source3ReadOnlyEvidence": "pending",
+  "reverseIncrementalEvidence": "pending",
+  "fullReconciliationEvidence": "pending",
+  "failedCandidateEvidence": "pending",
+  "runtimeEvidence": "pending",
+  "rollbackPackageAccepted": false
+}

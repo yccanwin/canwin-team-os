@@ -12,17 +12,20 @@
     "VERSION",
     "LICENSE",
     "NOTICE",
+    "DELIVERY.json",
     "MANIFEST.sha256"
   ],
-  "requiredManifestFields": [
+  "requiredDeliveryMetadataFields": [
     "product",
+    "artifactKind",
     "version",
     "code_commit",
     "built_at",
     "license_file",
     "notice_file",
-    "files",
-    "sha256"
+    "source_roots",
+    "contains_exported_business_data",
+    "contains_credentials"
   ],
   "forbiddenBusinessData": [
     "employee-records",

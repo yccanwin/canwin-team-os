@@ -23,7 +23,7 @@ if (evidencePath === artifactRoot || evidencePath.startsWith(`${artifactRoot}${s
   throw new Error('evidence output must be outside the artifact')
 }
 
-const allowedFiles = new Set(['VERSION', 'LICENSE', 'NOTICE', 'MANIFEST.sha256'])
+const allowedFiles = new Set(['VERSION', 'LICENSE', 'NOTICE', 'DELIVERY.json', 'MANIFEST.sha256'])
 const allowedRoots = ['apps/team-os-4', 'packages/team-os-4-domain', 'platform/team-os-4']
 const forbiddenSegments = new Set([
   '.git', '.github', '.codex-audit', 'node_modules', 'dist', 'coverage', '.cache',
@@ -123,7 +123,7 @@ function visit(directory) {
 }
 
 visit(artifactRoot)
-for (const required of ['VERSION', 'LICENSE', 'NOTICE', 'MANIFEST.sha256']) {
+for (const required of ['VERSION', 'LICENSE', 'NOTICE', 'DELIVERY.json', 'MANIFEST.sha256']) {
   if (!files.some((file) => file.path === required)) violations.push({ path: required, rule: 'required-inventory-missing' })
 }
 for (const root of allowedRoots) {

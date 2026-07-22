@@ -14,8 +14,10 @@ for (let index = 2; index < process.argv.length; index += 2) {
 
 const outputArgument = args.get('--output')
 const metadataArgument = args.get('--metadata')
-if (!outputArgument || !metadataArgument) {
-  throw new Error('usage: node assemble-team-os-4-clean-delivery.mjs --output <new-directory> --metadata <delivery-metadata-directory>')
+const codeCommit = args.get('--commit')
+const builtAt = args.get('--built-at')
+if (args.size !== 4 || !outputArgument || !metadataArgument || !/^[a-f0-9]{40}$/.test(codeCommit ?? '') || !Number.isFinite(Date.parse(builtAt ?? ''))) {
+  throw new Error('usage: node assemble-team-os-4-clean-delivery.mjs --output <new-directory> --metadata <delivery-metadata-directory> --commit <40-hex-commit> --built-at <ISO-8601-time>')
 }
 
 const repoRoot = realpathSync(resolve(dirname(fileURLToPath(import.meta.url)), '..', '..'))
@@ -133,6 +135,22 @@ for (const name of metadataFiles) {
   plannedFiles.push({ sourcePath, destinationPath: name })
 }
 
+const version = readFileSync(resolve(metadataRoot, 'VERSION'), 'utf8').trim()
+if (!/^4\.0\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)) throw new Error('delivery VERSION is invalid')
+const deliveryMetadata = Buffer.from(`${JSON.stringify({
+  schemaVersion: 1,
+  product: 'CanWin Team OS 4.0',
+  artifactKind: 'team-os-4-clean-installation-package',
+  version,
+  code_commit: codeCommit,
+  built_at: builtAt,
+  license_file: 'LICENSE',
+  notice_file: 'NOTICE',
+  source_roots: sourceRoots,
+  contains_exported_business_data: false,
+  contains_credentials: false,
+}, null, 2)}\n`, 'utf8')
+
 plannedFiles.sort((left, right) => left.destinationPath.localeCompare(right.destinationPath, 'en'))
 const duplicates = plannedFiles.filter((file, index) => index > 0 && file.destinationPath === plannedFiles[index - 1].destinationPath)
 if (duplicates.length) throw new Error(`duplicate delivery path: ${duplicates[0].destinationPath}`)
@@ -141,21 +159,24 @@ if (!plannedFiles.some((file) => file.destinationPath.startsWith('packages/team-
 if (!plannedFiles.some((file) => file.destinationPath.startsWith('platform/team-os-4/'))) throw new Error('platform delivery root is empty')
 
 mkdirSync(outputRoot, { recursive: false })
-const manifestLines = []
+const inventory = []
 for (const file of plannedFiles) {
   const destination = resolve(outputRoot, file.destinationPath)
   ensureInside(outputRoot, destination, 'output')
   mkdirSync(dirname(destination), { recursive: true })
   copyFileSync(file.sourcePath, destination, fsConstants.COPYFILE_EXCL)
   const bytes = readFileSync(destination)
-  manifestLines.push(`${createHash('sha256').update(bytes).digest('hex')}  ${portable(file.destinationPath)}`)
+  inventory.push({ path: portable(file.destinationPath), bytes })
 }
-const manifest = `${manifestLines.join('\n')}\n`
+writeFileSync(resolve(outputRoot, 'DELIVERY.json'), deliveryMetadata, { flag: 'wx' })
+inventory.push({ path: 'DELIVERY.json', bytes: deliveryMetadata })
+inventory.sort((left, right) => left.path.localeCompare(right.path, 'en'))
+const manifest = `${inventory.map((file) => `${createHash('sha256').update(file.bytes).digest('hex')}  ${file.path}`).join('\n')}\n`
 writeFileSync(resolve(outputRoot, 'MANIFEST.sha256'), manifest, { flag: 'wx' })
 
 console.log(JSON.stringify({
   artifact: outputRoot,
   status: 'assembled-not-accepted',
-  fileCount: plannedFiles.length + 1,
+  fileCount: inventory.length + 1,
   manifestSha256: createHash('sha256').update(manifest).digest('hex'),
 }, null, 2))
