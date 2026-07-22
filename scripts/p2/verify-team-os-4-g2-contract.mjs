@@ -8,45 +8,58 @@ const absolute = (path) => resolve(repoRoot, path)
 const readRaw = (path) => readFileSync(absolute(path), 'utf8')
 const read = (path) => readRaw(path).replace(/\s+/gu, ' ')
 const json = (path) => JSON.parse(readRaw(path))
-const normalizeScriptTextForPathMatch = (value) => {
+const safeDecodePath = (value) => {
   if (typeof value !== 'string') return ''
-  const decoded = (() => {
-    try { return decodeURIComponent(value) } catch { return value }
-  })()
-  return decoded
-    .toLowerCase()
+  try { return decodeURIComponent(value) } catch { return value }
+}
+const normalizePathTextForCheck = (value) => {
+  if (typeof value !== 'string') return ''
+  return safeDecodePath(value)
     .replace(/\r\n?/gu, '\n')
+    .replace(/%5c/gu, '/')
     .replace(/[\\]+/gu, '/')
     .replace(/[\\/]+/gu, '/')
     .replace(/\/+/gu, '/')
     .replace(/%20/gu, ' ')
-    .replace(/\\(["'])/gu, '$1')
     .replace(/["']/gu, '')
+    .replace(/\\(["'])/gu, '$1')
     .replace(/\s+/gu, ' ')
     .trim()
+    .toLowerCase()
+}
+
+const normalizeScriptTextForPathMatch = (value) => {
+  if (typeof value !== 'string') return ''
+  return normalizePathTextForCheck(value)
 }
 
 const normalizePathMatchCandidates = (pathText) => {
-  if (!pathText) return []
-  const decoded = (() => {
-    try { return decodeURIComponent(pathText) } catch { return '' }
-  })()
-  const candidates = [
-    pathText,
-    pathText.replace(/\\/gu, '/'),
-    pathText.replace(/ /gu, '%20'),
+  if (typeof pathText !== 'string' || !pathText.length) return []
+  const raw = pathText.trim()
+  const normalized = normalizePathTextForCheck(raw)
+  const decoded = safeDecodePath(raw).trim()
+  const variants = [
+    normalized,
     decoded,
-    `\"${pathText}\"`,
-    `'${pathText}'`,
-    `\"${pathText.replace(/\\/gu, '/')}\"`,
-    `'${pathText.replace(/\\/gu, '/')}'`,
+    raw,
+    raw.replace(/\\/gu, '/'),
+    normalized.replace(/ /gu, '%20'),
+    decoded.replace(/ /gu, '%20'),
   ]
-  const expanded = candidates
-    .flatMap((candidate) => [candidate, candidate.replace(/ /gu, '%20')])
-    .filter((candidate) => typeof candidate === 'string' && candidate.length > 0)
+  const quotedVariants = []
+  for (const variant of variants) {
+    if (!variant) continue
+    quotedVariants.push(variant)
+    quotedVariants.push(`"${variant}"`)
+    quotedVariants.push(`'${variant}'`)
+  }
+  return [...new Set(quotedVariants.map(normalizePathTextForCheck))].filter((candidate) => candidate.length > 0)
+}
 
-  return [...new Set(expanded.map(normalizeScriptTextForPathMatch))]
-    .filter((candidate) => candidate.length > 0)
+const containsPathMarker = (sourceText, pathText) => {
+  const candidates = normalizePathMatchCandidates(pathText)
+  if (!candidates.length) return false
+  return candidates.some((candidate) => sourceText.includes(candidate))
 }
 
 const removePathMarker = (sourceText, pathText) => {
@@ -91,8 +104,6 @@ const performanceAdapter = read('scripts/p2/run-team-os-4-g2-performance-adapter
 const normalizedPerformanceAdapter = normalizeScriptTextForPathMatch(performanceAdapter)
 const fixedNodeExecutorPath = 'C:\\Program Files\\nodejs\\node.exe'
 const fixedNpxCliPath = 'C:\\Program Files\\nodejs\\node_modules\\npm\\bin\\npx-cli.js'
-const normalizedNodeExecutorPath = normalizeScriptTextForPathMatch(fixedNodeExecutorPath)
-const normalizedNpxCliPath = normalizeScriptTextForPathMatch(fixedNpxCliPath)
 const adapterWithoutExecutorPath = removePathMarker(normalizedPerformanceAdapter, fixedNodeExecutorPath)
 const compactClosure = closure.replace(/\s+/gu, '')
 
@@ -295,11 +306,11 @@ for (const fragment of [
   `performance adapter contract missing: ${fragment}`,
 )
 assert.ok(
-  normalizedPerformanceAdapter.includes(normalizedNodeExecutorPath),
+  containsPathMarker(normalizedPerformanceAdapter, fixedNodeExecutorPath),
   'performance adapter fixed Node executor path missing',
 )
 assert.ok(
-  normalizedPerformanceAdapter.includes(normalizedNpxCliPath),
+  containsPathMarker(normalizedPerformanceAdapter, fixedNpxCliPath),
   'performance adapter fixed npx-cli path missing',
 )
 assert.ok(!/insert\s+into\s+auth\.users/iu.test(performanceAdapter), 'performance adapter must never write auth.users through SQL')
