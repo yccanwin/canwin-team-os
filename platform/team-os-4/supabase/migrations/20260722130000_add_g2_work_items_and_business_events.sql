@@ -14,7 +14,7 @@ create table public.work_items (
   priority text not null default 'normal',
   planned_at timestamptz,
   due_at timestamptz,
-  next_step text,
+  next_step text not null,
   blocked_reason text,
   completed_at timestamptz,
   created_at timestamptz not null default now(),
@@ -33,6 +33,7 @@ create table public.work_items (
   constraint work_items_source_business_not_blank check (btrim(source_business) <> ''),
   constraint work_items_generation_rule_not_blank check (btrim(generation_rule) <> ''),
   constraint work_items_title_not_blank check (btrim(title) <> ''),
+  constraint work_items_next_step_not_blank check (btrim(next_step) <> ''),
   constraint work_items_status check (
     status in ('pending', 'in_progress', 'waiting', 'completed', 'cancelled')
   ),

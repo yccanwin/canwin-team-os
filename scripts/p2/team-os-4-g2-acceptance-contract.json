@@ -27,6 +27,10 @@
     "stateMachine": ["pending", "in_progress", "waiting", "completed", "cancelled"],
     "businessCompletion": "server-transaction-closes-work-item-idempotently",
     "singleSourceEntrypoints": ["workspace", "progress-center", "calendar"],
+    "stableTestIds": ["work-items-workbench", "work-items-progress", "work-items-calendar"],
+    "sharedReader": "SupabaseWorkItemReader",
+    "sharedSelector": "selectWorkItems",
+    "fixturesAndMocksAllowed": false,
     "mobileRequired": true
   },
   "runtimeEvidence": "pending",

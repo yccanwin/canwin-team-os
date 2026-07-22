@@ -12,6 +12,9 @@ const model = read('apps/team-os-4/src/domain/work-item.ts')
 const selector = read('apps/team-os-4/src/domain/select-work-items.ts')
 const query = read('apps/team-os-4/src/domain/work-item-query.ts')
 const mapper = read('apps/team-os-4/src/domain/map-work-item-row.ts')
+const appSource = read('apps/team-os-4/src/App.tsx')
+const readerSource = read('apps/team-os-4/src/lib/supabase-work-item-reader.ts')
+const createMigration = read('platform/team-os-4/supabase/migrations/20260722140000_add_create_work_item_v1.sql')
 const transitionPath = resolve(repoRoot, 'platform/team-os-4/supabase/migrations/20260722134500_add_transition_work_item_v1.sql')
 const transitionMigration = existsSync(transitionPath)
   ? readFileSync(transitionPath, 'utf8').replace(/\s+/gu, ' ')
@@ -36,6 +39,10 @@ assert.equal(contract.contracts.assigneeReassignment, 'updates-existing-work-ite
 assert.ok(!contract.contracts.uniqueGenerationKey.includes('assignee'))
 assert.deepEqual(contract.contracts.singleSourceEntrypoints, ['workspace', 'progress-center', 'calendar'])
 assert.equal(contract.contracts.mobileRequired, true)
+assert.deepEqual(contract.contracts.stableTestIds, ['work-items-workbench', 'work-items-progress', 'work-items-calendar'])
+assert.equal(contract.contracts.sharedReader, 'SupabaseWorkItemReader')
+assert.equal(contract.contracts.sharedSelector, 'selectWorkItems')
+assert.equal(contract.contracts.fixturesAndMocksAllowed, false)
 assert.equal(contract.runtimeEvidence, 'pending')
 assert.equal(contract.g2Accepted, false)
 
@@ -54,6 +61,10 @@ assert.ok(selector.includes("selection.surface === 'progress'"))
 assert.ok(selector.includes("selection.surface === 'calendar'"))
 assert.ok(query.includes('One read boundary shared by workbench, progress and calendar.'))
 assert.ok(query.includes('load(query: WorkItemQuery): Promise<readonly WorkItem[]>'))
+assert.ok(readerSource.includes('class SupabaseWorkItemReader implements WorkItemReader'))
+assert.ok(appSource.includes('data-testid="work-items-workbench"'))
+assert.ok(appSource.includes('data-testid={`work-items-${surface}`}'))
+assert.ok(!/\b(?:fixture|mock)(?:s|data)?\b/iu.test(`${appSource} ${readerSource} ${selector}`))
 assert.ok(mapper.includes("requiredString(row, 'role_type')"))
 assert.ok(mapper.includes("requiredString(row, 'source_id')"))
 assert.ok(completionMigration.includes('create or replace function public.complete_work_item_v1('))
@@ -90,6 +101,17 @@ if (transitionMigration !== null) {
   for (const role of ['public', 'anon', 'authenticated']) {
     assert.ok(transitionMigration.includes(`revoke all on function public.transition_work_item_v1(uuid, uuid, text, text, uuid, jsonb) from ${role};`))
   }
+}
+for (const [name, source] of [
+  ['create_work_item_v1', createMigration],
+  ['transition_work_item_v1', transitionMigration ?? ''],
+  ['complete_work_item_v1', completionMigration],
+]) {
+  assert.ok(source.includes(`create or replace function public.${name}(`), `${name} transaction missing`)
+  assert.ok(source.includes('security definer') && source.includes("set search_path = ''"), `${name} security boundary missing`)
+  assert.ok(source.includes('idempotency_key') && source.includes("'idempotent'"), `${name} idempotency contract missing`)
+  for (const role of ['public', 'anon', 'authenticated']) assert.ok(source.includes(`from ${role};`), `${name} ${role} revoke missing`)
+  assert.ok(source.includes('to service_role;'), `${name} service_role grant missing`)
 }
 
 console.log(`TEAM_OS_4_G2_CONTRACT_OK checkpoints=35,40 status=pending tables=2 rls=2 uniqueKey=passed defaultStatus=pending completionTransaction=static mapper=static transition=${transitionMigration === null ? 'pending' : 'static'} surfaces=3 singleReader=passed runtimeEvidence=pending gateIntegrated=0`)
