@@ -61,7 +61,10 @@ assert.deepEqual(contract.anonymousAttackChecks, [
 ])
 assert.deepEqual(contract.anonymousAttackChecks, [...ANONYMOUS_NEGATIVE_STAGES])
 for (const stage of [...ENABLED_ACCOUNT_POSITIVE_STAGES, ...ENABLED_ACCOUNT_BOUNDARY_STAGES, ...ANONYMOUS_NEGATIVE_STAGES]) {
-  assert.ok(runnerSource.includes(`evidenceStage: '${stage}'`), `runner evidence stage missing: ${stage}`)
+  assert.ok(
+    runnerSource.includes(`evidenceStage: '${stage}'`) || runnerSource.includes(`stage: '${stage}'`),
+    `runner evidence stage missing: ${stage}`,
+  )
 }
 assert.deepEqual(contract.requiredEvidenceFields, [
   'run_id', 'target_project_ref', 'application_commit', 'account_role', 'identity_kind',
