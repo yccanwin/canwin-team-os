@@ -18,16 +18,30 @@ const expectedPrivateFunctions = [
   'is_company_admin',
   'prevent_initialization_audit_mutation',
 ]
+const expectedMigrations = [
+  '20260722032824_initial_team_os_4_foundation.sql',
+  '20260722034113_add_foundation_foreign_key_indexes.sql',
+]
+const expectedForeignKeyIndexes = [
+  ['profiles_primary_role_company_fk_idx', 'profiles', 'primary_role_id,company_id'],
+  ['profile_capabilities_profile_company_fk_idx', 'profile_capabilities', 'profile_id,company_id'],
+  ['profile_capabilities_capability_company_fk_idx', 'profile_capabilities', 'capability_id,company_id'],
+  ['profile_capabilities_granted_by_fk_idx', 'profile_capabilities', 'granted_by'],
+  ['system_runtime_state_changed_by_fk_idx', 'system_runtime_state', 'changed_by'],
+  ['initialization_audit_actor_user_id_fk_idx', 'initialization_audit', 'actor_user_id'],
+]
 
-const foundationMigrations = readdirSync(migrationsDir)
-  .filter((name) => /^\d{14}_initial_team_os_4_foundation\.sql$/.test(name))
+const migrations = readdirSync(migrationsDir)
+  .filter((name) => /^\d{14}_[a-z0-9_]+\.sql$/.test(name))
+  .sort()
 
-if (foundationMigrations.length !== 1) {
-  throw new Error(`expected one foundation migration, found ${foundationMigrations.length}`)
+if (JSON.stringify(migrations) !== JSON.stringify(expectedMigrations)) {
+  throw new Error(`foundation migration set/order drift: ${migrations.join(',')}`)
 }
 
-const migrationPath = join(migrationsDir, foundationMigrations[0])
+const migrationPath = join(migrationsDir, expectedMigrations[0])
 const sql = readFileSync(migrationPath, 'utf8')
+const foreignKeyIndexSql = readFileSync(join(migrationsDir, expectedMigrations[1]), 'utf8')
 const seed = readFileSync(join(root, 'seed.sql'), 'utf8')
 const config = readFileSync(join(root, 'config.toml'), 'utf8')
 
@@ -36,6 +50,10 @@ const withoutComments = (value) => value
   .replace(/--[^\r\n]*/g, '')
 
 const normalizedSql = withoutComments(sql).replace(/\s+/g, ' ').trim().toLowerCase()
+const normalizedForeignKeyIndexSql = withoutComments(foreignKeyIndexSql)
+  .replace(/\s+/g, ' ')
+  .trim()
+  .toLowerCase()
 const failures = []
 const check = (condition, message) => {
   if (!condition) failures.push(message)
@@ -49,6 +67,14 @@ const rlsTables = matches(/\balter table public\.([a-z][a-z0-9_]*) enable row le
   .map((match) => match[1])
 const privateFunctions = matches(/\bcreate or replace function private\.([a-z][a-z0-9_]*)\s*\(/g)
   .map((match) => match[1])
+const foreignKeyIndexes = matches(
+  /\bcreate index ([a-z][a-z0-9_]*)\s+on public\.([a-z][a-z0-9_]*)\s*\(([^)]+)\)\s*;/g,
+  normalizedForeignKeyIndexSql,
+).map((match) => [
+  match[1],
+  match[2],
+  match[3].replace(/\s+/g, ''),
+])
 
 check(
   JSON.stringify(createdTables) === JSON.stringify(expectedTables),
@@ -61,6 +87,10 @@ check(
 check(
   JSON.stringify(privateFunctions) === JSON.stringify(expectedPrivateFunctions),
   `private function set/order drift: ${privateFunctions.join(',')}`,
+)
+check(
+  JSON.stringify(foreignKeyIndexes) === JSON.stringify(expectedForeignKeyIndexes),
+  `foundation foreign-key index set/order drift: ${JSON.stringify(foreignKeyIndexes)}`,
 )
 
 for (const table of expectedTables) {
@@ -117,6 +147,7 @@ const forbiddenReferences = [
 ]
 for (const [label, pattern] of forbiddenReferences) {
   check(!pattern.test(sql), `forbidden reference present: ${label}`)
+  check(!pattern.test(foreignKeyIndexSql), `foreign-key index migration forbidden reference present: ${label}`)
 }
 
 check(
@@ -155,6 +186,6 @@ if (failures.length > 0) {
   process.exitCode = 1
 } else {
   console.log(
-    `TEAM_OS_4_FOUNDATION_OK migration=${foundationMigrations[0]} tables=7 rls=7 grants=7 privateFunctions=3 seedStatements=0 forbiddenReferences=0 migrationModeLock=passed`,
+    `TEAM_OS_4_FOUNDATION_OK migrations=${expectedMigrations.length} tables=7 rls=7 grants=7 privateFunctions=3 foreignKeyIndexes=6 seedStatements=0 forbiddenReferences=0 migrationModeLock=passed`,
   )
 }

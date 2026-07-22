@@ -3,9 +3,11 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
-const gates = [
+const greenfieldGates = [
   ['greenfield-root-contract', resolve(repoRoot, 'scripts', 'p0', 'verify-greenfield-root-contract.mjs')],
   ['team-os-4-foundation', resolve(repoRoot, 'platform', 'team-os-4', 'supabase', 'verify-foundation.mjs')],
+]
+const legacyGates = [
   ['migration-manifest', resolve(repoRoot, 'scripts', 'p0', 'verify-migration-manifest.mjs')],
   ['project-ref-contract', resolve(repoRoot, 'scripts', 'p0', 'verify-project-ref-contract.mjs')],
   ['core-business-contract', resolve(repoRoot, 'scripts', 'p0', 'verify-core-business-contract.mjs')],
@@ -26,6 +28,8 @@ const gates = [
   ['p1-real-account-fixture-selftest', resolve(repoRoot, 'scripts', 'p1', 'manage-real-page-accounts.mjs'), '--self-test'],
   ['p1-real-page-runner-selftest', resolve(repoRoot, 'scripts', 'p1', 'run-real-page-acceptance.mjs'), '--self-test'],
 ]
+const legacyMode = process.argv.includes('--legacy')
+const gates = legacyMode ? [...greenfieldGates, ...legacyGates] : greenfieldGates
 
 let run = 0
 let passed = 0

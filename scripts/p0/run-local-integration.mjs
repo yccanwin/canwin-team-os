@@ -22,11 +22,33 @@ const staticBuildEnvironment = {
   VITE_SUPABASE_ANON_KEY: staticAnonKey,
 }
 
-const steps = [
+const greenfieldSteps = [
   {
     name: 'static-gates',
     command: cmdExe,
     args: ['/d', '/c', 'npm.cmd', 'run', 'test:p0:static'],
+  },
+  {
+    name: 'team-os-4-app-build',
+    command: cmdExe,
+    args: ['/d', '/c', 'npm.cmd', 'run', 'build:team-os-4'],
+  },
+  {
+    name: 'team-os-4-domain-typecheck',
+    command: cmdExe,
+    args: ['/d', '/c', 'npm.cmd', 'run', 'typecheck:team-os-4-domain'],
+  },
+  {
+    name: 'team-os-4-migration-tool-selftest',
+    command: cmdExe,
+    args: ['/d', '/c', 'npm.cmd', 'run', 'test:team-os-4-migration-tool'],
+  },
+]
+const legacySteps = [
+  {
+    name: 'legacy-static-gates',
+    command: cmdExe,
+    args: ['/d', '/c', 'npm.cmd', 'run', 'test:p0:static:legacy'],
   },
   {
     name: 'ci-database-runner-selftest',
@@ -101,6 +123,7 @@ const steps = [
     env: staticBuildEnvironment,
   },
 ]
+const steps = process.argv.includes('--legacy') ? legacySteps : greenfieldSteps
 
 let run = 0
 let passed = 0
