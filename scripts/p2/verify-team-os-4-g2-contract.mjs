@@ -1,4 +1,4 @@
-﻿import { strict as assert } from 'node:assert'
+import { strict as assert } from 'node:assert'
 import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
