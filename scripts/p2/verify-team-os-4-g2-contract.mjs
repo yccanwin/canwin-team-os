@@ -8,6 +8,11 @@ const absolute = (path) => resolve(repoRoot, path)
 const readRaw = (path) => readFileSync(absolute(path), 'utf8')
 const read = (path) => readRaw(path).replace(/\s+/gu, ' ')
 const json = (path) => JSON.parse(readRaw(path))
+const normalizeScriptTextForPathMatch = (value) => value
+  .toLowerCase()
+  .replace(/[\\/]+/gu, '/')
+  .replace(/\\(["'])/gu, '$1')
+  .replace(/["']/gu, '')
 
 const contract = json('scripts/p2/team-os-4-g2-acceptance-contract.json')
 const dependencies = contract.contracts.migrationDependencies
@@ -38,7 +43,9 @@ const reader = read('apps/team-os-4/src/lib/supabase-work-item-reader.ts')
 const app = read('apps/team-os-4/src/App.tsx')
 const scaleRunner = read('scripts/p2/run-team-os-4-g2-scale-acceptance.mjs')
 const performanceAdapter = read('scripts/p2/run-team-os-4-g2-performance-adapter.mjs')
-const normalizedPerformanceAdapter = performanceAdapter.replace(/[\\/]+/gu, '/')
+const normalizedPerformanceAdapter = normalizeScriptTextForPathMatch(performanceAdapter)
+const normalizedExecutorPath = normalizeScriptTextForPathMatch('C:\\Program Files\\nodejs\\node.exe')
+const adapterWithoutExecutorPath = normalizedPerformanceAdapter.replace(normalizedExecutorPath, '')
 const compactClosure = closure.replace(/\s+/gu, '')
 
 const requiredBuckets = [
@@ -235,9 +242,12 @@ for (const fragment of [
   'auth.admin.createUser', 'auth.admin.deleteUser', 'setup_g2_performance_fixture_v1',
   'cleanup_g2_performance_fixture_v1', 'explain (analyze, buffers, format json)',
   'startedAtMs', 'endedAtMs', 'missingTaskRollback',
-]) assert.ok(performanceAdapter.includes(fragment), `performance adapter contract missing: ${fragment}`)
+]) assert.ok(
+  adapterWithoutExecutorPath.includes(fragment.toLowerCase().replace(/["']/gu, '')),
+  `performance adapter contract missing: ${fragment}`,
+)
 assert.ok(
-  normalizedPerformanceAdapter.includes('C:/Program Files/nodejs/node.exe'),
+  normalizedPerformanceAdapter.includes(normalizedExecutorPath),
   'performance adapter fixed Node executor path missing',
 )
 assert.ok(!/insert\s+into\s+auth\.users/iu.test(performanceAdapter), 'performance adapter must never write auth.users through SQL')
