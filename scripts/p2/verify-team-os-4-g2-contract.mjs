@@ -15,7 +15,13 @@ const safeDecodePath = (value) => {
 
 const normalizePathTextForMatch = (value) => {
   if (typeof value !== 'string') return ''
-  return safeDecodePath(value)
+  let normalized = value
+  for (let i = 0; i < 3; i += 1) {
+    const decoded = safeDecodePath(normalized)
+    if (decoded === normalized) break
+    normalized = decoded
+  }
+  return normalized
     .replace(/\r\n?/gu, '\n')
     .replace(/%5c/giu, '/')
     .replace(/\\+/gu, '/')
@@ -28,10 +34,7 @@ const normalizePathTextForMatch = (value) => {
     .toLowerCase()
 }
 
-const normalizePathTextForCheck = (value) => {
-  if (typeof value !== 'string') return ''
-  return normalizePathTextForMatch(value)
-}
+const normalizePathTextForCheck = (value) => normalizePathTextForMatch(value)
 
 const normalizeScriptTextForPathMatch = (value) => {
   if (typeof value !== 'string') return ''
@@ -49,6 +52,9 @@ const normalizePathMatchCandidates = (pathText) => {
     raw.trim(),
     raw.replace(/\\/gu, '/'),
     raw.replace(/\\\\/gu, '/'),
+    raw.replace(/^file:\/\//iu, ''),
+    `file:///${raw.replace(/\\/gu, '/').replace(/ /gu, '%20')}`,
+    `file:///${raw.replace(/\\/gu, '/').replace(/ /gu, '%20')}`.replace(/^file:\/\/\/c:/iu, 'c:'),
     normalized.replace(/ /gu, '%20'),
     decoded.replace(/ /gu, '%20'),
     raw.replace(/%5[cC]/gu, '/'),
