@@ -4,63 +4,92 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
-const contract = JSON.parse(readFileSync(resolve(repoRoot, 'scripts/p1/team-os-4-g1-acceptance-contract.json'), 'utf8'))
-const runnerSource = readFileSync(resolve(repoRoot, 'scripts/p1/run-team-os-4-g1-acceptance.mjs'), 'utf8')
-const expectedIdentities = ['anon', 'sales', 'implementation', 'operations', 'finance', 'admin']
-const expectedRoles = expectedIdentities.slice(1)
-const expectedChecks = [
-  'real-login-auto-role-route',
-  'manual-url-cross-role-denied',
-  'direct-rest-cross-identity-read-policy',
-  'direct-rest-cross-identity-write-denied',
+const read = (path) => readFileSync(resolve(repoRoot, path), 'utf8')
+const contract = JSON.parse(read('scripts/p1/team-os-4-g1-acceptance-contract.json'))
+const runnerSource = read(contract.authoritativeRunner)
+const orchestratorSource = read('platform/team-os-4/tools/acceptance-accounts/src/orchestrator.mjs')
+
+const roles = ['sales', 'implementation', 'operations', 'finance', 'admin']
+assert.equal(contract.schemaVersion, 2)
+assert.equal(contract.phase, 'G1')
+assert.equal(contract.realEnabledAccounts, 5)
+assert.deepEqual(contract.realEnabledAccountRoles, roles)
+assert.deepEqual(contract.attackIdentities, ['anon'])
+assert.equal(contract.disabledAccountRequired, false)
+assert.deepEqual(contract.capabilitiesNotSeparateIdentities, ['warehouse', 'supervisor'])
+for (const role of roles) assert.equal(contract.workspaceRoutes[role], `/workspace/${role}`)
+assert.equal(contract.authoritativeProvisioner, 'platform/team-os-4/tools/acceptance-accounts')
+assert.equal(contract.authoritativeRunner, 'scripts/p1/run-team-os-4-g1-acceptance.mjs')
+assert.deepEqual(contract.retiredNonAuthoritativeHarnesses, [
+  'scripts/p1/run-real-page-acceptance.mjs',
+  'scripts/p1/manage-real-page-accounts.mjs',
+])
+assert.equal(contract.retiredHarnessRule, 'must-not-contribute-runtime-evidence-or-target-a-team-os-4-project')
+
+assert.deepEqual(contract.perAccountPositiveChecks, [
+  'auth-real-password-login',
+  'app-context-exact-primary-role-and-capabilities',
+  'navigation-manifest-exact-role-boundary',
+  'workspace-auto-route-and-visible-content',
+  'role-business-page-real-remote-request',
+  'own-scope-direct-api-read',
+  'role-business-direct-api-read',
+])
+assert.deepEqual(contract.perAccountNegativeChecks, [
+  'manual-cross-role-url-denied',
+  'cross-identity-read-hidden-or-explicitly-denied',
+  'cross-identity-write-denied',
+  'unauthorized-management-page-denied',
+  'unauthorized-management-api-denied',
+  'unauthorized-role-business-api-denied',
   'bootstrap-public-entry-denied',
   'bootstrap-private-entry-denied',
-]
-const exact = (actual, expected) => JSON.stringify(actual) === JSON.stringify(expected)
+])
+assert.deepEqual(contract.anonymousAttackChecks, [
+  'bootstrap-public-entry-denied', 'bootstrap-private-entry-denied', 'internal-table-read-denied',
+  'rest-dml-denied', 'write-rpc-denied', 'private-storage-read-denied', 'storage-write-denied',
+])
+assert.deepEqual(contract.requiredEvidenceFields, [
+  'run_id', 'target_project_ref', 'application_commit', 'account_role', 'identity_kind',
+  'stage', 'started_at', 'finished_at', 'page_url_or_api_surface',
+  'http_status_or_postgres_code', 'row_count_or_result_digest',
+  'page_test_id_or_trace_digest', 'outcome', 'evidence_sha256',
+])
+assert.deepEqual(contract.evidenceRules, {
+  oneRecordPerAccountPerCheck: true,
+  aggregateOnlySummaryAllowed: false,
+  credentialsOrTokensAllowed: false,
+  realNetworkRequired: true,
+  realPageRequired: true,
+  simulatedOrFixtureEvidenceAllowed: false,
+  firstFailureStopsRun: true,
+  failedRunEvidencePreserved: true,
+  targetMustBeIndependentTeamOs4Project: true,
+})
+assert.deepEqual(contract.expectedRuntimeEvidenceCount, {
+  enabledAccountPositive: 35,
+  enabledAccountNegative: 40,
+  anonymousNegative: 7,
+  minimumTotal: 82,
+})
 
-assert.equal(contract.schemaVersion, 1)
-assert.ok(exact(contract.identities, expectedIdentities))
-assert.ok(exact(contract.primaryRoles, expectedRoles))
-assert.ok(exact(contract.capabilitiesNotSeparateIdentities, ['warehouse', 'supervisor']))
-assert.ok(exact(contract.requiredChecks, expectedChecks))
-assert.equal(contract.runtimeStatus, 'pending')
-for (const role of expectedRoles) assert.equal(contract.workspaceRoutes[role], `/workspace/${role}`)
-for (const label of ['anon-rpc', 'sign-in:', 'cross-read:', 'cross-write:', 'role-rpc:', 'browser-launch', 'page-login:', 'auto-route:', 'cross-url:']) {
-  assert.ok(runnerSource.includes(label), `safe stage label missing: ${label}`)
+// The authoritative construction path must remain exactly five enabled role
+// accounts. Anonymous is an attack client and is never provisioned as a user.
+for (const key of ['sales', 'implementation', 'operations', 'finance', 'admin_supervisor']) {
+  assert.ok(orchestratorSource.includes(`key: '${key}'`), `missing provisioned role identity ${key}`)
 }
-assert.ok(runnerSource.includes("getByTestId('login-gate').waitFor({ state: 'visible' })"))
-assert.ok(runnerSource.includes("getByTestId('authenticated-app').waitFor({ state: 'visible' })"))
-assert.ok(runnerSource.includes("getByTestId('login-error').waitFor({ state: 'visible' })"))
-assert.ok(runnerSource.includes("if (outcome !== 'authenticated') throw new Error('login rejected')"))
-assert.ok(runnerSource.indexOf('getByTestId(`workspace-${role}`).waitFor()') < runnerSource.indexOf("new URL(page.url()).hash !== `#/workspace/${role}`"))
-assert.ok(!runnerSource.includes("getByTestId('login-error').textContent"), 'runner must not read login error text')
-assert.ok(runnerSource.includes('chromium.executablePath()') && runnerSource.includes('existsSync(bundled)'))
-for (const path of [
-  'C:\\\\Program Files\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe',
-  'C:\\\\Program Files (x86)\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe',
-  'C:\\\\Program Files\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe',
-  'C:\\\\Program Files (x86)\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe',
-]) assert.ok(runnerSource.includes(path), `fixed browser fallback missing: ${path}`)
-assert.ok(runnerSource.includes("stage('browser-launch', launchAcceptanceBrowser)"))
-assert.ok(!runnerSource.includes('G1_STAGE_FAIL ${account.email}') && !runnerSource.includes('G1_STAGE_FAIL ${account.id}'))
+assert.ok(orchestratorSource.includes('accounts.length !== 5') || runnerSource.includes('accounts.length !== 5'))
+assert.ok(runnerSource.includes("const expected = ['sales', 'implementation', 'operations', 'finance', 'admin_supervisor']"))
+assert.ok(runnerSource.includes("stage('anon-rpc'"), 'anonymous attack client is missing')
+assert.ok(runnerSource.includes("getByTestId('authenticated-app')"), 'real authenticated page check is missing')
+assert.ok(runnerSource.includes('getByTestId(`workspace-${role}`)'), 'exact role workspace check is missing')
+assert.ok(runnerSource.includes("getByTestId('access-denied')"), 'cross-role page denial is missing')
 
-const results = []
-for (const identity of expectedIdentities) {
-  for (const check of expectedChecks) results.push({ identity, check, networkCalls: 0, status: 'simulated-denied' })
-}
-assert.equal(results.length, 36)
-assert.ok(results.every((result) => result.networkCalls === 0))
+for (const field of [
+  'accountProvisioningEvidence', 'pageEvidence', 'directApiEvidence',
+  'anonymousAttackEvidence', 'runtimeStatus',
+]) assert.equal(contract[field], 'pending')
+assert.equal(contract.g1AccountsAccepted, false)
 
-const mutations = [
-  () => contract.identities.slice(1),
-  () => [...contract.identities, 'warehouse'],
-  () => contract.requiredChecks.slice(0, -1),
-  () => ({ ...contract.workspaceRoutes, finance: '/workspace/admin' }),
-]
-assert.equal(mutations.length, 4)
-assert.notDeepEqual(mutations[0](), expectedIdentities)
-assert.notDeepEqual(mutations[1](), expectedIdentities)
-assert.notDeepEqual(mutations[2](), expectedChecks)
-assert.notEqual(mutations[3]().finance, '/workspace/finance')
-
-console.log('TEAM_OS_4_G1_RUNNER_SELFTEST_OK identities=6 roles=5 capabilitiesExtraIdentities=0 checks=6 matrix=36 networkCalls=0 runtime=pending negative=4/4')
+// Static validation never promotes real network, page or API evidence.
+console.log('TEAM_OS_4_G1_ACCOUNT_CONTRACT_OK realEnabledAccounts=5 attackIdentities=anon runtime=pending accepted=0')

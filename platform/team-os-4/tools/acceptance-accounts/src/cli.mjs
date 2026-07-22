@@ -1,7 +1,7 @@
 import { pathToFileURL } from 'node:url'
 import { resolve } from 'node:path'
 import { createClient } from '@supabase/supabase-js'
-import { provisionAcceptanceAccounts } from './orchestrator.mjs'
+import { AcceptanceProvisioningError, provisionAcceptanceAccounts } from './orchestrator.mjs'
 import { createSupabaseAcceptanceAdapter } from './supabase-adapter.mjs'
 
 const dryRun = process.argv.includes('--dry-run')
@@ -27,15 +27,25 @@ try {
     auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
   })
   const domain = required('TEAM_OS_4_ACCEPTANCE_EMAIL_DOMAIN')
+  const codeCommit = required('TEAM_OS_4_ACCEPTANCE_CODE_COMMIT')
   const nonce = Date.now().toString(36)
   const result = await provisionAcceptanceAccounts({
     adapter: createSupabaseAcceptanceAdapter(client),
     emailFor: (key) => `g1-${nonce}-${key}@${domain}`,
     runAcceptance: runner.runAcceptance,
+    projectRef: ref,
+    codeCommit,
   })
-  process.stdout.write(`TEAM_OS_4_ACCEPTANCE_ACCOUNTS_OK status=${result.status} created=${result.created}\n`)
+  process.stdout.write(`TEAM_OS_4_ACCEPTANCE_ACCOUNTS_OK ${JSON.stringify(result)}\n`)
 } catch (error) {
-  process.stderr.write(`TEAM_OS_4_ACCEPTANCE_ACCOUNTS_FAIL ${error.message}\n`)
+  const evidence = error instanceof AcceptanceProvisioningError
+    ? error.evidence
+    : {
+        schemaVersion: 1, status: 'failed-before-provisioning', evidenceSealed: true,
+        safeStage: 'G1_STAGE_FAIL concealed', createdAccounts: 0, cleanedAccounts: 0,
+        credentialsExposed: false,
+      }
+  process.stderr.write(`TEAM_OS_4_ACCEPTANCE_ACCOUNTS_FAIL ${JSON.stringify(evidence)}\n`)
   process.exitCode = 1
 } finally {
   client = undefined

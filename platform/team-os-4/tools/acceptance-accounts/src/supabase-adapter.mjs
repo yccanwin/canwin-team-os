@@ -30,11 +30,15 @@ export function createSupabaseAcceptanceAdapter(client) {
     },
     async createProfile({ userId, primaryRole, capability }) {
       const { companyId, roleIds, supervisorId } = await context()
-      const { error } = await client.from('profiles').insert({
+      const { data: profile, error } = await client.from('profiles').insert({
         id: userId, company_id: companyId, primary_role_id: roleIds[primaryRole],
-        display_name: `G1 ${primaryRole}`,
-      })
+        display_name: `G1 ${primaryRole}`, is_active: true,
+      }).select('id,is_active').single()
       if (error) throw error
+      if (profile?.id !== userId || profile?.is_active !== true) {
+        await client.from('profiles').delete().eq('id', userId)
+        throw new Error('active profile verification failed')
+      }
       if (capability === 'supervisor') {
         const { error: overlayError } = await client.from('profile_capabilities').insert({
           profile_id: userId, capability_id: supervisorId, company_id: companyId, granted_by: userId,
@@ -44,6 +48,7 @@ export function createSupabaseAcceptanceAdapter(client) {
           throw overlayError
         }
       }
+      return { status: 'active' }
     },
     async deleteProfile(id) {
       await client.from('profile_capabilities').delete().eq('profile_id', id)

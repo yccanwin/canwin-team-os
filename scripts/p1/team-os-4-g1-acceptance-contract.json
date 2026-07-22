@@ -1,7 +1,10 @@
 {
-  "schemaVersion": 1,
-  "identities": ["anon", "sales", "implementation", "operations", "finance", "admin"],
-  "primaryRoles": ["sales", "implementation", "operations", "finance", "admin"],
+  "schemaVersion": 2,
+  "phase": "G1",
+  "realEnabledAccounts": 5,
+  "realEnabledAccountRoles": ["sales", "implementation", "operations", "finance", "admin"],
+  "attackIdentities": ["anon"],
+  "disabledAccountRequired": false,
   "capabilitiesNotSeparateIdentities": ["warehouse", "supervisor"],
   "workspaceRoutes": {
     "sales": "/workspace/sales",
@@ -10,13 +13,78 @@
     "finance": "/workspace/finance",
     "admin": "/workspace/admin"
   },
-  "requiredChecks": [
-    "real-login-auto-role-route",
-    "manual-url-cross-role-denied",
-    "direct-rest-cross-identity-read-policy",
-    "direct-rest-cross-identity-write-denied",
+  "authoritativeProvisioner": "platform/team-os-4/tools/acceptance-accounts",
+  "authoritativeRunner": "scripts/p1/run-team-os-4-g1-acceptance.mjs",
+  "retiredNonAuthoritativeHarnesses": [
+    "scripts/p1/run-real-page-acceptance.mjs",
+    "scripts/p1/manage-real-page-accounts.mjs"
+  ],
+  "retiredHarnessRule": "must-not-contribute-runtime-evidence-or-target-a-team-os-4-project",
+  "perAccountPositiveChecks": [
+    "auth-real-password-login",
+    "app-context-exact-primary-role-and-capabilities",
+    "navigation-manifest-exact-role-boundary",
+    "workspace-auto-route-and-visible-content",
+    "role-business-page-real-remote-request",
+    "own-scope-direct-api-read",
+    "role-business-direct-api-read"
+  ],
+  "perAccountNegativeChecks": [
+    "manual-cross-role-url-denied",
+    "cross-identity-read-hidden-or-explicitly-denied",
+    "cross-identity-write-denied",
+    "unauthorized-management-page-denied",
+    "unauthorized-management-api-denied",
+    "unauthorized-role-business-api-denied",
     "bootstrap-public-entry-denied",
     "bootstrap-private-entry-denied"
   ],
-  "runtimeStatus": "pending"
+  "anonymousAttackChecks": [
+    "bootstrap-public-entry-denied",
+    "bootstrap-private-entry-denied",
+    "internal-table-read-denied",
+    "rest-dml-denied",
+    "write-rpc-denied",
+    "private-storage-read-denied",
+    "storage-write-denied"
+  ],
+  "requiredEvidenceFields": [
+    "run_id",
+    "target_project_ref",
+    "application_commit",
+    "account_role",
+    "identity_kind",
+    "stage",
+    "started_at",
+    "finished_at",
+    "page_url_or_api_surface",
+    "http_status_or_postgres_code",
+    "row_count_or_result_digest",
+    "page_test_id_or_trace_digest",
+    "outcome",
+    "evidence_sha256"
+  ],
+  "evidenceRules": {
+    "oneRecordPerAccountPerCheck": true,
+    "aggregateOnlySummaryAllowed": false,
+    "credentialsOrTokensAllowed": false,
+    "realNetworkRequired": true,
+    "realPageRequired": true,
+    "simulatedOrFixtureEvidenceAllowed": false,
+    "firstFailureStopsRun": true,
+    "failedRunEvidencePreserved": true,
+    "targetMustBeIndependentTeamOs4Project": true
+  },
+  "expectedRuntimeEvidenceCount": {
+    "enabledAccountPositive": 35,
+    "enabledAccountNegative": 40,
+    "anonymousNegative": 7,
+    "minimumTotal": 82
+  },
+  "accountProvisioningEvidence": "pending",
+  "pageEvidence": "pending",
+  "directApiEvidence": "pending",
+  "anonymousAttackEvidence": "pending",
+  "runtimeStatus": "pending",
+  "g1AccountsAccepted": false
 }

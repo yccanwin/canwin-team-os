@@ -4,6 +4,17 @@ import { fileURLToPath } from 'node:url'
 import { ACCEPTANCE_IDENTITIES, provisionAcceptanceAccounts } from './orchestrator.mjs'
 import { createSupabaseAcceptanceAdapter } from './supabase-adapter.mjs'
 
+const PROJECT_REF = 'abcdefghijklmnopqrst'
+const CODE_COMMIT = 'a'.repeat(40)
+const passedSteps = Object.freeze({
+  signIn: 'passed', crossReadPolicy: 'passed', crossWrite: 'denied', roleRpc: 'denied',
+  pageLogin: 'passed', autoRoute: 'passed', crossUrl: 'denied',
+})
+const acceptanceResult = (accounts) => ({
+  global: { anonymousBootstrap: 'denied', browserLaunch: 'passed' },
+  accounts: accounts.map((account) => ({ identityKey: account.key, steps: { ...passedSteps } })),
+})
+
 assert.deepEqual(
   ACCEPTANCE_IDENTITIES.map(({ primaryRole, capability }) => [primaryRole, capability]),
   [['sales', null], ['implementation', null], ['operations', null], ['finance', null], ['admin', 'supervisor']],
@@ -16,7 +27,10 @@ const adapter = {
     calls.push(`auth:${email}`)
     return { id: `id-${calls.filter((x) => x.startsWith('auth:')).length}` }
   },
-  createProfile: async ({ userId, primaryRole, capability }) => calls.push(`profile:${userId}:${primaryRole}:${capability}`),
+  createProfile: async ({ userId, primaryRole, capability }) => {
+    calls.push(`profile:${userId}:${primaryRole}:${capability}`)
+    return { status: 'active' }
+  },
   deleteProfile: async (id) => calls.push(`delete-profile:${id}`),
   deleteAuthUser: async (id) => calls.push(`delete-auth:${id}`),
 }
@@ -24,13 +38,20 @@ const adapter = {
 const success = await provisionAcceptanceAccounts({
   adapter,
   emailFor: (key) => `${key}@example.invalid`,
+  projectRef: PROJECT_REF,
+  codeCommit: CODE_COMMIT,
   runAcceptance: async (accounts) => {
     assert.equal(accounts.length, 5)
     assert.ok(accounts.every((item) => item.password && item.email))
     calls.push('acceptance')
+    return acceptanceResult(accounts)
   },
 })
-assert.deepEqual(success, { status: 'sealed-not-deleted', created: 5 })
+assert.equal(success.status, 'sealed-not-deleted')
+assert.equal(success.evidenceSealed, true)
+assert.equal(success.accounts.length, 5)
+assert.ok(success.accounts.every((item) => item.projectRef === PROJECT_REF && item.codeCommit === CODE_COMMIT && item.profileStatus === 'active'))
+assert.ok(success.accounts.every((item) => /^[a-f0-9]{64}$/.test(item.userIdSha256)))
 assert.equal(calls.filter((x) => x.startsWith('delete-')).length, 0)
 
 calls = []
@@ -43,12 +64,15 @@ await assert.rejects(
       createProfile: async ({ userId }) => {
         calls.push(`profile:${userId}`)
         if (userId === 'new-3') throw new Error('profile failure')
+        return { status: 'active' }
       },
     },
     emailFor: (key) => `${key}@example.invalid`,
+    projectRef: PROJECT_REF,
+    codeCommit: CODE_COMMIT,
     runAcceptance: async () => assert.fail('must not run'),
   }),
-  /this batch was removed/,
+  (error) => error.evidence?.status === 'failed-cleaned' && error.evidence.cleanedAccounts === 3,
 )
 assert.deepEqual(calls, [
   'profile:new-1', 'profile:new-2', 'profile:new-3',
@@ -65,14 +89,16 @@ await assert.rejects(
     adapter: {
       ...adapter,
       createAuthUser: async () => ({ id: `stage-${++authCount}` }),
-      createProfile: async ({ userId }) => calls.push(`profile:${userId}`),
+      createProfile: async ({ userId }) => { calls.push(`profile:${userId}`); return { status: 'active' } },
       deleteProfile: async (id) => calls.push(`delete-profile:${id}`),
       deleteAuthUser: async (id) => calls.push(`delete-auth:${id}`),
     },
     emailFor: (key) => `${key}@example.invalid`,
+    projectRef: PROJECT_REF,
+    codeCommit: CODE_COMMIT,
     runAcceptance: async () => { throw new Error('G1_STAGE_FAIL auto-route:sales') },
   }),
-  (error) => error.message.endsWith('G1_STAGE_FAIL auto-route:sales'),
+  (error) => error.evidence?.safeStage === 'G1_STAGE_FAIL auto-route:sales',
 )
 assert.equal(calls.filter((item) => item.startsWith('delete-auth:')).length, 5)
 
@@ -83,14 +109,16 @@ await assert.rejects(
     adapter: {
       ...adapter,
       createAuthUser: async () => ({ id: `batch-${++authCount}` }),
-      createProfile: async ({ userId }) => calls.push(`profile:${userId}`),
+      createProfile: async ({ userId }) => { calls.push(`profile:${userId}`); return { status: 'active' } },
       deleteProfile: async (id) => calls.push(`delete-profile:${id}`),
       deleteAuthUser: async (id) => calls.push(`delete-auth:${id}`),
     },
     emailFor: (key) => `${key}@example.invalid`,
+    projectRef: PROJECT_REF,
+    codeCommit: CODE_COMMIT,
     runAcceptance: async () => { throw new Error('runner failed with must-not-log-secret') },
   }),
-  (error) => !error.message.includes('must-not-log-secret'),
+  (error) => !error.message.includes('must-not-log-secret') && error.evidence?.safeStage === 'G1_STAGE_FAIL concealed',
 )
 assert.deepEqual(calls.slice(-10), [
   'delete-profile:batch-5', 'delete-auth:batch-5',
