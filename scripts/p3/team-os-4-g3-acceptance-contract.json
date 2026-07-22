@@ -45,6 +45,13 @@
       "sales-opportunity-list",
       "customer-360"
     ],
+    "leadCleanupAudit": {
+      "retains": ["random_id", "region", "deleted_at", "reason", "job_version"],
+      "forbids": ["phone", "follow_up_body", "customer_content"],
+      "timezone": "Asia/Shanghai",
+      "idempotent": true
+    },
+    "customer360DataSource": "existing-supabase-customers-brands-stores-only",
     "rlsRequired": true,
     "clientDirectWritesAllowed": false,
     "fixturesMocksOrDemoDataAllowed": false

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "manifestType": "team-os-3-to-4-g3-crm-mapping-template",
+  "status": "pending",
+  "sourceSnapshotSha256": null,
+  "targetProjectRef": null,
+  "mappings": [
+    { "sourceTable": null, "sourceIdField": null, "targetEntity": "customers", "targetIdField": "id", "disposition": null },
+    { "sourceTable": null, "sourceIdField": null, "targetEntity": "brands", "targetIdField": "id", "disposition": null },
+    { "sourceTable": null, "sourceIdField": null, "targetEntity": "stores", "targetIdField": "id", "disposition": null },
+    { "sourceTable": null, "sourceIdField": null, "targetEntity": "leads", "targetIdField": "id", "disposition": null },
+    { "sourceTable": null, "sourceIdField": null, "targetEntity": "opportunities", "targetIdField": "id", "disposition": null }
+  ],
+  "allowedDispositions": ["import", "merge", "archive", "discard", "reject"],
+  "dataRowsIncluded": 0,
+  "importExecuted": false
+}
