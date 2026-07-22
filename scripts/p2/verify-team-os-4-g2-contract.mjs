@@ -8,16 +8,23 @@ const absolute = (path) => resolve(repoRoot, path)
 const readRaw = (path) => readFileSync(absolute(path), 'utf8')
 const read = (path) => readRaw(path).replace(/\s+/gu, ' ')
 const json = (path) => JSON.parse(readRaw(path))
-const normalizeScriptTextForPathMatch = (value) => value
-  .toLowerCase()
-  .replace(/\r\n?/gu, '\n')
-  .replace(/[\\]+/gu, '/')
-  .replace(/[\\/]+/gu, '/')
-  .replace(/\/+/gu, '/')
-  .replace(/%20/gu, ' ')
-  .replace(/\\(["'])/gu, '$1')
-  .replace(/["']/gu, '')
-  .replace(/\s+/gu, ' ')
+const normalizeScriptTextForPathMatch = (value) => {
+  if (typeof value !== 'string') return ''
+  const decoded = (() => {
+    try { return decodeURIComponent(value) } catch { return value }
+  })()
+  return decoded
+    .toLowerCase()
+    .replace(/\r\n?/gu, '\n')
+    .replace(/[\\]+/gu, '/')
+    .replace(/[\\/]+/gu, '/')
+    .replace(/\/+/gu, '/')
+    .replace(/%20/gu, ' ')
+    .replace(/\\(["'])/gu, '$1')
+    .replace(/["']/gu, '')
+    .replace(/\s+/gu, ' ')
+    .trim()
+}
 
 const normalizePathMatchCandidates = (pathText) => {
   if (!pathText) return []
@@ -82,8 +89,11 @@ const app = read('apps/team-os-4/src/App.tsx')
 const scaleRunner = read('scripts/p2/run-team-os-4-g2-scale-acceptance.mjs')
 const performanceAdapter = read('scripts/p2/run-team-os-4-g2-performance-adapter.mjs')
 const normalizedPerformanceAdapter = normalizeScriptTextForPathMatch(performanceAdapter)
-const normalizedExecutorPath = normalizeScriptTextForPathMatch('C:\\Program Files\\nodejs\\node.exe')
-const adapterWithoutExecutorPath = removePathMarker(normalizedPerformanceAdapter, normalizedExecutorPath)
+const fixedNodeExecutorPath = 'C:\\Program Files\\nodejs\\node.exe'
+const fixedNpxCliPath = 'C:\\Program Files\\nodejs\\node_modules\\npm\\bin\\npx-cli.js'
+const normalizedNodeExecutorPath = normalizeScriptTextForPathMatch(fixedNodeExecutorPath)
+const normalizedNpxCliPath = normalizeScriptTextForPathMatch(fixedNpxCliPath)
+const adapterWithoutExecutorPath = removePathMarker(normalizedPerformanceAdapter, fixedNodeExecutorPath)
 const compactClosure = closure.replace(/\s+/gu, '')
 
 const requiredBuckets = [
@@ -285,8 +295,12 @@ for (const fragment of [
   `performance adapter contract missing: ${fragment}`,
 )
 assert.ok(
-  normalizedPerformanceAdapter.includes(normalizedExecutorPath),
+  normalizedPerformanceAdapter.includes(normalizedNodeExecutorPath),
   'performance adapter fixed Node executor path missing',
+)
+assert.ok(
+  normalizedPerformanceAdapter.includes(normalizedNpxCliPath),
+  'performance adapter fixed npx-cli path missing',
 )
 assert.ok(!/insert\s+into\s+auth\.users/iu.test(performanceAdapter), 'performance adapter must never write auth.users through SQL')
 
