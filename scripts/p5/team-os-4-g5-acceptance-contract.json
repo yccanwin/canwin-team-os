@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "phase": "G5",
+  "acceptedProgressBefore": 60,
+  "checkpoints": [
+    {
+      "progress": 65,
+      "status": "pending",
+      "required": [
+        "customer-receipts-and-refunds",
+        "internal-payables-and-settlement",
+        "sales-and-company-profit-ledgers",
+        "labor-earning-ledger",
+        "reversal-conservation"
+      ]
+    },
+    {
+      "progress": 70,
+      "status": "pending",
+      "required": [
+        "finance-workspace",
+        "personal-earnings-page",
+        "field-level-finance-permissions",
+        "finance-exception-and-reconciliation-views"
+      ]
+    }
+  ],
+  "contracts": {
+    "immutableEvents": ["receipt", "internal-payment", "profit", "labor-earning", "refund", "reversal"],
+    "reversalMutatesOriginal": false,
+    "reversalCreatesOppositeEvent": true,
+    "conservationRequired": ["customer-cash", "internal-payable", "sales-profit", "company-profit", "labor-earning"],
+    "acceptedLaborEarningAutoClawback": false,
+    "acceptedLaborEarningCorrection": "explicit-reviewed-adjustment-event-only",
+    "globalFinanceVisibleTo": ["finance", "admin"],
+    "personalEarningsVisibleTo": "self-only-unless-finance-or-admin",
+    "clientDirectLedgerWritesAllowed": false,
+    "fixturesMocksOrDemoDataAllowed": false,
+    "stableTestIds": [
+      "finance-receipts",
+      "finance-internal-payables",
+      "finance-refunds-reversals",
+      "finance-profit-ledger",
+      "finance-labor-earnings",
+      "personal-earnings",
+      "finance-exceptions"
+    ]
+  },
+  "runtimeEvidence": "pending",
+  "conservationEvidence": "pending",
+  "permissionEvidence": "pending",
+  "g5Accepted": false
+}
