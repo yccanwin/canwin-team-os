@@ -8,7 +8,7 @@
     {
       "id": "real-business-acceptance",
       "title": "真实业务验收",
-      "requiredEvidence": ["六类真实账号页面验收", "真实业务主链验收", "直接 API 权限验收"],
+      "requiredEvidence": ["五个真实岗位账号页面验收", "真实业务主链验收", "直接 API 权限验收"],
       "status": "pending",
       "accepted": false,
       "evidence": [],

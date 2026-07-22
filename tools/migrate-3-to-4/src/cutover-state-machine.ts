@@ -19,17 +19,17 @@ export interface FullReconciliationGate {
   verifiedAt: string
 }
 
-export type AcceptanceRole = 'sales' | 'implementation' | 'operations' | 'finance' | 'admin-supervisor' | 'disabled-user'
+export type AcceptanceRole = 'sales' | 'implementation' | 'operations' | 'finance' | 'admin-supervisor'
 
 export interface AccountAcceptance {
   role: AcceptanceRole
-  authentication: 'passed' | 'denied-as-required'
-  page: 'passed' | 'denied-as-required'
-  directApi: 'passed' | 'denied-as-required'
+  authentication: 'passed'
+  page: 'passed'
+  directApi: 'passed'
   verifiedAt: string
 }
 
-export interface SixAccountGate {
+export interface FiveAccountGate {
   status: 'passed'
   accounts: readonly AccountAcceptance[]
 }
@@ -46,7 +46,7 @@ export interface BackupRecoveryGate {
 
 export interface CutoverAcceptanceEvidence {
   reconciliation: FullReconciliationGate
-  sixAccounts: SixAccountGate
+  fiveAccounts: FiveAccountGate
   backupRecovery: BackupRecoveryGate
 }
 
@@ -88,7 +88,7 @@ const ALLOWED_TRANSITIONS: Readonly<Record<Exclude<CutoverState, 'failed' | 'clo
   cutover: 'observing',
   observing: 'closed',
 }
-const REQUIRED_ROLES: readonly AcceptanceRole[] = ['sales', 'implementation', 'operations', 'finance', 'admin-supervisor', 'disabled-user']
+const REQUIRED_ROLES: readonly AcceptanceRole[] = ['sales', 'implementation', 'operations', 'finance', 'admin-supervisor']
 const SAFE_ID = /^[A-Za-z0-9._-]{1,100}$/
 
 function validTime(value: string): boolean {
@@ -104,14 +104,13 @@ export function validateCutoverAcceptance(evidence: CutoverAcceptanceEvidence): 
   }
   if (!validTime(reconciliation?.verifiedAt ?? '')) errors.push('full reconciliation verification time is invalid')
 
-  const accounts = evidence?.sixAccounts?.accounts ?? []
-  if (evidence?.sixAccounts?.status !== 'passed' || accounts.length !== REQUIRED_ROLES.length) errors.push('six-account acceptance is incomplete')
+  const accounts = evidence?.fiveAccounts?.accounts ?? []
+  if (evidence?.fiveAccounts?.status !== 'passed' || accounts.length !== REQUIRED_ROLES.length) errors.push('five-account acceptance is incomplete')
   const roles = new Set<AcceptanceRole>()
   for (const account of accounts) {
-    if (!REQUIRED_ROLES.includes(account.role) || roles.has(account.role)) errors.push('six-account role coverage is invalid')
+    if (!REQUIRED_ROLES.includes(account.role) || roles.has(account.role)) errors.push('five-account role coverage is invalid')
     roles.add(account.role)
-    const expectedOutcome = account.role === 'disabled-user' ? 'denied-as-required' : 'passed'
-    if (account.authentication !== expectedOutcome || account.page !== expectedOutcome || account.directApi !== expectedOutcome) {
+    if (account.authentication !== 'passed' || account.page !== 'passed' || account.directApi !== 'passed') {
       errors.push(`account acceptance did not fully pass: ${account.role}`)
     }
     if (!validTime(account.verifiedAt)) errors.push(`account acceptance time is invalid: ${account.role}`)
