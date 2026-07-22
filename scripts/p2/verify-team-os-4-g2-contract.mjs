@@ -16,7 +16,7 @@ const safeDecodePath = (value) => {
 const normalizePathTextForMatch = (value) => {
   if (typeof value !== 'string') return ''
   let normalized = value
-  for (let i = 0; i < 3; i += 1) {
+  for (let i = 0; i < 4; i += 1) {
     const decoded = safeDecodePath(normalized)
     if (decoded === normalized) break
     normalized = decoded
@@ -27,6 +27,8 @@ const normalizePathTextForMatch = (value) => {
     .replace(/\\+/gu, '/')
     .replace(/\/+/gu, '/')
     .replace(/%20/giu, ' ')
+    .replace(/%3a/giu, ':')
+    .replace(/%3A/giu, ':')
     .replace(/["']/gu, '')
     .replace(/\\(["'])/gu, '$1')
     .replace(/\s+/gu, ' ')
@@ -46,18 +48,28 @@ const normalizePathMatchCandidates = (pathText) => {
   const raw = pathText.trim()
   const normalized = normalizePathTextForMatch(raw)
   const decoded = normalizePathTextForMatch(safeDecodePath(raw))
+  const doubleDecoded = normalizePathTextForMatch(safeDecodePath(safeDecodePath(raw)))
+  const withForwardSlash = raw.replace(/\\/gu, '/')
+  const encoded = withForwardSlash.replace(/ /gu, '%20')
+  const withoutDrive = normalized.replace(/^[a-z]:\//ui, '')
   const variants = new Set([
     normalized,
     decoded,
+    doubleDecoded,
     raw.trim(),
-    raw.replace(/\\/gu, '/'),
-    raw.replace(/\\\\/gu, '/'),
+    withForwardSlash,
+    withForwardSlash.replace(/\\\\/gu, '/'),
     raw.replace(/^file:\/\//iu, ''),
-    `file:///${raw.replace(/\\/gu, '/').replace(/ /gu, '%20')}`,
-    `file:///${raw.replace(/\\/gu, '/').replace(/ /gu, '%20')}`.replace(/^file:\/\/\/c:/iu, 'c:'),
-    normalized.replace(/ /gu, '%20'),
-    decoded.replace(/ /gu, '%20'),
+    encoded,
+    `file:///${withForwardSlash}`,
+    `file:///${encoded}`,
+    normalized,
+    decoded,
+    doubleDecoded,
+    withoutDrive,
+    withoutDrive.replace(/ /gu, '%20'),
     raw.replace(/%5[cC]/gu, '/'),
+    `C:\\Program Files\\nodejs\\node.exe`,
   ])
   const quotedVariants = []
   for (const variant of [...variants]) {
@@ -78,6 +90,13 @@ const stripKnownExecutorPath = (sourceText) => {
     'C:%5cProgram%20Files%5cnodejs%5cnode.exe',
     'C:/Program%20Files/nodejs/node.exe',
     'C:\\Program%20Files\\nodejs\\node.exe',
+    'c:/program%20files/nodejs/node.exe',
+    'c:/program files/nodejs/node.exe',
+    'c:%5cprogram%20files%5cnodejs%5cnode.exe',
+    'file:///c:/program%20files/nodejs/node.exe',
+    'file:///c:/program files/nodejs/node.exe',
+    'file:///C:/Program%20Files/nodejs/node.exe',
+    'file:///C:/Program Files/nodejs/node.exe',
   ]
   let text = sourceText
   for (const candidate of executorPathCandidates) {
