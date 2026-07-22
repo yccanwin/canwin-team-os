@@ -201,6 +201,19 @@ const removePathMarker = (sourceText, pathText) => {
   return text
 }
 
+const hasPathMarkerMatch = (sourceText, pathText, { stripExecutorPath = false } = {}) => {
+  if (typeof sourceText !== 'string' || !sourceText.length) return false
+  if (typeof pathText !== 'string' || !pathText.length) return false
+  const normalizedSource = normalizePathMatchSource(stripExecutorPath ? stripKnownExecutorPath(sourceText) : sourceText)
+  const candidates = normalizePathMatchCandidates(pathText)
+  return candidates.some((candidate) => {
+    if (!candidate) return false
+    const marker = normalizePathMatchSource(candidate)
+    if (!marker) return false
+    return normalizedSource.includes(marker)
+  })
+}
+
 const contract = json('scripts/p2/team-os-4-g2-acceptance-contract.json')
 const dependencies = contract.contracts.migrationDependencies
 const migrationDirectory = 'platform/team-os-4/supabase/migrations'
@@ -437,10 +450,10 @@ for (const fragment of [
   `performance adapter contract missing: ${fragment}`,
 )
 const hasFixedNodeExecutor = (
-  containsPathMarker(performanceAdapter, fixedNodeExecutorPath)
+  hasPathMarkerMatch(performanceAdapter, fixedNodeExecutorPath)
   && /(spawnSync\s*\(|execSync\s*\().*FIXED_NODE/.test(performanceAdapter)
 )
-const hasFixedNpxWithoutExecutor = containsPathMarker(adapterWithoutExecutorPath, normalizedFixedNpx)
+const hasFixedNpxWithoutExecutor = hasPathMarkerMatch(adapterWithoutExecutorPath, fixedNpxCliPath, { stripExecutorPath: true })
 assert.ok(
   hasFixedNodeExecutor,
   'performance adapter fixed Node executor path missing',
