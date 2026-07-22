@@ -49,6 +49,30 @@ const normalizeScriptTextForPathMatch = (value) => {
   return normalizePathTextForCheck(value)
 }
 
+const stripPathFromText = (sourceText, pathText) => {
+  if (typeof sourceText !== 'string') return ''
+  if (typeof pathText !== 'string' || !pathText.length) return sourceText
+  const candidates = new Set([
+    pathText,
+    safeDecodePath(pathText),
+    normalizePathTextForMatch(pathText),
+    pathText.replace(/^file:\/{2,3}/iu, ''),
+    safeDecodePath(pathText).replace(/^file:\/{2,3}/iu, ''),
+  ])
+  for (const candidate of normalizePathMatchCandidates(pathText)) candidates.add(candidate)
+  for (const candidate of [...candidates]) {
+    if (!candidate.length) continue
+    const normalizedCandidate = normalizePathTextForMatch(candidate)
+    const encodedCandidate = encodeURIComponent(normalizedCandidate).replace(/%2520/gu, '%20')
+    const variants = [candidate, candidate.toLowerCase(), normalizedCandidate, normalizedCandidate.toLowerCase(), encodedCandidate, normalizePathTextForMatch(encodedCandidate)]
+    for (const variant of variants) {
+      if (!variant) continue
+      sourceText = sourceText.split(variant).join(' ')
+    }
+  }
+  return sourceText
+}
+
 const normalizePathMatchCandidates = (pathText) => {
   if (typeof pathText !== 'string' || !pathText.length) return []
   const raw = pathText.trim()
@@ -104,7 +128,12 @@ const stripKnownExecutorPath = (sourceText) => {
     'file:///C:/Program%20Files/nodejs/node.exe',
     'file:///C:/Program Files/nodejs/node.exe',
   ]
-  let text = normalizePathMatchSource(sourceText)
+  let text = sourceText
+  for (const candidate of executorPathCandidates) {
+    text = stripPathFromText(text, candidate)
+    text = stripPathFromText(text, decodeURIComponent(candidate))
+  }
+  text = normalizePathMatchSource(text)
   for (let i = 0; i < 3; i += 1) {
     const onceDecoded = safeDecodePath(text).replace(/%5c/giu, '/')
     if (onceDecoded === text) break
