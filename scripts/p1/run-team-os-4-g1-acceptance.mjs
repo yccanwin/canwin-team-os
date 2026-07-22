@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { chromium } from 'playwright'
+import { existsSync } from 'node:fs'
 
 const roleFor = (key) => key === 'admin_supervisor' ? 'admin' : key
 const required = (name) => {
@@ -16,6 +17,19 @@ const stage = async (label, action) => {
   } catch {
     throw new Error(`G1_STAGE_FAIL ${label}`)
   }
+}
+const WINDOWS_BROWSER_PATHS = [
+  'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+  'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+  'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+  'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+]
+const launchAcceptanceBrowser = () => {
+  const bundled = chromium.executablePath()
+  if (bundled && existsSync(bundled)) return chromium.launch({ headless: true })
+  const systemBrowser = WINDOWS_BROWSER_PATHS.find((path) => existsSync(path))
+  if (!systemBrowser) throw new Error('no supported browser executable found')
+  return chromium.launch({ headless: true, executablePath: systemBrowser })
 }
 
 export async function runAcceptance(accounts) {
@@ -65,7 +79,7 @@ export async function runAcceptance(accounts) {
     })
   }
 
-  const browser = await stage('browser-launch', () => chromium.launch({ headless: true }))
+  const browser = await stage('browser-launch', launchAcceptanceBrowser)
   try {
     for (const account of accounts) {
       const role = roleFor(account.key)

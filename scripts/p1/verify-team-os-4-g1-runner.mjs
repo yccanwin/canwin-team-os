@@ -29,6 +29,14 @@ for (const label of ['anon-rpc', 'sign-in:', 'cross-read:', 'cross-write:', 'rol
   assert.ok(runnerSource.includes(label), `safe stage label missing: ${label}`)
 }
 assert.ok(runnerSource.includes("url.hash === `#/workspace/${role}`"), 'HashRouter auto-route check must compare URL hash')
+assert.ok(runnerSource.includes('chromium.executablePath()') && runnerSource.includes('existsSync(bundled)'))
+for (const path of [
+  'C:\\\\Program Files\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe',
+  'C:\\\\Program Files (x86)\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe',
+  'C:\\\\Program Files\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe',
+  'C:\\\\Program Files (x86)\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe',
+]) assert.ok(runnerSource.includes(path), `fixed browser fallback missing: ${path}`)
+assert.ok(runnerSource.includes("stage('browser-launch', launchAcceptanceBrowser)"))
 assert.ok(!runnerSource.includes('G1_STAGE_FAIL ${account.email}') && !runnerSource.includes('G1_STAGE_FAIL ${account.id}'))
 
 const results = []
