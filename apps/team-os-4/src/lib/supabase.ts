@@ -1,25 +1,18 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { getTeamOs4Deployment, hasTeamOs4DeploymentEnvironment } from './deployment'
 
 let client: SupabaseClient | undefined
 
 export function hasGreenfieldEnvironment(): boolean {
-  return Boolean(
-    import.meta.env.CANWIN_TEAM_OS_4_SUPABASE_URL &&
-      import.meta.env.CANWIN_TEAM_OS_4_SUPABASE_PUBLISHABLE_KEY,
-  )
+  return hasTeamOs4DeploymentEnvironment()
 }
 
 export function getGreenfieldSupabase(): SupabaseClient {
   if (client) return client
 
-  const url = import.meta.env.CANWIN_TEAM_OS_4_SUPABASE_URL
-  const publishableKey = import.meta.env.CANWIN_TEAM_OS_4_SUPABASE_PUBLISHABLE_KEY
+  const config = getTeamOs4Deployment()
 
-  if (!url || !publishableKey) {
-    throw new Error('全新 4.0 Supabase 环境尚未配置')
-  }
-
-  client = createClient(url, publishableKey, {
+  client = createClient(config.supabaseUrl, config.supabasePublishableKey, {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
