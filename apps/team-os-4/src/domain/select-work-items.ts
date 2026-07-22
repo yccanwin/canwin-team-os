@@ -8,7 +8,7 @@ export function selectWorkItems(
   selection: WorkItemSelection,
 ): readonly WorkItem[] {
   const now = Date.parse(selection.now)
-  return items
+  return [...items
     .filter((item) => item.assigneeId === selection.assigneeId)
     .filter((item) => {
       if (selection.surface === 'progress') return true
@@ -17,8 +17,8 @@ export function selectWorkItems(
       const planned = item.plannedAt === null ? Number.NEGATIVE_INFINITY : Date.parse(item.plannedAt)
       const due = item.dueAt === null ? Number.POSITIVE_INFINITY : Date.parse(item.dueAt)
       return planned <= now || due <= now
-    })
-    .toSorted((left, right) => {
+    })]
+    .sort((left, right) => {
       const leftTime = Date.parse(left.dueAt ?? left.plannedAt ?? '9999-12-31T23:59:59.999Z')
       const rightTime = Date.parse(right.dueAt ?? right.plannedAt ?? '9999-12-31T23:59:59.999Z')
       return leftTime - rightTime || left.id.localeCompare(right.id)

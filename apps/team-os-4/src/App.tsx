@@ -77,7 +77,7 @@ function ScheduleEventList({ events, loading, error }: { events: readonly Schedu
   if (loading) return <section className="work-items-state" data-testid="schedule-events-calendar-loading"><StatusBadge tone="info">正在读取个人日程…</StatusBadge></section>
   if (error) return <section className="work-items-state" data-testid="schedule-events-calendar-error"><StatusBadge tone="danger">个人日程读取失败</StatusBadge></section>
   if (events.length === 0) return <div data-testid="schedule-events-calendar-empty"><EmptyState title="当前没有个人日程" description="会议、拜访、休息日和个人行程会显示在这里，不会复制成工作项。" /></div>
-  const orderedEvents = events.toSorted((left, right) => Date.parse(left.startsAt) - Date.parse(right.startsAt) || left.id.localeCompare(right.id))
+  const orderedEvents = [...events].sort((left, right) => Date.parse(left.startsAt) - Date.parse(right.startsAt) || left.id.localeCompare(right.id))
   return <ol className="work-item-list schedule-event-list" data-testid="schedule-events-calendar-list">{orderedEvents.map((event) => <li key={event.id} data-testid="schedule-event"><div><strong>{event.title}</strong><span>{SCHEDULE_KIND_LABELS[event.kind]}</span></div><StatusBadge tone="neutral">个人日程</StatusBadge><small>{LOCAL_DATE_TIME.format(new Date(event.startsAt))} — {LOCAL_DATE_TIME.format(new Date(event.endsAt))}</small>{event.location && <p>{event.location}</p>}</li>)}</ol>
 }
 
