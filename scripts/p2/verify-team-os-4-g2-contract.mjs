@@ -23,6 +23,7 @@ const normalizePathTextForMatch = (value) => {
   }
   return normalized
     .replace(/\r\n?/gu, '\n')
+    .replace(/^file:\/+?/iu, '')
     .replace(/%5c/giu, '/')
     .replace(/\\+/gu, '/')
     .replace(/\/+/gu, '/')
