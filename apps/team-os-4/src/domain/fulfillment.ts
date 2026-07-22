@@ -1,3 +1,5 @@
 export interface WarehouseStock { readonly id: string; readonly companyId: string; readonly warehouseId: string; readonly productId: string; readonly onHandQuantity: number; readonly reservedQuantity: number }
 export interface FulfillmentJob { readonly id: string; readonly companyId: string; readonly storeId: string; readonly orderLineId: string; readonly assigneeId: string | null; readonly status: 'pending' | 'reserved' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled' }
-export interface FulfillmentData { readonly stock: readonly WarehouseStock[]; readonly jobs: readonly FulfillmentJob[] }
+export type ServiceType = 'installation' | 'training' | 'acceptance' | 'operations_handoff'
+export interface ServiceAssignment { readonly id: string; readonly companyId: string; readonly fulfillmentUnitId: string; readonly assigneeId: string; readonly serviceType: ServiceType; readonly status: 'assigned' | 'in_progress' | 'completed' | 'cancelled'; readonly scheduledAt: string | null; readonly completedAt: string | null }
+export interface FulfillmentData { readonly stock: readonly WarehouseStock[]; readonly jobs: readonly FulfillmentJob[]; readonly assignments: readonly ServiceAssignment[] }
