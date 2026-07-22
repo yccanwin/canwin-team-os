@@ -3,21 +3,54 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { ACCEPTANCE_IDENTITIES, provisionAcceptanceAccounts } from './orchestrator.mjs'
 import { createSupabaseAcceptanceAdapter } from './supabase-adapter.mjs'
+import {
+  ANONYMOUS_NEGATIVE_STAGES,
+  ENABLED_ACCOUNT_BOUNDARY_STAGES,
+  ENABLED_ACCOUNT_POSITIVE_STAGES,
+  createAcceptanceEvidenceRecord,
+} from './evidence.mjs'
 
 const PROJECT_REF = 'abcdefghijklmnopqrst'
 const CODE_COMMIT = 'a'.repeat(40)
 const passedSteps = Object.freeze({
-  signIn: 'passed', crossReadPolicy: 'passed', crossWrite: 'denied', roleRpc: 'denied',
-  pageLogin: 'passed', autoRoute: 'passed', crossUrl: 'denied',
+  signIn: 'passed', profileContext: 'passed', ownScopeApi: 'passed', roleBusinessRead: 'passed',
+  crossReadPolicy: 'passed', crossWrite: 'denied', managementApi: 'passed',
+  roleBusinessBoundary: 'passed', publicBootstrap: 'denied', privateBootstrap: 'denied',
+  pageLogin: 'passed', autoRoute: 'passed', crossUrl: 'denied', managementPage: 'passed',
 })
-const acceptanceResult = (accounts) => ({
+const acceptanceRecord = (context, role, identityKind, stage) => createAcceptanceEvidenceRecord({
+  runId: context.runId,
+  targetProjectRef: context.targetProjectRef,
+  applicationCommit: context.applicationCommit,
+  accountRole: role,
+  identityKind,
+  stage,
+  startedAt: '2026-07-22T00:00:00.000Z',
+  finishedAt: '2026-07-22T00:00:01.000Z',
+  pageUrlOrApiSurface: `selftest:${role}:${stage}`,
+  httpStatusOrPostgresCode: 'CHECK_OK',
+  rowCountOrResultDigest: 0,
+  pageTestIdOrTraceDigest: `trace:${role}:${stage}`,
+  outcome: 'passed',
+})
+const acceptanceResult = (accounts, context) => ({
   global: { anonymousBootstrap: 'denied', browserLaunch: 'passed' },
   accounts: accounts.map((account) => ({ identityKey: account.key, steps: { ...passedSteps } })),
+  runId: context.runId,
+  applicationCommit: context.applicationCommit,
+  evidenceRecords: [
+    ...accounts.flatMap((account) => {
+      const role = account.key === 'admin_supervisor' ? 'admin' : account.key
+      return [...ENABLED_ACCOUNT_POSITIVE_STAGES, ...ENABLED_ACCOUNT_BOUNDARY_STAGES]
+        .map((stage) => acceptanceRecord(context, role, 'enabled-account', stage))
+    }),
+    ...ANONYMOUS_NEGATIVE_STAGES.map((stage) => acceptanceRecord(context, 'anon', 'anonymous-attack', stage)),
+  ],
 })
 
 assert.deepEqual(
   ACCEPTANCE_IDENTITIES.map(({ primaryRole, capability }) => [primaryRole, capability]),
-  [['sales', null], ['implementation', null], ['operations', null], ['finance', null], ['admin', 'supervisor']],
+  [['sales', null], ['implementation', 'warehouse'], ['operations', null], ['finance', null], ['admin', 'supervisor']],
 )
 
 let calls = []
@@ -40,11 +73,11 @@ const success = await provisionAcceptanceAccounts({
   emailFor: (key) => `${key}@example.invalid`,
   projectRef: PROJECT_REF,
   codeCommit: CODE_COMMIT,
-  runAcceptance: async (accounts) => {
+  runAcceptance: async (accounts, context) => {
     assert.equal(accounts.length, 5)
     assert.ok(accounts.every((item) => item.password && item.email))
     calls.push('acceptance')
-    return acceptanceResult(accounts)
+    return acceptanceResult(accounts, context)
   },
 })
 assert.equal(success.status, 'sealed-not-deleted')
@@ -72,7 +105,8 @@ await assert.rejects(
     codeCommit: CODE_COMMIT,
     runAcceptance: async () => assert.fail('must not run'),
   }),
-  (error) => error.evidence?.status === 'failed-cleaned' && error.evidence.cleanedAccounts === 3,
+  (error) => error.evidence?.status === 'failed-cleaned' && error.evidence.cleanedAccounts === 3
+    && error.evidence.evidenceSealed === true && error.evidence.evidenceRecordsRejected === false,
 )
 assert.deepEqual(calls, [
   'profile:new-1', 'profile:new-2', 'profile:new-3',
@@ -98,7 +132,8 @@ await assert.rejects(
     codeCommit: CODE_COMMIT,
     runAcceptance: async () => { throw new Error('G1_STAGE_FAIL auto-route:sales') },
   }),
-  (error) => error.evidence?.safeStage === 'G1_STAGE_FAIL auto-route:sales',
+  (error) => error.evidence?.safeStage === 'G1_STAGE_FAIL auto-route:sales'
+    && error.evidence.evidenceSealed === false && error.evidence.evidenceRecordsRejected === true,
 )
 assert.equal(calls.filter((item) => item.startsWith('delete-auth:')).length, 5)
 
@@ -118,7 +153,8 @@ await assert.rejects(
     codeCommit: CODE_COMMIT,
     runAcceptance: async () => { throw new Error('runner failed with must-not-log-secret') },
   }),
-  (error) => !error.message.includes('must-not-log-secret') && error.evidence?.safeStage === 'G1_STAGE_FAIL concealed',
+  (error) => !error.message.includes('must-not-log-secret') && error.evidence?.safeStage === 'G1_STAGE_FAIL concealed'
+    && error.evidence.evidenceSealed === false && error.evidence.evidenceRecordsRejected === true,
 )
 assert.deepEqual(calls.slice(-10), [
   'delete-profile:batch-5', 'delete-auth:batch-5',
@@ -139,4 +175,4 @@ assert.ok(adapterSource.includes("await client.from('profiles').delete().eq('id'
 
 assert.equal(typeof createSupabaseAcceptanceAdapter, 'function')
 
-process.stdout.write('TEAM_OS_4_ACCEPTANCE_ACCOUNTS_SELFTEST_OK identities=6 new=5 existingAdminDeleted=0 cleanup=reverse-5 overlayResidual=0 refUrlBound=1 runnerRequired=1 safeStageVisible=1 unsafeDetailHidden=1 secretsLogged=0 secretsWritten=0 success=sealed-not-deleted adapter=present\n')
+process.stdout.write('TEAM_OS_4_ACCEPTANCE_ACCOUNTS_SELFTEST_OK enabledIdentities=5 anon=attack-only new=5 existingAdminDeleted=0 cleanup=reverse-5 overlayResidual=0 refUrlBound=1 runnerRequired=1 safeStageVisible=1 unsafeDetailHidden=1 secretsLogged=0 secretsWritten=0 success=sealed-not-deleted adapter=present\n')

@@ -2,6 +2,11 @@ import { strict as assert } from 'node:assert'
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import {
+  ANONYMOUS_NEGATIVE_STAGES,
+  ENABLED_ACCOUNT_BOUNDARY_STAGES,
+  ENABLED_ACCOUNT_POSITIVE_STAGES,
+} from '../../platform/team-os-4/tools/acceptance-accounts/src/evidence.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const read = (path) => readFileSync(resolve(repoRoot, path), 'utf8')
@@ -35,20 +40,26 @@ assert.deepEqual(contract.perAccountPositiveChecks, [
   'own-scope-direct-api-read',
   'role-business-direct-api-read',
 ])
-assert.deepEqual(contract.perAccountNegativeChecks, [
+assert.deepEqual(contract.perAccountPositiveChecks, [...ENABLED_ACCOUNT_POSITIVE_STAGES])
+assert.deepEqual(contract.perAccountBoundaryChecks, [
   'manual-cross-role-url-denied',
-  'cross-identity-read-hidden-or-explicitly-denied',
+  'cross-identity-read-matches-role-policy',
   'cross-identity-write-denied',
-  'unauthorized-management-page-denied',
-  'unauthorized-management-api-denied',
-  'unauthorized-role-business-api-denied',
+  'management-page-matches-role-policy',
+  'management-api-matches-role-policy',
+  'role-business-api-matches-role-policy',
   'bootstrap-public-entry-denied',
   'bootstrap-private-entry-denied',
 ])
+assert.deepEqual(contract.perAccountBoundaryChecks, [...ENABLED_ACCOUNT_BOUNDARY_STAGES])
 assert.deepEqual(contract.anonymousAttackChecks, [
   'bootstrap-public-entry-denied', 'bootstrap-private-entry-denied', 'internal-table-read-denied',
   'rest-dml-denied', 'write-rpc-denied', 'private-storage-read-denied', 'storage-write-denied',
 ])
+assert.deepEqual(contract.anonymousAttackChecks, [...ANONYMOUS_NEGATIVE_STAGES])
+for (const stage of [...ENABLED_ACCOUNT_POSITIVE_STAGES, ...ENABLED_ACCOUNT_BOUNDARY_STAGES, ...ANONYMOUS_NEGATIVE_STAGES]) {
+  assert.ok(runnerSource.includes(`evidenceStage: '${stage}'`), `runner evidence stage missing: ${stage}`)
+}
 assert.deepEqual(contract.requiredEvidenceFields, [
   'run_id', 'target_project_ref', 'application_commit', 'account_role', 'identity_kind',
   'stage', 'started_at', 'finished_at', 'page_url_or_api_surface',
@@ -68,9 +79,9 @@ assert.deepEqual(contract.evidenceRules, {
 })
 assert.deepEqual(contract.expectedRuntimeEvidenceCount, {
   enabledAccountPositive: 35,
-  enabledAccountNegative: 40,
+  enabledAccountBoundary: 40,
   anonymousNegative: 7,
-  minimumTotal: 82,
+  exactTotal: 82,
 })
 
 // The authoritative construction path must remain exactly five enabled role
@@ -80,7 +91,10 @@ for (const key of ['sales', 'implementation', 'operations', 'finance', 'admin_su
 }
 assert.ok(orchestratorSource.includes('accounts.length !== 5') || runnerSource.includes('accounts.length !== 5'))
 assert.ok(runnerSource.includes("const expected = ['sales', 'implementation', 'operations', 'finance', 'admin_supervisor']"))
-assert.ok(runnerSource.includes("stage('anon-rpc'"), 'anonymous attack client is missing')
+for (const label of [
+  'anon-bootstrap-public', 'anon-bootstrap-private', 'anon-internal-read',
+  'anon-rest-dml', 'anon-write-rpc', 'anon-storage-read', 'anon-storage-write',
+]) assert.ok(runnerSource.includes(`runStage('${label}'`), `anonymous attack stage ${label} is missing`)
 assert.ok(runnerSource.includes("getByTestId('authenticated-app')"), 'real authenticated page check is missing')
 assert.ok(runnerSource.includes('getByTestId(`workspace-${role}`)'), 'exact role workspace check is missing')
 assert.ok(runnerSource.includes("getByTestId('access-denied')"), 'cross-role page denial is missing')

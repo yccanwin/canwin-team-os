@@ -38,8 +38,16 @@ const ROLE_BUSINESS_LINKS: Readonly<Record<PrimaryRole, readonly RoleBusinessLin
   ],
 }
 
-export function roleBusinessLinks(role: PrimaryRole): readonly RoleBusinessLink[] {
-  return ROLE_BUSINESS_LINKS[role]
+const WAREHOUSE_LINK: RoleBusinessLink = {
+  path: '/warehouse',
+  label: '仓库处理',
+  description: '查看仓库职能范围内的真实库存和预留情况',
+}
+
+export function roleBusinessLinks(role: PrimaryRole, additionalCapabilities: readonly string[] = []): readonly RoleBusinessLink[] {
+  const links = ROLE_BUSINESS_LINKS[role]
+  if (role !== 'implementation' || !additionalCapabilities.includes('warehouse')) return links
+  return [links[0], WAREHOUSE_LINK, ...links.slice(1)]
 }
 
 export function roleBusinessPath(role: PrimaryRole): string {

@@ -27,7 +27,7 @@ function useData(user: AuthenticatedWorkspace, allowed: boolean) {
 }
 
 export function WarehousePage({ user }: { user: AuthenticatedWorkspace }) {
-  const allowed = user.primaryRole === 'admin'
+  const allowed = user.primaryRole === 'admin' || user.additionalCapabilities.includes('warehouse')
   const state = useData(user, allowed)
   if (!allowed) return <section className="workspace access-denied" data-testid="warehouse-denied"><h1>当前账号没有仓库职能</h1></section>
   if (state.error) return <section className="workspace" data-testid="warehouse-error"><StatusBadge tone="danger">库存读取失败</StatusBadge></section>

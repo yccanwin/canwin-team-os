@@ -7,6 +7,7 @@ const sales: AuthenticatedWorkspace = {
   companyName: 'Greenfield',
   displayName: 'Sales User',
   primaryRole: 'sales',
+  additionalCapabilities: [],
 }
 
 assert.equal(workspacePath('sales'), '/workspace/sales')

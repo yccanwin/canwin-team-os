@@ -1,31 +1,42 @@
-import { createHash, randomBytes } from 'node:crypto'
+import { createHash, randomBytes, randomUUID } from 'node:crypto'
+import { validateAndSealAcceptanceEvidence } from './evidence.mjs'
 
 export const ACCEPTANCE_IDENTITIES = Object.freeze([
   { key: 'sales', primaryRole: 'sales', capability: null },
-  { key: 'implementation', primaryRole: 'implementation', capability: null },
+  { key: 'implementation', primaryRole: 'implementation', capability: 'warehouse' },
   { key: 'operations', primaryRole: 'operations', capability: null },
   { key: 'finance', primaryRole: 'finance', capability: null },
   { key: 'admin_supervisor', primaryRole: 'admin', capability: 'supervisor' },
 ])
 
 const makePassword = () => randomBytes(32).toString('base64url') + 'Aa1!'
-const SAFE_STAGE = /^G1_STAGE_FAIL (?:anon-rpc|browser-launch|(?:sign-in|cross-read|cross-write|role-rpc|page-login|auto-route|cross-url):(?:sales|implementation|operations|finance|admin))$/u
+const SAFE_STAGE = /^G1_STAGE_FAIL (?:anon-bootstrap-public|anon-bootstrap-private|anon-internal-read|anon-rest-dml|anon-write-rpc|anon-storage-read|anon-storage-write|browser-launch|(?:sign-in|profile-context|own-scope-read|role-business-read|cross-read|cross-write|management-api|role-business-boundary|bootstrap-public|bootstrap-private|page-login|auto-route|cross-url|management-page):(?:sales|implementation|operations|finance|admin))$/u
 const PROJECT_REF = /^[a-z0-9]{20}$/u
 const CODE_COMMIT = /^[a-f0-9]{40}$/u
 const STEP_EXPECTATIONS = Object.freeze({
   signIn: 'passed',
+  profileContext: 'passed',
+  ownScopeApi: 'passed',
+  roleBusinessRead: 'passed',
   crossReadPolicy: 'passed',
   crossWrite: 'denied',
-  roleRpc: 'denied',
+  managementApi: 'passed',
+  roleBusinessBoundary: 'passed',
+  publicBootstrap: 'denied',
+  privateBootstrap: 'denied',
   pageLogin: 'passed',
   autoRoute: 'passed',
   crossUrl: 'denied',
+  managementPage: 'passed',
 })
 
 const userIdHash = (id) => createHash('sha256').update(id, 'utf8').digest('hex')
 
-const validateAcceptanceResult = (result) => {
+const validateAcceptanceResult = (result, context) => {
   if (!result || typeof result !== 'object' || Array.isArray(result)) throw new Error('acceptance runner result is invalid')
+  if (result.runId !== context.runId || result.applicationCommit !== context.applicationCommit) {
+    throw new Error('acceptance runner identity fields mismatch')
+  }
   if (result.global?.anonymousBootstrap !== 'denied' || result.global?.browserLaunch !== 'passed') {
     throw new Error('acceptance runner global steps are incomplete')
   }
@@ -58,6 +69,9 @@ export async function provisionAcceptanceAccounts({ adapter, emailFor, runAccept
   if (!PROJECT_REF.test(projectRef)) throw new Error('acceptance project ref is invalid')
   if (!CODE_COMMIT.test(codeCommit)) throw new Error('acceptance code commit is invalid')
   const created = []
+  const runId = randomUUID()
+  let completedEvidenceRecords = []
+  let acceptanceStarted = false
   try {
     for (const identity of ACCEPTANCE_IDENTITIES) {
       const password = makePassword()
@@ -74,19 +88,31 @@ export async function provisionAcceptanceAccounts({ adapter, emailFor, runAccept
       created.at(-1).profileStatus = profile.status
     }
 
-    const result = validateAcceptanceResult(await runAcceptance(created.map((item) => ({
+    acceptanceStarted = true
+    const rawResult = await runAcceptance(created.map((item) => ({
       key: item.key,
       id: item.id,
       email: item.email,
       password: item.password,
-    }))))
+    })), { runId, targetProjectRef: projectRef, applicationCommit: codeCommit })
+    completedEvidenceRecords = Array.isArray(rawResult?.evidenceRecords) ? rawResult.evidenceRecords : []
+    const result = validateAcceptanceResult(rawResult, { runId, applicationCommit: codeCommit })
+    const runtimeEvidence = validateAndSealAcceptanceEvidence({
+      records: completedEvidenceRecords,
+      runId,
+      targetProjectRef: projectRef,
+      applicationCommit: codeCommit,
+      status: 'passed',
+    })
     return {
       schemaVersion: 1,
       status: 'sealed-not-deleted',
       evidenceSealed: true,
       projectRef,
       codeCommit,
+      runId,
       global: result.global,
+      runtimeEvidence,
       accounts: created.map((item) => ({
         projectRef,
         codeCommit,
@@ -97,6 +123,38 @@ export async function provisionAcceptanceAccounts({ adapter, emailFor, runAccept
       })),
     }
   } catch (error) {
+    if (Array.isArray(error?.evidenceRecords)) completedEvidenceRecords = error.evidenceRecords
+    let runtimeEvidence
+    let evidenceRecordsRejected = false
+    let rejectedEvidenceCount = 0
+    let rejectedEvidenceSha256 = null
+    try {
+      if (acceptanceStarted && completedEvidenceRecords.length === 0) {
+        throw new Error('started acceptance runner returned no terminal evidence')
+      }
+      runtimeEvidence = validateAndSealAcceptanceEvidence({
+        records: completedEvidenceRecords,
+        runId,
+        targetProjectRef: projectRef,
+        applicationCommit: codeCommit,
+        status: 'failed-stopped',
+      })
+    } catch {
+      evidenceRecordsRejected = acceptanceStarted || completedEvidenceRecords.length > 0
+      rejectedEvidenceCount = completedEvidenceRecords.length
+      rejectedEvidenceSha256 = evidenceRecordsRejected
+        ? createHash('sha256').update(JSON.stringify(completedEvidenceRecords), 'utf8').digest('hex')
+        : null
+      runtimeEvidence = evidenceRecordsRejected
+        ? null
+        : validateAndSealAcceptanceEvidence({
+            records: [],
+            runId,
+            targetProjectRef: projectRef,
+            applicationCommit: codeCommit,
+            status: 'failed-stopped',
+          })
+    }
     let cleanedAccounts = 0
     let cleanupComplete = true
     for (const item of [...created].reverse()) {
@@ -112,13 +170,18 @@ export async function provisionAcceptanceAccounts({ adapter, emailFor, runAccept
     throw new AcceptanceProvisioningError({
       schemaVersion: 1,
       status: cleanupComplete && cleanedAccounts === created.length ? 'failed-cleaned' : 'failed-cleanup-incomplete',
-      evidenceSealed: true,
+      evidenceSealed: !evidenceRecordsRejected,
       projectRef,
       codeCommit,
+      runId,
       safeStage: safeStage ?? 'G1_STAGE_FAIL concealed',
       createdAccounts: created.length,
       cleanedAccounts,
       credentialsExposed: false,
+      evidenceRecordsRejected,
+      rejectedEvidenceCount,
+      rejectedEvidenceSha256,
+      runtimeEvidence,
     }, error)
   } finally {
     for (const item of created) item.password = undefined

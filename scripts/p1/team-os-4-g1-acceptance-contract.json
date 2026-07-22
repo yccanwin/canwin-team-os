@@ -29,13 +29,13 @@
     "own-scope-direct-api-read",
     "role-business-direct-api-read"
   ],
-  "perAccountNegativeChecks": [
+  "perAccountBoundaryChecks": [
     "manual-cross-role-url-denied",
-    "cross-identity-read-hidden-or-explicitly-denied",
+    "cross-identity-read-matches-role-policy",
     "cross-identity-write-denied",
-    "unauthorized-management-page-denied",
-    "unauthorized-management-api-denied",
-    "unauthorized-role-business-api-denied",
+    "management-page-matches-role-policy",
+    "management-api-matches-role-policy",
+    "role-business-api-matches-role-policy",
     "bootstrap-public-entry-denied",
     "bootstrap-private-entry-denied"
   ],
@@ -77,9 +77,9 @@
   },
   "expectedRuntimeEvidenceCount": {
     "enabledAccountPositive": 35,
-    "enabledAccountNegative": 40,
+    "enabledAccountBoundary": 40,
     "anonymousNegative": 7,
-    "minimumTotal": 82
+    "exactTotal": 82
   },
   "accountProvisioningEvidence": "pending",
   "pageEvidence": "pending",

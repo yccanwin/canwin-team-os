@@ -12,11 +12,13 @@ export function createSupabaseAcceptanceAdapter(client) {
     for (const key of ['sales', 'implementation', 'operations', 'finance', 'admin']) {
       if (!roleIds[key]) throw new Error(`missing primary role ${key}`)
     }
-    const { data: supervisor, error: capabilityError } = await client
-      .from('capabilities').select('id').eq('company_id', companyId)
-      .eq('capability_key', 'supervisor').single()
+    const { data: capabilities, error: capabilityError } = await client
+      .from('capabilities').select('id,capability_key').eq('company_id', companyId)
+      .in('capability_key', ['warehouse', 'supervisor'])
     if (capabilityError) throw capabilityError
-    return { companyId, roleIds, supervisorId: supervisor.id }
+    const capabilityIds = Object.fromEntries(capabilities.map((item) => [item.capability_key, item.id]))
+    if (!capabilityIds.warehouse || !capabilityIds.supervisor) throw new Error('missing acceptance capability')
+    return { companyId, roleIds, capabilityIds }
   })()
 
   return {
@@ -29,7 +31,7 @@ export function createSupabaseAcceptanceAdapter(client) {
       return { id: data.user.id }
     },
     async createProfile({ userId, primaryRole, capability }) {
-      const { companyId, roleIds, supervisorId } = await context()
+      const { companyId, roleIds, capabilityIds } = await context()
       const { data: profile, error } = await client.from('profiles').insert({
         id: userId, company_id: companyId, primary_role_id: roleIds[primaryRole],
         display_name: `G1 ${primaryRole}`, is_active: true,
@@ -39,9 +41,9 @@ export function createSupabaseAcceptanceAdapter(client) {
         await client.from('profiles').delete().eq('id', userId)
         throw new Error('active profile verification failed')
       }
-      if (capability === 'supervisor') {
+      if (capability !== null) {
         const { error: overlayError } = await client.from('profile_capabilities').insert({
-          profile_id: userId, capability_id: supervisorId, company_id: companyId, granted_by: userId,
+          profile_id: userId, capability_id: capabilityIds[capability], company_id: companyId, granted_by: userId,
         })
         if (overlayError) {
           await client.from('profiles').delete().eq('id', userId)

@@ -1,4 +1,4 @@
-import type { PrimaryRole } from '../../../../packages/team-os-4-domain/src/index'
+import type { AdditionalCapability, PrimaryRole } from '../../../../packages/team-os-4-domain/src/index'
 
 export interface AuthenticatedWorkspace {
   readonly userId: string
@@ -6,6 +6,7 @@ export interface AuthenticatedWorkspace {
   readonly companyName: string
   readonly displayName: string
   readonly primaryRole: PrimaryRole
+  readonly additionalCapabilities: readonly AdditionalCapability[]
 }
 
 export function workspacePath(role: PrimaryRole): string {

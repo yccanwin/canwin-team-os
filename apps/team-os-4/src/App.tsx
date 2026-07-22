@@ -99,7 +99,7 @@ function Workspace({ user, items, loading, error }: { user: AuthenticatedWorkspa
       <section className="work-items-section" data-testid={`role-business-${currentRole}`} aria-labelledby="role-business-title">
         <div className="section-heading"><p className="eyebrow">当前岗位业务</p><h2 id="role-business-title">今天要用的真实业务入口</h2></div>
         <ol className="work-item-list role-business-list">
-          {roleBusinessLinks(currentRole).map((link) => <li key={link.path}><div><strong>{link.label}</strong><span>{link.description}</span></div><NavLink className="ui-button ui-button--quiet" to={link.path}>进入</NavLink></li>)}
+          {roleBusinessLinks(currentRole, user.additionalCapabilities).map((link) => <li key={link.path}><div><strong>{link.label}</strong><span>{link.description}</span></div><NavLink className="ui-button ui-button--quiet" to={link.path}>进入</NavLink></li>)}
         </ol>
       </section>
     </section>
@@ -172,7 +172,7 @@ function AuthenticatedApp({ user, onSignOut }: { user: AuthenticatedWorkspace; o
     <div className="app-shell" data-testid="authenticated-app">
       <aside>
         <div className="brand"><span>CW</span><div><strong>{user.companyName}</strong><small>Team OS 4.0</small></div></div>
-        <nav className="desktop-nav" aria-label="岗位工作台"><NavLink to={workspacePath(user.primaryRole)}>{PRIMARY_ROLE_LABELS[user.primaryRole]}工作台</NavLink><NavLink to="/progress">推进中心</NavLink><NavLink to="/calendar">日历</NavLink><span className="desktop-nav__group-label">当前岗位业务</span>{roleBusinessLinks(user.primaryRole).map((link) => <NavLink key={link.path} to={link.path}>{link.label}</NavLink>)}</nav>
+        <nav className="desktop-nav" aria-label="岗位工作台"><NavLink to={workspacePath(user.primaryRole)}>{PRIMARY_ROLE_LABELS[user.primaryRole]}工作台</NavLink><NavLink to="/progress">推进中心</NavLink><NavLink to="/calendar">日历</NavLink><span className="desktop-nav__group-label">当前岗位业务</span>{roleBusinessLinks(user.primaryRole, user.additionalCapabilities).map((link) => <NavLink key={link.path} to={link.path}>{link.label}</NavLink>)}</nav>
         <div className="environment ready" data-testid="environment-status"><span aria-hidden="true" />独立测试环境已连接</div>
       </aside>
       <main>
