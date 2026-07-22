@@ -13,7 +13,7 @@ const safeDecodePath = (value) => {
   try { return decodeURIComponent(value) } catch { return value }
 }
 
-const normalizePathTextForMatch = (value) => {
+const normalizePathTextForMatchCore = (value) => {
   if (typeof value !== 'string') return ''
   let normalized = value
   for (let i = 0; i < 4; i += 1) {
@@ -26,20 +26,35 @@ const normalizePathTextForMatch = (value) => {
     .replace(/^file:\/{2,3}/iu, '')
     .replace(/^file:\/?/iu, '')
     .replace(/%5c/giu, '/')
+    .replace(/%2[fF]/gu, '/')
     .replace(/%3a/giu, ':')
+    .replace(/%20/giu, ' ')
+    .replace(/%5[bB]/giu, '[')
+    .replace(/%5[dD]/giu, ']')
+    .replace(/%5[fF]/gu, '_')
     .replace(/%5b/giu, '[')
     .replace(/%5d/giu, ']')
     .replace(/%5f/giu, '_')
+    .replace(/%5c/giu, '/')
     .replace(/\\+/gu, '/')
     .replace(/\/+/gu, '/')
+    .replace(/\\(["'])/gu, '$1')
+    .replace(/["']/gu, '')
     .replace(/(?<=.)\u0000/gu, ' ')
     .replace(/[\u0000-\u001f\u007f]/gu, ' ')
-    .replace(/%20/giu, ' ')
-    .replace(/["']/gu, '')
-    .replace(/\\(["'])/gu, '$1')
     .replace(/\s+/gu, ' ')
     .trim()
     .toLowerCase()
+}
+
+const normalizePathWithoutDrive = (value) => (
+  typeof value === 'string'
+    ? value.replace(/^[a-z]:\//ui, '')
+    : ''
+)
+
+const normalizePathTextForMatch = (value) => {
+  return normalizePathWithoutDrive(normalizePathTextForMatchCore(value))
 }
 
 const normalizePathTextForCheck = (value) => normalizePathTextForMatch(value)
@@ -75,6 +90,8 @@ const normalizePathMatchCandidates = (pathText) => {
   const doubleDecoded = normalizePathTextForMatch(safeDecodePath(safeDecodePath(raw)))
   const withForwardSlash = raw.replace(/\\/gu, '/')
   const encoded = withForwardSlash.replace(/ /gu, '%20')
+  const normalizedWithoutDrive = normalizePathWithoutDrive(normalized)
+  const forwardWithoutDrive = normalizePathWithoutDrive(withForwardSlash.toLowerCase())
   const withoutDrive = normalized.replace(/^[a-z]:\//ui, '')
   const variants = new Set([
     normalized,
@@ -89,8 +106,10 @@ const normalizePathMatchCandidates = (pathText) => {
     `file:///${withForwardSlash}`,
     `file:///${encoded}`,
     withoutDrive,
+    normalizedWithoutDrive,
+    forwardWithoutDrive,
     withoutDrive.replace(/ /gu, '%20'),
-    raw.replace(/%5[cC]/gu, '/'),
+    pathText.toLowerCase().replace(/%5[cC]/gu, '/'),
     pathText,
     safeDecodePath(pathText),
     safeDecodePath(safeDecodePath(pathText)),
