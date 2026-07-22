@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "phase": "G6",
+  "acceptedProgressBefore": 70,
+  "checkpoints": [
+    {
+      "progress": 75,
+      "status": "pending",
+      "required": [
+        "sales-core-day",
+        "implementation-core-day",
+        "operations-core-day",
+        "finance-core-day",
+        "admin-core-day"
+      ]
+    },
+    {
+      "progress": 80,
+      "status": "pending",
+      "required": [
+        "mobile-core-actions",
+        "case-customer-display-authorization",
+        "case-admin-review",
+        "authorization-revocation-unpublishes-case",
+        "case-image-slot-policy"
+      ]
+    }
+  ],
+  "contracts": {
+    "coreDayRoles": ["sales", "implementation", "operations", "finance", "admin"],
+    "mobileActions": ["today-work", "progress", "calendar", "role-business", "profile"],
+    "casePublicationRequires": ["customer-display-authorization", "admin-review"],
+    "authorizationRecords": ["source", "scope", "valid_from", "valid_until", "revoked_at", "revoked_by", "reason"],
+    "authorizationRevocation": "immediate-unpublish-and-public-projection-removal",
+    "publicWebsiteSource": "desensitized-published-case-projection-only",
+    "allowedImageSlots": ["logo", "display_code"],
+    "maxImagesPerCase": 2,
+    "thirdImageRejected": true,
+    "imageMimeAllowlist": ["image/png", "image/jpeg", "image/webp"],
+    "maxImageBytesBySlot": { "logo": 204800, "display_code": 307200 },
+    "allOtherUploadsAllowed": false,
+    "rlsAndStoragePoliciesRequired": true,
+    "fixturesMocksOrDemoDataAllowed": false
+  },
+  "runtimeEvidence": "pending",
+  "mobileEvidence": "pending",
+  "caseAuthorizationEvidence": "pending",
+  "storageEvidence": "pending",
+  "g6Accepted": false
+}
