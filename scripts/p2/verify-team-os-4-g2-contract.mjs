@@ -66,6 +66,15 @@ const normalizeScriptTextForPathMatch = (value) => {
   return normalizePathTextForCheck(value)
 }
 
+const normalizePathForPathMatch = (value) => normalizePathMatchSource(value).replace(/\s+/gu, ' ').trim()
+
+const expandPathRemovalVariants = (pathText) => {
+  if (typeof pathText !== 'string' || !pathText.length) return []
+  const direct = normalizePathMatchSource(pathText)
+  const withoutDrive = normalizePathWithoutDrive(direct)
+  return [...new Set([direct, withoutDrive].filter((item) => item.length))]
+}
+
 const KNOWN_EXECUTOR_PATH_TEMPLATES = [
   'C:\\Program Files\\nodejs\\node.exe',
   'c:\\program files\\nodejs\\node.exe',
@@ -125,12 +134,13 @@ const normalizePathMatchCandidates = (pathText) => {
   return [...new Set(quotedVariants.map(normalizePathTextForCheck))].filter((candidate) => candidate.length > 0)
 }
 
-const KNOWN_EXECUTOR_PATH_CANDIDATES = [...new Set(KNOWN_EXECUTOR_PATH_TEMPLATES.flatMap((template) => normalizePathMatchCandidates(template)))]
+const KNOWN_EXECUTOR_PATH_MATCH_CANDIDATES = [...new Set(KNOWN_EXECUTOR_PATH_TEMPLATES.flatMap((template) => normalizePathMatchCandidates(template)))]
+const KNOWN_EXECUTOR_PATH_REMOVAL_CANDIDATES = [...new Set(KNOWN_EXECUTOR_PATH_TEMPLATES.flatMap((template) => expandPathRemovalVariants(template)))]
 
 const stripPathFromText = (sourceText, pathText) => {
   if (typeof sourceText !== 'string') return ''
   if (typeof pathText !== 'string' || !pathText.length) return sourceText
-  let source = normalizePathMatchSource(sourceText)
+  let source = normalizePathForPathMatch(sourceText)
   const candidates = new Set([
     pathText,
     safeDecodePath(pathText),
@@ -154,8 +164,12 @@ const stripPathFromText = (sourceText, pathText) => {
 
 const stripKnownExecutorPath = (sourceText) => {
   if (!sourceText) return ''
-  let text = normalizePathMatchSource(sourceText)
+  let text = normalizePathForPathMatch(sourceText)
   for (const template of KNOWN_EXECUTOR_PATH_TEMPLATES) {
+    text = text
+    for (const removalCandidate of expandPathRemovalVariants(template)) {
+      text = removePathMarker(text, removalCandidate)
+    }
     text = stripPathFromText(text, template)
     text = stripPathFromText(text, safeDecodePath(template))
   }
@@ -164,7 +178,8 @@ const stripKnownExecutorPath = (sourceText) => {
     if (onceDecoded === text) break
     text = onceDecoded
   }
-  for (const candidate of KNOWN_EXECUTOR_PATH_CANDIDATES) text = removePathMarker(text, candidate)
+  for (const candidate of KNOWN_EXECUTOR_PATH_MATCH_CANDIDATES) text = removePathMarker(text, candidate)
+  for (const candidate of KNOWN_EXECUTOR_PATH_REMOVAL_CANDIDATES) text = removePathMarker(text, candidate)
   text = text.replace(/\bnode\.exe\b/giu, ' ')
   text = text.replace(/\s+/gu, ' ').trim()
   return text
