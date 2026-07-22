@@ -12,13 +12,13 @@ const safeDecodePath = (value) => {
   if (typeof value !== 'string') return ''
   try { return decodeURIComponent(value) } catch { return value }
 }
-const normalizePathTextForCheck = (value) => {
+
+const normalizePathTextForMatch = (value) => {
   if (typeof value !== 'string') return ''
   return safeDecodePath(value)
     .replace(/\r\n?/gu, '\n')
     .replace(/%5c/giu, '/')
-    .replace(/[\\]+/gu, '/')
-    .replace(/[\\/]+/gu, '/')
+    .replace(/\\+/gu, '/')
     .replace(/\/+/gu, '/')
     .replace(/%20/giu, ' ')
     .replace(/["']/gu, '')
@@ -26,6 +26,11 @@ const normalizePathTextForCheck = (value) => {
     .replace(/\s+/gu, ' ')
     .trim()
     .toLowerCase()
+}
+
+const normalizePathTextForCheck = (value) => {
+  if (typeof value !== 'string') return ''
+  return normalizePathTextForMatch(value)
 }
 
 const normalizeScriptTextForPathMatch = (value) => {
@@ -36,18 +41,19 @@ const normalizeScriptTextForPathMatch = (value) => {
 const normalizePathMatchCandidates = (pathText) => {
   if (typeof pathText !== 'string' || !pathText.length) return []
   const raw = pathText.trim()
-  const normalized = normalizePathTextForCheck(raw)
-  const decoded = safeDecodePath(raw).trim()
-  const variants = [
+  const normalized = normalizePathTextForMatch(raw)
+  const decoded = normalizePathTextForMatch(safeDecodePath(raw))
+  const variants = new Set([
     normalized,
     decoded,
-    raw,
+    raw.trim(),
     raw.replace(/\\/gu, '/'),
+    raw.replace(/\\\\/gu, '/'),
     normalized.replace(/ /gu, '%20'),
     decoded.replace(/ /gu, '%20'),
-  ]
+  ])
   const quotedVariants = []
-  for (const variant of variants) {
+  for (const variant of [...variants]) {
     if (!variant) continue
     quotedVariants.push(variant)
     quotedVariants.push(`"${variant}"`)
@@ -60,9 +66,11 @@ const stripKnownExecutorPath = (sourceText) => {
   if (!sourceText) return ''
   const executorPathCandidates = [
     'C:\\Program Files\\nodejs\\node.exe',
+    'c:\\program files\\nodejs\\node.exe',
     'C:/Program Files/nodejs/node.exe',
     'C:%5cProgram%20Files%5cnodejs%5cnode.exe',
     'C:/Program%20Files/nodejs/node.exe',
+    'C:\\Program%20Files\\nodejs\\node.exe',
   ]
   let text = sourceText
   for (const candidate of executorPathCandidates) {
