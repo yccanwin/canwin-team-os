@@ -37,13 +37,13 @@
     "clientDirectLedgerWritesAllowed": false,
     "fixturesMocksOrDemoDataAllowed": false,
     "stableTestIds": [
-      "finance-receipts",
-      "finance-internal-payables",
-      "finance-refunds-reversals",
-      "finance-profit-ledger",
-      "finance-labor-earnings",
-      "personal-earnings",
-      "finance-exceptions"
+      "finance-page",
+      "finance-denied",
+      "finance-error",
+      "earnings-page",
+      "earnings-error",
+      "earning-row",
+      "finance-empty"
     ]
   },
   "runtimeEvidence": "pending",
