@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "phase": "G2",
+  "acceptedProgressBefore": 30,
+  "checkpoints": [
+    {
+      "progress": 35,
+      "status": "pending",
+      "required": [
+        "work-item-unique-generation-key",
+        "work-item-state-machine",
+        "business-completion-idempotency"
+      ]
+    },
+    {
+      "progress": 40,
+      "status": "pending",
+      "required": [
+        "workspace-progress-calendar-single-source",
+        "mobile-workspace-progress-calendar-acceptance"
+      ]
+    }
+  ],
+  "contracts": {
+    "uniqueGenerationKey": "company_id+source_business+source_id+generation_rule",
+    "assigneeReassignment": "updates-existing-work-item-without-generating-duplicate",
+    "stateMachine": ["pending", "in_progress", "waiting", "completed", "cancelled"],
+    "businessCompletion": "server-transaction-closes-work-item-idempotently",
+    "singleSourceEntrypoints": ["workspace", "progress-center", "calendar"],
+    "mobileRequired": true
+  },
+  "runtimeEvidence": "pending",
+  "g2Accepted": false
+}
