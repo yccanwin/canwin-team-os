@@ -1,4 +1,4 @@
-import { strict as assert } from 'node:assert'
+﻿import { strict as assert } from 'node:assert'
 import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -51,29 +51,21 @@ const normalizeScriptTextForPathMatch = (value) => {
   return normalizePathTextForCheck(value)
 }
 
-const stripPathFromText = (sourceText, pathText) => {
-  if (typeof sourceText !== 'string') return ''
-  if (typeof pathText !== 'string' || !pathText.length) return sourceText
-  const candidates = new Set([
-    pathText,
-    safeDecodePath(pathText),
-    normalizePathTextForMatch(pathText),
-    pathText.replace(/^file:\/{2,3}/iu, ''),
-    safeDecodePath(pathText).replace(/^file:\/{2,3}/iu, ''),
-  ])
-  for (const candidate of normalizePathMatchCandidates(pathText)) candidates.add(candidate)
-  for (const candidate of [...candidates]) {
-    if (!candidate.length) continue
-    const normalizedCandidate = normalizePathTextForMatch(candidate)
-    const encodedCandidate = encodeURIComponent(normalizedCandidate).replace(/%2520/gu, '%20')
-    const variants = [candidate, candidate.toLowerCase(), normalizedCandidate, normalizedCandidate.toLowerCase(), encodedCandidate, normalizePathTextForMatch(encodedCandidate)]
-    for (const variant of variants) {
-      if (!variant) continue
-      sourceText = sourceText.split(variant).join(' ')
-    }
-  }
-  return sourceText
-}
+const KNOWN_EXECUTOR_PATH_TEMPLATES = [
+  'C:\\Program Files\\nodejs\\node.exe',
+  'c:\\program files\\nodejs\\node.exe',
+  'C:/Program Files/nodejs/node.exe',
+  'C:%5cProgram%20Files%5cnodejs%5cnode.exe',
+  'C:/Program%20Files/nodejs/node.exe',
+  'C:\\Program%20Files\\nodejs\\node.exe',
+  'c:/program%20files/nodejs/node.exe',
+  'c:/program files/nodejs/node.exe',
+  'c:%5cprogram%20files%5cnodejs%5cnode.exe',
+  'file:///c:/program%20files/nodejs/node.exe',
+  'file:///c:/program files/nodejs/node.exe',
+  'file:///C:/Program%20Files/nodejs/node.exe',
+  'file:///C:/Program Files/nodejs/node.exe',
+]
 
 const normalizePathMatchCandidates = (pathText) => {
   if (typeof pathText !== 'string' || !pathText.length) return []
@@ -88,20 +80,21 @@ const normalizePathMatchCandidates = (pathText) => {
     normalized,
     decoded,
     doubleDecoded,
-    raw.trim(),
+    raw,
     withForwardSlash,
-    withForwardSlash.replace(/\\\\/gu, '/'),
+    withForwardSlash.replace(/\\/gu, '/'),
     raw.replace(/^file:\/\//iu, ''),
+    raw.replace(/^file:\/{2,3}/iu, ''),
     encoded,
     `file:///${withForwardSlash}`,
     `file:///${encoded}`,
-    normalized,
-    decoded,
-    doubleDecoded,
     withoutDrive,
     withoutDrive.replace(/ /gu, '%20'),
     raw.replace(/%5[cC]/gu, '/'),
-    `C:\\Program Files\\nodejs\\node.exe`,
+    pathText,
+    safeDecodePath(pathText),
+    safeDecodePath(safeDecodePath(pathText)),
+    pathText.replace(/^file:\/{2,3}/iu, ''),
   ])
   const quotedVariants = []
   for (const variant of [...variants]) {
@@ -113,52 +106,50 @@ const normalizePathMatchCandidates = (pathText) => {
   return [...new Set(quotedVariants.map(normalizePathTextForCheck))].filter((candidate) => candidate.length > 0)
 }
 
+const KNOWN_EXECUTOR_PATH_CANDIDATES = [...new Set(KNOWN_EXECUTOR_PATH_TEMPLATES.flatMap((template) => normalizePathMatchCandidates(template)))]
+
+const stripPathFromText = (sourceText, pathText) => {
+  if (typeof sourceText !== 'string') return ''
+  if (typeof pathText !== 'string' || !pathText.length) return sourceText
+  let source = normalizePathMatchSource(sourceText)
+  const candidates = new Set([
+    pathText,
+    safeDecodePath(pathText),
+    normalizePathTextForMatch(pathText),
+    pathText.replace(/^file:\/{2,3}/iu, ''),
+    safeDecodePath(pathText).replace(/^file:\/{2,3}/iu, ''),
+  ])
+  for (const candidate of normalizePathMatchCandidates(pathText)) candidates.add(candidate)
+  for (const candidate of [...candidates]) {
+    if (!candidate.length) continue
+    const encodedCandidate = encodeURIComponent(candidate).replace(/%2520/gu, '%20')
+    const variants = [candidate, candidate.toLowerCase(), normalizePathTextForCheck(candidate), normalizePathTextForCheck(candidate.toLowerCase()), encodeURIComponent(normalizePathTextForCheck(candidate)).replace(/%2520/gu, '%20'), encodedCandidate]
+    for (const variant of variants) {
+      if (!variant) continue
+      const normalizedVariant = normalizePathTextForMatch(variant)
+      source = source.split(normalizedVariant).join(' ')
+    }
+  }
+  return source
+}
+
 const stripKnownExecutorPath = (sourceText) => {
   if (!sourceText) return ''
-  const executorPathCandidates = [
-    'C:\\Program Files\\nodejs\\node.exe',
-    'c:\\program files\\nodejs\\node.exe',
-    'C:/Program Files/nodejs/node.exe',
-    'C:%5cProgram%20Files%5cnodejs%5cnode.exe',
-    'C:/Program%20Files/nodejs/node.exe',
-    'C:\\Program%20Files\\nodejs\\node.exe',
-    'c:/program%20files/nodejs/node.exe',
-    'c:/program files/nodejs/node.exe',
-    'c:%5cprogram%20files%5cnodejs%5cnode.exe',
-    'file:///c:/program%20files/nodejs/node.exe',
-    'file:///c:/program files/nodejs/node.exe',
-    'file:///C:/Program%20Files/nodejs/node.exe',
-    'file:///C:/Program Files/nodejs/node.exe',
-  ]
-  let text = sourceText
-  for (const candidate of executorPathCandidates) {
-    text = stripPathFromText(text, candidate)
-    text = stripPathFromText(text, decodeURIComponent(candidate))
+  let text = normalizePathMatchSource(sourceText)
+  for (const template of KNOWN_EXECUTOR_PATH_TEMPLATES) {
+    text = stripPathFromText(text, template)
+    text = stripPathFromText(text, safeDecodePath(template))
   }
-  text = normalizePathMatchSource(text)
   for (let i = 0; i < 3; i += 1) {
     const onceDecoded = safeDecodePath(text).replace(/%5c/giu, '/')
     if (onceDecoded === text) break
     text = onceDecoded
   }
-  for (const candidate of executorPathCandidates) {
-    text = removePathMarker(text, candidate)
-  }
-  for (const candidate of normalizePathMatchCandidates('C:\\Program Files\\nodejs\\node.exe')) {
-    text = removePathMarker(text, candidate)
-  }
-  // 同时过滤可能出现的变体路径（含驱动符/编码/大小写差异），防止执行器路径误判为适配器缺失。
-  text = normalizePathMatchSource(text)
-    .replace(/\s+/gu, ' ')
-    .split(normalizePathTextForMatch('program files/nodejs/node.exe')).join(' ')
-    .replace(normalizePathTextForMatch('program files\\nodejs\\node.exe'), ' ')
-    .replace(/program%20files\/nodejs\/node\.exe/gu, ' ')
-    .replace(/program files\/nodejs\/node\.exe/gu, ' ')
-    .replace(/node\.exe/gu, ' ')
+  for (const candidate of KNOWN_EXECUTOR_PATH_CANDIDATES) text = removePathMarker(text, candidate)
+  text = text.replace(/\bnode\.exe\b/giu, ' ')
   text = text.replace(/\s+/gu, ' ').trim()
   return text
 }
-
 const containsPathMarker = (sourceText, pathText) => {
   const source = normalizePathMatchSource(sourceText)
   const candidates = normalizePathMatchCandidates(pathText)
@@ -427,3 +418,4 @@ assert.ok(
 assert.ok(!/insert\s+into\s+auth\.users/iu.test(performanceAdapter), 'performance adapter must never write auth.users through SQL')
 
 console.log('TEAM_OS_4_G2_CONTRACT_OK schema=3 backend=static-only migrations=strict-order waiting=readonly-preflight cursor=business-date-frozen businessCompletion=atomic-claim-lead remoteRunner=explicit-opt-in runtimeEvidence=pending accepted=false')
+
