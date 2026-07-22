@@ -5,6 +5,7 @@ import {
   type PrimaryRole,
 } from '../../../packages/team-os-4-domain/src/index'
 import { hasGreenfieldEnvironment } from './lib/supabase'
+import { KPICard, ProgressBar, StatusBadge } from './ui'
 
 const ROLE_FOCUS: Readonly<Record<PrimaryRole, string>> = {
   sales: '客户、商机、报价、订单与续费',
@@ -20,17 +21,18 @@ const workspaces = PRIMARY_ROLES.map((role) => ({
   focus: ROLE_FOCUS[role],
 }))
 
-function Workspace({ label, focus }: { label: string; focus: string }) {
+function Workspace({ role, label, focus }: { role: PrimaryRole; label: string; focus: string }) {
   return (
-    <section className="workspace" aria-labelledby="workspace-title">
+    <section className="workspace" data-testid={`workspace-${role}`} aria-labelledby="workspace-title">
       <p className="eyebrow">4.0 独立岗位工作台</p>
       <h1 id="workspace-title">{label}工作台</h1>
       <p className="lead">{focus}</p>
       <div className="metric-grid">
-        <article><span>今日推进</span><strong>0</strong><small>等待新系统合成数据</small></article>
-        <article><span>待我处理</span><strong>0</strong><small>统一工作项尚未接入</small></article>
-        <article><span>异常提醒</span><strong>0</strong><small>迁移模式下外发关闭</small></article>
+        <KPICard label="今日推进" value={0} note="等待新系统接入数据" tone="success" />
+        <KPICard label="待我处理" value={0} note="统一工作项尚未接入" tone="info" />
+        <KPICard label="异常提醒" value={0} note="迁移模式下外发关闭" tone="warning" />
       </div>
+      <div className="foundation-progress"><ProgressBar label="P0 绿色基础层" value={25} /></div>
       <div className="notice">
         <strong>绿色地基状态</strong>
         <p>当前页面来自全新应用根，不读取3.0页面、路由、RPC或迁移链。</p>
@@ -51,20 +53,20 @@ export function App() {
             <NavLink key={workspace.id} to={`/workspace/${workspace.id}`}>{workspace.label}</NavLink>
           ))}
         </nav>
-        <div className={`environment ${environmentReady ? 'ready' : ''}`}>
+        <div className={`environment ${environmentReady ? 'ready' : ''}`} data-testid="environment-status">
           <span aria-hidden="true" />
           {environmentReady ? '独立测试环境已配置' : '等待独立测试环境'}
         </div>
       </aside>
       <main>
         <header>
-          <div><b>全新4.0</b><span>3.0保持只读</span></div>
+          <div><b>全新 4.0</b><StatusBadge tone="success">独立绿色根</StatusBadge><span>3.0 保持只读</span></div>
           <div className="capabilities"><span>仓库职能：按需授予</span><span>主管体系：默认关闭</span></div>
         </header>
         <Routes>
           <Route path="/" element={<Navigate to="/workspace/sales" replace />} />
           {workspaces.map((workspace) => (
-            <Route key={workspace.id} path={`/workspace/${workspace.id}`} element={<Workspace {...workspace} />} />
+            <Route key={workspace.id} path={`/workspace/${workspace.id}`} element={<Workspace role={workspace.id} label={workspace.label} focus={workspace.focus} />} />
           ))}
           <Route path="*" element={<Navigate to="/workspace/sales" replace />} />
         </Routes>

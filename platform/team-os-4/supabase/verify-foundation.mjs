@@ -21,6 +21,7 @@ const expectedPrivateFunctions = [
 const expectedMigrations = [
   '20260722032824_initial_team_os_4_foundation.sql',
   '20260722034113_add_foundation_foreign_key_indexes.sql',
+  '20260722050000_add_controlled_bootstrap_and_permanent_seal.sql',
 ]
 const expectedForeignKeyIndexes = [
   ['profiles_primary_role_company_fk_idx', 'profiles', 'primary_role_id,company_id'],
@@ -42,6 +43,7 @@ if (JSON.stringify(migrations) !== JSON.stringify(expectedMigrations)) {
 const migrationPath = join(migrationsDir, expectedMigrations[0])
 const sql = readFileSync(migrationPath, 'utf8')
 const foreignKeyIndexSql = readFileSync(join(migrationsDir, expectedMigrations[1]), 'utf8')
+const bootstrapSql = readFileSync(join(migrationsDir, expectedMigrations[2]), 'utf8')
 const seed = readFileSync(join(root, 'seed.sql'), 'utf8')
 const config = readFileSync(join(root, 'config.toml'), 'utf8')
 
@@ -54,6 +56,7 @@ const normalizedForeignKeyIndexSql = withoutComments(foreignKeyIndexSql)
   .replace(/\s+/g, ' ')
   .trim()
   .toLowerCase()
+const normalizedBootstrapSql = withoutComments(bootstrapSql).replace(/\s+/g, ' ').trim().toLowerCase()
 const failures = []
 const check = (condition, message) => {
   if (!condition) failures.push(message)
@@ -148,7 +151,61 @@ const forbiddenReferences = [
 for (const [label, pattern] of forbiddenReferences) {
   check(!pattern.test(sql), `forbidden reference present: ${label}`)
   check(!pattern.test(foreignKeyIndexSql), `foreign-key index migration forbidden reference present: ${label}`)
+  check(!pattern.test(bootstrapSql), `bootstrap migration forbidden reference present: ${label}`)
 }
+
+check(
+  /create or replace function private\.bootstrap_team_os_4\([\s\S]*?\)\s*returns jsonb\s*language plpgsql\s*security definer\s*set search_path = ''/.test(normalizedBootstrapSql),
+  'controlled bootstrap function or security boundary missing',
+)
+check(
+  /pg_advisory_xact_lock\(/.test(normalizedBootstrapSql),
+  'bootstrap transaction lock missing',
+)
+for (const role of ['public', 'anon', 'authenticated']) {
+  check(
+    new RegExp(`revoke all on function private\\.bootstrap_team_os_4\\([^)]+\\) from ${role}\\s*;`).test(normalizedBootstrapSql),
+    `bootstrap ${role} revoke missing`,
+  )
+}
+check(
+  /grant execute on function private\.bootstrap_team_os_4\([^)]+\) to service_role\s*;/.test(normalizedBootstrapSql),
+  'bootstrap service_role grant missing',
+)
+check(
+  /revoke execute on function private\.bootstrap_team_os_4\([^)]+\) from service_role\s*;/.test(normalizedBootstrapSql),
+  'bootstrap permanent self-seal missing',
+)
+check(
+  /create or replace function public\.bootstrap_team_os_4_deployment\([\s\S]*?\)\s*returns jsonb\s*language sql\s*security invoker\s*set search_path = ''/.test(normalizedBootstrapSql),
+  'bootstrap Data API deployment bridge boundary missing',
+)
+for (const role of ['public', 'anon', 'authenticated']) {
+  check(
+    new RegExp(`revoke all on function public\\.bootstrap_team_os_4_deployment\\([^)]+\\) from ${role}\\s*;`).test(normalizedBootstrapSql),
+    `bootstrap deployment bridge ${role} revoke missing`,
+  )
+}
+check(
+  /grant execute on function public\.bootstrap_team_os_4_deployment\([^)]+\) to service_role\s*;/.test(normalizedBootstrapSql),
+  'bootstrap deployment bridge service_role grant missing',
+)
+check(
+  /revoke execute on function public\.bootstrap_team_os_4_deployment\([^)]+\) from service_role\s*;/.test(normalizedBootstrapSql),
+  'bootstrap deployment bridge permanent seal missing',
+)
+check(
+  !/(password|service[_ -]?role|access[_ -]?token|refresh[_ -]?token|database[_ -]?url)\s+(text|varchar)/.test(normalizedBootstrapSql),
+  'bootstrap accepts a credential-like input',
+)
+check(
+  /values \( v_company_id, true, true, false, false, false, p_admin_user_id \)/.test(normalizedBootstrapSql),
+  'sealed migration-mode runtime state missing',
+)
+check(
+  /v_role_count <> 5 or v_capability_count <> 2/.test(normalizedBootstrapSql),
+  'bootstrap dictionary cardinality assertion missing',
+)
 
 check(
   /\bmigration_mode boolean not null default true\b/.test(normalizedSql),
@@ -186,6 +243,6 @@ if (failures.length > 0) {
   process.exitCode = 1
 } else {
   console.log(
-    `TEAM_OS_4_FOUNDATION_OK migrations=${expectedMigrations.length} tables=7 rls=7 grants=7 privateFunctions=3 foreignKeyIndexes=6 seedStatements=0 forbiddenReferences=0 migrationModeLock=passed`,
+    `TEAM_OS_4_FOUNDATION_OK migrations=${expectedMigrations.length} tables=7 rls=7 grants=7 privateFunctions=3 foreignKeyIndexes=6 bootstrap=sealed seedStatements=0 forbiddenReferences=0 migrationModeLock=passed`,
   )
 }

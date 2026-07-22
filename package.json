@@ -12,6 +12,8 @@
     "typecheck:team-os-4-domain": "npm run typecheck --prefix packages/team-os-4-domain",
     "test:team-os-4-migration-tool": "npm run typecheck --prefix tools/migrate-3-to-4 && npm run selftest --prefix tools/migrate-3-to-4",
     "test:team-os-4-foundation": "node platform/team-os-4/supabase/verify-foundation.mjs",
+    "test:team-os-4-bootstrap-page-qa": "node scripts/p0/verify-greenfield-bootstrap-page-qa.mjs",
+    "test:team-os-4-bootstrap": "npm run selftest --prefix platform/team-os-4/tools/bootstrap",
     "test:p0:greenfield-root": "node scripts/p0/verify-greenfield-root-contract.mjs",
     "test:lead-parser": "node --experimental-strip-types scripts/test-lead-paste-parser.ts",
     "test:crm-ui": "node --experimental-strip-types scripts/test-crm-command-center-ui.ts",
