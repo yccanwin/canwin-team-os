@@ -100,10 +100,11 @@ const mappedPage = mapWorkItemPage({
     sort_at: entry.sortKey.sortAt,
     priority_rank: entry.sortKey.priorityRank,
   })),
-  next_cursor: { sort_rank: 2, waiting_rank: 1, sort_at: '2026-07-22T10:00:00.000Z', priority_rank: 1, id: 'a' },
+  next_cursor: { sort_rank: 2, waiting_rank: 1, sort_at: '2026-07-22T10:00:00.000Z', priority_rank: 1, id: 'a', business_date: '2026-07-22' },
 })
 assert.equal(mappedPage.ordering, 'server-authoritative')
 assert.deepEqual(mappedPage.items.map(({ id }) => id), ['b', 'a'])
-assert.deepEqual(mappedPage.nextCursor, { sortRank: 2, waitingRank: 1, sortAt: '2026-07-22T10:00:00.000Z', priorityRank: 1, id: 'a' })
+assert.deepEqual(mappedPage.nextCursor, { sortRank: 2, waitingRank: 1, sortAt: '2026-07-22T10:00:00.000Z', priorityRank: 1, id: 'a', businessDate: '2026-07-22' })
+assert.throws(() => mapWorkItemPage({ items: [], next_cursor: { sort_rank: 2, waiting_rank: 1, sort_at: '2026-07-22T10:00:00.000Z', priority_rank: 1, id: 'a', business_date: '' } }), /business_date/)
 
 console.log('TEAM_OS_4_WORK_ITEM_CONTRACT_OK buckets=7 stateMachine=passed genericBusinessCompletion=denied serverOrder=preserved')

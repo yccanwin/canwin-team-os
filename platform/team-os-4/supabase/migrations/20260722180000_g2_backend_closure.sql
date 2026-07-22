@@ -1,6 +1,33 @@
 -- G2 backend closure: authoritative queue ordering, guarded state changes,
 -- idempotent reassignment, and a server-side cursor contract.
 
+do $preflight$
+declare
+  v_waiting_without_reason bigint;
+  v_non_waiting_with_reason bigint;
+begin
+  select
+    pg_catalog.count(*) filter (
+      where status = 'waiting'
+        and (blocked_reason is null or pg_catalog.btrim(blocked_reason) = '')
+    ),
+    pg_catalog.count(*) filter (
+      where status <> 'waiting' and blocked_reason is not null
+    )
+  into v_waiting_without_reason, v_non_waiting_with_reason
+  from public.work_items;
+
+  if v_waiting_without_reason <> 0 or v_non_waiting_with_reason <> 0 then
+    raise exception
+      'G2_WAITING_PRECHECK_FAILED waiting_without_reason=% non_waiting_with_reason=%',
+      v_waiting_without_reason,
+      v_non_waiting_with_reason
+      using errcode = '23514',
+            hint = 'Correct only the reported Team OS 4.0 work_items rows, then run a new authorized migration attempt.';
+  end if;
+end;
+$preflight$;
+
 alter table public.work_items
   add column sort_bucket text not null default 'normal';
 
@@ -8,7 +35,6 @@ alter table public.work_items
   add constraint work_items_sort_bucket check (
     sort_bucket in (
       'overdue_blocking',
-      'due_today',
       'upcoming_business_date',
       'first_contact',
       'reclaim_soon',
@@ -24,8 +50,8 @@ alter table public.work_items
 alter table public.work_items
   add column sort_rank smallint generated always as (
     case sort_bucket
-      when 'overdue_blocking' then 1
-      when 'due_today' then 2
+      -- Ranks 1 and 2 are derived from the Shanghai business day at query time.
+      when 'overdue_blocking' then 3
       when 'upcoming_business_date' then 3
       when 'first_contact' then 4
       when 'reclaim_soon' then 5
@@ -48,7 +74,18 @@ alter table public.work_items
     end
   ) stored;
 
-create index work_items_server_queue_cursor_idx
+create index work_items_server_due_cursor_idx
+  on public.work_items(
+    company_id,
+    assignee_id,
+    due_at,
+    waiting_rank,
+    sort_at,
+    priority_rank,
+    id
+  ) include (status, role_type, sort_bucket);
+
+create index work_items_server_bucket_cursor_idx
   on public.work_items(
     company_id,
     assignee_id,
@@ -373,10 +410,12 @@ begin
     'normal'
   );
   if v_sort_bucket not in (
-    'overdue_blocking', 'due_today', 'upcoming_business_date',
+    'overdue_blocking', 'upcoming_business_date',
     'first_contact', 'reclaim_soon', 'renewal', 'normal'
   ) then
-    raise exception 'unsupported payload.sort_bucket' using errcode = '22023';
+    raise exception
+      'unsupported payload.sort_bucket; due_today is derived from due_at and the Asia/Shanghai business date'
+      using errcode = '22023';
   end if;
 
   if not exists (select 1 from public.companies where id = p_company_id) then
@@ -581,7 +620,8 @@ create function public.list_work_items_v1(
   p_cursor_sort_at timestamptz default null,
   p_cursor_priority_rank integer default null,
   p_cursor_id uuid default null,
-  p_business_date date default current_date
+  p_cursor_business_date date default null,
+  p_business_date date default null
 )
 returns jsonb
 language plpgsql
@@ -592,6 +632,10 @@ declare
   v_items jsonb;
   v_has_more boolean;
   v_next_cursor jsonb;
+  v_today_shanghai date;
+  v_business_date date;
+  v_day_start timestamptz;
+  v_next_day_start timestamptz;
 begin
   if p_company_id is null or p_assignee_id is null then
     raise exception 'company and assignee are required' using errcode = '22023';
@@ -599,17 +643,33 @@ begin
   if p_limit is null or p_limit < 1 or p_limit > 100 then
     raise exception 'limit must be between 1 and 100' using errcode = '22023';
   end if;
-  if p_business_date is null then
-    raise exception 'business date is required' using errcode = '22023';
+  v_today_shanghai := (
+    pg_catalog.timezone('Asia/Shanghai', pg_catalog.statement_timestamp())
+  )::date;
+  v_business_date := coalesce(p_business_date, v_today_shanghai);
+  if v_business_date <> v_today_shanghai then
+    raise exception 'business date must equal the current Asia/Shanghai business date'
+      using errcode = '22023';
   end if;
+  v_day_start := pg_catalog.timezone('Asia/Shanghai', v_business_date::timestamp);
+  v_next_day_start := pg_catalog.timezone(
+    'Asia/Shanghai',
+    (v_business_date + 1)::timestamp
+  );
   if pg_catalog.num_nonnulls(
     p_cursor_rank,
     p_cursor_waiting_rank,
     p_cursor_sort_at,
     p_cursor_priority_rank,
-    p_cursor_id
-  ) not in (0, 5) then
+    p_cursor_id,
+    p_cursor_business_date
+  ) not in (0, 6) then
     raise exception 'cursor fields must be supplied together' using errcode = '22023';
+  end if;
+  if p_cursor_business_date is not null
+     and p_cursor_business_date <> v_today_shanghai then
+    raise exception 'cursor business date has expired in Asia/Shanghai; restart pagination'
+      using errcode = '22023';
   end if;
   if p_statuses is not null and exists (
     select 1 from pg_catalog.unnest(p_statuses) as s(value)
@@ -624,29 +684,9 @@ begin
     raise exception 'unsupported role filter' using errcode = '22023';
   end if;
 
-  with ranked as (
+  with candidates as not materialized (
     select
-      w.*,
-      case
-        when w.sort_bucket = 'overdue_blocking'
-          and (pg_catalog.timezone('Asia/Shanghai', w.due_at))::date < p_business_date
-          then 1
-        when w.due_at is not null
-          and (pg_catalog.timezone('Asia/Shanghai', w.due_at))::date = p_business_date
-          then 2
-        when w.sort_bucket = 'overdue_blocking' then 3
-        else w.sort_rank
-      end::smallint as effective_sort_rank,
-      case
-        when w.sort_bucket = 'overdue_blocking'
-          and (pg_catalog.timezone('Asia/Shanghai', w.due_at))::date < p_business_date
-          then 'overdue_blocking'
-        when w.due_at is not null
-          and (pg_catalog.timezone('Asia/Shanghai', w.due_at))::date = p_business_date
-          then 'due_today'
-        when w.sort_bucket = 'overdue_blocking' then 'upcoming_business_date'
-        else w.sort_bucket
-      end as effective_sort_bucket
+      w.*
     from public.work_items as w
     where w.company_id = p_company_id
       and w.assignee_id = p_assignee_id
@@ -657,6 +697,48 @@ begin
         or pg_catalog.btrim(p_search) = ''
         or pg_catalog.concat_ws(' ', w.title, w.next_step, w.source_business)
           ilike '%' || pg_catalog.btrim(p_search) || '%'
+      )
+  ),
+  ranked as (
+    select
+      c.*,
+      1::smallint as effective_sort_rank,
+      'overdue_blocking'::text as effective_sort_bucket
+    from candidates as c
+    where c.sort_bucket = 'overdue_blocking'
+      and c.due_at is not null
+      and c.due_at < v_day_start
+
+    union all
+
+    select
+      c.*,
+      2::smallint as effective_sort_rank,
+      'due_today'::text as effective_sort_bucket
+    from candidates as c
+    where c.due_at is not null
+      and c.due_at >= v_day_start
+      and c.due_at < v_next_day_start
+
+    union all
+
+    select
+      c.*,
+      c.sort_rank as effective_sort_rank,
+      case
+        when c.sort_bucket = 'overdue_blocking' then 'upcoming_business_date'
+        else c.sort_bucket
+      end as effective_sort_bucket
+    from candidates as c
+    where not (
+      c.sort_bucket = 'overdue_blocking'
+      and c.due_at is not null
+      and c.due_at < v_day_start
+    )
+      and not (
+        c.due_at is not null
+        and c.due_at >= v_day_start
+        and c.due_at < v_next_day_start
       )
   ),
   after_cursor as (
@@ -742,7 +824,8 @@ begin
         'waiting_rank', tail.waiting_rank,
         'sort_at', tail.sort_at,
         'priority_rank', tail.priority_rank,
-        'id', tail.id
+        'id', tail.id,
+        'business_date', v_business_date
       )
       from returned as tail
       order by
@@ -765,19 +848,19 @@ $function$;
 
 revoke all on function public.list_work_items_v1(
   uuid, uuid, text[], text[], text, integer,
-  integer, integer, timestamptz, integer, uuid, date
+  integer, integer, timestamptz, integer, uuid, date, date
 ) from public;
 revoke all on function public.list_work_items_v1(
   uuid, uuid, text[], text[], text, integer,
-  integer, integer, timestamptz, integer, uuid, date
+  integer, integer, timestamptz, integer, uuid, date, date
 ) from anon;
 grant execute on function public.list_work_items_v1(
   uuid, uuid, text[], text[], text, integer,
-  integer, integer, timestamptz, integer, uuid, date
+  integer, integer, timestamptz, integer, uuid, date, date
 ) to authenticated, service_role;
 
 comment on function public.list_work_items_v1(
   uuid, uuid, text[], text[], text, integer,
-  integer, integer, timestamptz, integer, uuid, date
+  integer, integer, timestamptz, integer, uuid, date, date
 ) is
-  'RLS-respecting G2 list API. Seven business buckets are authoritative; waiting sorts first inside its bucket; keyset cursor fields must be supplied together.';
+  'RLS-respecting G2 list API. Seven business buckets use the current Asia/Shanghai date; waiting sorts first inside its bucket; the keyset cursor freezes that business date.';

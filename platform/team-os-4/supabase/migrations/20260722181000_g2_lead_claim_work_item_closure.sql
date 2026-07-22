@@ -63,6 +63,18 @@ begin
           and pr.region = l.region
           and pr.is_active
       )
+      and exists (
+        select 1
+        from public.work_items as candidate_task
+        where candidate_task.company_id = l.company_id
+          and candidate_task.source_business = 'lead'
+          and candidate_task.source_id = l.id
+          and candidate_task.generation_rule = 'claim_lead_v1'
+          and candidate_task.kind = 'business_action'
+          and candidate_task.role_type = 'sales'
+          and candidate_task.assignee_id = p_claimant_user_id
+          and candidate_task.status in ('pending', 'in_progress', 'waiting')
+      )
     order by l.cleanup_due_at asc nulls last, l.created_at asc, l.id asc
     for update skip locked
     limit 1;

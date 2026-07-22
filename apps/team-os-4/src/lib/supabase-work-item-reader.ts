@@ -29,7 +29,8 @@ export class SupabaseWorkItemReader implements WorkItemReader {
         p_cursor_sort_at: cursor?.sortAt ?? null,
         p_cursor_priority_rank: cursor?.priorityRank ?? null,
         p_cursor_id: cursor?.id ?? null,
-        p_business_date: query.businessDate ?? BUSINESS_DATE.format(new Date()),
+        p_cursor_business_date: cursor?.businessDate ?? null,
+        p_business_date: cursor?.businessDate ?? query.businessDate ?? BUSINESS_DATE.format(new Date()),
       })
 
     if (query.signal) request = request.abortSignal(query.signal)

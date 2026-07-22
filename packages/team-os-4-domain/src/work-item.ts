@@ -100,6 +100,8 @@ export interface WorkItemCursor {
   readonly sortAt: string
   readonly priorityRank: WorkItemStableSortKey['priorityRank']
   readonly id: string
+  /** Pins every page in one traversal to the same Asia/Shanghai business date. */
+  readonly businessDate: string
 }
 
 export const WORK_ITEM_PAGE_DEFAULT_LIMIT = 50

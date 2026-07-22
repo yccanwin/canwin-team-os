@@ -22,3 +22,6 @@ sql_paths = ["./seed.sql"]
 
 [functions.case-media-executor]
 verify_jwt = true
+
+[functions.work-item-command]
+verify_jwt = true

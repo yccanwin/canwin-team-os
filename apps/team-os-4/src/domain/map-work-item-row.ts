@@ -125,6 +125,7 @@ function mapWorkItemCursor(value: unknown): WorkItemCursor | null {
     sortAt: requiredTimestamp(row, 'sort_at'),
     priorityRank: requiredInteger(row, 'priority_rank', 1, 4) as WorkItemCursor['priorityRank'],
     id: requiredString(row, 'id'),
+    businessDate: requiredString(row, 'business_date'),
   })
 }
 

@@ -1,13 +1,27 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { Navigate, NavLink, Route, Routes, useParams } from 'react-router-dom'
 import { PRIMARY_ROLE_LABELS, type PrimaryRole } from '../../../packages/team-os-4-domain/src/index'
 import { canOpenWorkspace, workspacePath, type AuthenticatedWorkspace } from './lib/access'
 import { loadAuthenticatedWorkspace } from './lib/current-user'
 import { getGreenfieldSupabase, hasGreenfieldEnvironment } from './lib/supabase'
-import type { WorkItem, WorkItemSurface } from './domain/work-item'
+import type { WorkItem, WorkItemPage, WorkItemSurface } from './domain/work-item'
 import { selectWorkItems } from './domain/select-work-items'
 import { SupabaseWorkItemReader } from './lib/supabase-work-item-reader'
+import { WorkItemCommandGateway } from './domain/work-item-command'
+import {
+  EMPTY_WORK_ITEM_FILTERS,
+  appendServerOrderedWorkItems,
+  normalizeWorkItemFilters,
+  parseSavedWorkItemViews,
+  serializeSavedWorkItemViews,
+  workItemFilterKey,
+  type SavedWorkItemView,
+  type WorkItemFilterState,
+} from './domain/work-item-view'
+import { SupabaseWorkItemCommandTransport } from './lib/supabase-work-item-command'
+import { WorkItemActionPanel } from './WorkItemActionPanel'
+import { WorkItemFilterPanel } from './WorkItemFilterPanel'
 import type { ScheduleEvent } from './domain/schedule-event'
 import { SupabaseScheduleEventReader } from './lib/supabase-schedule-event-reader'
 import { EmptyState, KPICard, ProgressBar, StatusBadge } from './ui'
@@ -52,22 +66,28 @@ function LoginGate({ error, onSignedIn }: { error?: string; onSignedIn: (session
   )
 }
 
-function WorkItemQueue({ items, surface, user, loading, error }: {
+function WorkItemQueue({ items, surface, user, loading, error, gateway, onChanged }: {
   items: readonly WorkItem[]
   surface: WorkItemSurface
   user: AuthenticatedWorkspace
   loading: boolean
   error?: string
+  gateway?: WorkItemCommandGateway
+  onChanged?: () => void
 }) {
   if (loading) return <section className="work-items-state" data-testid={`work-items-${surface}-loading`}><StatusBadge tone="info">正在读取工作项…</StatusBadge></section>
   if (error) return <section className="work-items-state" data-testid={`work-items-${surface}-error`}><StatusBadge tone="danger">工作项读取失败</StatusBadge><p>{error}</p></section>
   const selected = selectWorkItems(items, { surface, assigneeId: user.userId, now: new Date().toISOString() })
   if (selected.length === 0) return <div data-testid={`work-items-${surface}-empty`}><EmptyState title="当前没有工作项" description="这里仅显示全新 4.0 中分配给你的真实工作项。" /></div>
-  return (
-    <ol className="work-item-list" data-testid={`work-items-${surface}-list`}>
-      {selected.map((item) => <li key={item.id} data-testid="work-item"><div><strong>{item.nextStep}</strong><span>{item.sourceBusiness}</span></div><StatusBadge tone={item.status === 'waiting' ? 'warning' : item.status === 'completed' ? 'success' : 'info'}>{item.status}</StatusBadge><small>{item.dueAt ?? item.plannedAt ?? '未设置时间'}</small>{item.blockedReason && <p>{item.blockedReason}</p>}</li>)}
-    </ol>
-  )
+  return <ol className="work-item-list" data-testid={`work-items-${surface}-list`}>
+    {selected.map((item) => <li key={item.id} data-testid="work-item">
+      <div><strong>{item.nextStep}</strong><span>{item.sourceBusiness}</span></div>
+      <StatusBadge tone={item.status === 'waiting' ? 'warning' : item.status === 'completed' ? 'success' : 'info'}>{item.status}</StatusBadge>
+      <small>{item.dueAt ?? item.plannedAt ?? '未设置时间'}</small>
+      {item.blockedReason && <p>等待原因：{item.blockedReason}</p>}
+      {gateway && onChanged && surface !== 'calendar' && <WorkItemActionPanel item={item} gateway={gateway} onChanged={onChanged} />}
+    </li>)}
+  </ol>
 }
 
 const SCHEDULE_KIND_LABELS: Readonly<Record<ScheduleEvent['kind'], string>> = { meeting: '会议', visit: '拜访', break: '休息', personal: '个人安排' }
@@ -81,7 +101,7 @@ function ScheduleEventList({ events, loading, error }: { events: readonly Schedu
   return <ol className="work-item-list schedule-event-list" data-testid="schedule-events-calendar-list">{orderedEvents.map((event) => <li key={event.id} data-testid="schedule-event"><div><strong>{event.title}</strong><span>{SCHEDULE_KIND_LABELS[event.kind]}</span></div><StatusBadge tone="neutral">个人日程</StatusBadge><small>{LOCAL_DATE_TIME.format(new Date(event.startsAt))} — {LOCAL_DATE_TIME.format(new Date(event.endsAt))}</small>{event.location && <p>{event.location}</p>}</li>)}</ol>
 }
 
-function Workspace({ user, items, loading, error }: { user: AuthenticatedWorkspace; items: readonly WorkItem[]; loading: boolean; error?: string }) {
+function Workspace({ user, items, loading, error, gateway, onChanged }: { user: AuthenticatedWorkspace; items: readonly WorkItem[]; loading: boolean; error?: string; gateway: WorkItemCommandGateway; onChanged: () => void }) {
   const { role = '' } = useParams()
   if (!canOpenWorkspace(user, role)) {
     return <section className="workspace access-denied" data-testid="access-denied"><p className="eyebrow">访问已拒绝</p><h1>这不是你的岗位工作台</h1><p className="lead">系统只允许进入当前账号的主岗位。</p><NavLink className="ui-button auth-submit" to={workspacePath(user.primaryRole)}>返回我的工作台</NavLink></section>
@@ -95,7 +115,7 @@ function Workspace({ user, items, loading, error }: { user: AuthenticatedWorkspa
       <div className="metric-grid"><KPICard label="今日推进" value={workbenchItems.length} note="来自统一工作项" tone="success" /><KPICard label="待我处理" value={workbenchItems.filter((item) => item.status === 'pending' || item.status === 'in_progress').length} note="本人当前开放工作项" tone="info" /><KPICard label="阻塞提醒" value={waitingCount} note="等待处理的阻塞工作项" tone="warning" /></div>
       <div className="foundation-progress"><ProgressBar label="G1 岗位壳层" value={30} /></div>
       <RoleDayOverview user={user} />
-      <section className="work-items-section" data-testid="work-items-workbench" aria-labelledby="workbench-queue-title"><div className="section-heading"><p className="eyebrow">统一工作项</p><h2 id="workbench-queue-title">我的工作台队列</h2></div><WorkItemQueue items={items} surface="workbench" user={user} loading={loading} error={error} /></section>
+      <section className="work-items-section" data-testid="work-items-workbench" aria-labelledby="workbench-queue-title"><div className="section-heading"><p className="eyebrow">统一工作项</p><h2 id="workbench-queue-title">我的工作台队列</h2></div><WorkItemQueue items={items} surface="workbench" user={user} loading={loading} error={error} gateway={gateway} onChanged={onChanged} /></section>
       <section className="work-items-section" data-testid={`role-business-${currentRole}`} aria-labelledby="role-business-title">
         <div className="section-heading"><p className="eyebrow">当前岗位业务</p><h2 id="role-business-title">今天要用的真实业务入口</h2></div>
         <ol className="work-item-list role-business-list">
@@ -106,9 +126,9 @@ function Workspace({ user, items, loading, error }: { user: AuthenticatedWorkspa
   )
 }
 
-function WorkItemPage({ surface, title, user, items, loading, error, scheduleEvents = [], scheduleLoading = false, scheduleError }: { surface: 'progress' | 'calendar'; title: string; user: AuthenticatedWorkspace; items: readonly WorkItem[]; loading: boolean; error?: string; scheduleEvents?: readonly ScheduleEvent[]; scheduleLoading?: boolean; scheduleError?: string }) {
+function WorkItemPage({ surface, title, user, items, loading, error, scheduleEvents = [], scheduleLoading = false, scheduleError, gateway, onChanged, filterPanel, hasMore = false, loadingMore = false, paginationError, onLoadMore }: { surface: 'progress' | 'calendar'; title: string; user: AuthenticatedWorkspace; items: readonly WorkItem[]; loading: boolean; error?: string; scheduleEvents?: readonly ScheduleEvent[]; scheduleLoading?: boolean; scheduleError?: string; gateway: WorkItemCommandGateway; onChanged: () => void; filterPanel?: ReactNode; hasMore?: boolean; loadingMore?: boolean; paginationError?: string; onLoadMore?: () => void }) {
   const calendar = surface === 'calendar'
-  return <section className="workspace" data-testid={`${surface}-page`}><p className="eyebrow">{calendar ? '统一时间视图' : '统一工作项'}</p><h1>{title}</h1><p className="lead">{calendar ? '工作项时间与个人日程同屏展示，但始终保持两类独立记录。' : '与我的工作台使用同一份工作项来源。'}</p><section className={calendar ? 'calendar-source' : ''} data-testid={`work-items-${surface}`}>{calendar && <div className="section-heading"><p className="eyebrow">工作项时间</p><h2>截止与计划</h2></div>}<WorkItemQueue items={items} surface={surface} user={user} loading={loading} error={error} /></section>{calendar && <section className="work-items-section calendar-source calendar-source--schedule" data-testid="schedule-events-calendar"><div className="section-heading"><p className="eyebrow">个人日程</p><h2>会议、拜访与个人安排</h2></div><ScheduleEventList events={scheduleEvents} loading={scheduleLoading} error={scheduleError} /></section>}</section>
+  return <section className="workspace" data-testid={`${surface}-page`}><p className="eyebrow">{calendar ? '统一时间视图' : '统一工作项'}</p><h1>{title}</h1><p className="lead">{calendar ? '工作项时间与个人日程同屏展示，但始终保持两类独立记录。' : '与我的工作台使用同一份工作项来源。'}</p>{filterPanel}<section className={calendar ? 'calendar-source' : ''} data-testid={`work-items-${surface}`}>{calendar && <div className="section-heading"><p className="eyebrow">工作项时间</p><h2>截止与计划</h2></div>}<WorkItemQueue items={items} surface={surface} user={user} loading={loading} error={error} gateway={gateway} onChanged={onChanged} />{!calendar && hasMore && <div className="work-item-pagination"><button className="ui-button ui-button--quiet" data-testid="work-item-load-more" disabled={loadingMore} onClick={onLoadMore}>{loadingMore ? '正在加载…' : '加载下一页'}</button></div>}{paginationError && <p className="work-item-command-error" role="alert">翻页失败：{paginationError}</p>}</section>{calendar && <section className="work-items-section calendar-source calendar-source--schedule" data-testid="schedule-events-calendar"><div className="section-heading"><p className="eyebrow">个人日程</p><h2>会议、拜访与个人安排</h2></div><ScheduleEventList events={scheduleEvents} loading={scheduleLoading} error={scheduleError} /></section>}</section>
 }
 
 function ProfilePage({ user }: { user: AuthenticatedWorkspace }) {
@@ -144,21 +164,45 @@ function MobileBottomNav({ user }: { user: AuthenticatedWorkspace }) {
 }
 
 function AuthenticatedApp({ user, onSignOut }: { user: AuthenticatedWorkspace; onSignOut: () => Promise<void> }) {
-  const [items, setItems] = useState<readonly WorkItem[]>([])
+  const reader = useMemo(() => new SupabaseWorkItemReader(), [])
+  const gateway = useMemo(() => new WorkItemCommandGateway(
+    new SupabaseWorkItemCommandTransport(),
+    () => crypto.randomUUID(),
+  ), [])
+  const [page, setPage] = useState<WorkItemPage>({ ordering: 'server-authoritative', items: Object.freeze([]), nextCursor: null })
   const [itemsLoading, setItemsLoading] = useState(true)
   const [itemsError, setItemsError] = useState<string>()
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [paginationError, setPaginationError] = useState<string>()
+  const [refreshIndex, setRefreshIndex] = useState(0)
+  const [draftFilters, setDraftFilters] = useState<WorkItemFilterState>(EMPTY_WORK_ITEM_FILTERS)
+  const [filters, setFilters] = useState<WorkItemFilterState>(EMPTY_WORK_ITEM_FILTERS)
+  const [savedViews, setSavedViews] = useState<readonly SavedWorkItemView[]>([])
   const [scheduleEvents, setScheduleEvents] = useState<readonly ScheduleEvent[]>([])
   const [scheduleLoading, setScheduleLoading] = useState(true)
   const [scheduleError, setScheduleError] = useState<string>()
+  const storageKey = `canwin-team-os-4:g2:work-item-views:${user.companyId}:${user.userId}`
+  const appliedFilterKey = workItemFilterKey(filters)
+  const query = useCallback((cursor: WorkItemPage['nextCursor'] = null, signal?: AbortSignal) => reader.load({
+    companyId: user.companyId,
+    assigneeId: user.userId,
+    ...(filters.statuses.length ? { statuses: filters.statuses } : {}),
+    ...(filters.roleTypes.length ? { roleTypes: filters.roleTypes } : {}),
+    ...(filters.search ? { search: filters.search } : {}),
+    cursor,
+    signal,
+  }), [reader, user.companyId, user.userId, appliedFilterKey])
+
+  useEffect(() => { setSavedViews(parseSavedWorkItemViews(localStorage.getItem(storageKey))) }, [storageKey])
   useEffect(() => {
     const controller = new AbortController()
-    setItemsLoading(true); setItemsError(undefined)
-    new SupabaseWorkItemReader().load({ companyId: user.companyId, assigneeId: user.userId, signal: controller.signal })
-      .then((page) => setItems(page.items))
+    setItemsLoading(true); setItemsError(undefined); setPaginationError(undefined)
+    query(null, controller.signal)
+      .then(setPage)
       .catch((reason) => { if (!controller.signal.aborted) setItemsError(reason instanceof Error ? reason.message : 'WORK_ITEM_QUERY_FAILED') })
       .finally(() => { if (!controller.signal.aborted) setItemsLoading(false) })
     return () => controller.abort()
-  }, [user.companyId, user.userId])
+  }, [query, refreshIndex])
   useEffect(() => {
     const controller = new AbortController()
     setScheduleLoading(true); setScheduleError(undefined)
@@ -168,6 +212,33 @@ function AuthenticatedApp({ user, onSignOut }: { user: AuthenticatedWorkspace; o
       .finally(() => { if (!controller.signal.aborted) setScheduleLoading(false) })
     return () => controller.abort()
   }, [user.companyId, user.userId])
+  const refreshItems = () => setRefreshIndex((value) => value + 1)
+  const loadMore = async () => {
+    const cursor = page.nextCursor
+    if (!cursor || loadingMore) return
+    setLoadingMore(true); setPaginationError(undefined)
+    try {
+      const next = await query(cursor)
+      setPage((current) => {
+        if (current.nextCursor?.id !== cursor.id) return current
+        return Object.freeze({ ordering: 'server-authoritative' as const, items: appendServerOrderedWorkItems(current.items, next), nextCursor: next.nextCursor })
+      })
+    } catch (reason) { setPaginationError(reason instanceof Error ? reason.message : 'WORK_ITEM_PAGE_FAILED') }
+    finally { setLoadingMore(false) }
+  }
+  const writeViews = (next: readonly SavedWorkItemView[]) => { setSavedViews(next); localStorage.setItem(storageKey, serializeSavedWorkItemViews(next)) }
+  const saveView = (name: string) => {
+    const normalized = normalizeWorkItemFilters(draftFilters)
+    const next = [...savedViews.filter((view) => view.name !== name), { id: crypto.randomUUID(), name, filters: normalized }]
+    writeViews(next)
+  }
+  const applySavedView = (id: string) => {
+    const view = savedViews.find((entry) => entry.id === id)
+    if (!view) return
+    setDraftFilters(view.filters); setFilters(view.filters)
+  }
+  const clearFilters = () => { setDraftFilters(EMPTY_WORK_ITEM_FILTERS); setFilters(EMPTY_WORK_ITEM_FILTERS) }
+  const filterPanel = <WorkItemFilterPanel draft={draftFilters} savedViews={savedViews} busy={itemsLoading} onDraftChange={setDraftFilters} onApply={() => setFilters(normalizeWorkItemFilters(draftFilters))} onClear={clearFilters} onSave={saveView} onApplySaved={applySavedView} onDeleteSaved={(id) => writeViews(savedViews.filter((view) => view.id !== id))} />
   return (
     <div className="app-shell" data-testid="authenticated-app">
       <aside>
@@ -177,7 +248,7 @@ function AuthenticatedApp({ user, onSignOut }: { user: AuthenticatedWorkspace; o
       </aside>
       <main>
         <header><div><b>{user.displayName}</b><StatusBadge tone="success">{PRIMARY_ROLE_LABELS[user.primaryRole]}</StatusBadge></div><div className="topbar-actions"><NavLink className="topbar-message" to="/progress">消息</NavLink><button className="ui-button ui-button--quiet" data-testid="sign-out" onClick={() => void onSignOut()}>退出登录</button></div></header>
-        <Routes><Route path="/" element={<Navigate to={workspacePath(user.primaryRole)} replace />} /><Route path="/workspace/:role" element={<Workspace user={user} items={items} loading={itemsLoading} error={itemsError} />} /><Route path="/progress" element={<WorkItemPage surface="progress" title="推进中心" user={user} items={items} loading={itemsLoading} error={itemsError} />} /><Route path="/calendar" element={<WorkItemPage surface="calendar" title="日历" user={user} items={items} loading={itemsLoading} error={itemsError} scheduleEvents={scheduleEvents} scheduleLoading={scheduleLoading} scheduleError={scheduleError} />} /><Route path="/leads" element={<SalesPipelinePage user={user} />} /><Route path="/customers" element={<CustomerDirectoryPage user={user} />} /><Route path="/catalog" element={<CatalogPage user={user} />} /><Route path="/orders" element={<OrdersPage user={user} />} /><Route path="/finance" element={<FinancePage user={user} />} /><Route path="/earnings" element={<EarningsPage user={user} />} /><Route path="/warehouse" element={<WarehousePage user={user} />} /><Route path="/fulfillment" element={<FulfillmentPage user={user} />} /><Route path="/cases" element={<CasesPage user={user} />} /><Route path="/profile" element={<ProfilePage user={user} />} /><Route path="*" element={<Navigate to={workspacePath(user.primaryRole)} replace />} /></Routes>
+        <Routes><Route path="/" element={<Navigate to={workspacePath(user.primaryRole)} replace />} /><Route path="/workspace/:role" element={<Workspace user={user} items={page.items} loading={itemsLoading} error={itemsError} gateway={gateway} onChanged={refreshItems} />} /><Route path="/progress" element={<WorkItemPage surface="progress" title="推进中心" user={user} items={page.items} loading={itemsLoading} error={itemsError} gateway={gateway} onChanged={refreshItems} filterPanel={filterPanel} hasMore={page.nextCursor !== null} loadingMore={loadingMore} paginationError={paginationError} onLoadMore={() => void loadMore()} />} /><Route path="/calendar" element={<WorkItemPage surface="calendar" title="日历" user={user} items={page.items} loading={itemsLoading} error={itemsError} gateway={gateway} onChanged={refreshItems} scheduleEvents={scheduleEvents} scheduleLoading={scheduleLoading} scheduleError={scheduleError} />} /><Route path="/leads" element={<SalesPipelinePage user={user} />} /><Route path="/customers" element={<CustomerDirectoryPage user={user} />} /><Route path="/catalog" element={<CatalogPage user={user} />} /><Route path="/orders" element={<OrdersPage user={user} />} /><Route path="/finance" element={<FinancePage user={user} />} /><Route path="/earnings" element={<EarningsPage user={user} />} /><Route path="/warehouse" element={<WarehousePage user={user} />} /><Route path="/fulfillment" element={<FulfillmentPage user={user} />} /><Route path="/cases" element={<CasesPage user={user} />} /><Route path="/profile" element={<ProfilePage user={user} />} /><Route path="*" element={<Navigate to={workspacePath(user.primaryRole)} replace />} /></Routes>
         <MobileBottomNav user={user} />
       </main>
     </div>

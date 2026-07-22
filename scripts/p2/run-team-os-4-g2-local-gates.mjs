@@ -18,9 +18,24 @@ const steps = [
     args: [resolve(repoRoot, 'scripts/p2/verify-team-os-4-g2-contract.mjs')],
   },
   {
+    name: 'g2-performance-runner-selftest',
+    command: process.execPath,
+    args: [resolve(repoRoot, 'scripts/p2/test-team-os-4-g2-performance-runner.mjs')],
+  },
+  {
     name: 'work-item-runtime-contract',
     command: cmdExe,
     args: ['/d', '/c', npmCmd, 'run', 'test:work-item-contract', '--prefix', resolve(repoRoot, 'apps/team-os-4')],
+  },
+  {
+    name: 'work-item-view-and-command-contract',
+    command: cmdExe,
+    args: ['/d', '/c', npmCmd, 'run', 'test:work-item-view', '--prefix', resolve(repoRoot, 'apps/team-os-4')],
+  },
+  {
+    name: 'work-item-edge-command-contract',
+    command: process.execPath,
+    args: [resolve(repoRoot, 'platform/team-os-4/supabase/functions/work-item-command/contract.test.mjs')],
   },
   {
     name: 'domain-typecheck',
