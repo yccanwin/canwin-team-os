@@ -81,6 +81,13 @@
     "publicImageCopyCondition": "authorized-and-admin-reviewed-case-publication",
     "publicImageWriteAuthority": "trusted-server-only",
     "browserServiceRoleAllowed": false,
+    "trustedMediaExecutor": "case-media-executor",
+    "trustedMediaExecutorRequiresJwt": true,
+    "trustedMediaExecutorUserVerification": "auth-get-user-from-bearer-jwt",
+    "trustedPublishSequence": ["verify-user-jwt", "prepare-and-recheck-admin-company-authorization", "copy-private-media-to-public-directory", "publish-database-projection"],
+    "trustedCleanupSequence": ["claim-cleanup-job", "delete-public-storage-object", "finish-cleanup-job"],
+    "trustedCleanupIdempotencyFields": ["claim_token", "claimed_at", "attempts", "last_error", "completed_at"],
+    "trustedFailureRule": "database-publication-must-not-complete-before-all-required-media-copies-succeed",
     "storageReplacementRequires": ["insert", "select", "update"],
     "storageObjectPathMustBind": ["company_id", "case_id", "slot"],
     "allowedImagesRequireIndependentFileBackup": true,
@@ -96,11 +103,15 @@
     "mobileWidths": [360, 390, 430],
     "mobile": "five-fixed-entries-and-role-specific-fourth-entry",
     "caseAuthorization": "publish-denied-without-valid-authorization-or-admin-review-and-revocation-removes-public-projection",
-    "storage": "allowed-two-slots-pass-and-all-role-path-mime-size-count-attacks-denied"
+    "storage": "allowed-two-slots-pass-and-all-role-path-mime-size-count-attacks-denied",
+    "trustedMediaExecutor": "real-jwt-admin-review-copy-before-publish-revocation-cleanup-and-idempotent-failure-recovery",
+    "roleNavigation": "five-real-role-accounts-open-their-own-core-day-and-ordinary-accounts-have-no-management-entry"
   },
   "runtimeEvidence": "pending",
   "mobileEvidence": "pending",
   "caseAuthorizationEvidence": "pending",
   "storageEvidence": "pending",
+  "trustedMediaExecutorEvidence": "pending",
+  "roleNavigationEvidence": "pending",
   "g6Accepted": false
 }

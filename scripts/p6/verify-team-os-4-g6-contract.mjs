@@ -14,6 +14,9 @@ const g6Sql = g6MigrationNames.map((name) => read(`platform/team-os-4/supabase/m
 const appSource = read('apps/team-os-4/src/App.tsx')
 const casesPageSource = read('apps/team-os-4/src/CasesPage.tsx')
 const caseReaderSource = read('apps/team-os-4/src/lib/supabase-case-reader.ts')
+const roleNavigationSource = read('apps/team-os-4/src/lib/role-navigation.ts')
+const supabaseConfigSource = read('platform/team-os-4/supabase/config.toml')
+const mediaExecutorSource = read('platform/team-os-4/supabase/functions/case-media-executor/index.ts')
 
 function requirePattern(source, pattern, label) {
   assert.match(source, pattern, label)
@@ -112,6 +115,20 @@ assert.equal(contract.contracts.publishedImageLocation, 'separate-public-case-di
 assert.equal(contract.contracts.publicImageCopyCondition, 'authorized-and-admin-reviewed-case-publication')
 assert.equal(contract.contracts.publicImageWriteAuthority, 'trusted-server-only')
 assert.equal(contract.contracts.browserServiceRoleAllowed, false)
+assert.equal(contract.contracts.trustedMediaExecutor, 'case-media-executor')
+assert.equal(contract.contracts.trustedMediaExecutorRequiresJwt, true)
+assert.equal(contract.contracts.trustedMediaExecutorUserVerification, 'auth-get-user-from-bearer-jwt')
+assert.deepEqual(contract.contracts.trustedPublishSequence, [
+  'verify-user-jwt', 'prepare-and-recheck-admin-company-authorization',
+  'copy-private-media-to-public-directory', 'publish-database-projection',
+])
+assert.deepEqual(contract.contracts.trustedCleanupSequence, [
+  'claim-cleanup-job', 'delete-public-storage-object', 'finish-cleanup-job',
+])
+assert.deepEqual(contract.contracts.trustedCleanupIdempotencyFields, [
+  'claim_token', 'claimed_at', 'attempts', 'last_error', 'completed_at',
+])
+assert.equal(contract.contracts.trustedFailureRule, 'database-publication-must-not-complete-before-all-required-media-copies-succeed')
 assert.deepEqual(contract.contracts.storageReplacementRequires, ['insert', 'select', 'update'])
 assert.deepEqual(contract.contracts.storageObjectPathMustBind, ['company_id', 'case_id', 'slot'])
 assert.equal(contract.contracts.allowedImagesRequireIndependentFileBackup, true)
@@ -134,7 +151,9 @@ assert.deepEqual(contract.requiredRuntimeEvidence.mobileWidths, [360, 390, 430])
 assert.equal(contract.requiredRuntimeEvidence.mobile, 'five-fixed-entries-and-role-specific-fourth-entry')
 assert.equal(contract.requiredRuntimeEvidence.caseAuthorization, 'publish-denied-without-valid-authorization-or-admin-review-and-revocation-removes-public-projection')
 assert.equal(contract.requiredRuntimeEvidence.storage, 'allowed-two-slots-pass-and-all-role-path-mime-size-count-attacks-denied')
-for (const field of ['runtimeEvidence', 'mobileEvidence', 'caseAuthorizationEvidence', 'storageEvidence']) assert.equal(contract[field], 'pending')
+assert.equal(contract.requiredRuntimeEvidence.trustedMediaExecutor, 'real-jwt-admin-review-copy-before-publish-revocation-cleanup-and-idempotent-failure-recovery')
+assert.equal(contract.requiredRuntimeEvidence.roleNavigation, 'five-real-role-accounts-open-their-own-core-day-and-ordinary-accounts-have-no-management-entry')
+for (const field of ['runtimeEvidence', 'mobileEvidence', 'caseAuthorizationEvidence', 'storageEvidence', 'trustedMediaExecutorEvidence', 'roleNavigationEvidence']) assert.equal(contract[field], 'pending')
 assert.equal(contract.g6Accepted, false)
 
 // Static construction checks only. These checks deliberately do not promote any
@@ -186,6 +205,48 @@ requirePattern(g6Sql, /'team-os-4-public-cases'[\s\S]{0,160}\bfalse\b/i, 'separa
 requirePattern(g6Sql, /bucket_id\s*=\s*'team-os-4-public-cases'[\s\S]{0,500}\bto\s+anon\b|for\s+select\s+to\s+anon[\s\S]{0,500}bucket_id\s*=\s*'team-os-4-public-cases'/i, 'anonymous public case media access must be read-only')
 assert.doesNotMatch(g6Sql, /create\s+policy[\s\S]{0,180}on\s+storage\.objects[\s\S]{0,100}for\s+(?:insert|update|delete)[\s\S]{0,100}\bto\s+(?:anon|authenticated)\b/i, 'browser roles must not receive case Storage write policies')
 
+// The media executor is a real authenticated server boundary. It must validate
+// the bearer identity, re-check the admin/company/publication contract, finish
+// every required copy before publishing, and process cleanup with retry state.
+requirePattern(supabaseConfigSource, /\[functions\.case-media-executor\][\s\S]{0,120}verify_jwt\s*=\s*true/i, 'case media executor must require platform JWT verification')
+requirePattern(mediaExecutorSource, /authorization/i, 'executor must read the bearer authorization header')
+requirePattern(mediaExecutorSource, /auth\.getUser\s*\(/, 'executor must verify the JWT user with Supabase Auth')
+requirePattern(mediaExecutorSource, /prepare_case_publication_v1/, 'executor must prepare and re-check publication before copying')
+requirePattern(mediaExecutorSource, /from\(['"]team-os-4-case-media['"]\)[\s\S]{0,300}\.download\s*\(/i, 'executor must download private case media')
+requirePattern(mediaExecutorSource, /from\(['"]team-os-4-public-cases['"]\)[\s\S]{0,300}\.upload\s*\(/i, 'executor must copy media into the public case bucket')
+const lastCopyIndex = Math.max(
+  lastMatchIndex(mediaExecutorSource, /team-os-4-public-cases[\s\S]{0,300}\.upload\s*\(/gi),
+  lastMatchIndex(mediaExecutorSource, /\.upload\s*\(/gi),
+)
+const publishRpcIndex = lastMatchIndex(mediaExecutorSource, /publish_case_v1/gi)
+assert.ok(lastCopyIndex >= 0 && publishRpcIndex > lastCopyIndex, 'database publication must happen only after public media copies succeed')
+for (const rpc of ['claim_case_publication_cleanup_v1', 'finish_case_publication_cleanup_v1']) {
+  requirePattern(mediaExecutorSource, new RegExp(`\\b${rpc}\\b`, 'i'), `executor is missing cleanup RPC ${rpc}`)
+}
+requirePattern(mediaExecutorSource, /\.remove\s*\(/, 'executor must physically delete revoked or unpublished public media')
+for (const field of contract.contracts.trustedCleanupIdempotencyFields) {
+  requirePattern(g6Sql, new RegExp(`\\b${field}\\b`, 'i'), `cleanup queue is missing idempotency field ${field}`)
+}
+requirePattern(mediaExecutorSource, /last_error|attempts|claim_token/i, 'executor must expose retry or claim state on failure')
+
+// All five accounts receive real role-specific business links. Ordinary roles
+// must not inherit administrator-only warehouse, global finance, or case-review
+// navigation merely because the routes exist elsewhere in the application.
+for (const role of contract.contracts.coreDayRoles) {
+  requirePattern(appSource, new RegExp(`role-business-\\$\\{currentRole\\}`), 'workspace must expose the current role business group')
+  requirePattern(roleNavigationSource, new RegExp(`\\b${role}\\s*:\\s*\\[`, 'i'), `missing role navigation map for ${role}`)
+}
+for (const fn of ['roleBusinessLinks', 'roleBusinessPath']) {
+  requirePattern(roleNavigationSource, new RegExp(`export\\s+function\\s+${fn}\\b`), `missing role navigation function ${fn}`)
+}
+const ordinaryNavigation = roleNavigationSource.match(/const\s+ROLE_BUSINESS_LINKS[\s\S]*?admin\s*:/i)?.[0]
+assert.ok(ordinaryNavigation, 'ordinary role navigation block is required')
+assert.doesNotMatch(ordinaryNavigation, /['"]\/warehouse['"]/, 'ordinary roles must not receive warehouse management navigation')
+assert.doesNotMatch(ordinaryNavigation, /permission|system-settings|organization-role/i, 'ordinary roles must not receive permission or system management navigation')
+const adminNavigation = roleNavigationSource.match(/admin\s*:\s*\[([\s\S]*?)\n\s*\],\s*\n}/i)?.[1]
+assert.ok(adminNavigation, 'administrator business navigation is required')
+for (const path of ['/warehouse', '/finance', '/cases']) assert.ok(adminNavigation.includes(`'${path}'`), `administrator navigation is missing ${path}`)
+
 // App.tsx is the authoritative mobile shell: exactly five fixed entries remain,
 // the fourth is role-specific, and CasesPage has no anonymous/public bypass.
 const mobileNav = appSource.match(/function\s+MobileBottomNav[\s\S]*?\n}\n\nfunction\s+AuthenticatedApp/)?.[0]
@@ -215,7 +276,7 @@ for (const internalQuery of ['casesQuery', 'mediaQuery', 'candidatesQuery']) {
   requirePattern(caseReaderSource, new RegExp(`isAdmin\\s*\\?\\s*${internalQuery}\\s*:\\s*(?:noRows|Promise\\.resolve)`, 'i'), `${internalQuery} must execute only for administrators`)
 }
 
-for (const field of ['runtimeEvidence', 'mobileEvidence', 'caseAuthorizationEvidence', 'storageEvidence']) assert.equal(contract[field], 'pending')
+for (const field of ['runtimeEvidence', 'mobileEvidence', 'caseAuthorizationEvidence', 'storageEvidence', 'trustedMediaExecutorEvidence', 'roleNavigationEvidence']) assert.equal(contract[field], 'pending')
 assert.equal(contract.g6Accepted, false)
 
-console.log(`TEAM_OS_4_G6_CONTRACT_OK migrations=${g6MigrationNames.length} checkpoints=75,80 roles=5 mobileEntries=5 publicProjection=allowlist-only trustedPublish=required trustedUnpublish=required archive=required storage=isolated runtime=pending mobile=pending case=pending storage=pending gateIntegrated=0`)
+console.log(`TEAM_OS_4_G6_CONTRACT_OK migrations=${g6MigrationNames.length} checkpoints=75,80 roles=5 mobileEntries=5 roleNavigation=isolated publicProjection=allowlist-only trustedMediaExecutor=jwt-copy-before-publish-cleanup-idempotent trustedPublish=required trustedUnpublish=required archive=required storage=isolated runtime=pending mobile=pending case=pending storage=pending executor=pending roleNav=pending gateIntegrated=0`)
