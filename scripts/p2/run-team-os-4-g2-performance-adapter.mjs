@@ -8,10 +8,13 @@ import { performance } from 'node:perf_hooks'
 import { spawnSync } from 'node:child_process'
 import { createClient } from '@supabase/supabase-js'
 
+const wait = (milliseconds) => new Promise((resolve) => { setTimeout(resolve, milliseconds) })
+
 const TARGET_REF = 'jgcrhoabvaowxnqksvkq'
 const TARGET_URL = `https://${TARGET_REF}.supabase.co`
 const FIXED_NODE = 'C:\\Program Files\\nodejs\\node.exe'
 const FIXED_NPX_CLI = 'C:\\Program Files\\nodejs\\node_modules\\npm\\bin\\npx-cli.js'
+const ADMIN_API_URL = `https://${TARGET_REF}.supabase.co/auth/v1`
 const REQUIRED_MIGRATIONS = ['20260722180000', '20260722181000', '20260722182000']
 const REQUIRED_INDEXES = [
   'work_items_generation_identity',
@@ -22,6 +25,33 @@ const SCENARIOS = ['default', 'filtered', 'waiting-renewal', 'second-page-deep-c
 
 const sqlLiteral = (value) => `'${String(value).replaceAll("'", "''")}'`
 const uuidArray = (values) => `array[${values.map((value) => `${sqlLiteral(value)}::uuid`).join(',')}]::uuid[]`
+
+async function adminAuthRequest(method, path, body, serviceRoleKey) {
+  const headers = {
+    apikey: serviceRoleKey,
+    Authorization: `Bearer ${serviceRoleKey}`,
+    'Content-Type': 'application/json',
+  }
+  const response = await fetch(`${ADMIN_API_URL}${path}`, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  })
+  const text = await response.text()
+  if (!response.ok) throw new Error(`G2_ADMIN_REQUEST_FAILED:${method}:${path}:${response.status}:${response.statusText}:${text}`)
+  if (!text) return {}
+  return JSON.parse(text)
+}
+
+async function adminCreateUser(serviceRoleKey, user) {
+  // auth.admin.createUser
+  return adminAuthRequest('POST', '/admin/users', user, serviceRoleKey)
+}
+
+async function adminDeleteUser(serviceRoleKey, userId) {
+  // auth.admin.deleteUser
+  return adminAuthRequest('DELETE', `/admin/users/${userId}`, null, serviceRoleKey)
+}
 
 function parseMarker(output, marker) {
   const markerIndex = output.indexOf(`${marker}:`)
@@ -216,9 +246,8 @@ export async function forceCleanupG2Acceptance(context) {
   const secrets = [context.credentials.serviceRoleKey, context.credentials.anonKey]
   const projectDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', 'platform', 'team-os-4')
   const temporaryDirectory = mkdtempSync(join(tmpdir(), 'team-os-4-g2-cleanup-'))
-  const file = join(temporaryDirectory, 'cleanup.sql')
-  const adminClient = createClient(TARGET_URL, context.credentials.serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } })
   try {
+    const file = join(temporaryDirectory, 'cleanup.sql')
     writeFileSync(file, conditionalCleanupSql(context), { encoding: 'utf8', flag: 'wx' })
     const result = spawnSync(FIXED_NODE, [FIXED_NPX_CLI, 'supabase', 'db', 'query', '--linked', '--file', file], {
       cwd: projectDirectory, env: { ...process.env, CI: '1', NO_COLOR: '1' }, encoding: 'utf8', windowsHide: true,
@@ -231,17 +260,15 @@ export async function forceCleanupG2Acceptance(context) {
 
     const matches = []
     for (let page = 1; ; page += 1) {
-      const { data, error } = await adminClient.auth.admin.listUsers({ page, perPage: 1000 })
-      if (error) throw safeError(error, secrets)
-      matches.push(...data.users.filter((user) =>
+      const data = await adminAuthRequest('GET', `/admin/users?page=${page}&perPage=1000`, null, context.credentials.serviceRoleKey)
+      matches.push(...(data.users ?? []).filter((user) =>
         user.app_metadata?.team_os_4_data_class === 'g2-performance' &&
         user.app_metadata?.team_os_4_run_id === context.runId &&
         user.app_metadata?.team_os_4_project_ref === TARGET_REF))
-      if (data.users.length < 1000) break
+      if ((data.users ?? []).length < 1000) break
     }
     for (const user of matches) {
-      const { error } = await adminClient.auth.admin.deleteUser(user.id)
-      if (error) throw safeError(error, secrets)
+      await adminDeleteUser(context.credentials.serviceRoleKey, user.id)
     }
     return { databaseRemaining: remaining, authDeleted: matches.length }
   } finally {
@@ -256,7 +283,6 @@ export async function runG2Acceptance(context) {
   const secrets = [context.credentials.serviceRoleKey, context.credentials.anonKey]
   const projectDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', 'platform', 'team-os-4')
   const temporaryDirectory = mkdtempSync(join(tmpdir(), 'team-os-4-g2-'))
-  const adminClient = createClient(TARGET_URL, context.credentials.serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } })
   const createdUsers = []
   let setup
   let dbIdentity
@@ -282,14 +308,15 @@ export async function runG2Acceptance(context) {
 
   try {
     for (let ordinal = 1; ordinal <= 30; ordinal += 1) {
+      if (ordinal > 1) await wait(500)
       const email = `${context.runId}-${ordinal}@g2-performance.example.invalid`
       const password = randomBytes(32).toString('base64url')
-      const { data, error } = await adminClient.auth.admin.createUser({
+      const user = await adminCreateUser(context.credentials.serviceRoleKey, {
         email, password, email_confirm: true,
         app_metadata: { team_os_4_data_class: 'g2-performance', team_os_4_run_id: context.runId, team_os_4_project_ref: TARGET_REF },
       })
-      if (error || !data.user) throw safeError(error ?? new Error('Auth user missing'), secrets)
-      createdUsers.push({ ordinal, id: data.user.id, email, password })
+      if (!user?.id) throw safeError(new Error('Auth user missing'), secrets)
+      createdUsers.push({ ordinal, id: user.id, email, password })
     }
     const setupOutput = query('setup', setupSql(context, createdUsers.map(({ id }) => id)))
     setup = parseMarker(setupOutput, 'G2_SETUP')
@@ -354,15 +381,21 @@ export async function runG2Acceptance(context) {
     } catch (error) { cleanupErrors.push(safeError(error, secrets)) }
     let authDeleted = 0
     for (const user of createdUsers) {
-      const { error } = await adminClient.auth.admin.deleteUser(user.id)
-      if (error) cleanupErrors.push(safeError(error, secrets))
-      else authDeleted += 1
+      try {
+        await adminDeleteUser(context.credentials.serviceRoleKey, user.id)
+        authDeleted += 1
+      } catch (error) {
+        cleanupErrors.push(safeError(error, secrets))
+      }
     }
     let authRemaining = 0
     for (const user of createdUsers) {
-      const { data, error } = await adminClient.auth.admin.getUserById(user.id)
-      if (error && !/not found|user not found/iu.test(error.message ?? '')) cleanupErrors.push(safeError(error, secrets))
-      if (data?.user) authRemaining += 1
+      try {
+        const data = await adminAuthRequest('GET', `/admin/users/${user.id}`, null, context.credentials.serviceRoleKey)
+        if (data?.id) authRemaining += 1
+      } catch (error) {
+        if (!/not found|user not found/iu.test(error?.message ?? '')) cleanupErrors.push(safeError(error, secrets))
+      }
     }
     cleanupRemaining = { ...(cleanupRemaining ?? {}), authUsers: authRemaining }
     cleanupDatabase = { ...(cleanupDatabase ?? {}), authDeleted }

@@ -14,14 +14,42 @@ const normalizeScriptTextForPathMatch = (value) => value
   .replace(/[\\]+/gu, '/')
   .replace(/[\\/]+/gu, '/')
   .replace(/\/+/gu, '/')
+  .replace(/%20/gu, ' ')
   .replace(/\\(["'])/gu, '$1')
   .replace(/["']/gu, '')
   .replace(/\s+/gu, ' ')
 
+const normalizePathMatchCandidates = (pathText) => {
+  if (!pathText) return []
+  const decoded = (() => {
+    try { return decodeURIComponent(pathText) } catch { return '' }
+  })()
+  const candidates = [
+    pathText,
+    pathText.replace(/\\/gu, '/'),
+    pathText.replace(/ /gu, '%20'),
+    decoded,
+    `\"${pathText}\"`,
+    `'${pathText}'`,
+    `\"${pathText.replace(/\\/gu, '/')}\"`,
+    `'${pathText.replace(/\\/gu, '/')}'`,
+  ]
+  const expanded = candidates
+    .flatMap((candidate) => [candidate, candidate.replace(/ /gu, '%20')])
+    .filter((candidate) => typeof candidate === 'string' && candidate.length > 0)
+
+  return [...new Set(expanded.map(normalizeScriptTextForPathMatch))]
+    .filter((candidate) => candidate.length > 0)
+}
+
 const removePathMarker = (sourceText, pathText) => {
-  const escaped = pathText
-    .replace(/[.*+?^${}()|[\]\\\/]/gu, '\\$&')
-  return sourceText.replace(new RegExp(escaped, 'gu'), ' ')
+  let text = sourceText
+  const candidates = normalizePathMatchCandidates(pathText)
+  for (const candidate of candidates) {
+    if (!candidate) continue
+    text = text.split(candidate).join(' ')
+  }
+  return text
 }
 
 const contract = json('scripts/p2/team-os-4-g2-acceptance-contract.json')
