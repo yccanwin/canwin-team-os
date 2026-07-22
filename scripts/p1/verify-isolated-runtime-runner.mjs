@@ -89,6 +89,27 @@ check(resume?.mode === '--resume-acl-repair-verification' && resume?.remoteExecu
   resumeCi?.status === 'pending-new-signed-run' && resumeCi?.currentQualificationAllowed === false &&
   resumeCi?.successEvidencePresent === false,
   'read-only resume is not prequalification locked')
+check(JSON.stringify(contract.acceptanceBoundary) === JSON.stringify({
+  formalAclRepairDryRun: 'direct-db-connection-timeout-failed-stop-preserved',
+  formalAclRepairFailureRunId: 'p1-acl-repair-20260720T122757275Z-8fa1498850',
+  aclRepairQualification: 'historical-session-pooler-ci-apply-closed-resume-prequalification-pending',
+  aclRepairQualificationCount: 0,
+  aclRepairQualifiedRunId: null,
+  aclRepairHistoricalQualifiedRunId: '29750768517',
+  aclRepairRemoteExecutionAllowed: false,
+  aclRepairDbPushAllowed: false,
+  aclRepairAppliedFailureRunId: 'p1-acl-repair-20260720T151012163Z-d1f4c5e7c4',
+  aclRepairConfirmedPersistentWrites: 1,
+  aclRepairResumeQualification: 'pending-new-signed-run',
+  aclRepairResumeRemoteExecutionAllowed: false,
+  aclRepairResumeCurrentWrites: 0,
+  historicalApplyDatabaseCiPassed: true,
+  readOnlyResumeDatabaseCiPassed: false,
+  nextConnectionMode: 'session-pooler',
+  newIndependentCiRequired: true,
+  g1OverallClaim: false,
+  overallAcceptedProgressPercent: 25,
+}), 'isolated-runtime acceptance boundary contradicts the closed apply / pending read-only resume state')
 check(repair.migrationPath === 'supabase/migrations/20260720015435_harden_server_only_rpc_acl.sql' &&
   repair.migrationSha256Lf === REPAIR_SHA && sha256Lf(resolve(repoRoot, repair.migrationPath)) === REPAIR_SHA,
   'signed ACL repair migration path/hash drift')
@@ -471,6 +492,8 @@ check(mainIndex >= 0 && mainEnd > mainIndex &&
   !mainSource.includes('runRepairPushOnce(') && !mainSource.includes('runRepairPushDryRun('),
   'prequalification main can reach a remote, credential, dry-run, or db-push path')
 const executeStart = index('async function executeAclRepair(')
+const executeApplyEnd = index('async function executeAclRepairReadOnlyResume()', executeStart)
+const executeApplySource = source.slice(executeStart, executeApplyEnd)
 const initialFullIndex = index('const beforeFull = runSealedFullReconciliation(channel.dbEnvironment)', executeStart)
 const initialPrivateDefinitionIndex = index('const beforePrivateRoutineDefinition = privateRoutineDefinitionSnapshot(channel.dbEnvironment)', initialFullIndex)
 const initialStorageIndex = index('const beforeStorageSummary = await collectTargetStorageSummary(baseline)', initialFullIndex)
@@ -493,15 +516,15 @@ check(executeStart >= 0 && executeStart < initialFullIndex && initialFullIndex <
   privateTransitionIndex < sqlIndex && sqlIndex < finalCredentialIndex && finalCredentialIndex < finalFullIndex &&
   finalFullIndex < finalPrivateStableIndex,
   'formal order is not exact70 full/private/Storage -> dry-run -> one push -> exact71 ACL/private -> 27 tests -> fresh final private stability')
-check(source.includes('attempt.fullReconciliationSnapshotsPassed = 1') &&
-  occurrences(source, 'attempt.fullReconciliationSnapshotsPassed += 1') === 2 &&
-  source.includes('attempt.fullReconciliationSnapshotsPassed !== contract.expected.tests + 2') &&
-  source.includes('fullSnapshots=29/29') && source.includes('storageArchives=2/2'),
+check(executeApplySource.includes('attempt.fullReconciliationSnapshotsPassed = 1') &&
+  occurrences(executeApplySource, 'attempt.fullReconciliationSnapshotsPassed += 1') === 2 &&
+  executeApplySource.includes('attempt.fullReconciliationSnapshotsPassed !== contract.expected.tests + 2') &&
+  executeApplySource.includes('fullSnapshots=29/29') && executeApplySource.includes('storageArchives=2/2'),
   '29 full reconciliations or two Storage archives are not hard-required')
-check(source.includes('attempt.privateRoutineDefinitionSnapshotsPassed = 1') &&
-  occurrences(source, 'attempt.privateRoutineDefinitionSnapshotsPassed += 1') === 2 &&
-  source.includes('attempt.privateRoutineDefinitionSnapshotsPassed !== 3') &&
-  source.includes('privateDefinition=1/1') && source.includes('privateDefinitionSnapshots=3/3'),
+check(executeApplySource.includes('attempt.privateRoutineDefinitionSnapshotsPassed = 1') &&
+  occurrences(executeApplySource, 'attempt.privateRoutineDefinitionSnapshotsPassed += 1') === 2 &&
+  executeApplySource.includes('attempt.privateRoutineDefinitionSnapshotsPassed !== 3') &&
+  executeApplySource.includes('privateDefinition=1/1') && executeApplySource.includes('privateDefinitionSnapshots=3/3'),
   'private routine definition transition is not measured before/after/final as exact 3/3')
 check(source.includes('for (const test of databaseContract.tests)') &&
   source.includes('const afterTest = snapshot(channel.dbEnvironment)') &&
@@ -558,6 +581,60 @@ check(source.includes('const atomicDatabaseUnqualifiedRepair = {') &&
   source.includes('repairGateNegative=7/7') && source.includes('atomicGateNegative=2/2'),
   'atomic-only remote gate negative controls are missing or miscounted')
 
+const resumeExecuteStart = index('async function executeAclRepairReadOnlyResume()')
+const resumeExecuteEnd = index('async function main()', resumeExecuteStart)
+const resumeExecuteSource = source.slice(resumeExecuteStart, resumeExecuteEnd)
+check(resumeExecuteStart >= 0 && resumeExecuteEnd > resumeExecuteStart &&
+  resumeExecuteSource.includes("validateAppliedReadOnlyResumeGate('--resume-acl-repair-verification'") &&
+  resumeExecuteSource.includes('loadAppliedAclAssertionFailureEvidence()') &&
+  resumeExecuteSource.includes('prepareTemporaryChannel()') &&
+  resumeExecuteSource.includes('assertExact71ReadOnlyBaseline(sourceEvidence, initial)') &&
+  resumeExecuteSource.includes('assertRoutineAclFinalState(initialRoutineAcl)') &&
+  resumeExecuteSource.includes('assertPrivateRoutineMatchesSignedMigration(') &&
+  resumeExecuteSource.includes('for (const test of databaseContract.tests)') &&
+  resumeExecuteSource.includes('attempt.fullReconciliationSnapshotsPassed !== 29') &&
+  resumeExecuteSource.includes('attempt.storageArchivesPassed !== 2') &&
+  resumeExecuteSource.includes('catalogAssertionsPassed: 4') &&
+  resumeExecuteSource.includes('dbPushAttempted: false') &&
+  resumeExecuteSource.includes('persistentRemoteWrites: 0') &&
+  !resumeExecuteSource.includes('runRepairPushOnce(') &&
+  !resumeExecuteSource.includes('runRepairPushDryRun(') &&
+  !resumeExecuteSource.includes('buildSessionPoolerPushInvocation('),
+  'prequalified read-only resume does not prove exact71/27/29/2/ACL/private/catalog or contains a push path')
+const resumePreflightIndex = resumeExecuteSource.indexOf("writeFileSync(resolve(evidenceDirectory, 'preflight.json')")
+const resumeFormalStartIndex = resumeExecuteSource.indexOf('attempt.formalAttemptStarted = true')
+const resumeTestIndex = resumeExecuteSource.indexOf('const result = runTestFile(channel.dbEnvironment, test)')
+const resumeResidueIndex = resumeExecuteSource.indexOf('const afterTest = snapshot(channel.dbEnvironment)', resumeTestIndex)
+const resumeRequireSuccessIndex = resumeExecuteSource.indexOf('requireSuccess(`SQL test ${test.path}`, result)', resumeResidueIndex)
+check(resumePreflightIndex >= 0 && resumePreflightIndex < resumeFormalStartIndex &&
+  resumeFormalStartIndex < resumeTestIndex && resumeTestIndex < resumeResidueIndex &&
+  resumeResidueIndex < resumeRequireSuccessIndex &&
+  resumeExecuteSource.includes("status: 'ready-to-verify-applied-migration-read-only'") &&
+  resumeExecuteSource.includes("if (!p1MarkerSeen) throw new Error('P1 six-identity runtime marker is missing')") &&
+  resumeExecuteSource.includes("if (!accessControlMarkerSeen) throw new Error('legacy-member explicit-role marker is missing')") &&
+  resumeExecuteSource.includes("if (!notificationMarkerSeen) throw new Error('notification ACL repair runtime marker is missing')") &&
+  resumeExecuteSource.includes('if (channel) {') && resumeExecuteSource.includes('clearDbEnvironment(channel.dbEnvironment)'),
+  'read-only resume preflight, failed-test residue snapshot, marker stop, or cleanup order drift')
+const runTestFileStart = index('function runTestFile(')
+const runTestFileEnd = index('function runSealedFullReconciliation(', runTestFileStart)
+const runTestFileSource = source.slice(runTestFileStart, runTestFileEnd)
+check(runTestFileStart >= 0 && runTestFileEnd > runTestFileStart &&
+  runTestFileSource.includes('return run(resolve(restoreRun.toolchain.psql.path), args, {') &&
+  !runTestFileSource.includes('runPgTool({') &&
+  resumeTestIndex < resumeResidueIndex && resumeResidueIndex < resumeRequireSuccessIndex,
+  'SQL test runner still throws before a failed-test residue snapshot can be captured')
+check(!source.includes('retryReadOnlySessionPooler: true') &&
+  source.includes('retryReadOnlySessionPooler: false'),
+  'formal read-only validation can silently retry while evidence claims first-failure stop')
+check(source.includes("if (!['read_only', 'rollback_fixture'].includes(test.executionMode))") &&
+  source.includes('unsupported SQL test execution mode'),
+  'unknown SQL test execution mode is not fail-closed')
+check(resume?.signedPost71PrivateRoutineDefinition === null &&
+  source.includes('function validateSignedPost71PrivateRoutineDefinition(') &&
+  source.includes('signedPost71DefinitionPositive=1') && source.includes('signedPost71DefinitionNegative=3/3') &&
+  !mainSource.includes('executeAclRepairReadOnlyResume('),
+  'unsigned post-71 private definition does not keep resume unreachable')
+
 const selfStart = index('function runSelfTest()')
 const selfEnd = index('function verifyTemporaryLink(', selfStart)
 const selfSource = source.slice(selfStart, selfEnd)
@@ -589,4 +666,4 @@ if (failures.length > 0) {
   for (const failure of failures) console.error('- ' + failure)
   process.exit(1)
 }
-console.log(`P1_ISOLATED_RUNTIME_RUNNER_OK assertions=${assertionCount} exact70to71=1 signedMigrationInventory=71/71 historicalApplyDbPushMax=1 currentDbPushMax=0 dryRunEvidenceSafe=1 sessionPoolerPushHistorical=2/2 sessionPoolerNegative=7/7 pushSecretEnvOnly=1 pushSecretsCleared=2/2 failedPushUnknownState=1 aclTargets=6/6 expectedAclChanges=3/3 aclExactTerminal=6/6 privateDefinitionChange=1/1 privateDefinitionSnapshots=3/3 atomicMapping=5/5 atomicRollback=2/2 sameTeamStatic=4/4 atomicGateNegative=2/2 repairGateNegative=7/7 closedRepairGateNegative=3/3 priorRepairCiRevivalDenied=2/2 relabeledRevivalDenied=5/5 independentCiHistoryPositive=1 independentCiHistoryNegative=5/5 relabeledHistoryRevivalDenied=2/2 atomicDatabaseCiHistorical=true priorRepairCiFailurePreserved=1 priorSuccessfulRepairCiHistorical=1 priorParserFixCiHistorical=1 priorFormalAclRepairFailurePreserved=1 currentFormalAclRepairFailurePreserved=1 appliedAclFailurePreserved=1 appliedRepairWrites=1 currentResumeWrites=0 historicalApplyCi=29750768517 fullDifferencePaths=2/2 sqlTests=27 perTestSnapshots=27 fullSnapshots=29 storageArchives=2 signedFailureCounts=5/5/6/1 oldResumeDenied=1 applicationCompatibilityPassed=1 legacyRpcCalls=0 detectorNegative=2/2 appShell=99/99 staticGate16=runner+appShell+accessV1 warehouseBackendRelaxed=0 applyRemote=0 resumeRemote=0 productionDenied=1 validatorDatabaseCalls=0 validatorStorageCalls=0 validatorDEvidenceRequired=0`)
+console.log(`P1_ISOLATED_RUNTIME_RUNNER_OK assertions=${assertionCount} exact70to71=1 signedMigrationInventory=71/71 historicalApplyDbPushMax=1 currentDbPushMax=0 dryRunEvidenceSafe=1 sessionPoolerPushHistorical=2/2 sessionPoolerNegative=7/7 pushSecretEnvOnly=1 pushSecretsCleared=2/2 failedPushUnknownState=1 aclTargets=6/6 expectedAclChanges=3/3 aclExactTerminal=6/6 privateDefinitionChange=1/1 privateDefinitionSnapshots=3/3 signedPost71Pending=1 resumeImplementationPrequalified=1 resumePreflight=1 failedTestResidueSnapshot=1 atomicMapping=5/5 atomicRollback=2/2 sameTeamStatic=4/4 atomicGateNegative=2/2 repairGateNegative=7/7 closedRepairGateNegative=3/3 priorRepairCiRevivalDenied=2/2 relabeledRevivalDenied=5/5 independentCiHistoryPositive=1 independentCiHistoryNegative=5/5 relabeledHistoryRevivalDenied=2/2 atomicDatabaseCiHistorical=true priorRepairCiFailurePreserved=1 priorSuccessfulRepairCiHistorical=1 priorParserFixCiHistorical=1 priorFormalAclRepairFailurePreserved=1 currentFormalAclRepairFailurePreserved=1 appliedAclFailurePreserved=1 appliedRepairWrites=1 currentResumeWrites=0 historicalApplyCi=29750768517 fullDifferencePaths=2/2 sqlTests=27 perTestSnapshots=27 fullSnapshots=29 storageArchives=2 signedFailureCounts=5/5/6/1 oldResumeDenied=1 applicationCompatibilityPassed=1 legacyRpcCalls=0 detectorNegative=2/2 appShell=99/99 staticGate16=runner+appShell+accessV1 warehouseBackendRelaxed=0 applyRemote=0 resumeRemote=0 productionDenied=1 validatorDatabaseCalls=0 validatorStorageCalls=0 validatorDEvidenceRequired=0`)

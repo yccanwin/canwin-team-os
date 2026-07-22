@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -14,6 +15,62 @@ const connection = {
   port: runtime.allowedPort,
   database: runtime.allowedDatabase,
   user: runtime.allowedUser,
+}
+
+const PRIVATE_MEMBER_ACCESS_IDENTITY = 'private.admin_apply_member_access_v1(uuid, text, text[], uuid[], uuid[], text[], uuid)'
+
+function sha256(value) {
+  return createHash('sha256').update(value).digest('hex')
+}
+
+function canonicalize(value) {
+  if (Array.isArray(value)) return value.map(canonicalize)
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalize(value[key])]))
+  }
+  return value
+}
+
+function canonicalSha256(value) {
+  return sha256(JSON.stringify(canonicalize(value)))
+}
+
+function normalizePrivateRoutineBody(value) {
+  return String(value ?? '').replaceAll('\r\n', '\n').replaceAll('\r', '\n').trim()
+}
+
+function signedPrivateRoutineBodySha256() {
+  const source = readFileSync(resolve(repoRoot, contract.aclRepairCandidate.migrationPath), 'utf8')
+  const marker = 'create or replace function private.admin_apply_member_access_v1('
+  const start = source.toLowerCase().indexOf(marker)
+  const match = start >= 0 ? source.slice(start).match(/\bas\s+\$\$([\s\S]*?)\$\$;/i) : null
+  if (!match || source.toLowerCase().indexOf(marker, start + marker.length) >= 0) {
+    throw new Error('signed migration private routine definition is missing or ambiguous')
+  }
+  return sha256(normalizePrivateRoutineBody(match[1]))
+}
+
+function toPost71PrivateRoutineEvidence(raw) {
+  if (!raw || raw.identity !== PRIVATE_MEMBER_ACCESS_IDENTITY || typeof raw.definition !== 'string' ||
+      typeof raw.body !== 'string' || raw.owner !== 'postgres' || raw.language !== 'plpgsql' ||
+      raw.securityDefiner !== true || JSON.stringify(raw.configuration) !== JSON.stringify(['search_path=""']) ||
+      raw.returnType !== 'jsonb') {
+    throw new Error('post-71 private routine evidence shape or security envelope drift')
+  }
+  const evidence = {
+    identity: raw.identity,
+    definitionSha256: sha256(raw.definition),
+    bodySha256: sha256(normalizePrivateRoutineBody(raw.body)),
+    owner: raw.owner,
+    language: raw.language,
+    securityDefiner: raw.securityDefiner,
+    configuration: raw.configuration,
+    returnType: raw.returnType,
+  }
+  if (evidence.bodySha256 !== signedPrivateRoutineBodySha256()) {
+    throw new Error('post-71 private routine body does not match signed migration 71')
+  }
+  return { ...evidence, canonicalSha256: canonicalSha256(evidence) }
 }
 
 function validateConnection(candidate) {
@@ -145,6 +202,39 @@ function runCatalogAssertions() {
   console.log('[p0:ci-db] PASS post-install-catalog assertions=4')
 }
 
+function capturePost71PrivateRoutineEvidence() {
+  const query = `select jsonb_build_object(
+    'identity',format('%I.%I(%s)',n.nspname,p.proname,pg_catalog.oidvectortypes(p.proargtypes)),
+    'definition',pg_catalog.pg_get_functiondef(p.oid),
+    'body',p.prosrc,
+    'owner',owner_role.rolname,
+    'language',language_row.lanname,
+    'securityDefiner',p.prosecdef,
+    'configuration',coalesce(to_jsonb(p.proconfig),'[]'::jsonb),
+    'returnType',pg_catalog.format_type(p.prorettype,null)
+  )::text
+  from pg_catalog.pg_proc p
+  join pg_catalog.pg_namespace n on n.oid=p.pronamespace
+  join pg_catalog.pg_roles owner_role on owner_role.oid=p.proowner
+  join pg_catalog.pg_language language_row on language_row.oid=p.prolang
+  where p.oid=pg_catalog.to_regprocedure('${PRIVATE_MEMBER_ACCESS_IDENTITY}');`
+  console.log('[p0:ci-db] RUN post-71-private-definition-evidence')
+  const result = spawnSync('psql', [...psqlBaseArgs(), '--tuples-only', '--no-align', `--command=${query}`], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    env: cleanPsqlEnvironment(),
+    windowsHide: true,
+  })
+  if (result.status !== 0 || result.error) {
+    throw new Error(`post-71 private definition evidence failed\n${redact(result.stderr || result.error?.message)}`)
+  }
+  const lines = String(result.stdout).split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
+  if (lines.length !== 1) throw new Error('post-71 private definition evidence did not return exactly one row')
+  const evidence = toPost71PrivateRoutineEvidence(JSON.parse(lines[0]))
+  console.log(`[p0:ci-db] POST71_PRIVATE_DEFINITION_EVIDENCE ${JSON.stringify(evidence)}`)
+  return evidence
+}
+
 function runSelfTest() {
   runNodeContractVerifier()
   const baseline = validateConnection(connection)
@@ -160,12 +250,33 @@ function runSelfTest() {
   for (const [, candidate] of cases) {
     if (validateConnection(candidate).length > 0) negativePassed += 1
   }
-  if (baseline.length > 0 || negativePassed !== cases.length) {
+  const signedBody = signedPrivateRoutineBodySha256()
+  const syntheticRaw = {
+    identity: PRIVATE_MEMBER_ACCESS_IDENTITY,
+    definition: 'synthetic post-71 definition',
+    body: readFileSync(resolve(repoRoot, contract.aclRepairCandidate.migrationPath), 'utf8')
+      .match(/\bas\s+\$\$([\s\S]*?)\$\$;/i)?.[1],
+    owner: 'postgres',
+    language: 'plpgsql',
+    securityDefiner: true,
+    configuration: ['search_path=""'],
+    returnType: 'jsonb',
+  }
+  const privateEvidence = toPost71PrivateRoutineEvidence(syntheticRaw)
+  const privateNegativePassed = [
+    { ...syntheticRaw, owner: 'service_role' },
+    { ...syntheticRaw, configuration: [] },
+    { ...syntheticRaw, body: `${syntheticRaw.body}\n-- drift` },
+  ].filter((candidate) => {
+    try { toPost71PrivateRoutineEvidence(candidate); return false } catch { return true }
+  }).length
+  if (baseline.length > 0 || negativePassed !== cases.length ||
+      privateEvidence.bodySha256 !== signedBody || privateNegativePassed !== 3) {
     console.error('P0_CI_DATABASE_RUNNER_SELFTEST_FAILED')
     for (const failure of baseline) console.error(`- ${failure}`)
     process.exit(1)
   }
-  console.log(`P0_CI_DATABASE_RUNNER_SELFTEST_OK positive=1 negative=${negativePassed}/${cases.length} localOnly=true databaseCalls=0 productionReads=0 productionWrites=0`)
+  console.log(`P0_CI_DATABASE_RUNNER_SELFTEST_OK positive=1 negative=${negativePassed}/${cases.length} post71PrivateDefinition=1 privateNegative=${privateNegativePassed}/3 localOnly=true databaseCalls=0 productionReads=0 productionWrites=0`)
 }
 
 if (selfTest) {
@@ -191,11 +302,12 @@ try {
   for (const entry of migrationManifest.entries) {
     runPsqlFile(`migration:${entry.version}`, `${contract.migrations.directory}/${entry.file}`, true)
   }
+  capturePost71PrivateRoutineEvidence()
   for (const test of contract.tests) {
     runPsqlFile(`test:${test.category}:${test.path.split('/').at(-1)}`, test.path, test.executionMode === 'read_only')
   }
   runCatalogAssertions()
-  console.log('P0_CI_DATABASE_GATES_OK baseline=1 migrations=71 tests=27 database=7 permission=11 business=9 catalog=4 repositorySecrets=0 productionReads=0 productionWrites=0')
+  console.log('P0_CI_DATABASE_GATES_OK baseline=1 migrations=71 tests=27 database=7 permission=11 business=9 catalog=4 post71PrivateDefinition=1 repositorySecrets=0 productionReads=0 productionWrites=0')
 } catch (error) {
   console.error(`P0_CI_DATABASE_GATES_FAILED\n${redact(error instanceof Error ? error.message : error)}`)
   process.exit(1)

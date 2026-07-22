@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "manifestType": "canwin-team-os-p0-ci-database-tests",
-  "contractStatus": "p1_acl_repair_session_pooler_remote_qualified_after_preserved_direct_db_failure",
+  "contractStatus": "p1_acl_repair_resume_prequalification_pending",
   "baseline": {
     "path": "supabase/schema.sql",
     "sha256Lf": "4602c1e583174a4dbc6e480aac101d2cf914148651ded71028d9a43abed8c340"
@@ -167,13 +167,19 @@
     "aclRepairDatabaseCi": "run-29750768517-session-pooler-qualified",
     "formalAclRepairDryRun": "direct-db-connection-timeout-failed-stop-preserved",
     "formalAclRepairFailureRunId": "p1-acl-repair-20260720T122757275Z-8fa1498850",
-    "aclRepairQualification": "qualified-session-pooler-new-independent-ci",
-    "aclRepairQualificationCount": 1,
-    "aclRepairQualifiedRunId": "29750768517",
-    "aclRepairRemoteExecutionAllowed": true,
-    "aclRepairDbPushAllowed": true,
+    "aclRepairQualification": "historical-session-pooler-ci-apply-closed-resume-prequalification-pending",
+    "aclRepairQualificationCount": 0,
+    "aclRepairQualifiedRunId": null,
+    "aclRepairHistoricalQualifiedRunId": "29750768517",
+    "aclRepairRemoteExecutionAllowed": false,
+    "aclRepairDbPushAllowed": false,
+    "aclRepairAppliedFailureRunId": "p1-acl-repair-20260720T151012163Z-d1f4c5e7c4",
+    "aclRepairConfirmedPersistentWrites": 1,
+    "aclRepairResumeQualification": "pending-new-signed-run",
+    "aclRepairResumeRemoteExecutionAllowed": false,
+    "aclRepairResumeCurrentWrites": 0,
     "nextAclRepairConnectionMode": "session-pooler",
-    "nextAclRepairIndependentCiRequired": false,
+    "nextAclRepairIndependentCiRequired": true,
     "fullReconciliationExactRows": 71,
     "fullReconciliationSqlTests": 27,
     "fullReconciliationPerTestSnapshots": 27,
@@ -186,7 +192,7 @@
     "fullReconciliationContentFingerprintsRequired": true,
     "sourceP0CountsOnlyBoundaryRecorded": true,
     "fixturePatternsCovered": "4/4",
-    "runnerValidatorAssertions": "100/100",
+    "runnerValidatorAssertions": "81/81",
     "g1OverallClaim": false,
     "overallAcceptedProgressPercent": 25,
     "productionReadPerformed": false,
@@ -194,7 +200,7 @@
     "repositorySecretsRequired": false
   },
   "postApplyResumePrequalification": {
-    "status": "qualified_remote_enabled",
+    "status": "historical_failed_stop_preserved",
     "accessControlTestPath": "supabase/tests/access_control_foundation.sql",
     "accessControlTestExecutionMode": "rollback_fixture",
     "accessControlTestSha256Lf": "31fa286b318ad2b24e2d956005c4a5fcc9b0fddfd0269be029330d5c1c3e43f8",
@@ -207,7 +213,7 @@
     "isolatedRuntimeContractPath": "scripts/p1/isolated-runtime-contract.json",
     "isolatedRuntimeContractSha256Lf": "f99e605341b36e2de18779b6dd52a624b1ef421a9b60c4517f59845a7ba22013",
     "candidateRemoteExecutionAllowed": false,
-    "resumeRemoteExecutionAllowed": true,
+    "resumeRemoteExecutionAllowed": false,
     "resumeSignedCiHeadSha": "a620bb541f4c5eb613413e8b40455b3988ee0cf3",
     "resumeSignedCiRunId": "29699951990",
     "resumeSignedCiLinuxJobId": "88227205377",
@@ -222,7 +228,7 @@
     "dbPushAllowed": false,
     "expectedPersistentRemoteWrites": 0,
     "migrationPreviouslyApplied": true,
-    "resumeVerificationExecuted": false,
+    "resumeVerificationExecuted": true,
     "productionReadPerformed": false,
     "productionWritePerformed": false,
     "fullReconciliation": {
@@ -316,8 +322,8 @@
   },
   "aclRepairCandidate": {
     "mode": "--apply-acl-repair",
-    "remoteExecutionAllowed": true,
-    "dbPushAllowed": true,
+    "remoteExecutionAllowed": false,
+    "dbPushAllowed": false,
     "migrationVersion": "20260720015435",
     "migrationPath": "supabase/migrations/20260720015435_harden_server_only_rpc_acl.sql",
     "migrationSha256Lf": "1bb13f29fc0f5512bd00115dc1c953a2c3aaa0ec21522b1cc8cbb45a18a5cdc0",
@@ -326,10 +332,10 @@
     "expectedMigrationCount": 71,
     "sqlTestCount": 27,
     "maxFormalAttempts": 1,
-    "maxDbPushAttempts": 1,
-    "dryRunRequired": true,
-    "pendingMigrationVersions": ["20260720015435"],
-    "currentCiQualification": "qualified-session-pooler-run-29750768517",
+    "maxDbPushAttempts": 0,
+    "dryRunRequired": false,
+    "pendingMigrationVersions": [],
+    "currentCiQualification": "historical-session-pooler-run-29750768517-apply-closed",
     "priorSuccessfulCiEvidenceRef": "priorSuccessfulRepairCiRunEvidence",
     "priorParserFixCiEvidenceRef": "priorParserFixRepairCiRunEvidence",
     "requiredConnectionMode": "session-pooler",
@@ -343,9 +349,9 @@
       { "identity": "public.enqueue_wecom_notification_jobs(text, timestamp with time zone)", "revokeRoles": ["PUBLIC", "anon", "authenticated"], "requiredGrantRoles": ["service_role"] },
       { "identity": "public.claim_wecom_notification_jobs(integer, timestamp with time zone)", "revokeRoles": ["PUBLIC", "anon", "authenticated"], "requiredGrantRoles": ["service_role"] },
       { "identity": "public.complete_wecom_notification_job(uuid, boolean, text, text, timestamp with time zone)", "revokeRoles": ["PUBLIC", "anon", "authenticated"], "requiredGrantRoles": ["service_role"] },
-      { "identity": "public.manage_profile_access(uuid, text[], uuid[])", "revokeRoles": ["PUBLIC", "anon", "authenticated"], "requiredGrantRoles": [] },
-      { "identity": "public.admin_replace_profile_roles(uuid, text[], uuid)", "revokeRoles": ["PUBLIC", "anon", "authenticated"], "requiredGrantRoles": [] },
-      { "identity": "public.admin_replace_supervisor_subordinates(uuid, uuid[], uuid)", "revokeRoles": ["PUBLIC", "anon", "authenticated"], "requiredGrantRoles": [] }
+      { "identity": "public.manage_profile_access(uuid, text[], uuid[])", "revokeRoles": ["PUBLIC", "anon", "authenticated"], "requiredGrantRoles": ["service_role"] },
+      { "identity": "public.admin_replace_profile_roles(uuid, text[], uuid)", "revokeRoles": ["PUBLIC", "anon", "authenticated"], "requiredGrantRoles": ["service_role"] },
+      { "identity": "public.admin_replace_supervisor_subordinates(uuid, uuid[], uuid)", "revokeRoles": ["PUBLIC", "anon", "authenticated"], "requiredGrantRoles": ["service_role"] }
     ],
     "targetFunctionCount": 6,
     "expectedChangedFunctions": [
@@ -359,9 +365,9 @@
       { "path": "supabase/tests/team_os_4_p1_access_shell.sql", "sha256Lf": "c598b4e4ed3c7e26d9411cb4084685bea1233f47ae969c2685e048f480dac09e" }
     ],
     "currentRuntimeArtifacts": {
-      "contract": { "path": "scripts/p1/isolated-runtime-contract.json", "sha256Lf": "63345abebc8128f17cc79ff1e35ed32bd9087f941a520839c3ea34dc146dba91" },
-      "runner": { "path": "scripts/p1/run-isolated-runtime.mjs", "sha256Lf": "c4758bf3ac6c49858059406df5fc8509e7adfbbac465cce499354f0a9e718670" },
-      "validator": { "path": "scripts/p1/verify-isolated-runtime-runner.mjs", "sha256Lf": "e9c94f654d8391e7b2ff9376d51bde139e6a4c5417f01593d8c7cc078407f4cb", "assertions": "74/74" }
+      "contract": { "path": "scripts/p1/isolated-runtime-contract.json", "sha256Lf": "b8b28653eb8475e020b60662790a81b1558b0ab8b977f1d20b538f15c864f191" },
+      "runner": { "path": "scripts/p1/run-isolated-runtime.mjs", "sha256Lf": "f360fff8e88cec925ff23159aee35decd5d53bf44b527a7a518e71f24a4e9754" },
+      "validator": { "path": "scripts/p1/verify-isolated-runtime-runner.mjs", "sha256Lf": "2e08ed706c418737d68e53b22fa294262c3e90908a03c6f7080f1d3da06134ba", "assertions": "81/81" }
     },
     "fullReconciliation": {
       "expected": { "migrationRows": 71 },
@@ -1312,7 +1318,7 @@
       "headSha": "a620bb541f4c5eb613413e8b40455b3988ee0cf3",
       "conclusion": "success",
       "qualificationScope": "post_apply_resume_prequalification",
-      "resumePrequalification": "qualified_remote_enabled",
+      "resumePrequalification": "historical_success_remote_closed",
       "windowsLocalGatePassed": true,
       "windowsStaticGatesExpected": 19,
       "windowsStaticGatesPassed": 19,

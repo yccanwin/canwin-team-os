@@ -116,14 +116,34 @@ function validateRepairRemoteGate(candidateMode, repair, ci) {
     ci?.newIndependentCi === true
 }
 
-function validateAppliedReadOnlyResumeGate(candidateMode, resume) {
+function validateAppliedReadOnlyResumeGate(candidateMode, resume, ci) {
   return candidateMode === '--resume-acl-repair-verification' && resume?.mode === '--resume-acl-repair-verification' &&
     resume?.remoteExecutionAllowed === true && resume?.dbPushAllowed === false &&
     resume?.persistentDatabaseWritesAllowed === false && resume?.requiredMigrationRows === 71 &&
     resume?.sqlTestCount === 27 && resume?.fullReconciliationSnapshots === 29 &&
     resume?.storageArchives === 2 && resume?.sourceFailureRunId === APPLIED_FAILURE_RUN_ID &&
     resume?.sourceFailureSha256 === APPLIED_FAILURE_SHA256 &&
-    resume?.sourcePreflightSha256 === APPLIED_PREFLIGHT_SHA256
+    resume?.sourcePreflightSha256 === APPLIED_PREFLIGHT_SHA256 &&
+    validateSignedPost71PrivateRoutineDefinition(resume?.signedPost71PrivateRoutineDefinition) &&
+    ci?.qualificationScope === 'acl_repair_read_only_resume_prequalification' &&
+    /^[0-9]+$/.test(ci?.runId ?? '') && /^[0-9]+$/.test(ci?.linuxJobId ?? '') &&
+    /^[0-9]+$/.test(ci?.windowsJobId ?? '') && /^[a-f0-9]{40}$/.test(ci?.headSha ?? '') &&
+    ci?.runUrl === `https://github.com/yccanwin/canwin-team-os/actions/runs/${ci.runId}` &&
+    ci?.status === 'success' && ci?.conclusion === 'success' && ci?.linuxStatus === 'success' &&
+    ci?.windowsStatus === 'success' && ci?.databaseCiPassed === true &&
+    ci?.remoteQualificationAllowed === true && ci?.currentQualificationAllowed === true &&
+    ci?.successEvidencePresent === true && ci?.newIndependentCi === true
+}
+
+function validateSignedPost71PrivateRoutineDefinition(candidate) {
+  if (!candidate || typeof candidate !== 'object') return false
+  const { canonicalSha256: signedCanonicalSha256, ...definition } = candidate
+  return definition.identity === PRIVATE_MEMBER_ACCESS_IDENTITY &&
+    /^[a-f0-9]{64}$/.test(definition.definitionSha256 ?? '') &&
+    /^[a-f0-9]{64}$/.test(definition.bodySha256 ?? '') && definition.owner === 'postgres' &&
+    definition.language === 'plpgsql' && definition.securityDefiner === true &&
+    canonicalSha256(definition.configuration) === canonicalSha256(['search_path=""']) &&
+    definition.returnType === 'jsonb' && signedCanonicalSha256 === canonicalSha256(definition)
 }
 
 function findRepairSignedCiRun(
@@ -192,6 +212,21 @@ function sha256(value) {
 
 function sha256Lf(path) {
   return sha256(readFileSync(path, 'utf8').replaceAll('\r\n', '\n').replaceAll('\r', '\n'))
+}
+
+function normalizePrivateRoutineBody(value) {
+  return String(value ?? '').replaceAll('\r\n', '\n').replaceAll('\r', '\n').trim()
+}
+
+function signedPrivateRoutineBodySha256() {
+  const source = readFileSync(resolve(repoRoot, contract.aclRepair.migrationPath), 'utf8')
+  const marker = 'create or replace function private.admin_apply_member_access_v1('
+  const start = source.toLowerCase().indexOf(marker)
+  const match = start >= 0 ? source.slice(start).match(/\bas\s+\$\$([\s\S]*?)\$\$;/i) : null
+  if (!match || source.toLowerCase().indexOf(marker, start + marker.length) >= 0) {
+    throw new Error('signed migration private routine definition is missing or ambiguous')
+  }
+  return sha256(normalizePrivateRoutineBody(match[1]))
 }
 
 function redact(value) {
@@ -541,6 +576,9 @@ function loadAppliedAclAssertionFailureEvidence() {
       failure.verificationStarted !== false || failure.testsPassed?.length !== 0 ||
       failure.fullReconciliationSnapshotsPassed !== 1 || failure.storageArchivesPassed !== 1 ||
       failure.privateRoutineDefinitionSnapshotsPassed !== 1 || failure.targetPreserved !== true ||
+      failure.initialPrivateRoutineDefinition?.identity !== PRIVATE_MEMBER_ACCESS_IDENTITY ||
+      failure.initialPrivateRoutineDefinition?.definitionSha256 !==
+        'f906e99276a28a8afd945382cff46ea482d7cf3bd1979cc09854f8eb7d71eece' ||
       failure.retryPerformed !== false || failure.remoteCleanupPerformed !== false ||
       failure.productionReads !== 0 || failure.productionWrites !== 0 ||
       failure.secretsPrinted !== 0 || failure.secretsWritten !== 0) {
@@ -1064,6 +1102,9 @@ function assertFrozenContract() {
   const p1Test = databaseContract.tests.find((entry) => entry.path === contract.candidate.testPath)
   const accessControlTest = databaseContract.tests.find((entry) => entry.path === contract.postApplyResume.accessControlTestPath)
   if (databaseContract.tests.length !== contract.expected.tests ||
+      databaseContract.tests.some((entry) => !['read_only', 'rollback_fixture'].includes(entry.executionMode)) ||
+      databaseContract.tests.some((entry) => entry.executionMode === 'rollback_fixture' &&
+        containsForbiddenTopLevelTransactionEnd(readFileSync(resolve(repoRoot, entry.path), 'utf8'))) ||
       p1Test?.category !== 'permission' || accessControlTest?.category !== 'database' ||
       accessControlTest?.executionMode !== 'rollback_fixture' ||
       accessControlTest?.sha256Lf !== contract.postApplyResume.accessControlTestSha256Lf) {
@@ -1077,6 +1118,21 @@ function assertFrozenContract() {
     'merge-base', '--is-ancestor', contract.candidate.requiredAncestorSha, head,
   ]))
   return repairCiQualified ? 'qualified' : 'prequalification-pending'
+}
+
+function containsForbiddenTopLevelTransactionEnd(sql) {
+  let dollarTag = null
+  for (const rawLine of String(sql).replaceAll('\r\n', '\n').replaceAll('\r', '\n').split('\n')) {
+    const line = rawLine.replace(/--.*$/, '')
+    const tags = [...line.matchAll(/\$[A-Za-z_][A-Za-z0-9_]*\$|\$\$/g)].map((match) => match[0])
+    const atTopLevel = dollarTag === null
+    for (const tag of tags) {
+      if (dollarTag === null) dollarTag = tag
+      else if (dollarTag === tag) dollarTag = null
+    }
+    if (atTopLevel && /^\s*(?:commit|end\s+transaction)\s*;/i.test(line)) return true
+  }
+  return false
 }
 
 function runSelfTest() {
@@ -1614,13 +1670,30 @@ function runSelfTest() {
   const privateDefinitionBefore = {
     identity: PRIVATE_MEMBER_ACCESS_IDENTITY,
     definitionSha256: 'a'.repeat(64),
+    bodySha256: 'c'.repeat(64),
     owner: 'postgres',
     language: 'plpgsql',
     securityDefiner: true,
-    configuration: ['search_path='],
+    configuration: ['search_path=""'],
     returnType: 'jsonb',
   }
-  const privateDefinitionAfter = { ...privateDefinitionBefore, definitionSha256: 'b'.repeat(64) }
+  const privateDefinitionAfter = {
+    ...privateDefinitionBefore,
+    definitionSha256: 'b'.repeat(64),
+    bodySha256: 'd'.repeat(64),
+  }
+  const syntheticSignedPost71Definition = {
+    ...privateDefinitionAfter,
+    canonicalSha256: canonicalSha256(privateDefinitionAfter),
+  }
+  if (!validateSignedPost71PrivateRoutineDefinition(syntheticSignedPost71Definition)) {
+    throw new Error('synthetic signed post-71 private routine definition was rejected')
+  }
+  const signedPost71NegativePassed = [
+    null,
+    { ...syntheticSignedPost71Definition, canonicalSha256: '0'.repeat(64) },
+    { ...syntheticSignedPost71Definition, definitionSha256: '0'.repeat(64) },
+  ].filter((candidate) => !validateSignedPost71PrivateRoutineDefinition(candidate)).length
   assertPrivateRoutineDefinitionTransition(privateDefinitionBefore, privateDefinitionAfter)
   assertPrivateRoutineDefinitionStable(privateDefinitionAfter, { ...privateDefinitionAfter })
   const privateDefinitionNegativeCases = [
@@ -1908,6 +1981,7 @@ function runSelfTest() {
       evidenceNegativePassed !== evidenceNegativeCases.length || oldModesDenied !== 3 ||
       reconciliationNegativePassed !== reconciliationNegativeCases.length ||
       aclNegativePassed !== aclNegativeCases.length ||
+      signedPost71NegativePassed !== 3 ||
       privateDefinitionNegativePassed !== privateDefinitionNegativeCases.length ||
       stagedInventoryNegativePassed !== stagedInventoryNegativeCases.length ||
       dryRunNegativePassed !== dryRunNegativeCases.length || !preservedDryRunFailureStopped ||
@@ -1939,7 +2013,7 @@ function runSelfTest() {
       followingSyntheticTestRan,
     }))
   }
-  console.log('P1_ISOLATED_RUNTIME_SELFTEST_OK targetPositive=1 targetNegative=3/3 migration70to71Positive=1 migrationNegative=6/6 stagedInventoryPositive=71/71 stagedInventoryNegative=3/3 dryRunPositive=2/2 dryRunNegative=4/4 dryRunFailureEvidencePreserved=1 dryRunRawOutputAbsent=1 poolerPushPositive=2/2 poolerPushNegative=7/7 poolerPushPasswordEnvOnly=1 poolerPushSecretsCleared=2/2 poolerDirectDenied=1 credentialPositive=1 credentialNegative=3/3 exact70Accepted=1 exact71Accepted=1 repairBaselineDriftDenied=3/3 fullAclTransitionAccepted=1 reconciliationDriftDenied=7/7 routineAclTargets=6/6 routineAclExactChanged=3/3 routineAclExactTerminal=6/6 routineAclNegative=10/10 privateDefinitionChanged=1/1 privateDefinitionNegative=3/3 atomicMapping=5/5 atomicRollback=2/2 sameTeamStatic=4/4 evidenceNegative=7/7 worktreeBoundaryPositive=1 worktreeBoundaryNegative=2/2 oldApplyModesDenied=3/3 futureQualifiedRepairGatePositive=1 currentQualifiedRepairGateAccepted=0 repairGateNegative=7/7 closedRepairGateNegative=3/3 priorRepairCiRevivalDenied=2/2 relabeledRevivalDenied=5/5 independentCiHistoryPositive=1 independentCiHistoryNegative=5/5 relabeledHistoryRevivalDenied=2/2 atomicGateNegative=2/2 failedPushUnknownStatePreserved=1 fixturePatterns=4/4 firstSqlFailureStops=1 applyReachable=0 resumeReachable=0 candidateRemoteExecutionAllowed=0 oldResumeRemoteExecutionAllowed=0 repairRemote=0 currentCi=29750768517 databaseCalls=0 storageCalls=0 dEvidenceRequired=0')
+  console.log('P1_ISOLATED_RUNTIME_SELFTEST_OK targetPositive=1 targetNegative=3/3 migration70to71Positive=1 migrationNegative=6/6 stagedInventoryPositive=71/71 stagedInventoryNegative=3/3 dryRunPositive=2/2 dryRunNegative=4/4 dryRunFailureEvidencePreserved=1 dryRunRawOutputAbsent=1 poolerPushPositive=2/2 poolerPushNegative=7/7 poolerPushPasswordEnvOnly=1 poolerPushSecretsCleared=2/2 poolerDirectDenied=1 credentialPositive=1 credentialNegative=3/3 exact70Accepted=1 exact71Accepted=1 repairBaselineDriftDenied=3/3 fullAclTransitionAccepted=1 reconciliationDriftDenied=7/7 routineAclTargets=6/6 routineAclExactChanged=3/3 routineAclExactTerminal=6/6 routineAclNegative=10/10 privateDefinitionChanged=1/1 privateDefinitionNegative=3/3 signedPost71DefinitionPositive=1 signedPost71DefinitionNegative=3/3 atomicMapping=5/5 atomicRollback=2/2 sameTeamStatic=4/4 evidenceNegative=7/7 worktreeBoundaryPositive=1 worktreeBoundaryNegative=2/2 oldApplyModesDenied=3/3 futureQualifiedRepairGatePositive=1 currentQualifiedRepairGateAccepted=0 repairGateNegative=7/7 closedRepairGateNegative=3/3 priorRepairCiRevivalDenied=2/2 relabeledRevivalDenied=5/5 independentCiHistoryPositive=1 independentCiHistoryNegative=5/5 relabeledHistoryRevivalDenied=2/2 atomicGateNegative=2/2 failedPushUnknownStatePreserved=1 fixturePatterns=4/4 firstSqlFailureStops=1 applyReachable=0 resumeReachable=0 candidateRemoteExecutionAllowed=0 oldResumeRemoteExecutionAllowed=0 repairRemote=0 currentCi=29750768517 databaseCalls=0 storageCalls=0 dEvidenceRequired=0')
 }
 
 function verifyTemporaryLink(workdir) {
@@ -2217,7 +2291,7 @@ function snapshot(dbEnvironment) {
   const value = runPsql({
     psqlPath: restoreRun.toolchain.psql.path,
     pgEnvironment: dbEnvironment,
-    retryReadOnlySessionPooler: true,
+    retryReadOnlySessionPooler: false,
     timeout: 180000,
     sql: `
 select jsonb_build_object(
@@ -2254,12 +2328,13 @@ function privateRoutineDefinitionSnapshot(dbEnvironment) {
   const value = runPsql({
     psqlPath: restoreRun.toolchain.psql.path,
     pgEnvironment: dbEnvironment,
-    retryReadOnlySessionPooler: true,
+    retryReadOnlySessionPooler: false,
     timeout: 180000,
     sql: `
 select jsonb_build_object(
   'identity',format('%I.%I(%s)',n.nspname,p.proname,pg_catalog.oidvectortypes(p.proargtypes)),
   'definition',pg_catalog.pg_get_functiondef(p.oid),
+  'body',p.prosrc,
   'owner',owner_role.rolname,
   'language',language_row.lanname,
   'securityDefiner',p.prosecdef,
@@ -2273,12 +2348,13 @@ join pg_catalog.pg_language language_row on language_row.oid=p.prolang
 where p.oid=pg_catalog.to_regprocedure('${PRIVATE_MEMBER_ACCESS_IDENTITY}');`,
   })
   const raw = JSON.parse(value)
-  if (typeof raw.definition !== 'string' || raw.identity !== PRIVATE_MEMBER_ACCESS_IDENTITY) {
+  if (typeof raw.definition !== 'string' || typeof raw.body !== 'string' || raw.identity !== PRIVATE_MEMBER_ACCESS_IDENTITY) {
     throw new Error('private member-access routine definition snapshot is missing or ambiguous')
   }
   return {
     identity: raw.identity,
     definitionSha256: sha256(raw.definition),
+    bodySha256: sha256(normalizePrivateRoutineBody(raw.body)),
     owner: raw.owner,
     language: raw.language,
     securityDefiner: raw.securityDefiner,
@@ -2289,7 +2365,7 @@ where p.oid=pg_catalog.to_regprocedure('${PRIVATE_MEMBER_ACCESS_IDENTITY}');`,
 
 function assertPrivateRoutineDefinitionTransition(before, after) {
   const expectedKeys = [
-    'identity', 'definitionSha256', 'owner', 'language', 'securityDefiner', 'configuration', 'returnType',
+    'identity', 'definitionSha256', 'bodySha256', 'owner', 'language', 'securityDefiner', 'configuration', 'returnType',
   ]
   assertExactKeys(before, expectedKeys, 'pre-repair private routine definition snapshot')
   assertExactKeys(after, expectedKeys, 'post-repair private routine definition snapshot')
@@ -2302,13 +2378,14 @@ function assertPrivateRoutineDefinitionTransition(before, after) {
   if (before.identity !== PRIVATE_MEMBER_ACCESS_IDENTITY || after.identity !== PRIVATE_MEMBER_ACCESS_IDENTITY) {
     throw new Error('private routine identity changed during ACL/atomic repair')
   }
-  for (const key of expectedKeys.filter((key) => !['identity', 'definitionSha256'].includes(key))) {
+  for (const key of expectedKeys.filter((key) => !['identity', 'definitionSha256', 'bodySha256'].includes(key))) {
     if (canonicalSha256(before[key]) !== canonicalSha256(after[key])) {
       throw new Error(`private routine security envelope changed at ${key}`)
     }
   }
   if (!/^[a-f0-9]{64}$/.test(before.definitionSha256) || !/^[a-f0-9]{64}$/.test(after.definitionSha256) ||
-      before.definitionSha256 === after.definitionSha256) {
+      !/^[a-f0-9]{64}$/.test(before.bodySha256) || !/^[a-f0-9]{64}$/.test(after.bodySha256) ||
+      before.definitionSha256 === after.definitionSha256 || before.bodySha256 === after.bodySha256) {
     throw new Error('private member-access routine definition did not change exactly once')
   }
   return {
@@ -2328,11 +2405,24 @@ function assertPrivateRoutineDefinitionStable(expected, actual) {
   }
 }
 
+function assertPrivateRoutineMatchesSignedMigration(actual, signed) {
+  const { canonicalSha256: _canonical, ...signedDefinition } = signed ?? {}
+  if (!validateSignedPost71PrivateRoutineDefinition(signed) ||
+      canonicalSha256(actual) !== canonicalSha256(signedDefinition) ||
+      actual.identity !== PRIVATE_MEMBER_ACCESS_IDENTITY ||
+      actual.bodySha256 !== signedPrivateRoutineBodySha256() || actual.owner !== 'postgres' ||
+      actual.language !== 'plpgsql' || actual.securityDefiner !== true ||
+      canonicalSha256(actual.configuration) !== canonicalSha256(['search_path=""']) ||
+      actual.returnType !== 'jsonb') {
+    throw new Error('private member-access routine does not match the signed migration 71 definition/envelope')
+  }
+}
+
 function routineAclSnapshot(dbEnvironment) {
   const value = runPsql({
     psqlPath: restoreRun.toolchain.psql.path,
     pgEnvironment: dbEnvironment,
-    retryReadOnlySessionPooler: true,
+    retryReadOnlySessionPooler: false,
     timeout: 180000,
     sql: `
 with routines as (
@@ -2466,15 +2556,16 @@ function runLocalVerifiers() {
 }
 
 function runTestFile(dbEnvironment, test) {
+  if (!['read_only', 'rollback_fixture'].includes(test.executionMode)) {
+    throw new Error(`unsupported SQL test execution mode: ${test.executionMode}`)
+  }
   const args = ['--no-psqlrc', '--quiet', '--set', 'ON_ERROR_STOP=1']
   if (test.executionMode === 'read_only') {
     args.push('--single-transaction', '--command', 'set transaction read only;')
   }
   args.push('--command', 'set role postgres;', '--file', resolve(repoRoot, test.path))
-  return runPgTool({
-    commandPath: restoreRun.toolchain.psql.path,
-    pgEnvironment: dbEnvironment,
-    args,
+  return run(resolve(restoreRun.toolchain.psql.path), args, {
+    env: { ...process.env, ...dbEnvironment },
     timeout: 180000,
   })
 }
@@ -2489,6 +2580,7 @@ function runSealedFullReconciliation(dbEnvironment) {
       '--file', resolve(repoRoot, contract.fullReconciliation.sealedSqlPath),
     ],
     timeout: 300000,
+    retryReadOnlySessionPooler: false,
   }))
   try {
     const lines = result.stdout.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
@@ -2544,7 +2636,7 @@ function catalogSnapshot(dbEnvironment) {
   return JSON.parse(runPsql({
     psqlPath: restoreRun.toolchain.psql.path,
     pgEnvironment: dbEnvironment,
-    retryReadOnlySessionPooler: true,
+    retryReadOnlySessionPooler: false,
     sql: `select jsonb_build_object(
       'publicTables',(select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind in('r','p')),
       'publicRoutines',(select count(*) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.prokind in('f','p')),
@@ -2796,6 +2888,227 @@ async function executeAclRepair(channel, sourceEvidence, before70, baseline, pro
     }
     writeFileSync(resolve(evidenceDirectory, 'failure.json'), safeEvidence(failure), { flag: 'wx' })
     throw error
+  }
+}
+
+async function executeAclRepairReadOnlyResume() {
+  const resume = contract.aclRepairReadOnlyResume
+  const resumeCi = contract.aclRepairReadOnlyResumeCiRunEvidence
+  if (!validateAppliedReadOnlyResumeGate('--resume-acl-repair-verification', resume, resumeCi)) {
+    throw new Error('P1_REMOTE_EXECUTION_REFUSED: read-only resume is pending fresh signed CI')
+  }
+  const baseline = loadSignedReconciliationBaseline()
+  const sourceEvidence = loadAppliedAclAssertionFailureEvidence()
+  runLocalVerifiers()
+  const head = requireSuccess('git head', run('git', ['rev-parse', 'HEAD'])).stdout.trim()
+  const runId = `p1-acl-read-only-resume-${new Date().toISOString().replaceAll(/[-:.]/g, '')}-${head.slice(0, 10)}`
+  const evidenceDirectory = resolve(contract.evidenceRoot, runId)
+  mkdirSync(contract.evidenceRoot, { recursive: true })
+  mkdirSync(evidenceDirectory, { recursive: false })
+  const attempt = {
+    schemaVersion: 1,
+    runId,
+    mode: 'acl-repair-read-only-verification-resume',
+    targetProjectRef: TARGET_REF,
+    targetProjectName: contract.target.projectName,
+    supervisionHeadSha: head,
+    sourceAppliedFailureRunId: APPLIED_FAILURE_RUN_ID,
+    sourceAppliedFailureSha256: APPLIED_FAILURE_SHA256,
+    sourceAppliedPreflightSha256: APPLIED_PREFLIGHT_SHA256,
+    sourceApply: {
+      dbPushAttempted: true,
+      dbPushPerformed: true,
+      dbPushAttempts: 1,
+      confirmedPersistentWrites: 1,
+      persistentRemoteWrites: 1,
+    },
+    sourceAppliedAclDifference: {
+      changedDirect: resume.signedMigrationChainExpectedChangedDirect,
+      changedEffective: resume.signedMigrationChainExpectedChangedEffective,
+    },
+    migrationAlreadyApplied: true,
+    dbPushAttempted: false,
+    dbPushPerformed: false,
+    dbPushOutcome: 'forbidden-read-only-resume',
+    dbPushAttempts: 0,
+    confirmedPersistentWrites: 0,
+    persistentRemoteWrites: 0,
+    persistentRemoteWriteUpperBound: 0,
+    formalAttemptStarted: false,
+    verificationStarted: false,
+    attempts: 0,
+    startedAt: new Date().toISOString(),
+    testsPassed: [],
+    perTestSnapshotsPassed: 0,
+    perTestFullReconciliations: [],
+    fullReconciliationSnapshotsPassed: 0,
+    privateRoutineDefinitionSnapshotsPassed: 0,
+    storageArchivesPassed: 0,
+    signedEvidence: baseline.signedEvidence,
+    secretsPrinted: 0,
+    secretsWritten: 0,
+    productionReads: 0,
+    productionWrites: 0,
+  }
+  let channel = null
+  try {
+    channel = prepareTemporaryChannel()
+    verifyTemporaryLink(channel.workdir)
+    attempt.currentStep = 'exact-71-read-only-baseline'
+    const initial = snapshot(channel.dbEnvironment)
+    const migrationProof = assertExact71ReadOnlyBaseline(sourceEvidence, initial)
+    attempt.initialLightSnapshot = lightSnapshotSummary(initial)
+    attempt.migrationProof = migrationProof
+    attempt.currentStep = 'initial-full-reconciliation'
+    const initialFull = runSealedFullReconciliation(channel.dbEnvironment)
+    const initialFullSummary = assertSealedFullReconciliation(baseline, initial, initialFull, 71)
+    attempt.initialFullReconciliation = initialFullSummary
+    attempt.fullReconciliationSnapshotsPassed = 1
+    attempt.currentStep = 'exact-routine-acl-terminal'
+    const initialRoutineAcl = routineAclSnapshot(channel.dbEnvironment)
+    const aclTerminal = assertRoutineAclFinalState(initialRoutineAcl)
+    attempt.routineAclTerminal = aclTerminal
+    attempt.currentStep = 'signed-private-routine-definition'
+    const initialPrivateRoutineDefinition = privateRoutineDefinitionSnapshot(channel.dbEnvironment)
+    assertPrivateRoutineMatchesSignedMigration(initialPrivateRoutineDefinition, resume.signedPost71PrivateRoutineDefinition)
+    if (initialPrivateRoutineDefinition.definitionSha256 ===
+        sourceEvidence.failure.initialPrivateRoutineDefinition.definitionSha256) {
+      throw new Error('private member-access routine still has the pre-migration-71 definition')
+    }
+    attempt.initialPrivateRoutineDefinition = initialPrivateRoutineDefinition
+    attempt.privateRoutineDefinitionSnapshotsPassed = 1
+    attempt.currentStep = 'initial-storage-archive'
+    const initialStorage = await collectTargetStorageSummary(baseline)
+    attempt.initialStorageArchive = initialStorage
+    attempt.storageArchivesPassed = 1
+    attempt.currentStep = 'preflight-ready'
+    writeFileSync(resolve(evidenceDirectory, 'preflight.json'), safeEvidence({
+      ...attempt,
+      status: 'ready-to-verify-applied-migration-read-only',
+      targetPreserved: true,
+      retryPerformed: false,
+      remoteCleanupPerformed: false,
+    }), { flag: 'wx' })
+    console.log(`P1_ACL_REPAIR_READ_ONLY_RESUME_PREFLIGHT_OK target=${TARGET_REF} migrations=71/71 fullSnapshots=1/29 storageArchives=1/2 dbPushAttempts=0 persistentRemoteWrites=0`)
+    attempt.formalAttemptStarted = true
+    attempt.verificationStarted = true
+    attempt.attempts = 1
+    let p1MarkerSeen = false
+    let accessControlMarkerSeen = false
+    let notificationMarkerSeen = false
+    for (const test of databaseContract.tests) {
+      attempt.currentStep = `test:${test.category}:${test.path}`
+      const result = runTestFile(channel.dbEnvironment, test)
+      const afterTest = snapshot(channel.dbEnvironment)
+      assertExact71ReadOnlyBaseline(sourceEvidence, afterTest)
+      if (canonicalSha256(afterTest) !== canonicalSha256(initial)) {
+        throw new Error(`read-only resume SQL test left light-snapshot residue: ${test.path}`)
+      }
+      requireSuccess(`SQL test ${test.path}`, result)
+      if (test.path === contract.candidate.testPath) {
+        p1MarkerSeen = result.stdout.includes('team_os_4_p1_access_shell_ok')
+        if (!p1MarkerSeen) throw new Error('P1 six-identity runtime marker is missing')
+      }
+      if (test.path === contract.postApplyResume.accessControlTestPath) {
+        accessControlMarkerSeen = result.stdout.includes('access_control_foundation_ok')
+        if (!accessControlMarkerSeen) throw new Error('legacy-member explicit-role marker is missing')
+      }
+      if (test.path === 'supabase/tests/notification_core.sql') {
+        notificationMarkerSeen = result.stdout.includes('notification_core_ok')
+        if (!notificationMarkerSeen) throw new Error('notification ACL repair runtime marker is missing')
+      }
+      result.stdout = ''
+      result.stderr = ''
+      attempt.testsPassed.push(test.path)
+      attempt.perTestSnapshotsPassed += 1
+      const afterTestFull = runSealedFullReconciliation(channel.dbEnvironment)
+      const afterTestFullSummary = assertSealedFullReconciliation(baseline, afterTest, afterTestFull, 71)
+      assertFullReconciliationStable(initialFullSummary, afterTestFullSummary)
+      attempt.perTestFullReconciliations.push({
+        testPath: test.path,
+        snapshotSha: afterTestFullSummary.canonicalSha256,
+        equal: true,
+      })
+      attempt.fullReconciliationSnapshotsPassed += 1
+    }
+    if (!p1MarkerSeen || !accessControlMarkerSeen || !notificationMarkerSeen ||
+        attempt.testsPassed.length !== 27 || attempt.perTestSnapshotsPassed !== 27 ||
+        attempt.perTestFullReconciliations.length !== 27) {
+      throw new Error('read-only resume SQL test totals or required markers are incomplete')
+    }
+    attempt.currentStep = 'catalog-and-final-reconciliation'
+    const catalog = catalogSnapshot(channel.dbEnvironment)
+    assertCatalog(catalog)
+    const beforeFinalCredentialGeneration = channel.credentialGeneration
+    rotateTemporaryCredential(channel)
+    requireFreshCredentialGeneration(channel, beforeFinalCredentialGeneration)
+    const final = snapshot(channel.dbEnvironment)
+    assertExact71ReadOnlyBaseline(sourceEvidence, final)
+    if (canonicalSha256(final) !== canonicalSha256(initial)) {
+      throw new Error('read-only resume final light snapshot drift')
+    }
+    const finalFull = runSealedFullReconciliation(channel.dbEnvironment)
+    const finalFullSummary = assertSealedFullReconciliation(baseline, final, finalFull, 71)
+    assertFullReconciliationStable(initialFullSummary, finalFullSummary)
+    attempt.fullReconciliationSnapshotsPassed += 1
+    const finalRoutineAcl = routineAclSnapshot(channel.dbEnvironment)
+    assertRoutineAclFinalState(finalRoutineAcl)
+    if (canonicalSha256(finalRoutineAcl) !== canonicalSha256(initialRoutineAcl)) {
+      throw new Error('read-only resume final routine ACL drift')
+    }
+    const finalPrivateRoutineDefinition = privateRoutineDefinitionSnapshot(channel.dbEnvironment)
+    assertPrivateRoutineMatchesSignedMigration(finalPrivateRoutineDefinition, resume.signedPost71PrivateRoutineDefinition)
+    assertPrivateRoutineDefinitionStable(initialPrivateRoutineDefinition, finalPrivateRoutineDefinition)
+    attempt.privateRoutineDefinitionSnapshotsPassed += 1
+    attempt.privateRoutineDefinitionVerification = {
+      definitionChanges: 0,
+      snapshots: 2,
+      signedCanonicalSha256: resume.signedPost71PrivateRoutineDefinition.canonicalSha256,
+    }
+    const finalStorage = await collectTargetStorageSummary(baseline)
+    if (finalStorage.canonicalSha256 !== initialStorage.canonicalSha256) {
+      throw new Error('read-only resume Storage archive drift')
+    }
+    attempt.storageArchivesPassed += 1
+    if (attempt.fullReconciliationSnapshotsPassed !== 29 || attempt.storageArchivesPassed !== 2 ||
+        attempt.privateRoutineDefinitionSnapshotsPassed !== 2 || Number(final.idleInTransactionSessions) !== 0) {
+      throw new Error('read-only resume 27/29/2/private/idle totals are incomplete')
+    }
+    const completed = {
+      ...attempt,
+      status: 'succeeded',
+      currentStep: 'completed',
+      completedAt: new Date().toISOString(),
+      databaseTestsPassed: 7,
+      permissionTestsPassed: 11,
+      businessTestsPassed: 9,
+      catalogAssertionsPassed: 4,
+      catalog,
+      finalLightSnapshot: lightSnapshotSummary(final),
+      finalFullReconciliation: finalFullSummary,
+      finalPrivateRoutineDefinition,
+      finalStorageArchive: finalStorage,
+    }
+    const evidencePath = resolve(evidenceDirectory, 'success.json')
+    writeFileSync(evidencePath, safeEvidence(completed), { flag: 'wx' })
+    console.log(`P1_ACL_REPAIR_READ_ONLY_RESUME_OK target=${TARGET_REF} migrations=71/71 tests=27/27 fullSnapshots=29/29 storageArchives=2/2 aclFunctions=6/6 catalog=4 dbPushAttempts=0 persistentRemoteWrites=0`)
+  } catch (error) {
+    writeFileSync(resolve(evidenceDirectory, 'failure.json'), safeEvidence({
+      ...attempt,
+      status: 'failed-stop-preserved',
+      failedAt: new Date().toISOString(),
+      message: redact(error instanceof Error ? error.message : error),
+      targetPreserved: true,
+      retryPerformed: false,
+      remoteCleanupPerformed: false,
+    }), { flag: 'wx' })
+    throw error
+  } finally {
+    if (channel) {
+      clearDbEnvironment(channel.dbEnvironment)
+      channel.dbEnvironment = null
+      rmSync(channel.workdir, { recursive: true, force: true })
+    }
   }
 }
 

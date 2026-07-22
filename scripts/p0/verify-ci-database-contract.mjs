@@ -7,6 +7,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const contractPath = resolve(repoRoot, 'scripts', 'p0', 'ci-database-test-contract.json')
 const readJson = (path) => JSON.parse(readFileSync(path, 'utf8'))
 const contract = readJson(contractPath)
+const isolatedRuntimeContract = readJson(resolve(repoRoot, 'scripts', 'p1', 'isolated-runtime-contract.json'))
 const clone = (value) => structuredClone(value)
 const normalizeLf = (value) => value.replace(/\r\n?/g, '\n')
 const normalizeDefinitionText = (value) => value.toLowerCase().replace(/\s+/g, '')
@@ -605,7 +606,7 @@ function validate(candidate) {
 
   check(candidate.schemaVersion === 1, 'schema version must be 1')
   check(candidate.manifestType === 'canwin-team-os-p0-ci-database-tests', 'manifest type drift')
-  check(candidate.contractStatus === 'p1_acl_repair_session_pooler_remote_qualified_after_preserved_direct_db_failure', 'contract status drift')
+  check(candidate.contractStatus === 'p1_acl_repair_resume_prequalification_pending', 'contract status drift')
 
   check(candidate.baseline?.path === 'supabase/schema.sql', 'baseline path drift')
   check(candidate.baseline?.sha256Lf === sha256Lf(resolve(repoRoot, 'supabase', 'schema.sql')), 'baseline hash drift')
@@ -730,11 +731,17 @@ function validate(candidate) {
       const normalizedFinalStatement = normalizeDefinitionText(finalDefinition?.statement ?? '')
       check(normalizedFinalStatement.includes(normalizedFragment), `required definition fragment not found in final CREATE statement ${entry.path}:${targetKey}:${finalDefinition?.file ?? 'missing'}:${assertion.fragment}`)
     }
+    const topLevelStatements = splitSqlStatements(sql).map(stripLeadingSqlTrivia)
     if (entry.executionMode === 'rollback_fixture') {
       check(/^\s*(?:--[^\n]*\n\s*)*begin\s*;/i.test(sql), `fixture must begin a transaction ${entry.path}`)
       check(/rollback\s*;\s*$/i.test(sql), `fixture must end with rollback ${entry.path}`)
+      check(!topLevelStatements.slice(1, -1).some((statement) =>
+        /^(?:commit|end(?:\s+transaction)?)\s*;/i.test(statement)),
+      `fixture contains a top-level early commit ${entry.path}`)
     } else {
-      check(!/^\s*(?:begin|commit|rollback)\s*;/im.test(sql), `read-only test contains transaction control ${entry.path}`)
+      check(!topLevelStatements.some((statement) =>
+        /^(?:begin|commit|rollback|end(?:\s+transaction)?)\s*;/i.test(statement)),
+      `read-only test contains transaction control ${entry.path}`)
     }
   }
   const redefinedDefinitionTargets = [...definitionTargets.values()]
@@ -831,6 +838,40 @@ function validate(candidate) {
   check(config === expectedConfig, 'isolated Supabase config drift')
 
   const workflow = normalizeLf(readFileSync(resolve(repoRoot, '.github', 'workflows', 'p0-static.yml'), 'utf8'))
+  const ciDatabaseRunnerSource = normalizeLf(readFileSync(resolve(repoRoot, 'scripts', 'p0', 'run-ci-database-gates.mjs'), 'utf8'))
+  const privateEvidenceStart = ciDatabaseRunnerSource.indexOf('function toPost71PrivateRoutineEvidence(')
+  const privateEvidenceEnd = ciDatabaseRunnerSource.indexOf('function validateConnection(', privateEvidenceStart)
+  const privateCaptureStart = ciDatabaseRunnerSource.indexOf('function capturePost71PrivateRoutineEvidence(')
+  const privateCaptureEnd = ciDatabaseRunnerSource.indexOf('function runSelfTest(', privateCaptureStart)
+  const privateEvidenceSource = ciDatabaseRunnerSource.slice(privateEvidenceStart, privateEvidenceEnd)
+  const privateCaptureSource = ciDatabaseRunnerSource.slice(privateCaptureStart, privateCaptureEnd)
+  const ciExecutionStart = ciDatabaseRunnerSource.indexOf("try {\n  runNodeContractVerifier()")
+  const ciExecutionEnd = ciDatabaseRunnerSource.indexOf('\n} catch (error) {', ciExecutionStart)
+  const ciExecutionSource = ciDatabaseRunnerSource.slice(ciExecutionStart, ciExecutionEnd)
+  const ciMigrationIndex = ciExecutionSource.indexOf('for (const entry of migrationManifest.entries)')
+  const ciPrivateCaptureCallIndex = ciExecutionSource.indexOf('capturePost71PrivateRoutineEvidence()')
+  const ciTestIndex = ciExecutionSource.indexOf('for (const test of contract.tests)')
+  check(privateEvidenceStart >= 0 && privateEvidenceEnd > privateEvidenceStart &&
+    privateEvidenceSource.includes('definitionSha256: sha256(raw.definition)') &&
+    privateEvidenceSource.includes('bodySha256: sha256(normalizePrivateRoutineBody(raw.body))') &&
+    privateEvidenceSource.includes("raw.owner !== 'postgres'") && privateEvidenceSource.includes("raw.language !== 'plpgsql'") &&
+    privateEvidenceSource.includes('raw.securityDefiner !== true') && privateEvidenceSource.includes("['search_path=\"\"']") &&
+    privateEvidenceSource.includes("raw.returnType !== 'jsonb'") &&
+    !privateEvidenceSource.includes('definition: raw.definition') && !privateEvidenceSource.includes('body: raw.body'),
+  'post-71 private definition evidence does not reduce raw text to hashes plus security attributes')
+  check(privateCaptureStart >= 0 && privateCaptureEnd > privateCaptureStart &&
+    privateCaptureSource.includes('POST71_PRIVATE_DEFINITION_EVIDENCE ${JSON.stringify(evidence)}') &&
+    !privateCaptureSource.includes('JSON.stringify(raw)') && !privateCaptureSource.includes('console.log(result.stdout)') &&
+    !privateCaptureSource.includes('console.log(lines[0])'),
+  'post-71 private definition marker can expose raw definition/body output')
+  check(ciDatabaseRunnerSource.includes('post71PrivateDefinition=1 privateNegative=${privateNegativePassed}/3') &&
+    ciDatabaseRunnerSource.includes('post71PrivateDefinition=1 repositorySecrets=0 productionReads=0 productionWrites=0'),
+  'post-71 private definition self-test or success marker is missing')
+  check(ciExecutionStart >= 0 && ciExecutionEnd > ciExecutionStart &&
+    ciMigrationIndex >= 0 && ciMigrationIndex < ciPrivateCaptureCallIndex &&
+    ciPrivateCaptureCallIndex < ciTestIndex &&
+    ciExecutionSource.split('capturePost71PrivateRoutineEvidence()').length - 1 === 1,
+  'post-71 private definition capture must run exactly once after migration 71 and before SQL tests')
   check(workflow.includes('p0-database:'), 'isolated database CI job missing')
   check(workflow.includes('uses: supabase/setup-cli@v1'), 'official Supabase CLI setup action missing')
   check(workflow.includes(`version: ${runtime.supabaseCliVersion}`), 'workflow Supabase CLI pin drift')
@@ -860,30 +901,30 @@ function validate(candidate) {
   check(boundary.postApplyResumeSignedHeadExecutionAllowed === false && boundary.postApplyResumeTrackedDirtyAllowed === false && boundary.postApplyResumeUntrackedAuditEvidenceAllowed === true, 'post-apply resume worktree qualification boundary drift')
   check(boundary.p1MigrationPreviouslyApplied === true && boundary.postApplyResumeVerificationExecuted === true, 'post-apply resume execution boundary drift')
   check(boundary.postApplyResumeFailureRunId === 'p1-resume-20260719T193911279Z-ea6ed9385d' && boundary.postApplyResumeFailurePreserved === true, 'post-apply resume failure preservation boundary drift')
-  check(boundary.aclRepairMigrationPath === 'supabase/migrations/20260720015435_harden_server_only_rpc_acl.sql' && boundary.aclRepairLocalGates === 'passed' && boundary.aclRepairDatabaseCi === 'run-29750768517-session-pooler-qualified' && boundary.formalAclRepairDryRun === 'direct-db-connection-timeout-failed-stop-preserved' && boundary.formalAclRepairFailureRunId === 'p1-acl-repair-20260720T122757275Z-8fa1498850' && boundary.aclRepairQualification === 'qualified-session-pooler-new-independent-ci', 'ACL repair current boundary drift')
-  check(boundary.aclRepairQualificationCount === 1 && boundary.aclRepairQualifiedRunId === '29750768517' && boundary.aclRepairRemoteExecutionAllowed === true && boundary.aclRepairDbPushAllowed === true && boundary.nextAclRepairConnectionMode === 'session-pooler' && boundary.nextAclRepairIndependentCiRequired === false, 'ACL repair Session Pooler qualification boundary drift')
+  check(boundary.aclRepairMigrationPath === 'supabase/migrations/20260720015435_harden_server_only_rpc_acl.sql' && boundary.aclRepairLocalGates === 'passed' && boundary.aclRepairDatabaseCi === 'run-29750768517-session-pooler-qualified' && boundary.formalAclRepairDryRun === 'direct-db-connection-timeout-failed-stop-preserved' && boundary.formalAclRepairFailureRunId === 'p1-acl-repair-20260720T122757275Z-8fa1498850' && boundary.aclRepairQualification === 'historical-session-pooler-ci-apply-closed-resume-prequalification-pending', 'ACL repair current boundary drift')
+  check(boundary.aclRepairQualificationCount === 0 && boundary.aclRepairQualifiedRunId === null && boundary.aclRepairHistoricalQualifiedRunId === '29750768517' && boundary.aclRepairRemoteExecutionAllowed === false && boundary.aclRepairDbPushAllowed === false && boundary.aclRepairAppliedFailureRunId === 'p1-acl-repair-20260720T151012163Z-d1f4c5e7c4' && boundary.aclRepairConfirmedPersistentWrites === 1 && boundary.aclRepairResumeQualification === 'pending-new-signed-run' && boundary.aclRepairResumeRemoteExecutionAllowed === false && boundary.aclRepairResumeCurrentWrites === 0 && boundary.nextAclRepairConnectionMode === 'session-pooler' && boundary.nextAclRepairIndependentCiRequired === true, 'ACL repair apply-closed / resume-pending boundary drift')
   check(boundary.fullReconciliationExactRows === 71 && boundary.fullReconciliationSqlTests === 27 && boundary.fullReconciliationPerTestSnapshots === 27 && boundary.fullReconciliationSnapshots === 29, 'ACL repair full reconciliation acceptance counts drift')
   check(boundary.fullReconciliationStorageArchives === 2 && boundary.fullReconciliationSignedArtifacts === 6, 'full reconciliation Storage or artifact acceptance counts drift')
   check(boundary.fullReconciliationKeyAmounts === 5 && boundary.fullReconciliationRawLedgers === 9 && boundary.fullReconciliationInventoryMeasures === 3, 'full reconciliation business measure acceptance counts drift')
   check(boundary.fullReconciliationContentFingerprintsRequired === true && boundary.sourceP0CountsOnlyBoundaryRecorded === true, 'full reconciliation fingerprint or legacy P0 boundary missing')
-  check(boundary.fixturePatternsCovered === '4/4' && boundary.runnerValidatorAssertions === '100/100', 'runner fixture-pattern or validator assertion evidence drift')
+  check(boundary.fixturePatternsCovered === '4/4' && boundary.runnerValidatorAssertions === '81/81', 'runner fixture-pattern or validator assertion evidence drift')
   check(boundary.g1OverallClaim === false, 'G1 must remain unclaimed until real page and account acceptance passes')
   check(boundary.productionReadPerformed === false, 'production read must remain false')
   check(boundary.productionWritePerformed === false, 'production write must remain false')
   check(boundary.repositorySecretsRequired === false, 'repository secrets must not be required')
 
   const resume = candidate.postApplyResumePrequalification ?? {}
-  check(resume.status === 'qualified_remote_enabled', 'post-apply resume prequalification status drift')
+  check(resume.status === 'historical_failed_stop_preserved', 'historical post-apply resume status drift')
   check(resume.accessControlTestPath === 'supabase/tests/access_control_foundation.sql' && resume.accessControlTestExecutionMode === 'rollback_fixture' && resume.accessControlTestSha256Lf === '31fa286b318ad2b24e2d956005c4a5fcc9b0fddfd0269be029330d5c1c3e43f8', 'post-apply access-control test contract drift')
   check(resume.runnerPath === 'scripts/p1/run-isolated-runtime.mjs' && resume.runnerSha256Lf === 'f9d9d6abed29a482757682d25002f2c414a1271e0f7fa2e9360fc62f009ed648', 'post-apply resume runner contract drift')
   check(resume.validatorPath === 'scripts/p1/verify-isolated-runtime-runner.mjs' && resume.validatorSha256Lf === '60a90fc8bf75d44a02c2d824e29b912d14fbbe844af79b0e5a705c77fe59c2af' && resume.validatorAssertions === '100/100' && resume.fixturePatterns === '4/4', 'post-apply resume validator contract drift')
   check(resume.isolatedRuntimeContractPath === 'scripts/p1/isolated-runtime-contract.json' && resume.isolatedRuntimeContractSha256Lf === 'f99e605341b36e2de18779b6dd52a624b1ef421a9b60c4517f59845a7ba22013', 'post-apply isolated runtime contract drift')
   check(resume.accessControlTestSha256Lf === sha256Lf(resolve(repoRoot, resume.accessControlTestPath)), 'post-apply access-control test file SHA drift')
-  check(resume.candidateRemoteExecutionAllowed === false && resume.resumeRemoteExecutionAllowed === true && resume.resumeSignedCiHeadSha === 'a620bb541f4c5eb613413e8b40455b3988ee0cf3', 'post-apply resume qualification signature or authorization drift')
+  check(resume.candidateRemoteExecutionAllowed === false && resume.resumeRemoteExecutionAllowed === false && resume.resumeSignedCiHeadSha === 'a620bb541f4c5eb613413e8b40455b3988ee0cf3', 'historical post-apply resume signature or closed authorization drift')
   check(resume.resumeSignedCiRunId === '29699951990' && resume.resumeSignedCiLinuxJobId === '88227205377' && resume.resumeSignedCiWindowsJobId === '88227205362' && resume.resumeSignedCiConclusion === 'success', 'post-apply resume signed CI run or job drift')
   check(resume.resumeSignedCiWindowsStatic === '19/19' && resume.resumeSignedCiWindowsLocal === '12/12' && resume.resumeSignedCiLinuxCounts === '70/27/7/11/9/4', 'post-apply resume signed CI count drift')
   check(resume.signedCiHeadExecutionAllowed === false && resume.trackedDirtyAllowed === false && resume.untrackedAuditEvidenceAllowed === true, 'post-apply resume same-head, tracked-dirty, or untracked-audit boundary drift')
-  check(resume.dbPushAllowed === false && resume.expectedPersistentRemoteWrites === 0 && resume.migrationPreviouslyApplied === true && resume.resumeVerificationExecuted === false, 'post-apply resume apply/write/execution boundary drift')
+  check(resume.dbPushAllowed === false && resume.expectedPersistentRemoteWrites === 0 && resume.migrationPreviouslyApplied === true && resume.resumeVerificationExecuted === true, 'historical post-apply resume apply/write/execution boundary drift')
   check(resume.productionReadPerformed === false && resume.productionWritePerformed === false, 'post-apply resume production boundary drift')
   const full = resume.fullReconciliation ?? {}
   check(full.exactPostMigrationRows === 70 && full.sqlTests === 27 && full.perTestFullSnapshots === 27 && full.fullSnapshots === 29, 'full reconciliation migration, SQL or snapshot counts drift')
@@ -921,17 +962,23 @@ function validate(candidate) {
     { identity: 'public.enqueue_wecom_notification_jobs(text, timestamp with time zone)', revokeRoles: ['PUBLIC', 'anon', 'authenticated'], requiredGrantRoles: ['service_role'] },
     { identity: 'public.claim_wecom_notification_jobs(integer, timestamp with time zone)', revokeRoles: ['PUBLIC', 'anon', 'authenticated'], requiredGrantRoles: ['service_role'] },
     { identity: 'public.complete_wecom_notification_job(uuid, boolean, text, text, timestamp with time zone)', revokeRoles: ['PUBLIC', 'anon', 'authenticated'], requiredGrantRoles: ['service_role'] },
-    { identity: 'public.manage_profile_access(uuid, text[], uuid[])', revokeRoles: ['PUBLIC', 'anon', 'authenticated'], requiredGrantRoles: [] },
-    { identity: 'public.admin_replace_profile_roles(uuid, text[], uuid)', revokeRoles: ['PUBLIC', 'anon', 'authenticated'], requiredGrantRoles: [] },
-    { identity: 'public.admin_replace_supervisor_subordinates(uuid, uuid[], uuid)', revokeRoles: ['PUBLIC', 'anon', 'authenticated'], requiredGrantRoles: [] },
+    { identity: 'public.manage_profile_access(uuid, text[], uuid[])', revokeRoles: ['PUBLIC', 'anon', 'authenticated'], requiredGrantRoles: ['service_role'] },
+    { identity: 'public.admin_replace_profile_roles(uuid, text[], uuid)', revokeRoles: ['PUBLIC', 'anon', 'authenticated'], requiredGrantRoles: ['service_role'] },
+    { identity: 'public.admin_replace_supervisor_subordinates(uuid, uuid[], uuid)', revokeRoles: ['PUBLIC', 'anon', 'authenticated'], requiredGrantRoles: ['service_role'] },
   ]
   const aclRepair = candidate.aclRepairCandidate ?? {}
-  check(aclRepair.mode === '--apply-acl-repair' && aclRepair.remoteExecutionAllowed === true && aclRepair.dbPushAllowed === true, 'ACL repair qualified mode drift')
+  check(aclRepair.mode === '--apply-acl-repair' && aclRepair.remoteExecutionAllowed === false && aclRepair.dbPushAllowed === false, 'historical ACL repair apply mode is not closed')
+  check(boundary.aclRepairRemoteExecutionAllowed === aclRepair.remoteExecutionAllowed &&
+    boundary.aclRepairDbPushAllowed === aclRepair.dbPushAllowed &&
+    boundary.aclRepairResumeRemoteExecutionAllowed === isolatedRuntimeContract.aclRepairReadOnlyResume.remoteExecutionAllowed &&
+    isolatedRuntimeContract.aclRepairReadOnlyResume.dbPushAllowed === false &&
+    boundary.aclRepairConfirmedPersistentWrites === 1 && boundary.aclRepairResumeCurrentWrites === 0,
+  'P0 output facts can diverge from apply/resume/write contract fields')
   check(aclRepair.migrationVersion === '20260720015435' && aclRepair.migrationPath === 'supabase/migrations/20260720015435_harden_server_only_rpc_acl.sql', 'ACL repair migration identity drift')
   check(aclRepair.migrationSha256Lf === '1bb13f29fc0f5512bd00115dc1c953a2c3aaa0ec21522b1cc8cbb45a18a5cdc0' && aclRepair.migrationSha256Lf === sha256Lf(resolve(repoRoot, aclRepair.migrationPath)), 'ACL repair migration SHA drift')
   check(aclRepair.preMigrationRows === 70 && aclRepair.postMigrationRows === 71 && aclRepair.expectedMigrationCount === 71 && aclRepair.sqlTestCount === 27, 'ACL repair migration or SQL counts drift')
-  check(aclRepair.maxFormalAttempts === 1 && aclRepair.maxDbPushAttempts === 1 && aclRepair.dryRunRequired === true && JSON.stringify(aclRepair.pendingMigrationVersions) === JSON.stringify(['20260720015435']), 'ACL repair attempt or dry-run boundary drift')
-  check(aclRepair.currentCiQualification === 'qualified-session-pooler-run-29750768517' && aclRepair.priorSuccessfulCiEvidenceRef === 'priorSuccessfulRepairCiRunEvidence' && aclRepair.priorParserFixCiEvidenceRef === 'priorParserFixRepairCiRunEvidence' && aclRepair.requiredConnectionMode === 'session-pooler' && aclRepair.newIndependentCiRequired === true && aclRepair.signedCiHeadSha === '370a04aa9fddcce9788df33de3f0ae6924bda932' && aclRepair.signedCiRunId === '29750768517' && aclRepair.signedCiLinuxJobId === '88380368836' && aclRepair.signedCiWindowsJobId === '88380368845' && aclRepair.signedCiConclusion === 'success', 'qualified Session Pooler ACL repair CI boundary drift')
+  check(aclRepair.maxFormalAttempts === 1 && aclRepair.maxDbPushAttempts === 0 && aclRepair.dryRunRequired === false && JSON.stringify(aclRepair.pendingMigrationVersions) === JSON.stringify([]), 'closed ACL repair attempt or migration boundary drift')
+  check(aclRepair.currentCiQualification === 'historical-session-pooler-run-29750768517-apply-closed' && aclRepair.priorSuccessfulCiEvidenceRef === 'priorSuccessfulRepairCiRunEvidence' && aclRepair.priorParserFixCiEvidenceRef === 'priorParserFixRepairCiRunEvidence' && aclRepair.requiredConnectionMode === 'session-pooler' && aclRepair.newIndependentCiRequired === true && aclRepair.signedCiHeadSha === '370a04aa9fddcce9788df33de3f0ae6924bda932' && aclRepair.signedCiRunId === '29750768517' && aclRepair.signedCiLinuxJobId === '88380368836' && aclRepair.signedCiWindowsJobId === '88380368845' && aclRepair.signedCiConclusion === 'success', 'historical Session Pooler ACL repair CI boundary drift')
   check(JSON.stringify(aclRepair.functions) === JSON.stringify(expectedAclFunctions), 'ACL repair six-function privilege inventory drift')
   check(aclRepair.targetFunctionCount === 6 && aclRepair.expectedChangedFunctionCount === 3 && JSON.stringify(aclRepair.expectedChangedFunctions) === JSON.stringify(expectedAclFunctions.slice(0, 3).map((entry) => entry.identity)), 'ACL repair target-six changed-three boundary drift')
   const expectedChangedTests = [
@@ -940,9 +987,9 @@ function validate(candidate) {
   ]
   check(JSON.stringify(aclRepair.changedTests) === JSON.stringify(expectedChangedTests) && aclRepair.changedTests.every((entry) => entry.sha256Lf === sha256Lf(resolve(repoRoot, entry.path))), 'ACL repair changed-test evidence drift')
   const currentRuntime = aclRepair.currentRuntimeArtifacts ?? {}
-  check(JSON.stringify(currentRuntime.contract) === JSON.stringify({ path: 'scripts/p1/isolated-runtime-contract.json', sha256Lf: '63345abebc8128f17cc79ff1e35ed32bd9087f941a520839c3ea34dc146dba91' }) && currentRuntime.contract.sha256Lf === sha256Lf(resolve(repoRoot, currentRuntime.contract.path)), 'ACL repair current runtime contract SHA drift')
-  check(JSON.stringify(currentRuntime.runner) === JSON.stringify({ path: 'scripts/p1/run-isolated-runtime.mjs', sha256Lf: 'c4758bf3ac6c49858059406df5fc8509e7adfbbac465cce499354f0a9e718670' }) && currentRuntime.runner.sha256Lf === sha256Lf(resolve(repoRoot, currentRuntime.runner.path)), 'ACL repair current runner SHA drift')
-  check(JSON.stringify(currentRuntime.validator) === JSON.stringify({ path: 'scripts/p1/verify-isolated-runtime-runner.mjs', sha256Lf: 'e9c94f654d8391e7b2ff9376d51bde139e6a4c5417f01593d8c7cc078407f4cb', assertions: '74/74' }) && currentRuntime.validator.sha256Lf === sha256Lf(resolve(repoRoot, currentRuntime.validator.path)), 'ACL repair current validator SHA or assertion drift')
+  check(JSON.stringify(currentRuntime.contract) === JSON.stringify({ path: 'scripts/p1/isolated-runtime-contract.json', sha256Lf: 'b8b28653eb8475e020b60662790a81b1558b0ab8b977f1d20b538f15c864f191' }) && currentRuntime.contract.sha256Lf === sha256Lf(resolve(repoRoot, currentRuntime.contract.path)), 'ACL repair current runtime contract SHA drift')
+  check(JSON.stringify(currentRuntime.runner) === JSON.stringify({ path: 'scripts/p1/run-isolated-runtime.mjs', sha256Lf: 'f360fff8e88cec925ff23159aee35decd5d53bf44b527a7a518e71f24a4e9754' }) && currentRuntime.runner.sha256Lf === sha256Lf(resolve(repoRoot, currentRuntime.runner.path)), 'ACL repair current runner SHA drift')
+  check(JSON.stringify(currentRuntime.validator) === JSON.stringify({ path: 'scripts/p1/verify-isolated-runtime-runner.mjs', sha256Lf: '2e08ed706c418737d68e53b22fa294262c3e90908a03c6f7080f1d3da06134ba', assertions: '81/81' }) && currentRuntime.validator.sha256Lf === sha256Lf(resolve(repoRoot, currentRuntime.validator.path)), 'ACL repair current validator SHA or assertion drift')
   const aclFull = aclRepair.fullReconciliation ?? {}
   check(JSON.stringify(aclFull.expected) === JSON.stringify({ migrationRows: 71 }), 'ACL repair full reconciliation expected rows drift')
   check(JSON.stringify(aclFull.execution) === JSON.stringify({ initialFullBeforeRepair: true, fullAfterEverySqlTest: true, perTestFullSnapshots: 27, finalFullAfterFreshCredential: true, beforeAfterAllowedAclTransitionOnly: true, storageArchiveAtInitialAndFinal: true, temporaryTestSessionsOnly: true, persistentDatabaseWrites: 'exactly-one-signed-acl-and-atomic-compatibility-migration', sessionClosedDropsTemp: true }), 'ACL repair full reconciliation execution plan drift')
@@ -1454,7 +1501,7 @@ function validate(candidate) {
   check(resumePrequalificationAttempt.runId === '29699951990' && resumePrequalificationAttempt.runUrl === 'https://github.com/yccanwin/canwin-team-os/actions/runs/29699951990', 'resume prequalification run identity drift')
   check(resumePrequalificationAttempt.jobId === '88227205377' && resumePrequalificationAttempt.windowsJobId === '88227205362', 'resume prequalification job ids drift')
   check(resumePrequalificationAttempt.headSha === 'a620bb541f4c5eb613413e8b40455b3988ee0cf3' && resumePrequalificationAttempt.conclusion === 'success', 'resume prequalification signature or conclusion drift')
-  check(resumePrequalificationAttempt.qualificationScope === 'post_apply_resume_prequalification' && resumePrequalificationAttempt.resumePrequalification === 'qualified_remote_enabled', 'resume prequalification scope or status drift')
+  check(resumePrequalificationAttempt.qualificationScope === 'post_apply_resume_prequalification' && resumePrequalificationAttempt.resumePrequalification === 'historical_success_remote_closed', 'resume prequalification scope or status drift')
   check(resumePrequalificationAttempt.windowsLocalGatePassed === true && resumePrequalificationAttempt.windowsStaticGatesExpected === 19 && resumePrequalificationAttempt.windowsStaticGatesPassed === 19, 'resume prequalification Windows static evidence drift')
   check(resumePrequalificationAttempt.windowsLocalIntegrationStepsExpected === 12 && resumePrequalificationAttempt.windowsLocalIntegrationStepsPassed === 12, 'resume prequalification Windows local evidence drift')
   check(resumePrequalificationAttempt.linuxDatabaseAccepted === true && resumePrequalificationAttempt.migrationsPassed === 70 && resumePrequalificationAttempt.sqlTestsStarted === 27 && resumePrequalificationAttempt.sqlTestsPassed === 27, 'resume prequalification Linux migration or SQL evidence drift')
@@ -1508,12 +1555,12 @@ const negativeCases = [
   ['rollback evidence line-ending repair erased', (value) => { value.acceptanceBoundary.rollbackEvidenceLineEndingRepairImplemented = false }],
   ['post-repair CI acceptance erased', (value) => { value.acceptanceBoundary.postRepairIndependentCi = 'pending' }],
   ['post-apply candidate remote enabled', (value) => { value.postApplyResumePrequalification.candidateRemoteExecutionAllowed = true }],
-  ['post-apply resume remote authorization erased', (value) => { value.postApplyResumePrequalification.resumeRemoteExecutionAllowed = false }],
+  ['historical post-apply resume falsely re-enabled', (value) => { value.postApplyResumePrequalification.resumeRemoteExecutionAllowed = true }],
   ['post-apply resume signature erased', (value) => { value.postApplyResumePrequalification.resumeSignedCiHeadSha = null }],
   ['post-apply same-head execution allowed', (value) => { value.postApplyResumePrequalification.signedCiHeadExecutionAllowed = true }],
   ['post-apply tracked dirty allowed', (value) => { value.postApplyResumePrequalification.trackedDirtyAllowed = true }],
   ['post-apply untracked audit evidence denied', (value) => { value.postApplyResumePrequalification.untrackedAuditEvidenceAllowed = false }],
-  ['post-apply resume falsely executed', (value) => { value.postApplyResumePrequalification.resumeVerificationExecuted = true }],
+  ['historical post-apply resume execution erased', (value) => { value.postApplyResumePrequalification.resumeVerificationExecuted = false }],
   ['full reconciliation snapshot count reduced', (value) => { value.postApplyResumePrequalification.fullReconciliation.fullSnapshots = 28 }],
   ['full reconciliation content fingerprints erased', (value) => { value.postApplyResumePrequalification.fullReconciliation.requiredContentFingerprints = [] }],
   ['legacy P0 counts-only boundary erased', (value) => { value.postApplyResumePrequalification.fullReconciliation.sourceP0Boundary.signedP0TableRowCountsAreCountsOnly = false }],
@@ -1532,6 +1579,7 @@ const negativeCases = [
   ['ACL repair changed-function inventory substituted', (value) => { value.aclRepairCandidate.expectedChangedFunctions[0] = value.aclRepairCandidate.functions[4].identity }],
   ['ACL repair authenticated revoke erased', (value) => { value.aclRepairCandidate.functions[0].revokeRoles.pop() }],
   ['ACL repair service grant erased', (value) => { value.aclRepairCandidate.functions[0].requiredGrantRoles = [] }],
+  ['legacy ACL repair service grant erased', (value) => { value.aclRepairCandidate.functions[5].requiredGrantRoles = [] }],
   ['ACL repair full snapshots reduced', (value) => { value.aclRepairCandidate.fullReconciliation.execution.perTestFullSnapshots = 26 }],
   ['private definition transition count erased', (value) => { value.aclRepairCandidate.privateRoutineDefinitionTransition.expectedDefinitionChanges = 0 }],
   ['private definition snapshots reduced', (value) => { value.aclRepairCandidate.privateRoutineDefinitionTransition.requiredSnapshots = 2 }],
@@ -1539,8 +1587,8 @@ const negativeCases = [
   ['atomic remote gate negative controls reduced', (value) => { value.aclRepairCandidate.atomicLegacyRoleCompatibility.atomicRemoteGateNegativeControls = 1 }],
   ['ACL repair compatibility call site restored', (value) => { value.aclRepairCandidate.applicationCompatibility.resolvedEvidence.staticCallSitesRemaining = 1 }],
   ['ACL repair compatibility falsely unlocks G1', (value) => { value.aclRepairCandidate.applicationCompatibility.g1BlockedUntilAclAndPageAcceptance = false }],
-  ['ACL repair remote qualification erased', (value) => { value.aclRepairCandidate.remoteExecutionAllowed = false }],
-  ['ACL repair db push qualification erased', (value) => { value.aclRepairCandidate.dbPushAllowed = false }],
+  ['historical ACL repair apply falsely re-enabled', (value) => { value.aclRepairCandidate.remoteExecutionAllowed = true }],
+  ['historical ACL repair db push falsely re-enabled', (value) => { value.aclRepairCandidate.dbPushAllowed = true }],
   ['ACL repair direct connection restored', (value) => { value.aclRepairCandidate.requiredConnectionMode = 'direct' }],
   ['ACL repair new CI requirement erased', (value) => { value.aclRepairCandidate.newIndependentCiRequired = false }],
   ['ACL repair unknown reconciliation difference allowed', (value) => { value.aclRepairCandidate.unknownDifferencesAllowed = true }],
@@ -1559,8 +1607,8 @@ const negativeCases = [
   ['ACL repair acceptance boundary qualification erased', (value) => { value.acceptanceBoundary.aclRepairQualification = 'closed-pending-new-signed-evidence' }],
   ['ACL repair acceptance qualification count widened', (value) => { value.acceptanceBoundary.aclRepairQualificationCount = 2 }],
   ['ACL repair accepted run replaced with historical run', (value) => { value.acceptanceBoundary.aclRepairQualifiedRunId = '29733854344' }],
-  ['ACL repair acceptance remote qualification erased', (value) => { value.acceptanceBoundary.aclRepairRemoteExecutionAllowed = false }],
-  ['ACL repair acceptance db push qualification erased', (value) => { value.acceptanceBoundary.aclRepairDbPushAllowed = false }],
+  ['ACL repair acceptance apply falsely re-enabled', (value) => { value.acceptanceBoundary.aclRepairRemoteExecutionAllowed = true }],
+  ['ACL repair acceptance db push falsely re-enabled', (value) => { value.acceptanceBoundary.aclRepairDbPushAllowed = true }],
   ['prior failed ACL repair CI erased', (value) => { delete value.priorRepairCiFailureEvidence }],
   ['G1 falsely claimed', (value) => { value.acceptanceBoundary.g1OverallClaim = true }],
   ['latest independent CI evidence erased', (value) => { value.formalAttemptHistory.pop() }],
@@ -1580,5 +1628,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `P0_CI_DATABASE_CONTRACT_OK baseline=1 migrations=71 tests=${contract.tests.length} database=7 permission=11 business=9 catalog=4 definitions=${contract.expectedCounts.definitionReferencedObjects} redefined=${contract.expectedCounts.redefinedDefinitionReferencedObjects} crmLeadColumnAssertions=${contract.expectedCounts.crmLeadsVisibleExactColumnAssertions} directOrderFixtures=${contract.expectedCounts.directDealOrderFixtureFiles} finalFunctionIdentities=${contract.expectedCounts.finalPublicFunctionIdentities} functionIdentityReferences=${contract.expectedCounts.functionIdentityReferences} negative=${negativePassed}/${negativeCases.length} localOnly=true repositorySecrets=0 productionReads=0 productionWrites=0 actualGithubRun=passed g0=true p1ActualGithubRun=passed historicalResumeCi=70/27 formalResumeFailure=p1-resume-20260719T193911279Z-ea6ed9385d formalResumeSql=5/27 formalResumeSnapshots=6/29 failurePreserved=true aclRepairMigration=20260720015435 aclRepairFunctions=6 aclRepairExpectedChanges=3 aclRepairRemote=false resumeRemote=false historicalAclRepairCi=29750768517 appliedAclFailure=p1-acl-repair-20260720T151012163Z-d1f4c5e7c4 appliedRepairWrites=1 currentResumeWrites=0 priorParserFixRun=29738966326 priorAclRepairSuccessRun=29733854344 priorAclRepairFailureRun=29726897764 priorFormalAclRepairFailure=p1-acl-repair-20260720T104323349Z-4fa8de78a8 formalAclRepairFailure=p1-acl-repair-20260720T122757275Z-8fa1498850 connectionMode=session-pooler nextFullExactRows=71 nextSqlTests=27 nextPerTestFullSnapshots=27 nextFullSnapshots=29 pageAccountAcceptance=false progress=25 g1=false`,
+  `P0_CI_DATABASE_CONTRACT_OK baseline=1 migrations=71 tests=${contract.tests.length} database=7 permission=11 business=9 catalog=4 definitions=${contract.expectedCounts.definitionReferencedObjects} redefined=${contract.expectedCounts.redefinedDefinitionReferencedObjects} crmLeadColumnAssertions=${contract.expectedCounts.crmLeadsVisibleExactColumnAssertions} directOrderFixtures=${contract.expectedCounts.directDealOrderFixtureFiles} finalFunctionIdentities=${contract.expectedCounts.finalPublicFunctionIdentities} functionIdentityReferences=${contract.expectedCounts.functionIdentityReferences} negative=${negativePassed}/${negativeCases.length} localOnly=true repositorySecrets=0 productionReads=0 productionWrites=0 actualGithubRun=passed g0=true p1ActualGithubRun=passed historicalResumeCi=70/27 formalResumeFailure=p1-resume-20260719T193911279Z-ea6ed9385d formalResumeSql=5/27 formalResumeSnapshots=6/29 failurePreserved=true aclRepairMigration=20260720015435 aclRepairFunctions=6 aclRepairExpectedChanges=3 aclRepairRemote=${contract.aclRepairCandidate.remoteExecutionAllowed} resumeRemote=${contract.acceptanceBoundary.aclRepairResumeRemoteExecutionAllowed} historicalAclRepairCi=29750768517 appliedAclFailure=${contract.acceptanceBoundary.aclRepairAppliedFailureRunId} appliedRepairWrites=${contract.acceptanceBoundary.aclRepairConfirmedPersistentWrites} currentResumeWrites=${contract.acceptanceBoundary.aclRepairResumeCurrentWrites} priorParserFixRun=29738966326 priorAclRepairSuccessRun=29733854344 priorAclRepairFailureRun=29726897764 priorFormalAclRepairFailure=p1-acl-repair-20260720T104323349Z-4fa8de78a8 formalAclRepairFailure=p1-acl-repair-20260720T122757275Z-8fa1498850 connectionMode=session-pooler nextFullExactRows=71 nextSqlTests=27 nextPerTestFullSnapshots=27 nextFullSnapshots=29 pageAccountAcceptance=false progress=25 g1=false`,
 )
