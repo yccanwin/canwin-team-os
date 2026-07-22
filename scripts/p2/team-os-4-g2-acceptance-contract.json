@@ -31,6 +31,14 @@
     "sharedReader": "SupabaseWorkItemReader",
     "sharedSelector": "selectWorkItems",
     "fixturesAndMocksAllowed": false,
+    "calendarSources": {
+      "workItems": "view-only-no-copy",
+      "scheduleEvents": "independent-events-with-optional-work-item-link",
+      "duplicateTaskGenerationAllowed": false
+    },
+    "scheduleEventTypes": ["meeting", "visit", "break", "personal"],
+    "scheduleEventVisibility": "owner-or-admin-rls",
+    "calendarSourceTestIds": ["work-items-calendar", "schedule-events-calendar"],
     "mobileRequired": true
   },
   "runtimeEvidence": "pending",

@@ -15,6 +15,7 @@ const mapper = read('apps/team-os-4/src/domain/map-work-item-row.ts')
 const appSource = read('apps/team-os-4/src/App.tsx')
 const readerSource = read('apps/team-os-4/src/lib/supabase-work-item-reader.ts')
 const createMigration = read('platform/team-os-4/supabase/migrations/20260722140000_add_create_work_item_v1.sql')
+const scheduleMigration = read('platform/team-os-4/supabase/migrations/20260722141500_add_g2_schedule_events.sql')
 const transitionPath = resolve(repoRoot, 'platform/team-os-4/supabase/migrations/20260722134500_add_transition_work_item_v1.sql')
 const transitionMigration = existsSync(transitionPath)
   ? readFileSync(transitionPath, 'utf8').replace(/\s+/gu, ' ')
@@ -43,6 +44,14 @@ assert.deepEqual(contract.contracts.stableTestIds, ['work-items-workbench', 'wor
 assert.equal(contract.contracts.sharedReader, 'SupabaseWorkItemReader')
 assert.equal(contract.contracts.sharedSelector, 'selectWorkItems')
 assert.equal(contract.contracts.fixturesAndMocksAllowed, false)
+assert.deepEqual(contract.contracts.calendarSources, {
+  workItems: 'view-only-no-copy',
+  scheduleEvents: 'independent-events-with-optional-work-item-link',
+  duplicateTaskGenerationAllowed: false,
+})
+assert.deepEqual(contract.contracts.scheduleEventTypes, ['meeting', 'visit', 'break', 'personal'])
+assert.equal(contract.contracts.scheduleEventVisibility, 'owner-or-admin-rls')
+assert.deepEqual(contract.contracts.calendarSourceTestIds, ['work-items-calendar', 'schedule-events-calendar'])
 assert.equal(contract.runtimeEvidence, 'pending')
 assert.equal(contract.g2Accepted, false)
 
@@ -113,5 +122,14 @@ for (const [name, source] of [
   for (const role of ['public', 'anon', 'authenticated']) assert.ok(source.includes(`from ${role};`), `${name} ${role} revoke missing`)
   assert.ok(source.includes('to service_role;'), `${name} service_role grant missing`)
 }
+assert.ok(scheduleMigration.includes('create table public.schedule_events ('))
+assert.ok(scheduleMigration.includes("event_type in ('meeting', 'visit', 'break', 'personal')"))
+assert.ok(scheduleMigration.includes('work_item_id uuid'))
+assert.ok(scheduleMigration.includes('references public.work_items(id, company_id)'))
+assert.ok(scheduleMigration.includes('alter table public.schedule_events enable row level security;'))
+assert.ok(scheduleMigration.includes('create policy schedule_events_select_owner_or_admin'))
+assert.ok(scheduleMigration.includes('owner_id = (select auth.uid())'))
+assert.ok(scheduleMigration.includes('without creating a duplicate task'))
+for (const testId of contract.contracts.calendarSourceTestIds) assert.ok(appSource.includes(`data-testid="${testId}"`))
 
 console.log(`TEAM_OS_4_G2_CONTRACT_OK checkpoints=35,40 status=pending tables=2 rls=2 uniqueKey=passed defaultStatus=pending completionTransaction=static mapper=static transition=${transitionMigration === null ? 'pending' : 'static'} surfaces=3 singleReader=passed runtimeEvidence=pending gateIntegrated=0`)

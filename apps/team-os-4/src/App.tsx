@@ -8,6 +8,8 @@ import { getGreenfieldSupabase, hasGreenfieldEnvironment } from './lib/supabase'
 import type { WorkItem, WorkItemSurface } from './domain/work-item'
 import { selectWorkItems } from './domain/select-work-items'
 import { SupabaseWorkItemReader } from './lib/supabase-work-item-reader'
+import type { ScheduleEvent } from './domain/schedule-event'
+import { SupabaseScheduleEventReader } from './lib/supabase-schedule-event-reader'
 import { EmptyState, KPICard, ProgressBar, StatusBadge } from './ui'
 
 const ROLE_FOCUS: Readonly<Record<PrimaryRole, string>> = {
@@ -60,6 +62,13 @@ function WorkItemQueue({ items, surface, user, loading, error }: {
   )
 }
 
+function ScheduleEventList({ events, loading, error }: { events: readonly ScheduleEvent[]; loading: boolean; error?: string }) {
+  if (loading) return <section className="work-items-state" data-testid="schedule-events-calendar-loading"><StatusBadge tone="info">正在读取个人日程…</StatusBadge></section>
+  if (error) return <section className="work-items-state" data-testid="schedule-events-calendar-error"><StatusBadge tone="danger">个人日程读取失败</StatusBadge></section>
+  if (events.length === 0) return <div data-testid="schedule-events-calendar-empty"><EmptyState title="当前没有个人日程" description="会议、拜访、休息日和个人行程会显示在这里，不会复制成工作项。" /></div>
+  return <ol className="work-item-list schedule-event-list" data-testid="schedule-events-calendar-list">{events.map((event) => <li key={event.id} data-testid="schedule-event"><div><strong>{event.title}</strong><span>{event.kind}</span></div><StatusBadge tone="neutral">日程</StatusBadge><small>{event.startsAt} — {event.endsAt}</small>{event.location && <p>{event.location}</p>}</li>)}</ol>
+}
+
 function Workspace({ user, items, loading, error }: { user: AuthenticatedWorkspace; items: readonly WorkItem[]; loading: boolean; error?: string }) {
   const { role = '' } = useParams()
   if (!canOpenWorkspace(user, role)) {
@@ -79,14 +88,17 @@ function Workspace({ user, items, loading, error }: { user: AuthenticatedWorkspa
   )
 }
 
-function WorkItemPage({ surface, title, user, items, loading, error }: { surface: 'progress' | 'calendar'; title: string; user: AuthenticatedWorkspace; items: readonly WorkItem[]; loading: boolean; error?: string }) {
-  return <section className="workspace" data-testid={`${surface}-page`}><p className="eyebrow">统一工作项</p><h1>{title}</h1><p className="lead">与我的工作台使用同一份工作项来源。</p><div data-testid={`work-items-${surface}`}><WorkItemQueue items={items} surface={surface} user={user} loading={loading} error={error} /></div></section>
+function WorkItemPage({ surface, title, user, items, loading, error, scheduleEvents = [], scheduleLoading = false, scheduleError }: { surface: 'progress' | 'calendar'; title: string; user: AuthenticatedWorkspace; items: readonly WorkItem[]; loading: boolean; error?: string; scheduleEvents?: readonly ScheduleEvent[]; scheduleLoading?: boolean; scheduleError?: string }) {
+  return <section className="workspace" data-testid={`${surface}-page`}><p className="eyebrow">统一工作项</p><h1>{title}</h1><p className="lead">与我的工作台使用同一份工作项来源。</p><div data-testid={`work-items-${surface}`}><WorkItemQueue items={items} surface={surface} user={user} loading={loading} error={error} /></div>{surface === 'calendar' && <section className="work-items-section" data-testid="schedule-events-calendar"><div className="section-heading"><p className="eyebrow">独立日程</p><h2>会议与个人安排</h2></div><ScheduleEventList events={scheduleEvents} loading={scheduleLoading} error={scheduleError} /></section>}</section>
 }
 
 function AuthenticatedApp({ user, onSignOut }: { user: AuthenticatedWorkspace; onSignOut: () => Promise<void> }) {
   const [items, setItems] = useState<readonly WorkItem[]>([])
   const [itemsLoading, setItemsLoading] = useState(true)
   const [itemsError, setItemsError] = useState<string>()
+  const [scheduleEvents, setScheduleEvents] = useState<readonly ScheduleEvent[]>([])
+  const [scheduleLoading, setScheduleLoading] = useState(true)
+  const [scheduleError, setScheduleError] = useState<string>()
   useEffect(() => {
     const controller = new AbortController()
     setItemsLoading(true); setItemsError(undefined)
@@ -96,10 +108,19 @@ function AuthenticatedApp({ user, onSignOut }: { user: AuthenticatedWorkspace; o
       .finally(() => { if (!controller.signal.aborted) setItemsLoading(false) })
     return () => controller.abort()
   }, [user.companyId, user.userId])
+  useEffect(() => {
+    const controller = new AbortController()
+    setScheduleLoading(true); setScheduleError(undefined)
+    new SupabaseScheduleEventReader().load({ companyId: user.companyId, ownerId: user.userId, signal: controller.signal })
+      .then(setScheduleEvents)
+      .catch(() => { if (!controller.signal.aborted) setScheduleError('SCHEDULE_EVENT_QUERY_FAILED') })
+      .finally(() => { if (!controller.signal.aborted) setScheduleLoading(false) })
+    return () => controller.abort()
+  }, [user.companyId, user.userId])
   return (
     <div className="app-shell" data-testid="authenticated-app">
       <aside><div className="brand"><span>CW</span><div><strong>{user.companyName}</strong><small>Team OS 4.0</small></div></div><nav aria-label="岗位工作台"><NavLink to={workspacePath(user.primaryRole)}>{PRIMARY_ROLE_LABELS[user.primaryRole]}工作台</NavLink><NavLink to="/progress">推进中心</NavLink><NavLink to="/calendar">日历</NavLink></nav><div className="environment ready" data-testid="environment-status"><span aria-hidden="true" />独立测试环境已连接</div></aside>
-      <main><header><div><b>{user.displayName}</b><StatusBadge tone="success">{PRIMARY_ROLE_LABELS[user.primaryRole]}</StatusBadge></div><button className="ui-button ui-button--quiet" data-testid="sign-out" onClick={() => void onSignOut()}>退出登录</button></header><Routes><Route path="/" element={<Navigate to={workspacePath(user.primaryRole)} replace />} /><Route path="/workspace/:role" element={<Workspace user={user} items={items} loading={itemsLoading} error={itemsError} />} /><Route path="/progress" element={<WorkItemPage surface="progress" title="推进中心" user={user} items={items} loading={itemsLoading} error={itemsError} />} /><Route path="/calendar" element={<WorkItemPage surface="calendar" title="日历" user={user} items={items} loading={itemsLoading} error={itemsError} />} /><Route path="*" element={<Navigate to={workspacePath(user.primaryRole)} replace />} /></Routes></main>
+      <main><header><div><b>{user.displayName}</b><StatusBadge tone="success">{PRIMARY_ROLE_LABELS[user.primaryRole]}</StatusBadge></div><button className="ui-button ui-button--quiet" data-testid="sign-out" onClick={() => void onSignOut()}>退出登录</button></header><Routes><Route path="/" element={<Navigate to={workspacePath(user.primaryRole)} replace />} /><Route path="/workspace/:role" element={<Workspace user={user} items={items} loading={itemsLoading} error={itemsError} />} /><Route path="/progress" element={<WorkItemPage surface="progress" title="推进中心" user={user} items={items} loading={itemsLoading} error={itemsError} />} /><Route path="/calendar" element={<WorkItemPage surface="calendar" title="日历" user={user} items={items} loading={itemsLoading} error={itemsError} scheduleEvents={scheduleEvents} scheduleLoading={scheduleLoading} scheduleError={scheduleError} />} /><Route path="*" element={<Navigate to={workspacePath(user.primaryRole)} replace />} /></Routes></main>
     </div>
   )
 }
